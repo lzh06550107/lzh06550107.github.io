@@ -1,6 +1,0 @@
-[GET] https://lzh06550107.github.io/static/normalize/reset.min.css => [200] 
-[GET] https://lzh06550107.github.io/static/index_skel/css/style.css => [200] 
-[GET] https://lzh06550107.github.io/static/font-awesome/css/font-awesome.min.css => [200] 
-[GET] https://lzh06550107.github.io/static/index_skel/img/bg.jpg => [200] 
-[GET] https://lzh06550107.github.io/static/index_skel/img/overlay-pattern.png => [200] 
-[GET] https://lzh06550107.github.io/static/index_skel/img/overlay.svg => [200] 
