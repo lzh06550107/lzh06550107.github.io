@@ -104,14 +104,15 @@ const hasTracks = tracks.length > 0;
         width: 2.75rem;
         height: 2.75rem;
         border-radius: 999px;
-        border: 1px solid var(--border);
-        background: var(--background);
+        border: 1px solid color-mix(in oklab, var(--foreground) 15%, transparent);
+        background: color-mix(in oklab, var(--background) 92%, transparent);
+        backdrop-filter: blur(8px);
         color: var(--foreground);
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
@@ -126,9 +127,10 @@ const hasTracks = tracks.length > 0;
         gap: 1rem;
         padding: 0.5rem 1rem;
         border-radius: 999px;
-        border: 1px solid var(--border);
-        background: var(--background);
-        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+        border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+        background: color-mix(in oklab, var(--background) 92%, transparent);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
     }
 
     .music-player--expanded .music-player__bar {
@@ -242,16 +244,37 @@ const hasTracks = tracks.length > 0;
             right: 0.75rem;
         }
 
+        .music-player__toggle {
+            width: 3rem;
+            height: 3rem;
+        }
+
         .music-player__bar {
             padding: 0.4rem 0.75rem;
+            gap: 0.65rem;
         }
 
         .music-player__title {
-            max-width: 8rem;
+            max-width: 6rem;
+            font-size: 0.75rem;
+        }
+
+        .music-player__main {
+            gap: 0.15rem;
+        }
+
+        .music-player__btn {
+            width: 2.25rem;
+            height: 2.25rem;
+        }
+
+        .music-player__btn--play {
+            width: 2.5rem;
+            height: 2.5rem;
         }
 
         .music-player__progress input[type='range'] {
-            width: 3.5rem;
+            width: 3rem;
         }
 
         .music-player__volume-slider {
@@ -259,8 +282,13 @@ const hasTracks = tracks.length > 0;
         }
 
         .music-player__extra .music-player__btn {
-            width: 1.75rem;
-            height: 1.75rem;
+            width: 2rem;
+            height: 2rem;
+        }
+
+        .music-player__time {
+            font-size: 0.625rem;
+            min-width: 1.75rem;
         }
     }
 </style>
