@@ -1,0 +1,119 @@
+<h2>Books Home Layout Options</h2>
+<p class="subtitle">目标是复用 docs 导航栏，并把所有书按技术栈分区展示成可浏览的卡片首页。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 杂志式分区首页</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Logo · Docs Nav · Search</div>
+          <div style="padding: 16px 0 10px; border-bottom: 1px solid #e5e7eb;">
+            <div class="label">BOOKS</div>
+            <div style="font-size: 28px; font-weight: 700; margin-top: 8px;">按技术栈浏览你的书架</div>
+            <div style="margin-top: 8px; color: #6b7280;">顶部一句简介，下面按 AI / Go / Java / Python 分区。</div>
+          </div>
+          <div style="padding-top: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <strong>AI</strong><span style="color:#6b7280; font-size:12px;">12 books</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;">
+              <div class="placeholder" style="height:110px;">cover + title + desc + tags</div>
+              <div class="placeholder" style="height:110px;">cover + title + desc + tags</div>
+              <div class="placeholder" style="height:110px;">cover + title + desc + tags</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0 10px;">
+              <strong>Go</strong><span style="color:#6b7280; font-size:12px;">8 books</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;">
+              <div class="placeholder" style="height:110px;">card</div>
+              <div class="placeholder" style="height:110px;">card</div>
+              <div class="placeholder" style="height:110px;">card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A</h3>
+      <p>最像真正首页。先给页面身份，再进入分区。节奏自然，适合内容多、首页要更完整。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 紧凑型技术目录</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Logo · Docs Nav · Search</div>
+          <div style="padding: 14px 0 10px;">
+            <div style="font-size: 24px; font-weight: 700;">Books</div>
+            <div style="margin: 10px 0 14px; display:flex; flex-wrap:wrap; gap:8px;">
+              <button class="mock-button">AI</button>
+              <button class="mock-button">Go</button>
+              <button class="mock-button">Java</button>
+              <button class="mock-button">Python</button>
+              <button class="mock-button">Node.js</button>
+            </div>
+            <div style="display:grid; grid-template-columns: 180px 1fr; gap: 14px;">
+              <div class="mock-sidebar">技术栈索引<br>AI<br>Go<br>Java<br>Python</div>
+              <div>
+                <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;">
+                  <div class="placeholder" style="height:110px;">large info card</div>
+                  <div class="placeholder" style="height:110px;">large info card</div>
+                  <div class="placeholder" style="height:110px;">large info card</div>
+                  <div class="placeholder" style="height:110px;">large info card</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B</h3>
+      <p>更偏“目录页”。效率高、扫描快，但首页气质弱一些，更像内容索引。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. 书架式封面优先</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Logo · Docs Nav · Search</div>
+          <div style="padding: 16px 0 10px;">
+            <div class="label">BOOKSHELF</div>
+            <div style="font-size: 28px; font-weight: 700; margin-top: 8px;">从封面开始选书</div>
+            <div style="margin-top: 10px; color:#6b7280;">每个分区更强调封面，说明信息压到卡片底部。</div>
+          </div>
+          <div style="padding-top: 10px;">
+            <strong>AI</strong>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-top:10px;">
+              <div class="placeholder" style="height:150px;">cover</div>
+              <div class="placeholder" style="height:150px;">cover</div>
+              <div class="placeholder" style="height:150px;">cover</div>
+              <div class="placeholder" style="height:150px;">cover</div>
+            </div>
+            <strong style="display:block; margin-top:16px;">Go</strong>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-top:10px;">
+              <div class="placeholder" style="height:150px;">cover</div>
+              <div class="placeholder" style="height:150px;">cover</div>
+              <div class="placeholder" style="height:150px;">cover</div>
+              <div class="placeholder" style="height:150px;">cover</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 C</h3>
+      <p>视觉吸引力最好，但既然你要保留简介和标签，这种封面优先会有点挤。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>我的建议</h3>
+  <p>优先选 <strong>方案 A</strong>。它最适合“分区首页 + 信息完整卡片 + docs 导航栏”这个组合，也最容易和现在的 Starlight 首页风格接起来。</p>
+</div>

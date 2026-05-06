@@ -1,0 +1,131 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#_top"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - button "Toggle Menu" [ref=e7]:
+          - img [ref=e8]
+          - generic [ref=e10]: Toggle Menu
+        - generic [ref=e11]:
+          - link "Lucode logo" [ref=e12] [cursor=pointer]:
+            - /url: /docs/
+            - img "Lucode logo" [ref=e13]
+          - navigation [ref=e14]:
+            - link "About" [ref=e15] [cursor=pointer]:
+              - /url: /docs/about/
+            - link "Books" [ref=e16] [cursor=pointer]:
+              - /url: /docs/
+            - link "Showcase" [ref=e17] [cursor=pointer]:
+              - /url: /docs/showcase/starlight-components/
+            - link "API" [ref=e18] [cursor=pointer]:
+              - /url: /docs/reference/plugin-api/
+        - generic [ref=e19]:
+          - button "Search" [ref=e21] [cursor=pointer]:
+            - generic [ref=e22]: Search
+            - generic:
+              - generic: Ctrl
+              - generic: K
+          - navigation [ref=e23]:
+            - link "GitHub" [ref=e25] [cursor=pointer]:
+              - /url: https://github.com/lucas-labs/lucode-starlight-theme
+              - generic [ref=e26]: GitHub
+              - img [ref=e27]
+            - button "Select theme" [ref=e31] [cursor=pointer]:
+              - img
+              - generic [ref=e32]: Toggle theme
+    - main [ref=e33]:
+      - main [ref=e34]:
+        - generic [ref=e38]:
+          - img "Dr. Beatrix Bumble" [ref=e40]
+          - generic [ref=e41]:
+            - heading "Dr. Beatrix Bumble" [level=1] [ref=e42]
+            - paragraph [ref=e43]: Avian-Feline Fluff Dynamics | Lead Investigator
+            - generic "Social links" [ref=e44]:
+              - link "Twitter" [ref=e45] [cursor=pointer]:
+                - /url: https://twitter.com/[your-twitter-handle]
+                - img [ref=e46]
+              - link "LinkedIn" [ref=e48] [cursor=pointer]:
+                - /url: https://linkedin.com/in/[your-linkedin-template]
+                - img [ref=e49]
+              - link "Google Scholar" [ref=e51] [cursor=pointer]:
+                - /url: https://scholar.google.com/citations?user=[your-scholar-id]
+                - img [ref=e52]
+              - link "Email" [ref=e55] [cursor=pointer]:
+                - /url: mailto:[your-email-address]
+                - img [ref=e56]
+    - contentinfo [ref=e58]:
+      - generic [ref=e59]:
+        - text: Inspired by the
+        - link "shadcn/ui" [ref=e60] [cursor=pointer]:
+          - /url: https://ui.shadcn.com/
+        - text: documentation theme and based on
+        - link "starlight-theme-black" [ref=e61] [cursor=pointer]:
+          - /url: https://github.com/adrian-ub/starlight-theme-black
+        - text: . Ported to Astro Starlight by
+        - link "lucas-labs" [ref=e62] [cursor=pointer]:
+          - /url: https://github.com/lucas-labs
+        - text: .
+  - generic:
+    - button
+    - generic:
+      - generic:
+        - button
+      - generic:
+        - generic:
+          - link "About":
+            - /url: /docs/about/
+          - link "Books":
+            - /url: /docs/
+          - link "Showcase":
+            - /url: /docs/showcase/starlight-components/
+          - link "API":
+            - /url: /docs/reference/plugin-api/
+        - generic:
+          - generic:
+            - heading "Start Here" [level=4]
+            - link "Getting Started":
+              - /url: /docs/guides/getting-started/
+            - link "Configuration":
+              - /url: /docs/guides/configuration/
+            - link "Customize the Theme":
+              - /url: /docs/guides/theming/
+          - generic:
+            - heading "Showcase" [level=4]
+            - link "Starlight Components":
+              - /url: /docs/showcase/starlight-components/
+            - link "Splash Pages":
+              - /url: /docs/showcase/splash-pages/
+            - link "Typography":
+              - /url: /docs/showcase/typography/
+          - generic:
+            - heading "Splash Examples" [level=4]
+            - link "Centered":
+              - /url: /docs/showcase/splash/centered/
+            - link "Centered Top":
+              - /url: /docs/showcase/splash/centered-top/
+            - link "Split Left":
+              - /url: /docs/showcase/splash/split-left/
+            - link "Split Right":
+              - /url: /docs/showcase/splash/split-right/
+            - link "Banner":
+              - /url: /docs/showcase/splash/banner/
+          - generic:
+            - heading "Reference" [level=4]
+            - link "Theme Components":
+              - /url: /docs/reference/components/
+            - link "Plugin API":
+              - /url: /docs/reference/plugin-api/
+  - generic [ref=e65]:
+    - button "Menu" [ref=e66]:
+      - img [ref=e68]
+      - generic: Menu
+    - button "Inspect" [ref=e72]:
+      - img [ref=e74]
+      - generic: Inspect
+    - button "Audit" [ref=e76]:
+      - img [ref=e78]
+      - generic: Audit
+    - button "Settings" [ref=e81]:
+      - img [ref=e83]
+      - generic: Settings

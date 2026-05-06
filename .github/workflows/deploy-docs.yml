@@ -1,0 +1,65 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - bun.lock
+      - package.json
+      - docs/**
+      - docs/package.json
+      - .github/workflows/deploy-docs.yml
+      # changes in the theme also require a docs rebuild, because the docs use the theme
+      - packages/lucode-starlight/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build docs site
+        run: bun run docs:build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/dist
+
+  deploy:
+    name: Deploy docs
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

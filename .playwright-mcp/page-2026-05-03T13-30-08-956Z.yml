@@ -1,0 +1,380 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#_top"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - link "Lucode logo Lucode Starlight" [ref=e8] [cursor=pointer]:
+            - /url: /docs/
+            - img "Lucode logo" [ref=e9]
+            - generic [ref=e10]: Lucode Starlight
+          - navigation [ref=e11]:
+            - link "About" [ref=e12] [cursor=pointer]:
+              - /url: /docs/about/
+            - link "Docs" [ref=e13] [cursor=pointer]:
+              - /url: /docs/guides/getting-started/
+            - link "Showcase" [ref=e14] [cursor=pointer]:
+              - /url: /docs/showcase/starlight-components/
+            - link "API" [ref=e15] [cursor=pointer]:
+              - /url: /docs/reference/plugin-api/
+        - generic [ref=e16]:
+          - button "Search" [ref=e18] [cursor=pointer]:
+            - generic [ref=e19]: Search
+            - generic:
+              - generic: Ctrl
+              - generic: K
+          - navigation [ref=e20]:
+            - link "GitHub" [ref=e22] [cursor=pointer]:
+              - /url: https://github.com/lucas-labs/lucode-starlight-theme
+              - generic [ref=e23]: GitHub
+              - img [ref=e24]
+            - button "Select theme" [ref=e28] [cursor=pointer]:
+              - img
+              - generic [ref=e29]: Toggle theme
+    - main [ref=e30]:
+      - main [ref=e31]:
+        - main [ref=e37]:
+          - generic [ref=e38]:
+            - generic [ref=e40]:
+              - heading "Hi, I'm Alex" [level=1] [ref=e41]
+              - paragraph [ref=e42]: Full-stack engineer turned indie founder. I love building developer tools, fast UIs, and products people actually use.
+            - img "Alex Mercer" [ref=e44]
+          - generic [ref=e45]:
+            - heading "About" [level=2] [ref=e47]
+            - generic [ref=e48]:
+              - text: In early 2023, I left a senior engineering role to go all-in on building my own SaaS products. Before that,
+              - link "I completed a double degree in computer science and business" [ref=e49] [cursor=pointer]:
+                - /url: "#education"
+              - text: ","
+              - link "interned at companies like Stripe and Cloudflare" [ref=e50] [cursor=pointer]:
+                - /url: "#work"
+              - text: ", and"
+              - link "competed in 18+ hackathons" [ref=e51] [cursor=pointer]:
+                - /url: "#hackathons"
+              - text: . I also spent a summer in San Francisco as part of a founder residency focused on shipping fast and finding early customers.
+          - generic [ref=e52]:
+            - heading "Work Experience" [level=2] [ref=e54]
+            - generic [ref=e55]:
+              - group [ref=e56]:
+                - generic "Meridian Labs Co-founder & Engineer January 2023 - Present" [ref=e57] [cursor=pointer]:
+                  - generic [ref=e59]:
+                    - generic [ref=e60]: Meridian Labs
+                    - generic [ref=e61]: Co-founder & Engineer
+                  - generic [ref=e62]: January 2023 - Present
+                - paragraph [ref=e64]: Building a suite of developer productivity tools focused on local-first architecture and offline sync. Grew to 1,200 paying customers within the first year. Responsible for the full stack - product, engineering, and growth.
+              - group [ref=e65]:
+                - generic "Stripe Software Engineer Intern May 2022 - August 2022" [ref=e66] [cursor=pointer]:
+                  - generic [ref=e68]:
+                    - generic [ref=e69]: Stripe
+                    - generic [ref=e70]: Software Engineer Intern
+                  - generic [ref=e71]: May 2022 - August 2022
+              - group [ref=e72]:
+                - generic "Cloudflare Software Engineer Intern September 2021 - December 2021" [ref=e73] [cursor=pointer]:
+                  - generic [ref=e75]:
+                    - generic [ref=e76]: Cloudflare
+                    - generic [ref=e77]: Software Engineer Intern
+                  - generic [ref=e78]: September 2021 - December 2021
+              - group [ref=e79]:
+                - generic "Datadog Software Engineer Intern January 2021 - April 2021" [ref=e80] [cursor=pointer]:
+                  - generic [ref=e82]:
+                    - generic [ref=e83]: Datadog
+                    - generic [ref=e84]: Software Engineer Intern
+                  - generic [ref=e85]: January 2021 - April 2021
+              - group [ref=e86]:
+                - generic "Benchling Software Engineer Intern May 2020 - August 2020" [ref=e87] [cursor=pointer]:
+                  - generic [ref=e89]:
+                    - generic [ref=e90]: Benchling
+                    - generic [ref=e91]: Software Engineer Intern
+                  - generic [ref=e92]: May 2020 - August 2020
+              - group [ref=e93]:
+                - generic "Relay Labs Software Engineer Intern September 2019 - December 2019" [ref=e94] [cursor=pointer]:
+                  - generic [ref=e96]:
+                    - generic [ref=e97]: Relay Labs
+                    - generic [ref=e98]: Software Engineer Intern
+                  - generic [ref=e99]: September 2019 - December 2019
+          - generic [ref=e100]:
+            - heading "Education" [level=2] [ref=e102]
+            - generic [ref=e103]:
+              - link "Founder Fellowship SF Cohort 4 - Founder in Residence 2023 - 2023" [ref=e104] [cursor=pointer]:
+                - /url: https://foundersfellowship.io
+                - generic [ref=e106]:
+                  - generic [ref=e107]: Founder Fellowship SF
+                  - generic [ref=e108]: Cohort 4 - Founder in Residence
+                - generic [ref=e109]: 2023 - 2023
+              - link "University of British Columbia Bachelor of Science, Computer Science 2018 - 2023" [ref=e110] [cursor=pointer]:
+                - /url: https://ubc.ca
+                - generic [ref=e112]:
+                  - generic [ref=e113]: University of British Columbia
+                  - generic [ref=e114]: Bachelor of Science, Computer Science
+                - generic [ref=e115]: 2018 - 2023
+              - link "Simon Fraser University Bachelor of Business Administration 2018 - 2023" [ref=e116] [cursor=pointer]:
+                - /url: https://sfu.ca
+                - generic [ref=e118]:
+                  - generic [ref=e119]: Simon Fraser University
+                  - generic [ref=e120]: Bachelor of Business Administration
+                - generic [ref=e121]: 2018 - 2023
+              - link "International Baccalaureate IB Diploma 2014 - 2018" [ref=e122] [cursor=pointer]:
+                - /url: https://ibo.org
+                - generic [ref=e124]:
+                  - generic [ref=e125]: International Baccalaureate
+                  - generic [ref=e126]: IB Diploma
+                - generic [ref=e127]: 2014 - 2018
+          - generic [ref=e128]:
+            - heading "Skills" [level=2] [ref=e130]
+            - generic [ref=e131]:
+              - generic [ref=e132]: Astro
+              - generic [ref=e133]: React
+              - generic [ref=e134]: Next.js
+              - generic [ref=e135]: TypeScript
+              - generic [ref=e136]: Node.js
+              - generic [ref=e137]: Python
+              - generic [ref=e138]: Go
+              - generic [ref=e139]: Postgres
+              - generic [ref=e140]: Docker
+              - generic [ref=e141]: Kubernetes
+          - generic [ref=e142]:
+            - generic [ref=e143]:
+              - generic [ref=e145]: My Projects
+              - heading "Check out my latest work" [level=2] [ref=e146]
+              - paragraph [ref=e147]: I've worked on a variety of projects, from simple websites to complex web applications. Here are a few of my favorites.
+            - generic [ref=e148]:
+              - article [ref=e149]:
+                - generic [ref=e150]:
+                  - link "Stackwise" [ref=e151] [cursor=pointer]:
+                    - /url: https://stackwise.dev
+                    - img "Stackwise" [ref=e152]
+                  - link "Website" [ref=e154] [cursor=pointer]:
+                    - /url: https://stackwise.dev
+                - generic [ref=e155]:
+                  - generic [ref=e156]:
+                    - generic [ref=e157]:
+                      - heading "Stackwise" [level=3] [ref=e158]
+                      - paragraph [ref=e159]: March 2024 - Present
+                    - link "Open" [ref=e160] [cursor=pointer]:
+                      - /url: https://stackwise.dev
+                  - paragraph [ref=e161]: Built an AI-powered code review tool that integrates with GitHub PRs and provides context-aware feedback based on your team's codebase conventions. Used by 300+ engineering teams.
+                  - generic [ref=e162]:
+                    - generic [ref=e163]: Next.js
+                    - generic [ref=e164]: TypeScript
+                    - generic [ref=e165]: PostgreSQL
+                    - generic [ref=e166]: Prisma
+                    - generic [ref=e167]: TailwindCSS
+                    - generic [ref=e168]: Stripe
+                    - generic [ref=e169]: Shadcn UI
+                    - generic [ref=e170]: OpenAI API
+              - article [ref=e171]:
+                - generic [ref=e172]:
+                  - link [ref=e173] [cursor=pointer]:
+                    - /url: https://logport.io
+                  - generic [ref=e175]:
+                    - link "Website" [ref=e176] [cursor=pointer]:
+                      - /url: https://logport.io
+                    - link "Source" [ref=e177] [cursor=pointer]:
+                      - /url: https://github.com/alexmercer-dev/logport
+                - generic [ref=e178]:
+                  - generic [ref=e179]:
+                    - generic [ref=e180]:
+                      - heading "Logport" [level=3] [ref=e181]
+                      - paragraph [ref=e182]: October 2023 - February 2024
+                    - link "Open" [ref=e183] [cursor=pointer]:
+                      - /url: https://logport.io
+                  - paragraph [ref=e184]: Open-source structured logging dashboard for Node.js and Python services. Ingest logs via a lightweight SDK, query them with a SQL-like syntax, and set up alerts in minutes.
+                  - generic [ref=e185]:
+                    - generic [ref=e186]: Next.js
+                    - generic [ref=e187]: TypeScript
+                    - generic [ref=e188]: ClickHouse
+                    - generic [ref=e189]: TailwindCSS
+                    - generic [ref=e190]: Shadcn UI
+                    - generic [ref=e191]: Cloudflare Workers
+              - article [ref=e192]:
+                - generic [ref=e193]:
+                  - link "Formbase" [ref=e194] [cursor=pointer]:
+                    - /url: https://formbase.dev
+                    - img "Formbase" [ref=e195]
+                  - generic [ref=e196]:
+                    - link "Website" [ref=e197] [cursor=pointer]:
+                      - /url: https://formbase.dev
+                    - link "Source" [ref=e198] [cursor=pointer]:
+                      - /url: https://github.com/alexmercer-dev/formbase
+                - generic [ref=e199]:
+                  - generic [ref=e200]:
+                    - generic [ref=e201]:
+                      - heading "Formbase" [level=3] [ref=e202]
+                      - paragraph [ref=e203]: June 2023 - September 2023
+                    - link "Open" [ref=e204] [cursor=pointer]:
+                      - /url: https://formbase.dev
+                  - paragraph [ref=e205]: A headless form backend that handles submissions, spam filtering, file uploads, and email notifications - no server required. Drop in one script tag and you're done.
+                  - generic [ref=e206]:
+                    - generic [ref=e207]: Astro
+                    - generic [ref=e208]: TypeScript
+                    - generic [ref=e209]: Cloudflare Workers
+                    - generic [ref=e210]: TailwindCSS
+                    - generic [ref=e211]: Stripe
+                    - generic [ref=e212]: Resend
+              - article [ref=e213]:
+                - generic [ref=e214]:
+                  - link [ref=e215] [cursor=pointer]:
+                    - /url: https://patchwork.run
+                  - link "Website" [ref=e218] [cursor=pointer]:
+                    - /url: https://patchwork.run
+                - generic [ref=e219]:
+                  - generic [ref=e220]:
+                    - generic [ref=e221]:
+                      - heading "Patchwork" [level=3] [ref=e222]
+                      - paragraph [ref=e223]: February 2023 - May 2023
+                    - link "Open" [ref=e224] [cursor=pointer]:
+                      - /url: https://patchwork.run
+                  - paragraph [ref=e225]: A visual diff tool for design tokens and Tailwind config changes. Connect it to your repo and get a live preview of how a config change affects every component in your design system.
+                  - generic [ref=e226]:
+                    - generic [ref=e227]: Next.js
+                    - generic [ref=e228]: TypeScript
+                    - generic [ref=e229]: TailwindCSS
+                    - generic [ref=e230]: Shadcn UI
+                    - generic [ref=e231]: Vercel
+          - generic [ref=e232]:
+            - generic [ref=e233]:
+              - generic [ref=e235]: Photos
+              - heading "My Recent Travels" [level=2] [ref=e236]
+            - generic [ref=e237]:
+              - generic [ref=e238]:
+                - img "Photo 1" [ref=e240]
+                - img "Photo 4" [ref=e242]
+                - img "Photo 7" [ref=e244]
+              - generic [ref=e245]:
+                - img "Photo 2" [ref=e247]
+                - img "Photo 5" [ref=e249]
+                - img "Photo 8" [ref=e251]
+              - generic [ref=e252]:
+                - img "Photo 3" [ref=e254]
+                - img "Photo 6" [ref=e256]
+                - img "Photo 9" [ref=e258]
+          - generic [ref=e259]:
+            - generic [ref=e260]:
+              - generic [ref=e262]: Hackathons
+              - heading "I like building things" [level=2] [ref=e263]
+              - paragraph [ref=e264]: During my time in university, I attended 6+ hackathons. People from around the country would come together and build incredible things in 2-3 days. It was eye-opening to see the endless possibilities brought to life by a group of motivated and passionate individuals.
+            - generic [ref=e265]:
+              - article [ref=e266]:
+                - generic [ref=e268]:
+                  - generic [ref=e269]: October 14th - 16th, 2022
+                  - heading "PNW Hacks 2022" [level=3] [ref=e270]
+                  - paragraph [ref=e271]: Seattle, Washington
+                  - paragraph [ref=e272]: Built a real-time collaborative code review tool using WebSockets and Monaco Editor. Won best developer tool.
+                  - generic [ref=e274]: Best Developer Tool
+              - article [ref=e275]:
+                - generic [ref=e277]:
+                  - generic [ref=e278]: January 15th - 16th, 2022
+                  - heading "nwHacks 2022" [level=3] [ref=e279]
+                  - paragraph [ref=e280]: Vancouver, BC
+                  - paragraph [ref=e281]: Created an accessibility-first browser extension that rewrites complex legal documents into plain English using GPT-3.
+              - article [ref=e282]:
+                - generic [ref=e284]:
+                  - generic [ref=e285]: September 17th - 19th, 2021
+                  - heading "HackTheNorth 2021" [level=3] [ref=e286]
+                  - paragraph [ref=e287]: Waterloo, Ontario (Remote)
+                  - paragraph [ref=e288]: Built a distributed key-value store in Go with a Raft consensus implementation from scratch. Finalist in the systems track.
+                  - link "Source" [ref=e290] [cursor=pointer]:
+                    - /url: https://github.com/alexmercer-dev/raftdb
+              - article [ref=e291]:
+                - generic [ref=e293]:
+                  - generic [ref=e294]: October 9th - 10th, 2021
+                  - heading "DubHacks 2021" [level=3] [ref=e295]
+                  - paragraph [ref=e296]: Seattle, Washington
+                  - paragraph [ref=e297]: Developed a carbon footprint tracker that integrates with Google Maps to suggest lower-emission commute alternatives.
+                  - generic [ref=e299]: Best Sustainability Hack
+              - article [ref=e300]:
+                - generic [ref=e302]:
+                  - generic [ref=e303]: April 24th - 25th, 2021
+                  - heading "StormHacks 2021" [level=3] [ref=e304]
+                  - paragraph [ref=e305]: Burnaby, BC (Remote)
+                  - paragraph [ref=e306]: Built a multiplayer browser game where players collaboratively debug a shared codebase before a timer runs out.
+                  - link "Devpost" [ref=e308] [cursor=pointer]:
+                    - /url: https://devpost.com/software/bugout
+              - article [ref=e309]:
+                - generic [ref=e311]:
+                  - generic [ref=e312]: November 14th - 15th, 2020
+                  - heading "HackCamp 2020" [level=3] [ref=e313]
+                  - paragraph [ref=e314]: Vancouver, BC (Remote)
+                  - paragraph [ref=e315]: Created a CLI tool that automatically generates unit test scaffolding from TypeScript function signatures using static analysis.
+                  - generic [ref=e316]:
+                    - generic [ref=e317]: 1st Place Overall
+                    - link "Source" [ref=e318] [cursor=pointer]:
+                      - /url: https://github.com/alexmercer-dev/testgen
+          - generic [ref=e320]:
+            - generic [ref=e322]: Contact
+            - heading "Get in Touch" [level=2] [ref=e323]
+            - paragraph [ref=e324]: Want to chat? Just shoot me a dm with a direct question on Twitter and I'll respond whenever I can. I will ignore all soliciting.
+            - generic [ref=e325]:
+              - link "Email Alex" [ref=e326] [cursor=pointer]:
+                - /url: mailto:alex@alexmercer.dev
+              - link "GitHub" [ref=e327] [cursor=pointer]:
+                - /url: https://github.com
+              - link "LinkedIn" [ref=e328] [cursor=pointer]:
+                - /url: https://linkedin.com
+              - link "X" [ref=e329] [cursor=pointer]:
+                - /url: https://x.com
+              - link "YouTube" [ref=e330] [cursor=pointer]:
+                - /url: https://youtube.com
+    - contentinfo [ref=e331]:
+      - generic [ref=e332]:
+        - text: Inspired by the
+        - link "shadcn/ui" [ref=e333] [cursor=pointer]:
+          - /url: https://ui.shadcn.com/
+        - text: documentation theme and based on
+        - link "starlight-theme-black" [ref=e334] [cursor=pointer]:
+          - /url: https://github.com/adrian-ub/starlight-theme-black
+        - text: . Ported to Astro Starlight by
+        - link "lucas-labs" [ref=e335] [cursor=pointer]:
+          - /url: https://github.com/lucas-labs
+        - text: .
+  - generic:
+    - button
+    - generic:
+      - generic:
+        - button
+      - generic:
+        - generic:
+          - link "About":
+            - /url: /docs/about/
+          - link "Docs":
+            - /url: /docs/guides/getting-started/
+          - link "Showcase":
+            - /url: /docs/showcase/starlight-components/
+          - link "API":
+            - /url: /docs/reference/plugin-api/
+        - generic:
+          - generic:
+            - heading "Start Here" [level=4]
+            - link "Getting Started":
+              - /url: /docs/guides/getting-started/
+            - link "Configuration":
+              - /url: /docs/guides/configuration/
+            - link "Customize the Theme":
+              - /url: /docs/guides/theming/
+          - generic:
+            - heading "Showcase" [level=4]
+            - link "Starlight Components":
+              - /url: /docs/showcase/starlight-components/
+            - link "Splash Pages":
+              - /url: /docs/showcase/splash-pages/
+            - link "Typography":
+              - /url: /docs/showcase/typography/
+          - generic:
+            - heading "Splash Examples" [level=4]
+            - link "Centered":
+              - /url: /docs/showcase/splash/centered/
+            - link "Centered Top":
+              - /url: /docs/showcase/splash/centered-top/
+            - link "Split Left":
+              - /url: /docs/showcase/splash/split-left/
+            - link "Split Right":
+              - /url: /docs/showcase/splash/split-right/
+            - link "Banner":
+              - /url: /docs/showcase/splash/banner/
+          - generic:
+            - heading "Reference" [level=4]
+            - link "Theme Components":
+              - /url: /docs/reference/components/
+            - link "Plugin API":
+              - /url: /docs/reference/plugin-api/

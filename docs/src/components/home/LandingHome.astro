@@ -1,0 +1,576 @@
+---
+import { Image } from 'astro:assets';
+import portrait from '../../assets/scholar-portrait.png';
+import '@fortawesome/fontawesome-free/css/all.min.css';
+
+const SITE_DATA = {
+    title: 'Lzh博客',
+    tagline: 'LZH • Java • Go • PHP • Typescript • Engineer',
+    copyright: '© lzh. Design.',
+};
+
+const socialLinks = [
+    { label: 'QQ', href: '#', icon: 'fa-brands fa-qq' },
+    { label: 'WeChat', href: '#', icon: 'fa-brands fa-weixin' },
+    { label: 'Weibo', href: '#', icon: 'fa-brands fa-weibo' },
+    { label: 'Twitter', href: '#', icon: 'fa-brands fa-twitter' },
+    { label: 'Facebook', href: '#', icon: 'fa-brands fa-facebook' },
+    { label: 'Dribbble', href: '#', icon: 'fa-brands fa-dribbble' },
+    { label: 'GitHub', href: '#', icon: 'fa-brands fa-github' },
+    { label: 'Email', href: 'mailto:hello@example.com', icon: 'fa-solid fa-envelope' },
+];
+---
+
+<section class="landing-home">
+    <div class="landing-home__wrapper">
+        <div class="landing-home__bg" aria-hidden="true"></div>
+
+        <main class="landing-home__main">
+            <div class="landing-home__main-aligner" aria-hidden="true"></div>
+            <header class="landing-home__header">
+                <h1 class="landing-home__sr-title">{SITE_DATA.title}</h1>
+
+                <a href='/blog/' class="landing-home__portrait-wrap" title="进入博客">
+                    <Image src={portrait} alt={SITE_DATA.title} class="landing-home__portrait" />
+                    <span class="landing-home__portrait-hint" aria-hidden="true">进入博客 →</span>
+                </a>
+
+                <p class="landing-home__tagline">{SITE_DATA.tagline}</p>
+
+                <nav class="landing-home__socials" aria-label="Social links">
+                    <ul>
+                        {
+                            socialLinks.map((link, index) => (
+                                <li style={`animation-delay: ${2.5 + index * 0.25}s;`}>
+                                    <a href={link.href} aria-label={link.label} class={link.icon}>
+                                        <span>{link.label}</span>
+                                    </a>
+                                </li>
+                            ))
+                        }
+                    </ul>
+                </nav>
+            </header>
+        </main>
+
+        <footer class="landing-home__footer">
+            <p class="landing-home__copyright">{SITE_DATA.copyright}</p>
+        </footer>
+    </div>
+</section>
+
+<style is:global>
+    body:has(.landing-home) [data-slot='layout'] > header,
+    body:has(.landing-home) [data-slot='layout'] > footer,
+    body:has(.landing-home) div[data-slot='doc-title'],
+    body:has(.landing-home) [slot='doc-title-description'] {
+        display: none;
+    }
+
+    body:has(.landing-home) html,
+    body:has(.landing-home),
+    body:has(.landing-home) body,
+    body:has(.landing-home) [data-has-sidebar],
+    body:has(.landing-home) [data-slot='layout'] {
+        min-height: 100%;
+        width: 100%;
+        max-width: none;
+    }
+
+    body:has(.landing-home) {
+        overflow: hidden;
+        background: #ffffff;
+    }
+
+    body:has(.landing-home) [data-slot='layout'],
+    body:has(.landing-home) [data-slot='layout'] > main,
+    body:has(.landing-home) [data-slot='layout'] > main > *,
+    body:has(.landing-home) article,
+    body:has(.landing-home) .landing-home,
+    body:has(.landing-home) .landing-home__main {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+    }
+</style>
+
+<style>
+    @keyframes landingWrapper {
+        0% {
+            opacity: 0;
+        }
+
+        100% {
+            opacity: 1;
+        }
+    }
+
+    @keyframes landingHeader {
+        0% {
+            transform: translate3d(0, 1em, 0);
+            opacity: 0;
+        }
+
+        100% {
+            transform: translate3d(0, 0, 0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes landingNavIcons {
+        0% {
+            transform: translate3d(0, 1em, 0);
+            opacity: 0;
+        }
+
+        100% {
+            transform: translate3d(0, 0, 0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes landingNeonPulse {
+        0%,
+        100% {
+            box-shadow:
+                0 0 0 0 rgba(255, 255, 255, 0),
+                0 0 0.55rem rgba(196, 238, 255, 0.18),
+                0 0 1.15rem rgba(88, 201, 255, 0.12);
+        }
+
+        50% {
+            box-shadow:
+                0 0 0 0.45rem rgba(145, 225, 255, 0.16),
+                0 0 1rem rgba(196, 238, 255, 0.42),
+                0 0 2rem rgba(88, 201, 255, 0.32);
+        }
+    }
+
+    @keyframes landingPortraitGlow {
+        0%,
+        100% {
+            box-shadow:
+                0 0 0 0.42rem rgba(255, 255, 255, 0.04),
+                0 0 0.65rem rgba(225, 248, 255, 0.05),
+                0 0 1.1rem rgba(102, 205, 255, 0.03);
+        }
+
+        50% {
+            box-shadow:
+                0 0 0 0.42rem rgba(255, 255, 255, 0.4),
+                0 0 5.6rem rgba(241, 252, 255, 0.74),
+                0 0 9.5rem rgba(102, 205, 255, 0.62);
+        }
+    }
+
+    @keyframes landingPortraitHalo {
+        0%,
+        100% {
+            opacity: 0.02;
+            transform: scale(0.9);
+            filter: blur(0.02rem);
+        }
+
+        50% {
+            opacity: 1;
+            transform: scale(1.2);
+            filter: blur(1.35rem);
+        }
+    }
+
+    @keyframes landingBgDesktop {
+        0% {
+            transform: translate3d(0, 0, 0);
+        }
+
+        100% {
+            transform: translate3d(-2250px, 0, 0);
+        }
+    }
+
+    @keyframes landingBgLarge {
+        0% {
+            transform: translate3d(0, 0, 0);
+        }
+
+        100% {
+            transform: translate3d(-1300px, 0, 0);
+        }
+    }
+
+    @keyframes landingBgMedium {
+        0% {
+            transform: translate3d(0, 0, 0);
+        }
+
+        100% {
+            transform: translate3d(-1200px, 0, 0);
+        }
+    }
+
+    @keyframes landingBgSmall {
+        0% {
+            transform: translate3d(0, 0, 0);
+        }
+
+        100% {
+            transform: translate3d(-500px, 0, 0);
+        }
+    }
+
+    @keyframes landingBgTiny {
+        0% {
+            transform: translate3d(0, 0, 0);
+        }
+
+        100% {
+            transform: translate3d(-750px, 0, 0);
+        }
+    }
+
+    .landing-home {
+        position: relative;
+        left: 50%;
+        width: 100vw !important;
+        max-width: none !important;
+        min-width: 100vw;
+        min-height: 100vh;
+        margin: 0 0 0 -50vw !important;
+        overflow: hidden;
+        color: #ffffff;
+        font-family: 'Source Sans Pro', 'Helvetica Neue', Arial, sans-serif;
+        background: transparent !important;
+    }
+
+    .landing-home__wrapper {
+        animation: landingWrapper 3s forwards;
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100%;
+        opacity: 0;
+    }
+
+    .landing-home__bg {
+        animation: landingBgDesktop 60s linear infinite;
+        backface-visibility: hidden;
+        transform: translate3d(0, 0, 0);
+        background-color: #348cb2;
+        background-image: url('/home-assets/bg.jpg');
+        background-position: bottom left;
+        background-repeat: repeat-x;
+        background-size: 2250px auto;
+        width: 6750px;
+        height: 100%;
+        position: fixed;
+        inset: 0 auto 0 0;
+    }
+
+    .landing-home__main {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100%;
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 0 0 5.25rem;
+        box-sizing: border-box;
+    }
+
+    .landing-home__main-aligner {
+        display: none;
+    }
+
+    .landing-home__header {
+        animation: landingHeader 1s 2.25s forwards;
+        backface-visibility: hidden;
+        transform: translate3d(0, 0, 0);
+        cursor: default;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.25rem;
+        width: min(90%, 68rem);
+        max-width: 68rem;
+        opacity: 0;
+        position: relative;
+        top: 0;
+        text-align: center;
+    }
+
+    .landing-home__sr-title {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .landing-home__portrait-wrap {
+        position: relative;
+        z-index: 0;
+        isolation: isolate;
+        display: block;
+        width: clamp(10.75rem, 22vw, 14rem);
+        height: clamp(10.75rem, 22vw, 14rem);
+        border-radius: 999px;
+        border: 0.35rem solid rgba(255, 255, 255, 0.92);
+        overflow: visible;
+        background: rgba(255, 255, 255, 0.08);
+        animation: landingPortraitGlow 3.2s ease-in-out infinite;
+        line-height: 0;
+    }
+
+    .landing-home__portrait-wrap::after {
+        content: '';
+        position: absolute;
+        inset: -1.9rem;
+        border-radius: inherit;
+        background:
+            radial-gradient(circle, rgba(250, 254, 255, 0.72) 0%, rgba(232, 250, 255, 0.62) 24%, rgba(175, 234, 255, 0.5) 46%, rgba(93, 201, 255, 0.34) 64%, rgba(93, 201, 255, 0) 84%);
+        z-index: -1;
+        pointer-events: none;
+        animation: landingPortraitHalo 2.4s ease-in-out infinite;
+    }
+
+    .landing-home__portrait {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        border-radius: inherit;
+        transition: transform 0.4s ease, filter 0.4s ease;
+    }
+
+    .landing-home__portrait-wrap:hover .landing-home__portrait {
+        transform: scale(1.06);
+        filter: brightness(1.1);
+    }
+
+    .landing-home__portrait-hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: inherit;
+        background: rgba(0, 0, 0, 0.45);
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: 400;
+        letter-spacing: 0.05em;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+    }
+
+    .landing-home__portrait-wrap:hover .landing-home__portrait-hint {
+        opacity: 1;
+    }
+
+    .landing-home__tagline {
+        margin: 0;
+        font-size: clamp(1.2rem, 2.2vw, 1.42rem);
+        font-weight: 300;
+        letter-spacing: -0.025em;
+        line-height: 1.75em;
+        opacity: 0.75;
+        white-space: nowrap;
+    }
+
+    .landing-home__socials {
+        margin-top: 0.45rem;
+        font-size: 1em;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+
+    .landing-home__socials ul {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        width: auto;
+        max-width: 100%;
+        white-space: nowrap;
+    }
+
+    .landing-home__socials li {
+        animation: landingNavIcons 0.5s ease-in-out forwards;
+        backface-visibility: hidden;
+        transform: translate3d(0, 0, 0);
+        display: inline-block;
+        width: 6em;
+        height: 6em;
+        line-height: 6.55em;
+        opacity: 0;
+        position: relative;
+        top: 0;
+        flex: 0 0 auto;
+    }
+
+    .landing-home__socials a {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        border: 0;
+        display: inline-block;
+        color: inherit;
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+    }
+
+    .landing-home__socials a::before {
+        transition: all 0.2s ease-in-out;
+        border-radius: 100%;
+        border: solid 1px #ffffff;
+        display: block;
+        font-size: 1.75em;
+        width: 2.5em;
+        height: 2.5em;
+        line-height: 2.5em;
+        position: relative;
+        text-align: center;
+    }
+
+    .landing-home__socials a:hover {
+        font-size: 1.1em;
+    }
+
+    .landing-home__socials a:hover::before {
+        background-color: rgba(255, 255, 255, 0.175);
+    }
+
+    .landing-home__socials a:active {
+        font-size: 0.95em;
+    }
+
+    .landing-home__socials a:active::before {
+        background-color: rgba(255, 255, 255, 0.35);
+    }
+
+    .landing-home__socials a span {
+        display: none;
+    }
+
+    .landing-home__footer {
+        position: absolute;
+        inset: auto 0 0;
+        width: 100%;
+        height: 6em;
+        line-height: 8em;
+        text-align: center;
+        cursor: default;
+        background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.5) 75%);
+    }
+
+    .landing-home__copyright {
+        margin: 0;
+        font-size: 1rem;
+        color: inherit;
+    }
+
+    @media only screen and (min-width: 1280px) and (max-width: 1680px) {
+        .landing-home {
+            font-size: 13pt;
+        }
+
+        .landing-home__bg {
+            animation-name: landingBgLarge;
+            background-size: 1300px auto;
+            width: 3900px;
+        }
+    }
+
+    @media only screen and (min-width: 640px) and (max-width: 1280px) {
+        .landing-home {
+            font-size: 12pt;
+        }
+
+        .landing-home__bg {
+            animation-name: landingBgMedium;
+            background-size: 1200px auto;
+            width: 3600px;
+        }
+    }
+
+    @media only screen and (min-width: 360px) and (max-width: 640px) {
+        .landing-home {
+            min-width: 320px;
+            font-size: 11pt;
+            left: 0;
+            margin-left: 0 !important;
+        }
+
+        .landing-home__bg {
+            animation-name: landingBgSmall;
+            background-size: 500px auto;
+            width: 1500px;
+        }
+
+        .landing-home__header {
+            gap: 1rem;
+        }
+
+        .landing-home__main {
+            padding-bottom: 4.5rem;
+        }
+
+        .landing-home__tagline {
+            font-size: 1rem;
+            white-space: normal;
+            max-width: 24rem;
+        }
+
+        .landing-home__socials ul {
+            display: grid;
+            grid-template-columns: repeat(4, 6em);
+            row-gap: 0.25rem;
+        }
+    }
+
+    @media only screen and (max-width: 360px) {
+        .landing-home {
+            left: 0;
+            margin-left: 0 !important;
+        }
+
+        .landing-home__bg {
+            animation-name: landingBgTiny;
+            background-size: 750px auto;
+            width: 2250px;
+        }
+
+        .landing-home__header {
+            gap: 0.9rem;
+        }
+
+        .landing-home__main {
+            padding-bottom: 4rem;
+        }
+
+        .landing-home__tagline {
+            white-space: normal;
+            max-width: 18rem;
+            font-size: 0.96rem;
+        }
+
+        .landing-home__socials ul {
+            display: grid;
+            grid-template-columns: repeat(3, 6em);
+            row-gap: 0.1rem;
+        }
+    }
+</style>

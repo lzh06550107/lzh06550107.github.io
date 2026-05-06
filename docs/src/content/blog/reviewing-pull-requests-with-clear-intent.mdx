@@ -1,0 +1,18 @@
+---
+title: Reviewing Pull Requests with Clear Intent
+description: How to make code review faster and more useful by framing changes around behavior, risk, and verification.
+pubDate: 2026-04-30
+category: Team Practices
+readingTime: 6 min read
+draft: false
+---
+
+Many code reviews feel slower than they need to because the reviewer has to reverse-engineer the author’s intent before they can evaluate the change. That is expensive. The best pull requests reduce that cost up front. They say what changed, why it changed, where the risk is, and how the behavior was verified.
+
+A helpful review summary is not long. It might be three sentences: one for the user-visible goal, one for the technical approach, and one for the main tradeoff. That small amount of framing changes the whole conversation. Instead of scanning twenty files trying to guess the purpose, the reviewer can ask a more useful question: does this implementation actually deliver the stated outcome safely?
+
+The same applies to review comments. Strong feedback is specific about behavior and evidence. “This seems wrong” is hard to act on. “This branch skips cache invalidation when the slug changes, so old content can linger after publish” is immediately actionable. It points to risk, not taste.
+
+Verification also matters more than many teams admit. A reviewer should not have to infer whether a fix was exercised. If the author ran a test, mention it. If the change was verified in a browser, say what scenario was checked. This lowers uncertainty and helps future readers understand what “done” meant at the time.
+
+Clear intent makes review calmer. It reduces defensive back-and-forth because the discussion stays anchored to behavior, risk, and evidence. Over enough pull requests, that adds up to a healthier engineering habit: changes are easier to trust, and feedback becomes easier to use.

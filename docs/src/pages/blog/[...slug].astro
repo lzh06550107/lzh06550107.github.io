@@ -1,0 +1,51 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import type { CollectionEntry } from 'astro:content';
+import { getCollection, render } from 'astro:content';
+
+type BlogEntry = CollectionEntry<'blog'>;
+
+export async function getStaticPaths() {
+	const posts = await getCollection('blog', ({ data }) => !data.draft);
+
+	return posts.map((post) => ({
+		params: { slug: post.id },
+		props: { post },
+	}));
+}
+
+const { post } = Astro.props as { post: BlogEntry };
+const { Content, headings } = await render(post);
+
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+	year: 'numeric',
+	month: 'short',
+	day: 'numeric',
+});
+---
+
+<StarlightPage
+	frontmatter={{
+		title: post.data.title,
+		description: post.data.description,
+		editUrl: false,
+		lastUpdated: false,
+	}}
+	hasSidebar={false}
+	headings={headings}
+>
+	<article class="blog-post-shell">
+		<div class="blog-post-header">
+			<p class="blog-post-meta">
+				<span class="blog-meta-pill">{post.data.category}</span>
+				<time datetime={post.data.pubDate.toISOString()}>
+					{dateFormatter.format(post.data.pubDate)}
+				</time>
+				<span>{post.data.readingTime}</span>
+			</p>
+			<p class="blog-post-description">{post.data.description}</p>
+		</div>
+
+		<Content />
+	</article>
+</StarlightPage>

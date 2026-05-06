@@ -1,0 +1,224 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#_top"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - button "Toggle Menu" [ref=e7]:
+          - img [ref=e8]
+          - generic [ref=e10]: Toggle Menu
+        - generic [ref=e11]:
+          - link "Lucode logo" [ref=e12] [cursor=pointer]:
+            - /url: /docs/
+            - img "Lucode logo" [ref=e13]
+          - navigation [ref=e14]:
+            - link "About" [ref=e15] [cursor=pointer]:
+              - /url: /docs/about/
+            - link "Docs" [ref=e16] [cursor=pointer]:
+              - /url: /docs/guides/getting-started/
+            - link "Books" [ref=e17] [cursor=pointer]:
+              - /url: /docs/books/
+            - link "Showcase" [ref=e18] [cursor=pointer]:
+              - /url: /docs/showcase/starlight-components/
+            - link "API" [ref=e19] [cursor=pointer]:
+              - /url: /docs/reference/plugin-api/
+        - generic [ref=e20]:
+          - button "Search" [ref=e22] [cursor=pointer]:
+            - generic [ref=e23]: Search
+            - generic:
+              - generic: Ctrl
+              - generic: K
+          - navigation [ref=e24]:
+            - link "GitHub" [ref=e26] [cursor=pointer]:
+              - /url: https://github.com/lucas-labs/lucode-starlight-theme
+              - generic [ref=e27]: GitHub
+              - img [ref=e28]
+            - button "Select theme" [ref=e32] [cursor=pointer]:
+              - img
+              - generic [ref=e33]: Toggle theme
+    - main [ref=e34]:
+      - main [ref=e35]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - link "Built for Astro Starlight 0.38+" [ref=e42] [cursor=pointer]:
+              - /url: /guides/getting-started/
+              - text: Built for Astro Starlight 0.38+
+              - img [ref=e43]
+            - heading "Lucode Starlight" [level=1] [ref=e45]
+          - generic [ref=e46]:
+            - generic [ref=e47]: Give Starlight a sharper product-docs interface with polished navigation, restrained typography, splash pages, and carefully tuned built-in components.
+            - generic [ref=e48]:
+              - link "Install the Theme" [ref=e49] [cursor=pointer]:
+                - /url: /guides/getting-started/
+              - link "Explore the Showcase" [ref=e50] [cursor=pointer]:
+                - /url: /showcase/starlight-components/
+        - generic [ref=e52]:
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - heading "What the Theme Changes" [level=2] [ref=e57]
+              - link "Section titled “What the Theme Changes”" [ref=e58] [cursor=pointer]:
+                - /url: "#what-the-theme-changes"
+                - img [ref=e60]
+                - generic [ref=e62]: Section titled “What the Theme Changes”
+            - generic [ref=e63]:
+              - article [ref=e64]:
+                - paragraph [ref=e65]:
+                  - img [ref=e66]
+                  - generic [ref=e69]: Starlight-native
+                - paragraph [ref=e71]: Lucode Starlight is a Starlight plugin. Keep the content collections, sidebar config, search, i18n, and MDX workflow you already know.
+              - article [ref=e72]:
+                - paragraph [ref=e73]:
+                  - img [ref=e74]
+                  - generic [ref=e76]: Opinionated UI
+                - paragraph [ref=e78]: Header, sidebar, footer, search, hero, page frame, pagination, and markdown rendering are replaced with a tighter design system.
+              - article [ref=e79]:
+                - paragraph [ref=e80]:
+                  - img [ref=e81]
+                  - generic [ref=e83]: Token-based theming
+                - paragraph [ref=e85]: Colors, spacing, radii, container width, and component surfaces are driven by CSS custom properties that you can override per site.
+              - article [ref=e86]:
+                - paragraph [ref=e87]:
+                  - img [ref=e88]
+                  - generic [ref=e91]: Splash pages
+                - paragraph [ref=e93]: Use Starlight’s splash template with Lucode hero layouts for landing pages, product pages, and docs entry points.
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - heading "Attribution" [level=2] [ref=e98]
+              - link "Section titled “Attribution”" [ref=e99] [cursor=pointer]:
+                - /url: "#attribution"
+                - img [ref=e101]
+                - generic [ref=e103]: Section titled “Attribution”
+            - paragraph [ref=e104]:
+              - text: Lucode Starlight recreates the design of
+              - link "shadcn/ui’s documentation site" [ref=e105] [cursor=pointer]:
+                - /url: https://ui.shadcn.com/
+              - text: . The package also uses
+              - link "adrian-ub/starlight-theme-black" [ref=e106] [cursor=pointer]:
+                - /url: https://github.com/adrian-ub/starlight-theme-black
+              - text: as a base, which brought an earlier shadcn/ui-inspired design to Astro Starlight.
+            - paragraph [ref=e107]: This project is not affiliated with shadcn/ui or starlight-theme-black.
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - heading "Documentation Map" [level=2] [ref=e112]
+              - link "Section titled “Documentation Map”" [ref=e113] [cursor=pointer]:
+                - /url: "#documentation-map"
+                - img [ref=e115]
+                - generic [ref=e117]: Section titled “Documentation Map”
+            - paragraph [ref=e118]: This site is the theme manual and the theme preview at the same time. Start with installation, then use the showcase pages as visual QA while you customize tokens and author content.
+            - generic [ref=e119]:
+              - article [ref=e120]:
+                - paragraph [ref=e121]:
+                  - img [ref=e122]
+                  - generic [ref=e125]: Install and configure
+                - paragraph [ref=e127]:
+                  - text: Follow the plugin setup, content schema extension, and recommended Starlight options in
+                  - link "Getting Started" [ref=e128] [cursor=pointer]:
+                    - /url: /guides/getting-started/
+                  - text: .
+              - article [ref=e129]:
+                - paragraph [ref=e130]:
+                  - img [ref=e131]
+                  - generic [ref=e133]: Customize the interface
+                - paragraph [ref=e135]:
+                  - text: Learn which plugin options and CSS tokens are available in
+                  - link "Configuration" [ref=e136] [cursor=pointer]:
+                    - /url: /guides/configuration/
+                  - text: and
+                  - link "Customize the Theme" [ref=e137] [cursor=pointer]:
+                    - /url: /guides/theming/
+                  - text: .
+              - article [ref=e138]:
+                - paragraph [ref=e139]:
+                  - img [ref=e140]
+                  - generic [ref=e142]: Inspect every state
+                - paragraph [ref=e144]:
+                  - text: Compare cards, asides, tabs, badges, code blocks, file trees, and buttons in
+                  - link "Starlight Components" [ref=e145] [cursor=pointer]:
+                    - /url: /showcase/starlight-components/
+                  - text: .
+              - article [ref=e146]:
+                - paragraph [ref=e147]:
+                  - img [ref=e148]
+                  - generic [ref=e150]: Pick a landing layout
+                - paragraph [ref=e152]:
+                  - text: Browse the live hero layouts in
+                  - link "Splash Pages" [ref=e153] [cursor=pointer]:
+                    - /url: /showcase/splash-pages/
+                  - text: before choosing one for your docs homepage.
+    - contentinfo [ref=e154]:
+      - generic [ref=e155]:
+        - text: Inspired by the
+        - link "shadcn/ui" [ref=e156] [cursor=pointer]:
+          - /url: https://ui.shadcn.com/
+        - text: documentation theme and based on
+        - link "starlight-theme-black" [ref=e157] [cursor=pointer]:
+          - /url: https://github.com/adrian-ub/starlight-theme-black
+        - text: . Ported to Astro Starlight by
+        - link "lucas-labs" [ref=e158] [cursor=pointer]:
+          - /url: https://github.com/lucas-labs
+        - text: .
+  - generic:
+    - button
+    - generic:
+      - generic:
+        - button
+      - generic:
+        - generic:
+          - link "About":
+            - /url: /docs/about/
+          - link "Docs":
+            - /url: /docs/guides/getting-started/
+          - link "Books":
+            - /url: /docs/books/
+          - link "Showcase":
+            - /url: /docs/showcase/starlight-components/
+          - link "API":
+            - /url: /docs/reference/plugin-api/
+        - generic:
+          - generic:
+            - heading "Start Here" [level=4]
+            - link "Getting Started":
+              - /url: /docs/guides/getting-started/
+            - link "Configuration":
+              - /url: /docs/guides/configuration/
+            - link "Customize the Theme":
+              - /url: /docs/guides/theming/
+          - generic:
+            - heading "Showcase" [level=4]
+            - link "Starlight Components":
+              - /url: /docs/showcase/starlight-components/
+            - link "Splash Pages":
+              - /url: /docs/showcase/splash-pages/
+            - link "Typography":
+              - /url: /docs/showcase/typography/
+          - generic:
+            - heading "Splash Examples" [level=4]
+            - link "Centered":
+              - /url: /docs/showcase/splash/centered/
+            - link "Centered Top":
+              - /url: /docs/showcase/splash/centered-top/
+            - link "Split Left":
+              - /url: /docs/showcase/splash/split-left/
+            - link "Split Right":
+              - /url: /docs/showcase/splash/split-right/
+            - link "Banner":
+              - /url: /docs/showcase/splash/banner/
+          - generic:
+            - heading "Reference" [level=4]
+            - link "Theme Components":
+              - /url: /docs/reference/components/
+            - link "Plugin API":
+              - /url: /docs/reference/plugin-api/
+  - generic [ref=e161]:
+    - button "Menu" [ref=e162]:
+      - img [ref=e164]
+      - generic: Menu
+    - button "Inspect" [ref=e168]:
+      - img [ref=e170]
+      - generic: Inspect
+    - button "Audit" [ref=e172]:
+      - img [ref=e174]
+      - generic: Audit
+    - button "Settings" [ref=e177]:
+      - img [ref=e179]
+      - generic: Settings

@@ -1,0 +1,20 @@
+---
+title: Writing Durable Engineering Notes
+description: Why small, searchable technical notes age better than heroic documentation rewrites.
+pubDate: 2026-05-05
+category: Engineering Practice
+readingTime: 6 min read
+draft: false
+---
+
+Teams rarely lose time because nobody wrote a fifty-page architecture paper. They lose time because the answer to a very specific question is trapped in a meeting, a chat thread, or someone's memory. The most useful engineering notes close that gap. They explain one decision, one failure mode, or one operating rule clearly enough that the next person can move without guessing.
+
+That is why durable notes tend to be small. A short note about why a queue is retried three times is easier to keep current than a giant "system overview" document that tries to describe every edge of the platform. Small notes also create a better maintenance habit. When the blast radius is limited, updating a page feels like part of the work instead of a second project.
+
+Searchability matters as much as prose quality. A note with a concrete title, a few stable terms, and a tight summary is much easier to recover six months later. This sounds obvious, but many docs fail here. They are written in abstract language, organized around team structure instead of user questions, and impossible to find unless you already know where they live.
+
+Good engineering writing also records intent, not just procedure. Commands and checklists are useful, but they decay quickly when context disappears. If a document says _what_ to run without saying _why_ the system behaves that way, future changes become risky. A note that captures the tradeoff behind a decision gives the next engineer permission to revise the implementation without repeating the original mistake.
+
+The easiest way to improve a documentation culture is not to demand a full rewrite. Start by treating notes as operational tools. When an incident ends, publish the fix pattern. When a migration succeeds, capture the sequencing rule that made it safe. When a new hire asks a question twice, write the answer once. Over time, those modest entries become a body of knowledge that feels trustworthy because it was written close to the work.
+
+Durable notes are not glamorous, but they compound. They shorten onboarding, reduce repeated decisions, and make systems feel less mysterious. In practice, that is what most teams need from technical writing: not perfection, but reliable leverage.

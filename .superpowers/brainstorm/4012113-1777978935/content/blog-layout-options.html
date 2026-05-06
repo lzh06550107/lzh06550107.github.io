@@ -1,0 +1,60 @@
+<h2>Blog Layout Options</h2>
+<p class="subtitle">目标：独立 blog 集合，真实文章源，按时间倒序展示，并在卡片里显示分类标签。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 工程列表页</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Home · Blog · Docs · Books · About</div>
+          <div style="padding: 16px 0 10px; border-bottom: 1px solid #e5e7eb;">
+            <div class="label">BLOG</div>
+            <div style="font-size: 28px; font-weight: 700; margin-top: 8px;">写给工程师的长期技术笔记</div>
+            <div style="margin-top: 8px; color: #6b7280;">只放一句定位，不做重 Hero。</div>
+          </div>
+          <div style="padding-top: 14px; display:grid; gap:12px;">
+            <div class="placeholder" style="height:88px;">Pinned article card</div>
+            <div class="placeholder" style="height:88px;">Post card · date · tags · excerpt</div>
+            <div class="placeholder" style="height:88px;">Post card · date · tags · excerpt</div>
+            <div class="placeholder" style="height:88px;">Post card · date · tags · excerpt</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A</h3>
+      <p>最工程化，也最容易持续写。结构直接，读者一进来就能扫到最新文章和分类。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 精选 + 列表</div>
+        <div class="mockup-body">
+          <div class="mock-nav">Home · Blog · Docs · Books · About</div>
+          <div style="padding: 16px 0 10px;">
+            <div style="font-size: 28px; font-weight: 700;">Blog</div>
+            <div style="margin-top: 8px; color: #6b7280;">前面放一张精选文章，下面再接文章列表。</div>
+          </div>
+          <div class="placeholder" style="height:130px; margin-bottom:12px;">Featured article block</div>
+          <div style="display:grid; gap:12px;">
+            <div class="placeholder" style="height:84px;">Post card</div>
+            <div class="placeholder" style="height:84px;">Post card</div>
+            <div class="placeholder" style="height:84px;">Post card</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B</h3>
+      <p>更有“栏目页”感，但会比纯列表多一层运营负担，需要考虑精选逻辑。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>我的建议</h3>
+  <p>优先选 <strong>方案 A</strong>。它更符合你刚才定的“文章列表页 + 真实文章源 + 时间倒序 + 分类标签”。</p>
+</div>

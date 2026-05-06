@@ -1,0 +1,19 @@
+---
+title: About
+description: A demo About page that migrates the Starfolio homepage into Lucode Starlight.
+template: splash
+editUrl: false
+sidebar:
+  hidden: true
+---
+
+import AboutLanding from '../../components/about/AboutLanding.astro';
+
+<AboutLanding />
+
+<style is:global>{`
+  div[data-slot='doc-title'],
+  [slot='doc-title-description'] {
+    display: none;
+  }
+`}</style>

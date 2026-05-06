@@ -1,0 +1,64 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+	(a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime()
+);
+
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+	year: 'numeric',
+	month: 'short',
+	day: 'numeric',
+});
+---
+
+<StarlightPage
+	frontmatter={{
+		title: 'Blog',
+		description: 'Engineering notes about tools, systems, and practical software work.',
+		editUrl: false,
+		lastUpdated: false,
+		tableOfContents: false,
+	}}
+	hasSidebar={false}
+>
+	<section class="blog-index-shell">
+		<div class="blog-page-header">
+			<h1 class="blog-page-title">Blog</h1>
+			<p class="blog-page-dek">
+				Engineering notes about tools, systems, and practical software work.
+			</p>
+			<p class="blog-page-lead">
+				Practical writing about shipping software, improving docs, and keeping technical
+				knowledge useful over time.
+			</p>
+			<p class="blog-page-summary">{posts.length} posts across tools, docs, and engineering practice.</p>
+		</div>
+
+		<div class="blog-grid" role="list">
+			{
+				posts.map((post) => (
+					<a class="blog-card" href={new URL(`${post.id}/`, Astro.url).pathname} role="listitem">
+						<div class="blog-card-meta">
+							<span class="blog-meta-pill">{post.data.category}</span>
+							<time datetime={post.data.pubDate.toISOString()}>
+								{dateFormatter.format(post.data.pubDate)}
+							</time>
+							<span>{post.data.readingTime}</span>
+						</div>
+						<h2>{post.data.title}</h2>
+						<p>{post.data.description}</p>
+					</a>
+				))
+			}
+		</div>
+	</section>
+</StarlightPage>
+
+<style is:global>
+	body:has(.blog-index-shell) div[data-slot='doc-title'],
+	body:has(.blog-index-shell) [slot='doc-title-description'] {
+		display: none;
+	}
+</style>
