@@ -1,2 +1,3 @@
 [submodule "packages/antora-ui"]
 	path = packages/antora-ui
+	url = https://github.com/notes-docs/antora-ui.git
