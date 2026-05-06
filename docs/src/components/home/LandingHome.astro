@@ -372,8 +372,26 @@ const socialLinks = [
         pointer-events: none;
     }
 
-    .landing-home__portrait-wrap:hover .landing-home__portrait-hint {
+    .landing-home__portrait-wrap:hover .landing-home__portrait-hint,
+    .landing-home__portrait-wrap:focus-visible .landing-home__portrait-hint {
         opacity: 1;
+    }
+
+    .landing-home__portrait-wrap:focus-visible .landing-home__portrait {
+        transform: scale(1.06);
+        filter: brightness(1.1);
+    }
+
+    /* Touch devices: show hint on tap */
+    @media (hover: none) and (pointer: coarse) {
+        .landing-home__portrait-wrap:active .landing-home__portrait-hint {
+            opacity: 1;
+        }
+
+        .landing-home__portrait-wrap:active .landing-home__portrait {
+            transform: scale(1.06);
+            filter: brightness(1.1);
+        }
     }
 
     .landing-home__tagline {
@@ -536,8 +554,15 @@ const socialLinks = [
 
         .landing-home__socials ul {
             display: grid;
-            grid-template-columns: repeat(4, 6em);
+            grid-template-columns: repeat(4, 5.2em);
             row-gap: 0.25rem;
+            column-gap: 0.15rem;
+        }
+
+        .landing-home__socials li {
+            width: 5.2em;
+            height: 5.2em;
+            line-height: 5.5em;
         }
     }
 
@@ -563,14 +588,37 @@ const socialLinks = [
 
         .landing-home__tagline {
             white-space: normal;
-            max-width: 18rem;
+            max-width: 16rem;
             font-size: 0.96rem;
+        }
+
+        .landing-home__portrait-wrap {
+            width: clamp(7rem, 28vw, 10.75rem);
+            height: clamp(7rem, 28vw, 10.75rem);
         }
 
         .landing-home__socials ul {
             display: grid;
-            grid-template-columns: repeat(3, 6em);
+            grid-template-columns: repeat(3, 5em);
             row-gap: 0.1rem;
+        }
+
+        .landing-home__socials li {
+            width: 5em;
+            height: 5em;
+            line-height: 5.3em;
+        }
+
+        .landing-home__socials a::before {
+            font-size: 1.5em;
+            width: 2.3em;
+            height: 2.3em;
+        }
+
+        .landing-home__social-icon {
+            width: 1.7em;
+            height: 1.7em;
+            flex: 0 0 1.7em;
         }
     }
 </style>

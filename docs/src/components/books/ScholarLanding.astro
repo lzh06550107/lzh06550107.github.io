@@ -136,6 +136,7 @@ const SITE_DATA = {
         fill: currentColor;
     }
 
+    /* Mobile: tablet (up to 960px) */
     @media (max-width: 960px) {
         .scholar-hero-content {
             flex-direction: column;
@@ -146,7 +147,7 @@ const SITE_DATA = {
             text-align: center;
             align-items: center;
             width: 100%;
-            padding: 0 1rem;
+            padding: 0 1.5rem;
         }
 
         .scholar-hero-text h1 {
@@ -156,11 +157,80 @@ const SITE_DATA = {
         .scholar-tagline {
             font-size: 1.1rem;
             margin-bottom: 2rem;
+            white-space: normal;
+            text-wrap: balance;
         }
 
         .portrait {
-            width: min(250px, 80vw);
-            height: min(250px, 80vw);
+            width: min(240px, 38vw);
+            height: min(240px, 38vw);
+        }
+
+        .scholar-hero {
+            min-height: calc(100dvh - 14rem);
+            padding: 3rem 0 5rem;
+        }
+    }
+
+    /* Mobile: small tablet (up to 768px) */
+    @media (max-width: 768px) {
+        .portrait {
+            width: min(200px, 45vw);
+            height: min(200px, 45vw);
+        }
+
+        .scholar-hero {
+            min-height: calc(100dvh - 13rem);
+            padding: 2.5rem 0 4rem;
+        }
+
+        .scholar-socials svg {
+            width: 2.25rem;
+            height: 2.25rem;
+        }
+
+        .scholar-socials {
+            gap: 1.25rem;
+        }
+    }
+
+    /* Mobile: phone (up to 480px) */
+    @media (max-width: 480px) {
+        .scholar-hero-content {
+            gap: 1.25rem;
+        }
+
+        .scholar-hero-text {
+            padding: 0 1.25rem;
+        }
+
+        .portrait {
+            width: min(160px, 55vw);
+            height: min(160px, 55vw);
+        }
+
+        .scholar-hero {
+            min-height: calc(100dvh - 12rem);
+            padding: 2rem 0 3rem;
+        }
+
+        .scholar-hero-text h1 {
+            font-size: clamp(1.6rem, 8vw, 2.2rem);
+        }
+
+        .scholar-tagline {
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+            max-width: 20rem;
+        }
+
+        .scholar-socials svg {
+            width: 2rem;
+            height: 2rem;
+        }
+
+        .scholar-socials {
+            gap: 1rem;
         }
     }
 </style>

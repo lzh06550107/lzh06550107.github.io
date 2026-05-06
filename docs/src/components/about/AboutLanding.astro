@@ -1364,4 +1364,23 @@ const photoLightboxScript = `
             line-height: 1.6;
         }
     }
+
+    @media (max-width: 400px) {
+        .hero-avatar {
+            width: 4.5rem;
+            height: 4.5rem;
+        }
+
+        .photo-columns {
+            grid-template-columns: 1fr;
+        }
+
+        .contact-panel {
+            padding-inline: calc(var(--spacing) * 2.5);
+        }
+
+        .contact-title {
+            font-size: clamp(2rem, 11vw, 2.6rem);
+        }
+    }
 </style>
