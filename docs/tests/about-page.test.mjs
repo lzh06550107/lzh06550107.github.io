@@ -18,18 +18,14 @@ test('About page source exists and is wired into docs navigation', () => {
 
     const configSource = fs.readFileSync(configPath, 'utf8');
     const navLinksBlock = configSource.match(/navLinks:\s*\[(.*?)\]/s)?.[1] ?? '';
-    assert.match(navLinksBlock, /label:\s+'Home'/);
-    assert.match(navLinksBlock, /link:\s+'\/'/);
     assert.match(navLinksBlock, /label:\s+'Blog'/);
     assert.match(navLinksBlock, /link:\s+'\/blog\/'/);
-    assert.match(navLinksBlock, /label:\s+'About'/);
-    assert.match(navLinksBlock, /link:\s+'\/about\/'/);
     assert.match(navLinksBlock, /label:\s+'Docs'/);
     assert.match(navLinksBlock, /link:\s+'\/guides\/getting-started\/'/);
     assert.match(navLinksBlock, /label:\s+'Books'/);
     assert.match(navLinksBlock, /link:\s+'https:\/\/notes-docs\.github\.io\/docs-site\/home\/'/);
-    assert.doesNotMatch(navLinksBlock, /label:\s+'Showcase'/);
-    assert.doesNotMatch(navLinksBlock, /label:\s+'API'/);
+    assert.match(navLinksBlock, /label:\s+'About'/);
+    assert.match(navLinksBlock, /link:\s+'\/about\/'/);
 });
 
 test('Docs root page is wired to the landing-home content', () => {
@@ -52,12 +48,11 @@ test('Docs root page is wired to the landing-home content', () => {
     assert.match(landingSource, /landing-home__portrait-wrap/);
     assert.match(landingSource, /landing-home__socials/);
     assert.match(landingSource, /scholar-portrait\.png/);
+    assert.match(landingSource, /@fortawesome\/fontawesome-free\/css\/all\.min\.css/);
     assert.match(landingSource, /Lzh博客/);
     assert.match(landingSource, /LZH • Java • Go • PHP • Typescript • Engineer/);
-    assert.match(landingSource, /<svg viewBox="0 0 24 24"/);
-    assert.match(landingSource, /landing-home__social-icon/);
-    assert.match(landingSource, /landing-home__social-label/);
-    assert.match(landingSource, /preserveAspectRatio="xMidYMid meet"/);
+    assert.match(landingSource, /fa-brands fa-github/);
+    assert.match(landingSource, /fa-solid fa-envelope/);
     assert.match(landingSource, /@keyframes landingNeonPulse/);
     assert.match(landingSource, /@keyframes landingPortraitHalo/);
     assert.match(landingSource, /landing-home__portrait-wrap::after/);
@@ -71,9 +66,30 @@ test('Docs root page is wired to the landing-home content', () => {
     assert.match(landingSource, /flex-wrap:\s*nowrap/);
     assert.match(landingSource, /justify-content:\s*center/);
     assert.match(landingSource, /width:\s*6em;/);
-    assert.match(landingSource, /width:\s*2\.9em;/);
-    assert.match(landingSource, /width:\s*2\.2em;/);
-    assert.match(landingSource, /a:hover::after/);
+    assert.match(landingSource, /width:\s*2\.5em;/);
+    assert.match(landingSource, /a:hover::before/);
+    assert.match(landingSource, /\.landing-home__socials a \{[\s\S]*display:\s*flex/);
+    assert.match(landingSource, /\.landing-home__socials a \{[\s\S]*align-items:\s*center/);
+    assert.match(landingSource, /\.landing-home__socials a \{[\s\S]*justify-content:\s*center/);
+    assert.match(landingSource, /\.landing-home__socials a \{[\s\S]*width:\s*100%/);
+    assert.match(landingSource, /\.landing-home__socials a \{[\s\S]*height:\s*100%/);
+    assert.match(landingSource, /\.landing-home__socials a::before \{[\s\S]*display:\s*flex/);
+    assert.match(landingSource, /\.landing-home__socials a::before \{[\s\S]*align-items:\s*center/);
+    assert.match(landingSource, /\.landing-home__socials a::before \{[\s\S]*justify-content:\s*center/);
+    assert.match(landingSource, /@media only screen and \(min-width: 360px\) and \(max-width: 640px\)[\s\S]*display:\s*grid/);
+    assert.match(landingSource, /@media only screen and \(min-width: 360px\) and \(max-width: 640px\)[\s\S]*grid-template-columns:\s*repeat\(4,\s*5\.2em\)/);
+    assert.match(landingSource, /@media only screen and \(min-width: 360px\) and \(max-width: 640px\)[\s\S]*row-gap:\s*0\.25rem/);
+    assert.match(landingSource, /@media only screen and \(min-width: 360px\) and \(max-width: 640px\)[\s\S]*column-gap:\s*0\.15rem/);
+    assert.match(landingSource, /@media only screen and \(min-width: 360px\) and \(max-width: 640px\)[\s\S]*justify-content:\s*center/);
+    assert.match(landingSource, /@media only screen and \(min-width: 360px\) and \(max-width: 640px\)[\s\S]*width:\s*5\.2em/);
+    assert.doesNotMatch(landingSource, /@media only screen and \(min-width: 360px\) and \(max-width: 640px\)[\s\S]*flex-wrap:\s*wrap/);
+    assert.match(landingSource, /@media only screen and \(max-width: 360px\)[\s\S]*display:\s*grid/);
+    assert.match(landingSource, /@media only screen and \(max-width: 360px\)[\s\S]*grid-template-columns:\s*repeat\(4,\s*5em\)/);
+    assert.match(landingSource, /@media only screen and \(max-width: 360px\)[\s\S]*row-gap:\s*0\.1rem/);
+    assert.match(landingSource, /@media only screen and \(max-width: 360px\)[\s\S]*column-gap:\s*0\.1rem/);
+    assert.match(landingSource, /@media only screen and \(max-width: 360px\)[\s\S]*justify-content:\s*center/);
+    assert.match(landingSource, /@media only screen and \(max-width: 360px\)[\s\S]*width:\s*5em/);
+    assert.doesNotMatch(landingSource, /@media only screen and \(max-width: 360px\)[\s\S]*flex-wrap:\s*wrap/);
 });
 
 test('Books page restores the previous docs splash content', () => {

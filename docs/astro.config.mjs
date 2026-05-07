@@ -34,7 +34,8 @@ export default defineConfig({
                         tracks: [
                             // Add your music tracks here, e.g.:
                             { title: '原来你也在这里', src: '/music/原来你也在这里.flac' },
-                            { title: '山丘', src: '/music/山丘.flac' }
+                            { title: '山丘', src: '/music/山丘.flac' },
+                            { title: '谁明浪子心', src: '/music/谁明浪子心.flac' }
                         ],
                     },
                 }),
