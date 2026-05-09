@@ -36,7 +36,9 @@ export default defineConfig({
                             { title: '原来你也在这里', src: '/music/原来你也在这里.flac' },
                             { title: '山丘', src: '/music/山丘.flac' },
                             { title: '谁明浪子心', src: '/music/谁明浪子心.flac' },
-                            { title: '凡人歌', src: '/music/凡人歌.mp3' }
+                            { title: '凡人歌', src: '/music/凡人歌.mp3' },
+                            { title: '南山南', src: '/music/南山南.flac' },
+                            { title: '成都', src: '/music/成都.flac' }
                         ],
                     },
                 }),
