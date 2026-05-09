@@ -10,7 +10,7 @@ export default defineConfig({
 
     integrations: [
         starlight({
-            title: 'Lucode Starlight',
+            title: 'lzh博客',
             logo: {
                 src: './src/assets/logo.svg',
                 alt: 'Lucode logo',
@@ -26,7 +26,7 @@ export default defineConfig({
                     navLinks: [
                         { label: 'Blog', link: '/blog/' },
                         { label: 'Docs', link: '/guides/getting-started/' },
-                        { label: 'Books', link: 'https://notes-docs.github.io/docs-site/home/' },
+                        { label: 'Books', link: '/books/' },
                         { label: 'About', link: '/about/' },
                     ],
                     music: {
@@ -35,7 +35,8 @@ export default defineConfig({
                             // Add your music tracks here, e.g.:
                             { title: '原来你也在这里', src: '/music/原来你也在这里.flac' },
                             { title: '山丘', src: '/music/山丘.flac' },
-                            { title: '谁明浪子心', src: '/music/谁明浪子心.flac' }
+                            { title: '谁明浪子心', src: '/music/谁明浪子心.flac' },
+                            { title: '凡人歌', src: '/music/凡人歌.mp3' }
                         ],
                     },
                 }),
