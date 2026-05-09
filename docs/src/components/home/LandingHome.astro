@@ -10,14 +10,14 @@ const SITE_DATA = {
 };
 
 const socialLinks = [
-    { label: 'QQ', href: '#', icon: 'fa-brands fa-qq' },
-    { label: 'WeChat', href: '#', icon: 'fa-brands fa-weixin' },
-    { label: 'Weibo', href: '#', icon: 'fa-brands fa-weibo' },
-    { label: 'Twitter', href: '#', icon: 'fa-brands fa-twitter' },
-    { label: 'Facebook', href: '#', icon: 'fa-brands fa-facebook' },
-    { label: 'Dribbble', href: '#', icon: 'fa-brands fa-dribbble' },
-    { label: 'GitHub', href: '#', icon: 'fa-brands fa-github' },
-    { label: 'Email', href: 'mailto:hello@example.com', icon: 'fa-solid fa-envelope' },
+    { label: 'QQ', href: '#', iconClass: 'fa-brands fa-qq' },
+    { label: 'WeChat', href: '#', iconClass: 'fa-brands fa-weixin' },
+    { label: 'Douyin', href: 'https://v.douyin.com/MJE0e8J4QpE/?utm_campaign=client_share&app=aweme&utm_medium=ios&tt_from=more&utm_source=more', iconSrc: '/icons/douyin.svg' },
+    { label: 'Toutiao', href: '#', iconSrc: '/icons/toutiao.svg' },
+    { label: 'youtube', href: '#', iconClass: 'fa-brands fa-youtube' },
+    { label: 'Twitter', href: 'https://x.com/liaozh1', iconClass: 'fa-brands fa-twitter' },
+    { label: 'GitHub', href: 'https://github.com/lzh06550107', iconClass: 'fa-brands fa-github' },
+    { label: 'Email', href: 'mailto:liao06550107@gmail.com', iconClass: 'fa-solid fa-envelope' },
 ];
 ---
 
@@ -42,7 +42,20 @@ const socialLinks = [
                         {
                             socialLinks.map((link, index) => (
                                 <li style={`animation-delay: ${2.5 + index * 0.25}s;`}>
-                                    <a href={link.href} aria-label={link.label} class={link.icon}>
+                                    <a href={link.href} aria-label={link.label} class="landing-home__social-link">
+                                        {
+                                            link.iconSrc ? (
+                                                <img
+                                                    src={link.iconSrc}
+                                                    alt=""
+                                                    aria-hidden="true"
+                                                    class="landing-home__social-icon"
+                                                    loading="lazy"
+                                                />
+                                            ) : (
+                                                <i class:list={['landing-home__social-mark', link.iconClass]} aria-hidden="true"></i>
+                                            )
+                                        }
                                         <span>{link.label}</span>
                                     </a>
                                 </li>
@@ -452,21 +465,41 @@ const socialLinks = [
         color: inherit;
         text-decoration: none;
         transition: all 0.2s ease-in-out;
+        position: relative;
     }
 
     .landing-home__socials a::before {
+        content: '';
         transition: all 0.2s ease-in-out;
         border-radius: 100%;
         border: solid 1px #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.75em;
         width: 2.5em;
         height: 2.5em;
-        line-height: 2.5em;
-        position: relative;
+        position: absolute;
+        inset: 50% auto auto 50%;
+        transform: translate(-50%, -50%);
         text-align: center;
+    }
+
+    .landing-home__social-mark,
+    .landing-home__social-icon {
+        position: relative;
+        z-index: 1;
+        flex: 0 0 auto;
+    }
+
+    .landing-home__social-mark {
+        font-size: 1.75em;
+        line-height: 1;
+    }
+
+    .landing-home__social-icon {
+        width: 1.8em;
+        height: 1.8em;
+        object-fit: contain;
     }
 
     .landing-home__socials a:hover {
@@ -638,9 +671,12 @@ const socialLinks = [
         }
 
         .landing-home__socials a::before {
-            font-size: 1.5em;
             width: 2.3em;
             height: 2.3em;
+        }
+
+        .landing-home__social-mark {
+            font-size: 1.5em;
         }
 
         .landing-home__social-icon {
