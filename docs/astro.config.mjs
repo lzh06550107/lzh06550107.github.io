@@ -26,7 +26,7 @@ export default defineConfig({
                     navLinks: [
                         { label: 'Blog', link: '/blog/' },
                         { label: 'Docs', link: '/guides/getting-started/' },
-                        { label: 'Books', link: '/books/' },
+                        { label: 'Books', link: 'https://notes-docs.github.io/docs-site/home/' },
                         { label: 'About', link: '/about/' },
                     ],
                     music: {
