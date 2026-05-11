@@ -110,18 +110,18 @@ test('blog post styles tighten the reading rhythm', () => {
     );
     assert.match(
         stylesSource,
-        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s*\{[\s\S]*align-self:\s*start;/,
-        'expected the blog TOC column to size to content instead of stretching the full article height'
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s*\{[\s\S]*align-self:\s*start;[\s\S]*position:\s*sticky;[\s\S]*height:\s*calc\(100vh - var\(--header-height\) - 1\.5rem\);[\s\S]*overflow:\s*hidden;[\s\S]*min-height:\s*0;/,
+        'expected the blog TOC column to stay sticky while its inner TOC handles scrolling'
     );
     assert.match(
         stylesSource,
-        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s*>\s*div\s*\{[\s\S]*position:\s*sticky;[\s\S]*max-height:\s*calc\(100vh - var\(--header-height\) - 1\.5rem\);[\s\S]*overflow:\s*hidden;/,
-        'expected the blog TOC wrapper to stay sticky alongside the article'
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s*>\s*div\s*\{[\s\S]*height:\s*100%;[\s\S]*min-height:\s*0;/,
+        'expected the blog TOC inner wrapper to fill the sticky column height'
     );
     assert.match(
         stylesSource,
-        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+starlight-toc\s*\{[\s\S]*overflow-y:\s*auto;[\s\S]*scrollbar-width:\s*thin;/,
-        'expected long blog TOCs to scroll internally when they exceed the viewport height'
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+starlight-toc\s*\{[\s\S]*overflow-y:\s*auto;[\s\S]*scrollbar-width:\s*none;[\s\S]*scroll-behavior:\s*smooth;[\s\S]*overscroll-behavior:\s*contain;[\s\S]*min-height:\s*0;[\s\S]*box-sizing:\s*border-box;/,
+        'expected long blog TOCs to scroll smoothly inside the sticky TOC without showing a visible scrollbar'
     );
     assert.match(
         stylesSource,
@@ -130,8 +130,13 @@ test('blog post styles tighten the reading rhythm', () => {
     );
     assert.match(
         stylesSource,
-        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+a\[aria-current\]::before\s*\{[\s\S]*width:\s*0\.16rem;/,
-        'expected the active blog TOC item to include a visible position indicator'
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+a\[aria-current\]\s*\{[\s\S]*background:/,
+        'expected the active blog TOC item to rely on background emphasis instead of a side marker'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+a\[aria-current\]::before\s*\{[\s\S]*content:\s*none\s*!important;/,
+        'expected the active blog TOC item to explicitly remove the thin side marker'
     );
     assert.match(
         stylesSource,
@@ -140,13 +145,13 @@ test('blog post styles tighten the reading rhythm', () => {
     );
     assert.match(
         stylesSource,
-        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+ul ul\s*\{[\s\S]*border-left:\s*1px solid/,
-        'expected nested blog TOC levels to have clearer indentation'
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+ul ul\s*\{[\s\S]*border-left:\s*0;/,
+        'expected nested blog TOC levels to avoid showing a left guide line'
     );
     assert.match(
         stylesSource,
-        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+starlight-toc::\-webkit-scrollbar-thumb\s*\{[\s\S]*border-radius:\s*999px;/,
-        'expected the blog TOC scrollbar to use a lightweight custom thumb'
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+starlight-toc::\-webkit-scrollbar\s*\{[\s\S]*display:\s*none;/,
+        'expected the blog TOC scrollbar to be visually hidden'
     );
     assert.match(
         stylesSource,
