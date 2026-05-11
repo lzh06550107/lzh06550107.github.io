@@ -6,6 +6,7 @@ import path from 'node:path';
 const docsRoot = path.resolve(process.cwd(), 'docs');
 const contentConfigPath = path.join(docsRoot, 'src', 'content.config.ts');
 const blogIndexPath = path.join(docsRoot, 'src', 'pages', 'blog', 'index.astro');
+const globalStylesPath = path.join(docsRoot, 'src', 'styles', 'global.css');
 const blogPostRoutePaths = [
     path.join(docsRoot, 'src', 'pages', 'blog', '[slug].astro'),
     path.join(docsRoot, 'src', 'pages', 'blog', '[...slug].astro'),
@@ -69,6 +70,54 @@ test('blog post route uses static paths and renders full post content', () => {
     assert.match(postRouteSource, /post\.data\.readingTime/, 'expected blog post route to render the post reading time');
     assert.match(postRouteSource, /post\.data\.pubDate/, 'expected blog post route to render the post publication date');
     assert.match(postRouteSource, /<Content\s*\/>/, 'expected blog post route to render the article body');
+    assert.match(postRouteSource, /previousPost/, 'expected blog post route to compute the previous blog post');
+    assert.match(postRouteSource, /nextPost/, 'expected blog post route to compute the next blog post');
+    assert.match(postRouteSource, /blog-post-nav/, 'expected blog post route to render previous and next blog links');
+});
+
+test('blog post styles tighten the reading rhythm', () => {
+    const stylesSource = fs.readFileSync(globalStylesPath, 'utf8');
+
+    assert.match(
+        stylesSource,
+        /\.blog-post-shell\s*:where\(h2\)\s*\{[\s\S]*margin-top:\s*2rem;[\s\S]*margin-bottom:\s*0\.9rem;/,
+        'expected blog post h2 spacing to be tighter'
+    );
+    assert.match(
+        stylesSource,
+        /\.blog-post-shell\s*:where\(p\)\s*\{[\s\S]*margin:\s*0\s+0\s+1rem;[\s\S]*line-height:\s*1\.72;/,
+        'expected blog paragraphs to use tighter spacing'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.main\s*>\s*main\s*\{[\s\S]*gap:\s*1rem\s*!important;/,
+        'expected blog post content column to reduce the default vertical gap'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s+\.sl-markdown-content\s*:not\(h1, h2, h3, h4, h5, h6, \.sl-heading-wrapper\)\s*\+\s*:is\(\.sl-heading-wrapper\)\s*\{[\s\S]*margin-top:\s*2rem;/,
+        'expected blog post heading wrapper spacing to be tighter than the global docs default'
+    );
+    assert.match(
+        stylesSource,
+        /\.blog-post-shell\s*:where\(hr\)\s*\{[\s\S]*margin:\s*1\.1rem 0;/,
+        'expected blog post separators to use tighter spacing'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*48rem\)\s*18rem\s*!important;[\s\S]*gap:\s*1\.5rem\s*!important;/,
+        'expected blog post desktop layout to pull the TOC closer to the article'
+    );
+    assert.match(
+        stylesSource,
+        /@media\s*\(max-width:\s*50rem\)\s*\{[\s\S]*main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*\{[\s\S]*grid-template-columns:\s*1fr\s*!important;/,
+        'expected blog post layout to collapse cleanly for mobile screens'
+    );
+    assert.match(
+        stylesSource,
+        /\.blog-post-shell\s*\{[\s\S]*display:\s*block;/,
+        'expected blog post article container to use normal document flow instead of a grid gap between every element'
+    );
 });
 
 test('blog seed post includes the required metadata', () => {

@@ -1,0 +1,141 @@
+- generic [active] [ref=e1] [box=0,0,500,6682]:
+  - link "Skip to content" [ref=e2] [cursor=pointer] [box=12,12,106,28]:
+    - /url: "#_top"
+  - generic [ref=e3] [box=0,0,500,6682]:
+    - banner [ref=e4] [box=0,0,500,56]:
+      - generic [ref=e6] [box=24,0,452,56]:
+        - button "Toggle Menu" [ref=e7] [box=16,4,32,48]:
+          - img [ref=e8] [box=20,16,24,24]
+          - generic [ref=e10] [box=32,28,1,1]: Toggle Menu
+        - generic [ref=e11] [box=56,12,420,33]:
+          - button "Search" [ref=e13] [cursor=pointer] [box=56,12,328,32]:
+            - generic [ref=e14] [box=73,18,44,20]: Search
+          - navigation [ref=e15] [box=392,12,84,33]:
+            - link "GitHub" [ref=e17] [cursor=pointer] [box=392,12,32,32]:
+              - /url: https://github.com/lucas-labs/lucode-starlight-theme
+            - button "Select theme" [ref=e23] [cursor=pointer] [box=442,12,32,32]
+    - main [ref=e25] [box=0,56,500,6626]:
+      - main [ref=e26] [box=0,56,500,6626]:
+        - main [ref=e28] [box=16,80,468,6578]:
+          - generic [ref=e29] [box=16,80,468,108]:
+            - generic [ref=e30] [box=16,80,468,72]
+            - paragraph [ref=e38] [box=16,160,468,28]: 探索 hermes 如何通过 mcp 连接 chrome
+          - article [ref=e41] [box=16,212,468,6320]:
+            - generic [ref=e42] [box=32,212,683,124]
+            - heading "wsl 中 hermes 如何控制 windows 系统中的 chrome" [level=2] [ref=e48] [box=32,400,683,52]
+            - paragraph [ref=e49] [box=32,498,683,28]: 下面是在 WSL 中用 Hermes 控制 Windows Chrome 的完整方案。
+            - separator [ref=e50] [box=32,590,683,1]
+            - heading "核心原理" [level=3] [ref=e51] [box=32,650,683,28]
+            - paragraph [ref=e52] [box=32,710,683,55]
+            - figure [ref=e55] [box=32,829,683,49]
+            - paragraph [ref=e63] [box=32,910,683,55]: 这样你可以保留 Windows 浏览器的真实 Profile、Cookie 和登录状态，同时 Hermes 留在 WSL 的 Unix 环境中。
+            - separator [ref=e64] [box=32,1029,683,1]
+            - heading "推荐方案：通过 chrome-devtools-mcp 桥接" [level=3] [ref=e65] [box=32,1089,683,30]
+            - heading "第一步：让 Windows Chrome 开启远程调试" [level=4] [ref=e67] [box=32,1167,683,24]
+            - paragraph [ref=e68] [box=32,1223,683,28]: 以调试模式启动 Chrome（在 Windows 的 PowerShell 或运行框中执行）：
+            - figure "Terminal window" [ref=e70] [box=32,1314,683,155]
+            - paragraph [ref=e87] [box=32,1501,683,28]
+            - blockquote [ref=e89] [box=32,1593,683,44]
+            - separator [ref=e91] [box=32,1684,683,1]
+            - heading "第二步：查询 WSL 的 IP 地址" [level=4] [ref=e92] [box=32,1741,683,24]
+            - paragraph [ref=e93] [box=32,1797,683,28]: 在 Windows PowerShell 中执行，找到 WSL 网关 IP：
+            - figure "Terminal window" [ref=e95] [box=32,1889,683,130]
+            - paragraph [ref=e110] [box=32,2051,683,28]
+            - heading "第三步：添加端口转发规则（Windows 侧）" [level=4] [ref=e112] [box=32,2151,683,24]
+            - paragraph [ref=e113] [box=32,2207,683,28]: 在 管理员 PowerShell 中执行（将 <WSL_IP> 替换为上一步查到的 IP）：
+            - figure "Terminal window" [ref=e115] [box=32,2298,683,379]
+            - figure "Terminal window" [ref=e155] [box=32,2725,683,105]
+            - heading "第四步：在 WSL 中验证连通性" [level=4] [ref=e168] [box=32,2886,683,24]
+            - figure "Terminal window" [ref=e170] [box=32,2958,683,81]
+            - paragraph [ref=e181] [box=32,3071,683,28]: 有 JSON 输出说明连接成功。
+            - heading "第五步：在 WSL 中添加 MCP 桥接" [level=4] [ref=e182] [box=32,3170,683,24]
+            - paragraph [ref=e183] [box=32,3226,683,28]: 如果 Windows Chrome 已开启远程调试，在 WSL 中执行：
+            - figure "Terminal window" [ref=e185] [box=32,3318,683,130]
+            - paragraph [ref=e200] [box=32,3480,683,55]
+            - paragraph [ref=e202] [box=32,3583,683,28]: 该步骤会报错，推荐直接改 ~/.hermes/config.yaml
+            - paragraph [ref=e203] [box=32,3659,683,28]: 先编辑配置：
+            - figure "Terminal window" [ref=e205] [box=32,3750,683,81]
+            - paragraph [ref=e216] [box=32,3863,683,28]: 加入：
+            - figure [ref=e218] [box=32,3954,683,248]
+            - paragraph [ref=e245] [box=32,4234,683,55]
+            - figure [ref=e249] [box=32,4353,683,372]
+            - paragraph [ref=e287] [box=32,4757,683,28]: 保存后执行：
+            - figure "Terminal window" [ref=e289] [box=32,4848,683,81]
+            - separator [ref=e300] [box=32,4977,683,1]
+            - heading "第三步：验证连接" [level=4] [ref=e301] [box=32,5034,683,24]
+            - paragraph [ref=e302] [box=32,5090,683,28]: 加载后，在 Hermes 中可以直接使用 MCP 工具，例如：
+            - figure [ref=e304] [box=32,5182,683,49]
+            - paragraph [ref=e312] [box=32,5262,683,28]
+            - separator [ref=e314] [box=32,5354,683,1]
+            - heading "注意事项" [level=3] [ref=e315] [box=32,5414,683,28]
+            - table [ref=e316] [box=32,5490,683,320]
+            - separator [ref=e340] [box=32,5858,683,1]
+            - heading "方案对比" [level=3] [ref=e341] [box=32,5918,683,28]
+            - table [ref=e342] [box=32,5994,683,264]
+            - paragraph [ref=e361] [box=32,6290,683,28]
+            - navigation "Adjacent blog posts" [ref=e363] [box=32,6405,683,127]
+  - button "Toggle music player" [ref=e370] [cursor=pointer] [box=436,649,56,56]:
+    - img [ref=e371] [box=452,665,24,24]
+  - generic [box=0,0,500,713]:
+    - button [box=0,0,500,713]
+    - generic [box=0,713,500,499]:
+      - generic [box=0,713,500,8]:
+        - button [box=200,713,100,8]
+      - generic [box=0,721,500,499]:
+        - generic [box=24,745,452,132]:
+          - link "Blog" [box=24,745,452,24]:
+            - /url: /blog/
+          - link "Docs" [box=24,781,452,24]:
+            - /url: /guides/getting-started/
+          - link "Books" [box=24,817,452,24]:
+            - /url: https://notes-docs.github.io/docs-site/home/
+          - link "About" [box=24,853,452,24]:
+            - /url: /about/
+        - generic [box=24,877,452,602]:
+          - generic [box=24,877,452,134]:
+            - heading "Start Here" [level=4] [box=24,901,452,28]
+            - link "Getting Started" [box=24,937,452,19]:
+              - /url: /guides/getting-started/
+            - link "Configuration" [box=24,964,452,19]:
+              - /url: /guides/configuration/
+            - link "Customize the Theme" [box=24,991,452,19]:
+              - /url: /guides/theming/
+          - generic [box=24,1019,452,134]:
+            - heading "Showcase" [level=4] [box=24,1043,452,28]
+            - link "Starlight Components" [box=24,1079,452,19]:
+              - /url: /showcase/starlight-components/
+            - link "Splash Pages" [box=24,1106,452,19]:
+              - /url: /showcase/splash-pages/
+            - link "Typography" [box=24,1133,452,19]:
+              - /url: /showcase/typography/
+          - generic [box=24,1160,452,188]:
+            - heading "Splash Examples" [level=4] [box=24,1184,452,28]
+            - link "Centered" [box=24,1220,452,19]:
+              - /url: /showcase/splash/centered/
+            - link "Centered Top" [box=24,1247,452,19]:
+              - /url: /showcase/splash/centered-top/
+            - link "Split Left" [box=24,1275,452,19]:
+              - /url: /showcase/splash/split-left/
+            - link "Split Right" [box=24,1302,452,19]:
+              - /url: /showcase/splash/split-right/
+            - link "Banner" [box=24,1329,452,19]:
+              - /url: /showcase/splash/banner/
+          - generic [box=24,1356,452,106]:
+            - heading "Reference" [level=4] [box=24,1380,452,28]
+            - link "Theme Components" [box=24,1416,452,19]:
+              - /url: /reference/components/
+            - link "Plugin API" [box=24,1443,452,19]:
+              - /url: /reference/plugin-api/
+  - generic [ref=e377] [box=164,696,173,40]:
+    - button "Menu" [ref=e378] [box=164,696,42,40]:
+      - img [ref=e380] [box=177,706,20,20]
+      - generic [box=158,615,56,27]: Menu
+    - button "Inspect" [ref=e384] [box=206,696,44,40]:
+      - img [ref=e386] [box=218,706,20,20]
+      - generic [box=193,615,69,27]: Inspect
+    - button "Audit" [ref=e388] [box=250,696,44,40]:
+      - img [ref=e390] [box=262,706,20,20]
+      - generic [box=244,615,55,27]: Audit
+    - button "Settings" [ref=e393] [box=295,696,42,40]:
+      - img [ref=e395] [box=304,706,20,20]
+      - generic [box=276,615,75,27]: Settings
