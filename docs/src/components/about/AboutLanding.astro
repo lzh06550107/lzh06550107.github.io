@@ -471,23 +471,23 @@ const photoLightboxScript = `
 <style>
     .about-page-shell {
         width: 100%;
-        max-width: 42rem;
+        max-width: 50rem;
         margin-inline: auto;
         display: grid;
-        gap: calc(var(--spacing) * 16);
-        padding-block: calc(var(--spacing) * 10) calc(var(--spacing) * 18);
+        gap: calc(var(--spacing) * 2.25);
+        padding-block: calc(var(--spacing) * 5.5) calc(var(--spacing) * 10);
     }
 
     .hero-block,
     .section-rail {
         display: grid;
-        gap: calc(var(--spacing) * 4.5);
+        gap: calc(var(--spacing) * 1.125);
     }
 
     .section-rail-wide {
         max-width: 50rem;
         width: min(100%, 50rem);
-        margin-inline: calc((42rem - min(100%, 50rem)) / 2);
+        margin-inline: 0;
 
         @media (max-width: 52rem) {
             width: 100%;
@@ -496,22 +496,22 @@ const photoLightboxScript = `
     }
 
     .hero-block {
-        align-items: center;
-        gap: calc(var(--spacing) * 6);
+        align-items: start;
+        gap: calc(var(--spacing) * 2.75);
 
         @media (min-width: 768px) {
-            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-columns: minmax(0, 1fr) 6rem;
         }
     }
 
     .hero-copy {
         display: grid;
-        gap: calc(var(--spacing) * 2.5);
+        gap: calc(var(--spacing) * 1.1);
     }
 
     .hero-identity {
         display: grid;
-        gap: calc(var(--spacing) * 2.5);
+        gap: calc(var(--spacing) * 1.1);
     }
 
     .hero-copy h1 {
@@ -520,7 +520,7 @@ const photoLightboxScript = `
         line-height: 0.94;
         letter-spacing: -0.04em;
         text-wrap: balance;
-        max-width: 12ch;
+        max-width: 9.5ch;
     }
 
     .hero-description,
@@ -529,20 +529,20 @@ const photoLightboxScript = `
     }
 
     .hero-lede {
-        max-width: 38rem;
+        max-width: 42rem;
         font-size: 1rem;
-        line-height: 1.75;
+        line-height: 1.5;
         text-wrap: pretty;
     }
 
     .narrative-copy {
         font-size: 0.95rem;
-        line-height: 1.82;
+        line-height: 1.58;
         text-wrap: pretty;
     }
 
     .prose-copy {
-        max-width: 40rem;
+        max-width: 48rem;
     }
 
     .hero-actions,
@@ -558,19 +558,25 @@ const photoLightboxScript = `
 
     .hero-avatar-wrap {
         justify-self: start;
+
+        @media (min-width: 768px) {
+            justify-self: end;
+            align-self: start;
+            margin-top: 0;
+        }
     }
 
     .hero-avatar {
-        width: 6rem;
-        height: 6rem;
+        width: 4.25rem;
+        height: 4.25rem;
         object-fit: cover;
         border-radius: 999px;
         border: 1px solid var(--border);
-        box-shadow: 0 0 0 4px color-mix(in oklab, var(--border) 55%, transparent);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--border) 48%, transparent);
 
         @media (min-width: 768px) {
-            width: 8rem;
-            height: 8rem;
+            width: 6rem;
+            height: 6rem;
         }
     }
 
@@ -1301,6 +1307,15 @@ const photoLightboxScript = `
     }
 
     @media (max-width: 639px) {
+        .about-page-shell {
+            gap: calc(var(--spacing) * 3.25);
+            padding-block: calc(var(--spacing) * 4) calc(var(--spacing) * 8);
+        }
+
+        .hero-block {
+            gap: calc(var(--spacing) * 2.25);
+        }
+
         .hero-actions {
             justify-content: flex-start;
         }
