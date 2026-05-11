@@ -110,6 +110,46 @@ test('blog post styles tighten the reading rhythm', () => {
     );
     assert.match(
         stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s*\{[\s\S]*align-self:\s*start;/,
+        'expected the blog TOC column to size to content instead of stretching the full article height'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s*>\s*div\s*\{[\s\S]*position:\s*sticky;[\s\S]*max-height:\s*calc\(100vh - var\(--header-height\) - 1\.5rem\);[\s\S]*overflow:\s*hidden;/,
+        'expected the blog TOC wrapper to stay sticky alongside the article'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+starlight-toc\s*\{[\s\S]*overflow-y:\s*auto;[\s\S]*scrollbar-width:\s*thin;/,
+        'expected long blog TOCs to scroll internally when they exceed the viewport height'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+a\[aria-current\]\s*\{[\s\S]*font-weight:\s*600;/,
+        'expected the active blog TOC item to have a stronger visual highlight'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+a\[aria-current\]::before\s*\{[\s\S]*width:\s*0\.16rem;/,
+        'expected the active blog TOC item to include a visible position indicator'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+a:hover\s*\{[\s\S]*transform:\s*translateX\(1px\);/,
+        'expected the blog TOC hover state to be easier to scan'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+nav\[aria-labelledby='starlight__on-this-page'\]\s+ul ul\s*\{[\s\S]*border-left:\s*1px solid/,
+        'expected nested blog TOC levels to have clearer indentation'
+    );
+    assert.match(
+        stylesSource,
+        /main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*>\s*\.toc\s+starlight-toc::\-webkit-scrollbar-thumb\s*\{[\s\S]*border-radius:\s*999px;/,
+        'expected the blog TOC scrollbar to use a lightweight custom thumb'
+    );
+    assert.match(
+        stylesSource,
         /@media\s*\(max-width:\s*50rem\)\s*\{[\s\S]*main\[data-slot='docs'\]:has\(\.blog-post-shell\)\s*\{[\s\S]*grid-template-columns:\s*1fr\s*!important;/,
         'expected blog post layout to collapse cleanly for mobile screens'
     );

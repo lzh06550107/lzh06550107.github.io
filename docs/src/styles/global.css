@@ -162,6 +162,100 @@ main[data-slot='docs']:has(.blog-post-shell) > .main > main {
 
 main[data-slot='docs']:has(.blog-post-shell) > .toc {
 	width: 18rem !important;
+	align-self: start;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc > div {
+	position: sticky;
+	top: calc(var(--header-height) + 1rem);
+	max-height: calc(100vh - var(--header-height) - 1.5rem);
+	overflow: hidden;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc starlight-toc {
+	display: block;
+	height: 100%;
+	max-height: calc(100vh - var(--header-height) - 1.5rem);
+	overflow-y: auto;
+	padding-right: 0.35rem;
+	scrollbar-width: thin;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] {
+	padding-right: 0.15rem;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] p {
+	margin-bottom: 0.9rem;
+	font-size: 0.72rem;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] li + li {
+	margin-top: 0.18rem;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] ul ul {
+	margin-top: 0.28rem;
+	margin-left: 0.6rem;
+	padding-left: 0.6rem;
+	border-left: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] a {
+	display: block;
+	padding: 0.35rem 0.55rem;
+	border-radius: 0.6rem;
+	line-height: 1.35;
+	position: relative;
+	transition:
+		background-color 0.2s ease,
+		color 0.2s ease,
+		transform 0.2s ease;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] a:hover {
+	background: color-mix(in oklab, var(--muted) 86%, transparent);
+	color: var(--foreground);
+	transform: translateX(1px);
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] a[aria-current] {
+	background: color-mix(in oklab, var(--muted) 92%, transparent);
+	color: var(--foreground);
+	font-weight: 600;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc nav[aria-labelledby='starlight__on-this-page'] a[aria-current]::before {
+	content: '';
+	position: absolute;
+	left: 0.12rem;
+	top: 0.42rem;
+	bottom: 0.42rem;
+	width: 0.16rem;
+	border-radius: 999px;
+	background: var(--foreground);
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc starlight-toc::-webkit-scrollbar {
+	width: 0.45rem;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc starlight-toc::-webkit-scrollbar-thumb {
+	background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+	border-radius: 999px;
+}
+
+main[data-slot='docs']:has(.blog-post-shell) > .toc starlight-toc::-webkit-scrollbar-track {
+	background: transparent;
 }
 
 main[data-slot='docs']:has(.blog-post-shell) .sl-markdown-content :not(h1, h2, h3, h4, h5, h6, .sl-heading-wrapper) + :is(.sl-heading-wrapper) {
