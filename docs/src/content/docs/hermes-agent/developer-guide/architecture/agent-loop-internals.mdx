@@ -1,0 +1,240 @@
+---
+title: Agent Loop 内部机制
+description: hermes agent Agent Loop 内部机制
+---
+
+核心编排引擎是 `run_agent.py` 中的 `AIAgent` 类 —— 这是一个大型文件（15k+ 行），负责从 prompt assembly 到 tool dispatch，再到 provider failover 的所有事情。
+
+## 核心职责
+
+`AIAgent` 负责：
+
+* 通过 `prompt_builder.py` 组装有效的 system prompt 和 tool schemas
+* 选择正确的 provider / API mode（`chat_completions`、`codex_responses`、`anthropic_messages`）
+* 发起支持取消的可中断模型调用
+* 执行工具调用（顺序执行，或通过 thread pool 并发执行）
+* 以 OpenAI message format 维护 conversation history
+* 处理 compression、retries 和 fallback model switching
+* 在父 agent 和子 agent 之间跟踪 iteration budgets
+* 在 context 丢失之前刷新 persistent memory
+
+## 两个入口点
+
+```python
+# Simple interface — returns final response string
+response = agent.chat("Fix the bug in main.py")
+
+# Full interface — returns dict with messages, metadata, usage stats
+result = agent.run_conversation(
+    user_message="Fix the bug in main.py",
+    system_message=None,           # auto-built if omitted
+    conversation_history=None,      # auto-loaded from session if omitted
+    task_id="task_abc123"
+)
+```
+
+`chat()` 是 `run_conversation()` 的轻量包装器，会从 result dict 中提取 `final_response` 字段。
+
+## API Modes
+
+Hermes 支持三种 API 执行模式，这些模式会根据 provider selection、显式参数和 base URL heuristics 解析得出：
+
+| API mode             | 用于                                                           | Client type                          |
+| -------------------- | ------------------------------------------------------------ | ------------------------------------ |
+| `chat_completions`   | OpenAI-compatible endpoints（OpenRouter、custom、大多数 providers） | `openai.OpenAI`                      |
+| `codex_responses`    | OpenAI Codex / Responses API                                 | 带 Responses format 的 `openai.OpenAI` |
+| `anthropic_messages` | 原生 Anthropic Messages API                                    | 通过 adapter 使用 `anthropic.Anthropic`  |
+
+该模式决定 messages 如何格式化、tool calls 如何结构化、responses 如何解析，以及 caching / streaming 如何工作。所有三种模式都会在 API 调用前后汇聚为同一种内部 message format（OpenAI 风格的 `role` / `content` / `tool_calls` dicts）。
+
+**Mode 解析顺序：**
+
+1. 显式 `api_mode` constructor arg（最高优先级）
+2. Provider-specific detection（例如 `anthropic` provider → `anthropic_messages`）
+3. Base URL heuristics（例如 `api.anthropic.com` → `anthropic_messages`）
+4. 默认值：`chat_completions`
+
+## Turn Lifecycle
+
+Agent loop 的每次 iteration 都遵循以下顺序：
+
+```text
+run_conversation()
+  1. Generate task_id if not provided
+  2. Append user message to conversation history
+  3. Build or reuse cached system prompt (prompt_builder.py)
+  4. Check if preflight compression is needed (>50% context)
+  5. Build API messages from conversation history
+     - chat_completions: OpenAI format as-is
+     - codex_responses: convert to Responses API input items
+     - anthropic_messages: convert via anthropic_adapter.py
+  6. Inject ephemeral prompt layers (budget warnings, context pressure)
+  7. Apply prompt caching markers if on Anthropic
+  8. Make interruptible API call (_interruptible_api_call)
+  9. Parse response:
+     - If tool_calls: execute them, append results, loop back to step 5
+     - If text response: persist session, flush memory if needed, return
+```
+
+### Message Format
+
+内部所有 messages 都使用 OpenAI-compatible format：
+
+```json
+{"role": "system", "content": "..."}
+{"role": "user", "content": "..."}
+{"role": "assistant", "content": "...", "tool_calls": [...]}
+{"role": "tool", "tool_call_id": "...", "content": "..."}
+```
+
+Reasoning content（来自支持 extended thinking 的模型）会存储在 `assistant_msg["reasoning"]` 中，并可选地通过 `reasoning_callback` 显示。
+
+### Message Alternation Rules
+
+Agent loop 会强制执行严格的 message role 交替规则：
+
+* System message 之后：User → Assistant → User → Assistant → ...
+* 工具调用期间：Assistant（带 `tool_calls`）→ Tool → Tool → ... → Assistant
+* 绝不会连续出现两个 assistant messages
+* 绝不会连续出现两个 user messages
+* 只有 tool role 可以连续出现（并行工具结果）
+
+Providers 会验证这些序列，并拒绝格式错误的 histories。
+
+## 可中断 API 调用
+
+API requests 会被包装在 `_interruptible_api_call()` 中，该函数会在后台线程中运行实际 HTTP 调用，同时监控 interrupt event：
+
+```text
+┌────────────────────────────────────────────────────┐
+│  Main thread                  API thread           │
+│                                                    │
+│   wait on:                     HTTP POST           │
+│    - response ready     ───▶   to provider         │
+│    - interrupt event                               │
+│    - timeout                                       │
+└────────────────────────────────────────────────────┘
+```
+
+当被中断时（用户发送新消息、`/stop` command，或 signal）：
+
+* API thread 会被放弃（response 被丢弃）
+* agent 可以处理新的输入，或干净地关闭
+* 不会将 partial response 注入 conversation history
+
+## 工具执行
+
+### 顺序执行 vs 并发执行
+
+当模型返回 tool calls 时：
+
+* 单个 tool call → 直接在 main thread 中执行
+* 多个 tool calls → 通过 `ThreadPoolExecutor` 并发执行
+    * 例外：标记为 interactive 的工具（例如 `clarify`）会强制顺序执行
+    * 无论完成顺序如何，结果都会按照原始 tool call 顺序重新插入
+
+### 执行流程
+
+```text
+for each tool_call in response.tool_calls:
+    1. Resolve handler from tools/registry.py
+    2. Fire pre_tool_call plugin hook
+    3. Check if dangerous command (tools/approval.py)
+       - If dangerous: invoke approval_callback, wait for user
+    4. Execute handler with args + task_id
+    5. Fire post_tool_call plugin hook
+    6. Append {"role": "tool", "content": result} to history
+```
+
+### Agent-Level Tools
+
+有些工具会在到达 `handle_function_call()` 之前，被 `run_agent.py` 拦截：
+
+| Tool             | 为什么被拦截                                   |
+| ---------------- | ---------------------------------------- |
+| `todo`           | 读取 / 写入 agent-local task state           |
+| `memory`         | 在字符限制内写入 persistent memory files         |
+| `session_search` | 通过 agent 的 session DB 查询 session history |
+| `delegate_task`  | 使用隔离 context 生成子 agent                   |
+
+这些工具会直接修改 agent state，并返回 synthetic tool results，而不经过 registry。
+
+## Callback Surfaces
+
+`AIAgent` 支持平台特定 callbacks，用于在 CLI、gateway 和 ACP integrations 中启用实时进度：
+
+| Callback                 | 触发时机                       | 用于                                             |
+| ------------------------ | -------------------------- | ---------------------------------------------- |
+| `tool_progress_callback` | 每次 tool execution 前 / 后    | CLI spinner、gateway progress messages          |
+| `thinking_callback`      | 模型开始 / 停止 thinking 时       | CLI “thinking...” indicator                    |
+| `reasoning_callback`     | 模型返回 reasoning content 时   | CLI reasoning display、gateway reasoning blocks |
+| `clarify_callback`       | 调用 `clarify` tool 时        | CLI input prompt、gateway interactive message   |
+| `step_callback`          | 每个完整 agent turn 之后         | Gateway step tracking、ACP progress             |
+| `stream_delta_callback`  | 每个 streaming token（启用时）    | CLI streaming display                          |
+| `tool_gen_callback`      | 从 stream 中解析出 tool call 时  | CLI tool preview in spinner                    |
+| `status_callback`        | 状态变化（thinking、executing 等） | ACP status updates                             |
+
+## 预算和 Fallback 行为
+
+### Iteration Budget
+
+agent 通过 `IterationBudget` 跟踪 iterations：
+
+* 默认：90 次 iterations（可通过 `agent.max_turns` 配置）
+* 每个 agent 都有自己的 budget。子 agent 拥有独立 budget，并受 `delegation.max_iterations` 限制（默认 50）—— parent + subagents 的总 iterations 可以超过 parent 的上限
+* 达到 100% 时，agent 会停止并返回已完成工作的摘要
+
+### Fallback Model
+
+当 primary model 失败时（429 rate limit、5xx server error、401/403 auth error）：
+
+1. 检查 config 中的 `fallback_providers` 列表
+2. 按顺序尝试每个 fallback
+3. 成功后，使用新的 provider 继续 conversation
+4. 遇到 401/403 时，会先尝试刷新 credential，然后再 fail over
+
+Fallback 系统也会独立覆盖 auxiliary tasks —— vision、compression、web extraction 和 session search 各自都有自己的 fallback chain，可通过 `auxiliary.*` config section 配置。
+
+## Compression 和 Persistence
+
+### 什么时候触发 Compression
+
+* Preflight（API 调用前）：如果 conversation 超过模型 context window 的 50%
+* Gateway auto-compression：如果 conversation 超过 85%（更激进，在 turns 之间运行）
+
+### Compression 期间发生什么
+
+1. Memory 会先 flush 到磁盘（防止数据丢失）
+2. 中间的 conversation turns 会被总结成紧凑摘要
+3. 最后 N 条 messages 会完整保留（`compression.protect_last_n`，默认：20）
+4. Tool call / result message pairs 会保持在一起（永远不会拆开）
+5. 会生成新的 session lineage ID（compression 会创建一个 “child” session）
+
+### Session Persistence
+
+每个 turn 之后：
+
+* Messages 会保存到 session store（通过 `hermes_state.py` 使用 SQLite）
+* Memory changes 会 flush 到 `MEMORY.md` / `USER.md`
+* 该 session 之后可以通过 `/resume` 或 `hermes chat --resume` 恢复
+
+## 关键源文件
+
+| 文件                            | 用途                                                         |
+| ----------------------------- | ---------------------------------------------------------- |
+| `run_agent.py`                | `AIAgent` 类 —— 完整 agent loop                               |
+| `agent/prompt_builder.py`     | 从 memory、skills、context files、personality 组装 system prompt |
+| `agent/context_engine.py`     | `ContextEngine` ABC —— 可插拔 context management              |
+| `agent/context_compressor.py` | 默认 engine —— 有损 summarization 算法                           |
+| `agent/prompt_caching.py`     | Anthropic prompt caching markers 和 cache metrics           |
+| `agent/auxiliary_client.py`   | 用于 side tasks（vision、summarization）的 auxiliary LLM client  |
+| `model_tools.py`              | Tool schema collection、`handle_function_call()` dispatch   |
+
+## 相关文档
+
+* Provider Runtime Resolution
+* Prompt Assembly
+* Context Compression & Prompt Caching
+* Tools Runtime
+* Architecture Overview
+

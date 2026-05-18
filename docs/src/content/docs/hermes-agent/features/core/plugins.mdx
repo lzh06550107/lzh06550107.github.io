@@ -1,0 +1,337 @@
+---
+title: 插件
+description: hermes agent 插件
+---
+
+Hermes 拥有一套插件系统，用于在不修改核心代码的情况下添加自定义工具、钩子（hooks）和集成功能。
+
+如果您想为您自己、您的团队或某个项目创建一个自定义工具，这通常是正确的途径。开发者指南中的 [添加工具](https://hermes-agent.nousresearch.com/docs/developer-guide/adding-tools) 页面主要针对的是位于 `tools/` 和 `toolsets.py` 中的 Hermes 内置核心工具。
+
+→ [构建 Hermes 插件](https://hermes-agent.nousresearch.com/docs/guides/build-a-hermes-plugin) —— 包含完整工作示例的分步指南。
+
+## 快速概览
+
+只需将包含 `plugin.yaml` 和 Python 代码的目录放入 `~/.hermes/plugins/` 即可：
+
+```bash
+~/.hermes/plugins/my-plugin/
+├── plugin.yaml      # manifest
+├── __init__.py      # register() — wires schemas to handlers
+├── schemas.py       # tool schemas (what the LLM sees)
+└── tools.py         # tool handlers (what runs when called)
+```
+
+启动 Hermes 后，您的工具将与内置工具并列显示，模型可以立即调用它们。
+
+### 最小化工作示例
+
+这是一个完整的插件示例，它添加了一个 `hello_world` 工具，并通过钩子（Hook）记录每次工具调用。
+
+**~/.hermes/plugins/hello-world/plugin.yaml**
+
+```yaml
+name: hello-world
+version: "1.0"
+description: 一个最小化的示例插件
+```
+
+**~/.hermes/plugins/hello-world/__init__.py**
+
+```python
+"""最小化 Hermes 插件 —— 注册一个工具和一个钩子。"""
+
+import json
+
+def register(ctx):
+    # --- 工具：hello_world ---
+    schema = {
+        "name": "hello_world",
+        "description": "为指定姓名返回友好的问候语。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "要问候的姓名",
+                }
+            },
+            "required": ["name"],
+        },
+    }
+
+    def handle_hello(params, **kwargs):
+        del kwargs
+        name = params.get("name", "World")
+        return json.dumps({"success": True, "greeting": f"Hello, {name}!"})
+
+    ctx.register_tool(
+        name="hello_world",
+        toolset="hello_world",
+        schema=schema,
+        handler=handle_hello,
+        description="为指定姓名返回友好的问候语。",
+    )
+
+    # --- 钩子：记录每次工具调用 ---
+    def on_tool_call(tool_name, params, result):
+        print(f"[hello-world] 工具已调用: {tool_name}")
+
+    ctx.register_hook("post_tool_call", on_tool_call)
+```
+
+将这两个文件放入 `~/.hermes/plugins/hello-world/`，重启 Hermes，模型便可立即调用 `hello_world`。钩子会在每次工具调用后打印一行日志。
+
+位于 `./.hermes/plugins/` 下的 **项目本地插件** 默认是禁用的。仅在您信任的仓库中，通过在启动 Hermes 前设置 `HERMES_ENABLE_PROJECT_PLUGINS=true` 来启用它们。
+
+### 插件功能概览
+
+以下所有 `ctx.*` API 均可在插件的 `register(ctx)` 函数中使用。
+
+| 功能 | 实现方式 |
+| --- | --- |
+| **添加工具** | `ctx.register_tool(name=..., toolset=..., schema=..., handler=...)` |
+| **添加钩子 (Hooks)** | `ctx.register_hook("post_tool_call", callback)` |
+| **添加斜杠命令** | `ctx.register_command(name, handler, description)` —— 在 CLI 和网关会话中添加 `/name` 命令 |
+| **从命令中调度工具** | `ctx.dispatch_tool(name, args)` —— 调用已注册的工具，并自动关联父级代理上下文 |
+| **添加 CLI 命令** | `ctx.register_cli_command(name, help, setup_fn, handler_fn)` —— 添加 `hermes <plugin> <subcommand>` 终端命令 |
+| **注入消息** | `ctx.inject_message(content, role="user")` —— 参见“注入消息”章节 |
+| **携带数据文件** | `Path(__file__).parent / "data" / "file.yaml"` |
+| **捆绑技能 (Skills)** | `ctx.register_skill(name, path)` —— 命名空间为 `plugin:skill`，通过 `skill_view("plugin:skill")` 加载 |
+| **基于环境变量的准入** | 在 `plugin.yaml` 中设置 `requires_env: [API_KEY]` —— 在执行 `hermes plugins install` 时会提示输入 |
+| **通过 pip 分发** | 使用 `[project.entry-points."hermes_agent.plugins"]` |
+| **注册网关平台** | `ctx.register_platform(name, label, adapter_factory, check_fn, ...)` —— 参见“添加平台适配器” (Discord, Telegram, IRC 等) |
+| **注册图像生成后端** | `ctx.register_image_gen_provider(provider)` —— 参见“图像生成提供商插件” |
+| **注册上下文压缩引擎** | `ctx.register_context_engine(engine)` —— 参见“上下文引擎插件” |
+| **注册记忆后端** | 在 `plugins/memory/<name>/__init__.py` 中继承 `MemoryProvider` —— 参见“记忆提供商插件”（使用独立的发现系统） |
+| **运行宿主拥有的 LLM 调用** | `ctx.llm.complete(...)` / `ctx.llm.complete_structured(...)` —— 借用用户当前的活跃模型和身份认证进行单次补全，可选支持 JSON Schema 校验。参见“插件 LLM 访问” |
+| **注册推理后端 (LLM 提供商)** | 在 `plugins/model-providers/<name>/__init__.py` 中调用 `register_provider(ProviderProfile(...))` —— 参见“模型提供商插件”（使用独立的发现系统） |
+
+## 插件发现机制
+
+| 来源 | 路径 | 使用场景 |
+| --- | --- | --- |
+| **内置 (Bundled)** | `<repo>/plugins/` | 随 Hermes 核心分发的插件 —— 参见“内置插件” |
+| **用户 (User)** | `~/.hermes/plugins/` | 个人使用的自定义插件 |
+| **项目 (Project)** | `./.hermes/plugins/` | 特定于项目的插件（需设置 `HERMES_ENABLE_PROJECT_PLUGINS=true`） |
+| **pip** | `hermes_agent.plugins` 入口点 | 分发的 Python 软件包 |
+| **Nix** | `services.hermes-agent.extraPlugins` | NixOS 声明式安装 —— 参见“Nix 设置” |
+
+当名称发生冲突时，**后加载的来源会覆盖先前的来源**。因此，与内置插件同名的用户插件将取代内置插件。
+
+### 插件子类别
+
+在每个插件来源路径下，Hermes 还能识别子目录，并将插件路由到专门的发现系统：
+
+| 子目录 | 内容 | 发现系统 |
+| --- | --- | --- |
+| **plugins/** (根目录) | 通用插件 —— 工具、钩子、斜杠命令、CLI 命令、捆绑技能 | `PluginManager` (类型: `standalone` 或 `backend`) |
+| **plugins/platforms//** | 网关频道适配器 (`ctx.register_platform()`) | `PluginManager` (类型: `platform`，深度多一级) |
+| **plugins/image_gen//** | 图像生成后端 (`ctx.register_image_gen_provider()`) | `PluginManager` (类型: `backend`，深度多一级) |
+| **plugins/memory//** | 记忆提供商 (继承 `MemoryProvider`) | 位于 `plugins/memory/__init__.py` 的独立加载器 (类型: `exclusive` —— 同一时间仅一个活跃) |
+| **plugins/context_engine//** | 上下文压缩引擎 (`ctx.register_context_engine()`) | 位于 `plugins/context_engine/__init__.py` 的独立加载器 (同一时间仅一个活跃) |
+| **plugins/model-providers//** | LLM 提供商配置 (`register_provider(ProviderProfile(...))`) | 位于 `providers/__init__.py` 的独立加载器 (在首次调用 `get_provider_profile()` 时延迟扫描) |
+
+位于 `~/.hermes/plugins/model-providers/<name>/` 和 `~/.hermes/plugins/memory/<name>/` 的用户插件会覆盖同名的内置插件 —— 在 `register_provider()` / `register_memory_provider()` 中遵循 **最后一次写入生效** 原则。只需放入一个目录，即可在无需修改仓库代码的情况下替换内置功能。
+
+### 插件为选择性开启（少数情况除外）
+
+通用插件和用户安装的后端默认是**禁用**的 —— 发现机制可以找到它们（因此它们会出现在 `hermes plugins` 和 `/plugins` 中），但在你将插件名称添加到 `~/.hermes/config.yaml` 的 `plugins.enabled` 列表之前，其关联的钩子（Hooks）或工具都不会加载。这可以防止第三方代码在未经你明确同意的情况下运行。
+
+```yaml
+plugins:
+  enabled:
+    - my-tool-plugin
+    - disk-cleanup
+  disabled:       # 可选的黑名单 —— 若名称同时出现在两个列表中，始终以黑名单为准
+    - noisy-plugin
+```
+
+**切换状态的三种方式：**
+
+```bash
+hermes plugins —— 交互式开关（按空格键勾选/取消勾选）
+hermes plugins enable <name> —— 添加到白名单
+hermes plugins disable <name> —— 从白名单中移除并添加到禁用列表
+```
+
+在执行 `hermes plugins install owner/repo` 后，系统会询问 `Enable 'name' now? [y/N]` —— 默认为否。若需在脚本安装中跳过提示，请使用 `--enable` 或 `--no-enable`。
+
+### 白名单不限制的情况
+
+以下几类插件会跳过 `plugins.enabled` 的限制 —— 它们是 Hermes 内置界面的一部分，如果默认关闭会破坏基础功能：
+
+| 插件类型 | 激活方式 |
+| --- | --- |
+| **内置平台插件** (位于 `plugins/platforms/` 的 IRC, Teams 等) | 自动加载，以便所有随附的网关频道均可用。具体频道通过 `config.yaml` 中的 `gateway.platforms.<name>.enabled` 开启。 |
+| **内置后端** (位于 `plugins/image_gen/` 的图像生成提供商等) | 自动加载，确保默认后端“即插即用”。通过 `config.yaml` 中的 `<类别>.provider` 进行选择（如 `image_gen.provider: openai`）。 |
+| **记忆提供商** (`plugins/memory/`) | 所有发现的提供商均加载；通过 `config.yaml` 中的 `memory.provider` 指定其中一个处于活跃状态。 |
+| **上下文引擎** (`plugins/context_engine/`) | 所有发现的引擎均加载；通过 `config.yaml` 中的 `context.engine` 指定其中一个处于活跃状态。 |
+| **模型提供商** (`plugins/model-providers/`) | 位于 `plugins/model-providers/` 下的所有内置提供商在首次调用 `get_provider_profile()` 时都会被发现并注册。用户通过 `--provider` 或 `config.yaml` 选择。 |
+| **通过 Pip 安装的后端插件** | 需通过 `plugins.enabled` 选择性开启（与通用插件一致）。 |
+| **用户安装的平台** (位于 `~/.hermes/plugins/platforms/`) | 需通过 `plugins.enabled` 选择性开启 —— 第三方网关适配器需要明确授权。 |
+
+**简而言之：** 内置的 “常备” 基础设施会自动加载；第三方通用插件需手动开启。`plugins.enabled` 白名单专门用于限制用户放入 `~/.hermes/plugins/` 的任意第三方代码。
+
+### 现有用户的迁移
+
+当你升级到支持插件选择性开启的 Hermes 版本（配置架构 v21+）时，任何已安装在 `~/.hermes/plugins/` 下且不在 `plugins.disabled` 中的用户插件，都将 **自动保留** 在 `plugins.enabled` 中。你现有的配置将保持正常运行。**内置的独立插件（Bundled standalone plugins）不会被自动保留** —— 即使是老用户也必须显式开启它们。（内置的平台/后端插件由于从未受限，因此无需此迁移处理。）
+
+## 可用钩子（Hooks）
+
+插件可以针对这些生命周期事件注册回调函数。有关完整详情、回调函数签名及示例，请参阅“事件钩子（Event Hooks）”页面。
+
+| 钩子名称 | 触发时机 |
+| --- | --- |
+| **pre_tool_call** | 任何工具执行之前 |
+| **post_tool_call** | 任何工具返回结果之后 |
+| **pre_llm_call** | 每轮对话一次，在 LLM 循环之前 —— 可以返回 `{"context": "..."}` 以**向用户消息注入上下文** |
+| **post_llm_call** | 每轮对话一次，在 LLM 循环之后（仅限成功的轮次） |
+| **on_session_start** | 创建新会话时（仅限第一轮） |
+| **on_session_end** | 每次 `run_conversation` 调用结束时 + CLI 退出处理程序执行时 |
+| **on_session_finalize** | CLI 或网关拆除活跃会话时（如执行 `/new`、垃圾回收 GC、退出 CLI） |
+| **on_session_reset** | 网关更换新会话密钥时（如执行 `/new`、`/reset`、`/clear` 或空闲轮换） |
+| **subagent_stop** | `delegate_task` 完成后，每个子代理触发一次 |
+| **pre_gateway_dispatch** | 网关收到用户消息，在鉴权和调度之前。返回 `{"action": "skip" \| "rewrite" \| "allow", ...}` 以影响流程 |
+
+## 插件类型
+
+Hermes 拥有四种插件：
+
+| 类型 | 功能 | 选择方式 | 存放路径 |
+| --- | --- | --- | --- |
+| **通用插件** | 添加工具、钩子、斜杠命令、CLI 命令 | 多选（启用/禁用） | `~/.hermes/plugins/` |
+| **记忆提供商** | 替换或增强内置记忆功能 | 单选（仅一个活跃） | `plugins/memory/` |
+| **上下文引擎** | 替换内置的上下文压缩器 | 单选（仅一个活跃） | `plugins/context_engine/` |
+| **模型提供商** | 声明推理后端（OpenRouter, Anthropic 等） | 多项注册，通过 `--provider` 或 `config.yaml` 选取 | `plugins/model-providers/` |
+
+记忆提供商和上下文引擎属于 **提供商插件（Provider Plugins）** —— 每种类型同一时间只能有一个处于活跃状态。模型提供商同样是插件，但可以同时加载多个；用户通过 `--provider` 参数或 `config.yaml` 配置文件每次指定其中一个使用。通用插件则可以进行任何组合的启用。
+
+## 可插拔接口 —— 各项功能的实现路径
+
+上表展示了四种插件类别，但在“通用插件”内部，`PluginContext` 暴露了多个不同的扩展点 —— 此外，Hermes 还接受 Python 插件系统之外的扩展（配置驱动的后端、Shell 钩子命令、外部服务器等）。请参考下表，为您想要构建的功能找到对应的文档：
+
+| 想要添加... | 实现方式 | 开发指南 |
+| --- | --- | --- |
+| **LLM 可调用的工具** | Python 插件 — `ctx.register_tool()` | [构建 Hermes 插件] · [添加工具] |
+| **生命周期钩子** (LLM 前/后、会话开始/结束、工具过滤器) | Python 插件 — `ctx.register_hook()` | [钩子参考] · [构建 Hermes 插件] |
+| **CLI / 网关的斜杠命令** | Python 插件 — `ctx.register_command()` | [构建 Hermes 插件] · [扩展 CLI] |
+| **`hermes <thing>` 的子命令** | Python 插件 — `ctx.register_cli_command()` | [扩展 CLI] |
+| **随插件分发的捆绑技能 (Skill)** | Python 插件 — `ctx.register_skill()` | [创建技能] |
+| **推理后端** (LLM 提供商：OpenAI 兼容、Codex、Anthropic-Messages、Bedrock) | 提供商插件 — 在 `plugins/model-providers/<name>/` 中调用 `register_provider(ProviderProfile(...))` | [模型提供商插件] · [添加提供商] |
+| **网关频道** (Discord / Telegram / IRC / Teams / 等) | 平台插件 — 在 `plugins/platforms/<name>/` 中调用 `ctx.register_platform()` | [添加平台适配器] |
+| **记忆后端** (Honcho, Mem0, Supermemory, …) | 记忆插件 — 在 `plugins/memory/<name>/` 中继承 `MemoryProvider` | [记忆提供商插件] |
+| **上下文压缩策略** | 上下文引擎插件 — `ctx.register_context_engine()` | [上下文引擎插件] |
+| **图像生成后端** (DALL·E, SDXL, …) | 后端插件 — `ctx.register_image_gen_provider()` | [图像生成提供商插件] |
+| **TTS (语音合成) 后端** (任何 CLI — Piper, VoxCPM, Kokoro, xtts, 声音克隆脚本等) | 配置驱动 — 在 `config.yaml` 的 `tts.providers.<name>` 下声明 `type: command` | [TTS 设置] |
+| **STT (语音转文本) 后端** (自定义 whisper 二进制文件、本地 ASR CLI) | 配置驱动 — 将 `HERMES_LOCAL_STT_COMMAND` 环境变量设置为 Shell 模板 | [语音消息转录 (STT)] |
+| **通过 MCP 实现的外部工具** (文件系统、GitHub、Linear、Notion 等任何 MCP 服务器) | 配置驱动 — 在 `config.yaml` 中声明 `mcp_servers.<name>` 及其 `command:` / `url:`。Hermes 会自动发现服务器工具并将其与内置工具一同注册。 | [MCP] |
+| **额外的技能源** (自定义 GitHub 仓库、私有技能索引) | CLI — `hermes skills tap add <repo>` | [技能中心] · [发布自定义 Tap] |
+| **网关事件钩子** (在 `gateway:startup`, `session:start`, `agent:end`, `command:*` 时触发) | 将 `HOOK.yaml` + `handler.py` 放入 `~/.hermes/hooks/<name>/` | [事件钩子] |
+| **Shell 钩子** (在事件发生时运行 Shell 命令 —— 通知、审计日志、桌面提示) | 配置驱动 — 在 `config.yaml` 的 `hooks:` 下声明 | [Shell 钩子] |
+
+:::note[信息]
+并非所有功能都是 Python 插件。为了让您现有的任何 CLI 工具在无需编写 Python 的情况下就能变成插件，部分扩展界面特意采用了**配置驱动的 Shell 命令**（如 TTS、STT、Shell 钩子）。其他则是代理连接并自动注册工具的**外部服务器**（如 MCP）。还有一些是拥有自己清单格式的**即插即用目录**（如网关钩子）。请根据适合您使用场景的集成方式选择正确的接口；上表中的每份开发指南都涵盖了占位符、发现机制和示例。
+:::
+
+## NixOS 声明式插件
+
+在 NixOS 上，插件可以通过模块选项进行声明式安装 —— 无需执行 `hermes plugins install`。详情请参阅“Nix 设置指南”。
+
+```nix
+services.hermes-agent = {
+  # 目录插件（带有 plugin.yaml 的源码树）
+  extraPlugins = [ (pkgs.fetchFromGitHub { ... }) ];
+  # 入口点插件（pip 软件包）
+  extraPythonPackages = [ (pkgs.python312Packages.buildPythonPackage { ... }) ];
+  # 在配置中启用
+  settings.plugins.enabled = [ "my-plugin" ];
+};
+```
+
+声明式插件会带有 `nix-managed-` 前缀并以符号链接形式存在 —— 它们与手动安装的插件并存，并在从 Nix 配置中移除时自动清理。
+
+## 插件管理
+
+```bash
+hermes plugins                               # 统一的交互式 UI
+hermes plugins list                          # 以表格形式列出：已启用 / 已禁用 / 未启用
+hermes plugins install user/repo             # 从 Git 安装，随后提示：是否启用？[y/N]
+hermes plugins install user/repo --enable    # 安装并启用（无提示）
+hermes plugins install user/repo --no-enable # 安装但保持禁用（无提示）
+hermes plugins update my-plugin              # 拉取最新版本
+hermes plugins remove my-plugin              # 卸载
+hermes plugins enable my-plugin              # 添加到白名单
+hermes plugins disable my-plugin             # 从白名单移除并添加到禁用列表
+```
+
+### 交互式 UI
+
+不带参数运行 `hermes plugins` 会打开一个综合交互界面：
+
+```text
+Plugins
+  ↑↓ 导航  空格 切换  回车 配置/确认  ESC 完成
+
+  常规插件 (General Plugins)
+ → [✓] my-tool-plugin — 自定义搜索工具
+   [ ] webhook-notifier — 事件钩子
+   [ ] disk-cleanup — 临时文件自动清理 [内置]
+
+  提供商插件 (Provider Plugins)
+     记忆提供商 (Memory Provider)   ▸ honcho
+     上下文引擎 (Context Engine)    ▸ compressor
+```
+
+* **常规插件部分** —— 复选框形式，使用空格键切换。选中 = 位于 `plugins.enabled` 中；未选中 = 位于 `plugins.disabled` 中（显式关闭）。
+* **提供商插件部分** —— 显示当前选择。按回车键进入单选界面，从中选择一个活跃的提供商。
+* 内置插件会出现在同一列表中，并带有 `[bundled]` 标记。
+
+提供商插件的选择将保存到 `config.yaml`：
+
+```yaml
+memory:
+  provider: "honcho"      # 为空字符串则仅使用内置功能
+
+context:
+  engine: "compressor"    # 默认为内置压缩器
+```
+
+### 已启用 vs. 已禁用 vs. 未启用
+
+插件处于以下三种状态之一：
+
+| 状态 | 含义 | 是否在 `enabled` 中？ | 是否在 `disabled` 中？ |
+| --- | --- | --- | --- |
+| **已启用 (enabled)** | 下次会话将加载 | 是 | 否 |
+| **已禁用 (disabled)** | 显式关闭 —— 即使同时在 `enabled` 中也不会加载 | (无关紧要) | 是 |
+| **未启用 (not enabled)** | 已发现但从未选择开启 | 否 | 否 |
+
+新安装或内置插件的默认状态为**未启用**。`hermes plugins list` 会显示这三种不同的状态，以便你区分哪些是被显式关闭的，哪些只是在等待开启。
+
+在运行中的会话内，输入 `/plugins` 可查看当前已加载的插件。
+
+## 注入消息
+
+插件可以使用 `ctx.inject_message()` 向当前对话注入消息：
+
+```python
+ctx.inject_message("来自 Webhook 的新数据已到达", role="user")
+```
+
+**函数签名：** `ctx.inject_message(content: str, role: str = "user") -> bool`
+
+**工作原理：**
+
+* **如果代理处于闲置状态 (Idle)**（正在等待用户输入）：消息将作为下一条输入进入队列，并开启新一轮对话。
+* **如果代理处于运行中 (Mid-turn)**（正在执行操作）：消息将中断当前操作 —— 其效果等同于用户输入新消息并按下回车键。
+* **对于非 "user" 角色**：内容会加上 `[role]` 前缀（例如 `[system] ...`）。
+* **返回值**：如果消息成功进入队列则返回 `True`；如果没有可用的 CLI 引用（例如在网关模式下）则返回 `False`。
+
+该功能允许远程控制查看器、消息桥接器或 Webhook 接收器等插件从外部来源向对话中提供信息。
+
+:::note[信息]
+`inject_message` **仅在 CLI 模式下可用**。在网关模式（Gateway mode）下，由于没有 CLI 引用，该方法将返回 `False`。
+:::
+
+请参阅 [完整指南](https://hermes-agent.nousresearch.com/docs/guides/build-a-hermes-plugin) 以了解处理程序契约（Handler contracts）、Schema 格式、钩子行为、错误处理以及常见错误。
+

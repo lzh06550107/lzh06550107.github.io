@@ -1,0 +1,188 @@
+---
+title: Slack 设置
+description: hermes agent Slack 设置
+---
+
+使用套接字模式 (Socket Mode) 将 Hermes Agent 作为机器人连接到 Slack。套接字模式使用 WebSocket 代替公开的 HTTP 端点，因此您的 Hermes 实例不需要公开可访问 —— 它可以在防火墙后面、您的笔记本电脑上或私有服务器上正常工作。
+
+:::caution[经典 Slack 应用已弃用]
+经典 Slack 应用（使用 RTM API）已在 **2025 年 3 月被完全弃用**。Hermes 使用带有套接字模式 (Socket Mode) 的现代 Bolt SDK。如果您拥有旧的经典应用，则必须按照以下步骤创建一个新应用。
+:::
+
+## 概述 (Overview)
+
+| 组件 | 值 |
+| --- | --- |
+| **库 (Library)** | 适用于 Python 的 `slack-bolt` / `slack_sdk`（套接字模式 / Socket Mode） |
+| **连接方式 (Connection)** | WebSocket —— 不需要公开的 URL |
+| **所需的认证令牌 (Auth tokens needed)** | 机器人令牌 (Bot Token, `xoxb-`) + 应用级令牌 (App-Level Token, `xapp-`) |
+| **用户识别 (User identification)** | Slack 成员 ID（例如：`U01ABC2DEF3`） |
+
+## 第 1 步：创建 Slack 应用 (Create a Slack App)
+
+最快的方法是直接粘贴由 Hermes 为您生成的清单 (Manifest)。它会一次性声明每个内置的斜杠命令（`/btw`、`/stop`、`/model`……）、每个必需的 OAuth 作用域、每个事件订阅，并启用套接字模式 (Socket Mode)。
+
+### 选项 A：从 Hermes 生成的清单创建（推荐）
+
+1. 生成清单：
+`hermes slack manifest --write`
+此操作会将清单写入 `~/.hermes/slack-manifest.json` 并打印出粘贴说明。
+2. 前往 `https://api.slack.com/apps` → 点击 **Create New App** → 选择 **From an app manifest**。
+3. 选择您的工作区，粘贴 JSON 内容，检查无误后点击 **Next** → **Create**。
+4. 直接跳到 **第 6 步：将应用安装到工作区**。清单已经自动为您处理好了作用域、事件和斜杠命令。
+
+### 选项 B：从头开始创建（手动）
+
+1. 前往 `https://api.slack.com/apps`。
+2. 点击 **Create New App**。
+3. 选择 **From scratch**。
+4. 输入应用名称（例如 "Hermes Agent"）并选择您的工作区。
+5. 点击 **Create App**。
+
+您将进入该应用的 **Basic Information** 页面。请继续按照下方的第 2-6 步进行操作。
+
+## 第 2 步：配置机器人令牌作用域
+
+在侧边栏中导航至 **Features → OAuth & Permissions**。向下滚动到 **Scopes → Bot Token Scopes** 并添加以下作用域：
+
+| 作用域 (Scope) | 用途 (Purpose) |
+| --- | --- |
+| **chat:write** | 以机器人身份发送消息 |
+| **app_mentions:read** | 检测何时在频道中被 `@提及` |
+| **channels:history** | 读取机器人所在公开频道中的消息 |
+| **channels:read** | 列出并获取公开频道的信息 |
+| **groups:history** | 读取机器人被邀请加入的私有频道中的消息 |
+| **im:history** | 读取私信（纯私聊）的历史记录 |
+| **im:read** | 查看基础的私信信息 |
+| **im:write** | 开启并管理私信 |
+| **users:read** | 查找用户信息 |
+| **files:read** | 读取并下载附加的文件，包括语音留言/音频 |
+| **files:write** | 上传文件（图片、音频、文档） |
+
+:::caution[缺失作用域 = 缺失功能]
+如果缺少 `channels:history` 和 `groups:history`，机器人**将无法接收频道中的消息** —— 它将只能在私信（DM）中工作。如果缺少 `files:read`，Hermes 虽然可以聊天，但**无法可靠地读取用户上传的附件**。这些是最常被遗漏的作用域。
+:::
+
+可选作用域：
+
+| 作用域 (Scope) | 用途 (Purpose) |
+| --- | --- |
+| **groups:read** | 列出并获取私有频道的信息 |
+
+## 第 3 步：启用套接字模式 (Enable Socket Mode)
+
+套接字模式允许机器人通过 WebSocket 进行连接，而不需要公开的 URL。
+
+1. 在侧边栏中，前往 **Settings → Socket Mode**。
+2. 将 **Enable Socket Mode** 切换为 **ON**（开启）。
+3. 系统会提示您创建一个**应用级令牌 (App-Level Token)**：
+    * 将其命名为类似于 `hermes-socket` 的名称（名称叫什么并不重要）。
+    * 添加 `connections:write` 作用域。
+    * 点击 **Generate**。
+4. **复制该令牌** —— 它以 `xapp-` 开头。这就是您的 **SLACK_APP_TOKEN**。
+
+:::tip[提示]
+您随时可以在 **Settings → Basic Information → App-Level Tokens** 下找到或重新生成应用级令牌。
+:::
+
+## 第 4 步：订阅事件 (Subscribe to Events)
+
+这一步至关重要 —— 它控制着机器人可以接收并看到哪些消息。
+
+1. 在侧边栏中，前往 **Features → Event Subscriptions**。
+2. 将 **Enable Events** 切换为 **ON**（开启）。
+3. 展开 **Subscribe to bot events**（订阅机器人事件）并添加以下事件：
+
+| 事件 (Event) | 是否必要？ | 用途 (Purpose) |
+| --- | --- | --- |
+| **message.im** | 是 | 机器人接收私信（纯私聊）消息 |
+| **message.channels** | 是 | 机器人接收其已被加入的**公开**频道中的消息 |
+| **message.groups** | 推荐 | 机器人接收其被邀请加入的**私有**频道中的消息 |
+| **app_mention** | 是 | 防止机器人在被 `@提及` 时触发 Bolt SDK 错误 |
+
+4. 点击页面底部的 **Save Changes**（保存更改）。
+
+:::warning[缺失事件订阅是排在第 1 位的设置故障]
+如果机器人可以在私信中正常工作，但 **在频道中不起作用**，您几乎可以肯定忘记了添加 `message.channels`（针对公开频道）和/或 `message.groups`（针对私有频道）。如果没有这些事件，Slack 根本就不会把频道消息投递给机器人。
+:::
+
+## 第 5 步：启用消息标签页 (Enable the Messages Tab)
+
+这一步用来启用向机器人发送私信（DM）的功能。如果不启用此项，用户在尝试向机器人发送私信时会看到 **“Sending messages to this app has been turned off”**（向此应用发送消息功能已被关闭）的提示。
+
+1. 在侧边栏中，前往 **Features → App Home**。
+2. 向下滚动到 **Show Tabs**（显示标签页）区域。
+3. 将 **Messages Tab** 切换为 **ON**（开启）。
+4. 勾选 **“Allow users to send Slash commands and messages from the messages tab”**（允许用户从消息标签页发送斜杠命令和消息）。
+
+:::warning[不完成此步骤，私信功能将被完全阻断]
+即使您配置了所有正确的权限作用域（Scopes）和事件订阅（Event Subscriptions），只要不启用消息标签页，Slack 也不会允许用户向机器人发送私信。这是 Slack 平台的硬性要求，并非 Hermes 的配置问题。
+:::
+
+## 第 6 步：将应用安装到工作区 (Install App to Workspace)
+
+1. 在侧边栏中，前往 **Settings → Install App**。
+2. 点击 **Install to Workspace**。
+3. 检查权限列表，然后点击 **Allow**（允许）。
+4. 授权完成后，您将看到一个以 `xoxb-` 开头的 **Bot User OAuth Token**（机器人用户 OAuth 令牌）。
+5. **复制该令牌** —— 这就是您的 **SLACK_BOT_TOKEN**。
+
+:::tip[提示]
+如果您以后修改了权限作用域（Scopes）或事件订阅（Event Subscriptions），您**必须重新安装应用**才能使更改生效。“Install App”页面届时会显示一个横幅提示您进行此操作。
+:::
+
+## 第 7 步：获取允许列表所需的用户 ID (User IDs for the Allowlist)
+
+Hermes 使用 Slack **成员 ID (Member IDs)**（而非用户名或显示名称）来配置允许列表。
+
+获取成员 ID 的方法如下：
+
+1. 在 Slack 中，点击该用户的名称或头像。
+2. 点击 **View full profile**（查看完整个人资料）。
+3. 点击 **⋮**（更多）按钮。
+4. 选择 **Copy member ID**（复制成员 ID）。
+
+成员 ID 的外观类似于 `U01ABC2DEF3`。您最少需要获取您自己的成员 ID。
+
+## 第 8 步：配置 Hermes (Configure Hermes)
+
+将以下内容添加到您的 `~/.hermes/.env` 文件中：
+
+```env
+# 必要配置
+SLACK_BOT_TOKEN=xoxb-your-bot-token-here
+SLACK_APP_TOKEN=xapp-your-app-token-here
+SLACK_ALLOWED_USERS=U01ABC2DEF3              # 以英文逗号分隔的成员 ID 列表
+
+# 可选配置
+SLACK_HOME_CHANNEL=C01234567890              # 用于定时任务/计划消息的默认频道
+SLACK_HOME_CHANNEL_NAME=general              # 主频道的人类可读名称（可选）
+```
+
+或者运行交互式设置：
+
+```bash
+hermes gateway setup    # 出现提示时选择 Slack
+```
+
+然后启动网关：
+
+```bash
+hermes gateway              # 在前台运行
+hermes gateway install      # 安装为用户级服务
+sudo hermes gateway install --system   # 仅限 Linux：安装为开机自启的系统级服务
+```
+
+## 第 9 步：邀请机器人加入频道 (Invite the Bot to Channels)
+
+启动网关后，您需要将机器人 **邀请** 到您希望它做出回应的任何频道中：
+
+```
+/invite @Hermes Agent
+```
+
+机器人 **不会** 自动加入频道。您必须手动将它单独邀请到每个频道中。
+
+
+## 斜杠命令
+

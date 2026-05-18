@@ -1,0 +1,287 @@
+---
+title: 子代理委派 (Subagent Delegation)
+description: hermes agent 子代理委派 (Subagent Delegation)
+---
+
+`delegate_task` 工具可以生成子级 `AIAgent` 实例。这些子代理拥有隔离的上下文、受限的工具集以及独立的终端会话。每个子代理都会获得一个全新的对话环境并独立开展工作 —— 只有其最终的总结报告会被纳入父级代理的上下文中。
+
+## 单个任务
+
+```python
+delegate_task(
+    goal="调试测试失败的原因",
+    context="错误：test_foo.py 第 42 行断言失败",
+    toolsets=["terminal", "file"]
+)
+```
+
+## 并行批处理
+
+默认支持最多 3 个并发子代理（可配置，无硬性上限）：
+
+```python
+delegate_task(tasks=[
+    {"goal": "研究主题 A", "toolsets": ["web"]},
+    {"goal": "研究主题 B", "toolsets": ["web"]},
+    {"goal": "修复构建任务", "toolsets": ["terminal", "file"]}
+])
+```
+
+## 子代理上下文工作原理
+
+:::caution[关键要点：子代理是零认知的]
+子代理在一个 **完全全新** 的对话中启动。它们对父代理的对话历史、先前的工具调用或委派之前讨论过的任何内容都一无所知。子代理唯一的上下文来源是父代理在调用 `delegate_task` 时填充的 `goal`（目标）和 `context`（上下文）字段。
+:::
+
+这意味着父代理必须在调用中传递子代理所需的 **一切** 信息：
+
+```python
+# BAD - subagent has no idea what "the error" is
+delegate_task(goal="Fix the error")
+
+# GOOD - subagent has all context it needs
+delegate_task(
+    goal="Fix the TypeError in api/handlers.py",
+    context="""The file api/handlers.py has a TypeError on line 47:
+    'NoneType' object has no attribute 'get'.
+    The function process_request() receives a dict from parse_body(),
+    but parse_body() returns None when Content-Type is missing.
+    The project is at /home/user/myproject and uses Python 3.11."""
+)
+```
+
+子代理会接收到一个基于您的目标和上下文构建的、高度聚焦的系统提示词。该提示词会指示子代理完成任务，并就其操作内容、发现的结果、修改的文件以及遇到的任何问题提供一份结构化的总结报告。
+
+## 实战案例
+
+### 并行研究
+
+同时研究多个主题并汇总总结：
+
+```python
+delegate_task(tasks=[
+    {
+        "goal": "研究 2025 年 WebAssembly 的现状",
+        "context": "重点关注：浏览器支持、非浏览器运行时、语言支持情况",
+        "toolsets": ["web"]
+    },
+    {
+        "goal": "研究 2025 年 RISC-V 的采用现状",
+        "context": "重点关注：服务器芯片、嵌入式系统、软件生态系统",
+        "toolsets": ["web"]
+    },
+    {
+        "goal": "研究 2025 年量子计算的进展",
+        "context": "重点关注：纠错技术突破、实际应用、主要参与者",
+        "toolsets": ["web"]
+    }
+])
+```
+
+### 代码审查 + 修复
+
+将 “审查并修复” 工作流委派给一个全新的上下文：
+
+```python
+delegate_task(
+    goal="审查身份验证模块的安全问题并修复发现的漏洞",
+    context="""项目路径：/home/user/webapp。
+    认证模块文件：src/auth/login.py, src/auth/jwt.py, src/auth/middleware.py。
+    项目使用 Flask, PyJWT 和 bcrypt。
+    重点关注：SQL 注入、JWT 验证、密码处理、会话管理。
+    修复发现的所有问题并运行测试套件 (pytest tests/auth/)。""",
+    toolsets=["terminal", "file"]
+)
+```
+
+### 多文件重构
+
+委派大型重构任务，避免因文件过多而撑爆父级代理的上下文：
+
+```python
+delegate_task(
+    goal="重构 src/ 目录下所有的 Python 文件，将 print() 替换为规范的 logging",
+    context="""项目路径：/home/user/myproject。
+    使用 'logging' 模块，定义为 logger = logging.getLogger(__name__)。
+    根据适当的日志级别替换 print() 调用：
+    - print(f"Error: ...") -> logger.error(...)
+    - print(f"Warning: ...") -> logger.warning(...)
+    - print(f"Debug: ...") -> logger.debug(...)
+    - 其他 print -> logger.info(...)
+    不要更改测试文件或 CLI 输出中的 print()。
+    完成后运行 pytest 以验证功能正常。""",
+    toolsets=["terminal", "file"]
+)
+```
+
+## 批处理模式详情
+
+当您提供 `tasks` 数组时，子代理将使用线程池 **并行** 运行：
+
+* **最大并发数**：默认情况下为 3 个任务（可通过 `delegation.max_concurrent_children` 或 `DELEGATION_MAX_CONCURRENT_CHILDREN` 环境变量配置；最低为 1，无硬性上限）。如果批次大小超过限制，将返回工具错误，而不会进行静默截断。
+* **线程池**：使用 `ThreadPoolExecutor`，并将配置的并发限制作为最大工作线程数。
+* **进度显示**：在 CLI 模式下，树状视图会实时显示每个子代理的工具调用情况，并附带单项任务完成行。在网关模式下，进度会被批量处理并转发至父代理的进度回调。
+* **结果排序**：结果按任务索引排序，以确保无论完成顺序如何，都能与输入顺序匹配。
+* **中断传播**：中断父代理（例如发送新消息）会同时中断所有活跃的子代理。
+
+**单任务委派**：直接运行，不产生线程池开销。
+
+## 模型覆盖
+
+您可以通过 `config.yaml` 为子代理配置不同的模型 —— 这对于将简单任务委派给更便宜/更快速的模型非常有用：
+
+```yaml
+# 位于 ~/.hermes/config.yaml
+delegation:
+  model: "google/gemini-flash-2.0"    # 为子代理使用更便宜的模型
+  provider: "openrouter"              # 可选：将子代理路由到不同的供应商
+```
+
+如果省略此配置，子代理将使用与父代理相同的模型。
+
+## 工具集选择技巧
+
+`toolsets` 参数控制子代理可以访问哪些工具。请根据任务类型进行选择：
+
+| 工具集组合 | 适用场景 |
+| --- | --- |
+| **["terminal", "file"]** | 代码编写、调试、文件编辑、构建任务 |
+| **["web"]** | 研究、事实核查、查阅文档 |
+| **["terminal", "file", "web"]** | 全栈任务（默认配置） |
+| **["file"]** | 只读分析、无需执行的代码审查 |
+| **["terminal"]** | 系统管理、进程管理 |
+
+无论你如何指定，某些工具集对子代理是 **禁用** 的：
+
+* **delegation** —— 对叶子节点子代理禁用（默认）。对于 `role="orchestrator"` 的子代理保留，但受限于 `max_spawn_depth`（参见下文的“深度限制与嵌套编排”）。
+* **clarify** —— 子代理无法与用户进行交互。
+* **memory** —— 无法向共享的持久化记忆中写入数据。
+* **code_execution** —— 鼓励子代理按步骤进行推理。
+* **send_message** —— 禁止产生跨平台的副作用（例如发送 Telegram 消息）。
+
+## 最大迭代次数
+
+每个子代理都有一个迭代限制（默认值：50），用于控制其可以进行的工具调用轮数：
+
+```python
+delegate_task(
+    goal="快速检查文件",
+    context="检查 /etc/nginx/nginx.conf 是否存在并打印其前 10 行内容",
+    max_iterations=10  # 简单任务，不需要太多轮次
+)
+```
+
+## 子代理超时 (Child Timeout)
+
+如果子代理在挂钟时间（Wall-clock seconds）内超过 `delegation.child_timeout_seconds` 秒没有任何响应，则会被视为卡死并被强制停止。默认值为 `600`（10 分钟）—— 这比早期版本中的 300 秒有所增加，因为执行复杂研究任务的高推理模型在“思考”中途常被误杀。您可以根据安装环境进行调整：
+
+```yaml
+delegation:
+  child_timeout_seconds: 600   # 默认值
+```
+
+对于快速的本地模型，可以调低该值；对于处理难题的慢速推理模型，则建议调高。**计时器在子代理每次进行 API 调用或工具调用时都会重置** —— 只有真正处于闲置状态的工作线程才会触发强制停止。
+
+:::tip[零调用超时的诊断转储 (Diagnostic dump)]
+如果子代理在**未进行任何 API 调用**的情况下超时（通常由于：供应商无法访问、身份验证失败或工具定义拒绝），`delegate_task` 会将结构化的诊断信息写入 `~/.hermes/logs/subagent-timeout-<session>-<timestamp>.log`。该日志包含子代理的配置快照、凭证解析追踪以及任何早期的错误信息。相比于之前“静默超时”的行为，这使得定位根本原因（Root-cause）变得更加容易。
+:::
+
+## 监控运行中的子代理 (/agents)
+
+TUI 提供了一个 `/agents` 叠加层（别名 `/tasks`），它将递归的 `delegate_task` 扇出（Fan-out）转化为一等公民级别的审计界面：
+
+* **实时树状视图**：按父级分组，实时查看运行中及最近完成的子代理。
+* **各分支统计**：汇总每个分支的成本、Token 消耗及修改的文件数。
+* **终止与暂停控制**：在中途取消特定的子代理，而不干扰其兄弟代理。
+* **事后审查**：即使子代理已返回父代理，仍可逐步回顾其每一轮的对话历史。
+
+经典的 CLI 模式仅将 `/agents` 输出为文本摘要；而叠加层在 TUI 中才能发挥最大效用。详见 [TUI — 斜杠命令](https://hermes-agent.nousresearch.com/docs/user-guide/tui#slash-commands)。
+
+## 深度限制与嵌套编排
+
+默认情况下，委派是 **扁平化** 的：父代理（深度 0）生成子代理（深度 1），而这些子代理无法进一步委派。这可以防止失控的递归委派。
+
+对于多阶段工作流（研究 → 综合，或针对子问题的并行编排），父代理可以生成 **orchestrator（编排者）** 类型的子代理，这类子代理 **可以** 委派自己的工作人员：
+
+```python
+delegate_task(
+    goal="调研三种代码审查方法并推荐其中一种",
+    role="orchestrator",  # 允许该子代理生成自己的工作人员
+    context="...",
+)
+```
+
+* **role="leaf"**（默认）：子代理无法进一步委派 —— 与扁平化委派行为一致。
+* **role="orchestrator"**：子代理保留 `delegation` 工具集。受限于 `delegation.max_spawn_depth`（默认值为 `1` = 扁平化，因此在默认设置下 `role="orchestrator"` 不生效）。将 `max_spawn_depth` 设置为 2 可允许编排者子代理生成叶子节点孙代理；设置为 3 则允许三个层级（上限）。
+* **delegation.orchestrator_enabled: false**：全局一键开关，强制所有子代理均为 `leaf` 角色，无论 `role` 参数如何设置。
+
+**成本警告**：在 `max_spawn_depth: 3` 且 `max_concurrent_children: 3` 的情况下，树状结构可能会达到 3×3×3 = 27 个并发叶子代理。每增加一个层级，开销都会成倍增长 —— 请谨慎调高 `max_spawn_depth`。
+
+## 生命周期与持久性
+
+:::warning[`delegate_task` 是同步的 —— 并非持久化]
+
+`delegate_task` 在父代理的当前轮次中运行。它会 **阻塞** 父代理，直到所有子代理完成（或被取消）。它 **不是** 后台任务队列：
+
+* **中断机制**：如果父代理被中断（用户发送了新消息、使用 `/stop` 或 `/new`），所有活跃的子代理都会被取消，并返回 `status="interrupted"`。它们正在进行的工作将被丢弃。
+* **运行周期**：子代理不会在父代理轮次结束后继续运行。
+* **取消反馈**：被取消的子代理会返回结构化结果（`status="interrupted"`，`exit_reason="interrupted"`），但由于父代理本身也被中断了，该结果通常不会出现在对用户可见的回复中。
+
+对于必须在中断后继续存在，或生命周期超出当前轮次的 **持久化长耗时工作**，请使用：
+
+* **`cronjob(action="create")`**：调度一个独立的代理运行；不受父代理轮次中断的影响。
+* **`terminal(background=True, notify_on_complete=True)`**：运行长耗时的 Shell 命令，在代理处理其他事务时，该命令会在后台持续运行。
+
+:::
+
+## 核心属性
+
+* **独立会话**：每个子代理都会获得其**专有的终端会话**（与父代理隔离）。
+* **嵌套委派（需手动启用）**：默认情况下，委派是扁平的（`max_spawn_depth` 默认为 1）。只有角色设为 `"orchestrator"` 的子代理可以进一步委派，且必须先调高深度限制。可以通过 `orchestrator_enabled: false` 进行全局禁用。
+* **工具限制**：
+* **叶子子代理（Leaf）**：**无法**调用 `delegate_task`、`clarify`、`memory`、`send_message` 和 `execute_code`。
+* **编排者子代理（Orchestrator）**：保留 `delegate_task` 的使用权限，但仍无法使用上述其他四个工具。
+* **中断传播**：中断父代理的操作会自动中断所有活跃的子代理（包括编排者下属的孙代理）。
+* **上下文效率**：只有子代理的**最终总结**会被纳入父代理的上下文，从而保持 Token 使用的高效性。
+* **配置继承**：子代理继承父代理的 **API 密钥、供应商配置及凭证池**（支持在触发速率限制时自动轮换密钥）。
+
+## 委派 (Delegation) 与 代码执行 (execute_code) 的对比
+
+| 维度 | delegate_task | execute_code |
+| --- | --- | --- |
+| **推理方式** | 完整的 LLM 推理循环 | 仅执行 Python 代码 |
+| **上下文** | 全新且隔离的对话环境 | 无对话环境，仅脚本执行 |
+| **工具访问** | 具备推理能力的非禁用工具集 | 通过 RPC 访问 7 种工具，无推理能力 |
+| **并行性** | 默认支持 3 个并发子代理（可配置） | 单个脚本运行 |
+| **最佳用途** | 需要判断力的复杂任务 | 机械化的多步骤流水线 |
+| **Token 成本** | 较高（完整的 LLM 循环） | 较低（仅返回标准输出 stdout） |
+| **用户交互** | 无（子代理无法进行澄清/问询） | 无 |
+
+**经验法则：**
+
+* 当子任务需要 **推理、判断或多步骤问题解决** 时，请使用 `delegate_task`。
+* 当你需要 **机械化的数据处理或脚本化工作流** 时，请使用 `execute_code`。
+
+## 配置
+
+```yaml
+# In ~/.hermes/config.yaml
+delegation:
+  max_iterations: 50                        # Max turns per child (default: 50)
+  # max_concurrent_children: 3              # Parallel children per batch (default: 3)
+  # max_spawn_depth: 1                      # Tree depth (1-3, default 1 = flat). Raise to 2 to allow orchestrator children to spawn leaves; 3 for three levels.
+  # orchestrator_enabled: true              # Disable to force all children to leaf role.
+  model: "google/gemini-3-flash-preview"             # Optional provider/model override
+  provider: "openrouter"                             # Optional built-in provider
+
+# Or use a direct custom endpoint instead of provider:
+delegation:
+  model: "qwen2.5-coder"
+  base_url: "http://localhost:1234/v1"
+  api_key: "local-key"
+```
+
+:::tip[模型覆盖]
+代理会根据任务的复杂程度自动处理委派。你不需要显式要求它进行委派 —— 当任务有必要时，它会自动执行。
+:::
+

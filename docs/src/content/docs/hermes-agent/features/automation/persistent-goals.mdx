@@ -1,0 +1,160 @@
+---
+title: 持续性目标 (/goal)
+description: hermes agent 持续性目标 (/goal)
+---
+
+`/goal` 为 Hermes 提供了一个跨轮次存续的长期目标。在每一轮对话结束后，一个轻量级的评审模型（judge model）会检查助手的最新回复是否满足该目标。如果尚未满足，Hermes 会自动将续接提示词（continuation prompt）反馈到同一个会话中并继续工作——直到目标达成、你手动暂停或清除目标，或者轮次预算（turn budget）耗尽。
+
+这是我们对 **Ralph 循环（Ralph loop）** 的实现，直接灵感来源于 Eric Traut (OpenAI) 在 [Codex CLI 0.128.0](https://github.com/openai/codex) 中设计的 `/goal`。其核心思想——让一个目标跨轮次保持活跃，且在达成之前绝不停止——源自于他们。这里的实现是独立的，并针对 Hermes 的架构进行了适配。
+
+## 何时使用
+
+对于那些你希望 Hermes 自行迭代、而无需你每轮重新提示的任务，请使用 `/goal`：
+
+* “修复 `src/` 中的每一个 lint 错误，并验证 `ruff check` 已通过”
+* “从仓库 Y 移植功能 X（包括测试），并确保 CI 变为绿色”
+* “调查为什么会话 ID 有时会在运行中压缩时发生偏移，并写一份报告”
+* “构建一个小型 CLI 来按 EXIF 日期重命名文件，然后针对 photos/ 文件夹进行测试”
+
+智能体只需一轮即可完成并停止的任务不需要 `/goal`。而在那些你原本不得不说三次 “继续” 的任务中，这一功能大放异彩。
+
+## 快速开始
+
+```text
+/goal 修复 tests/hermes_cli/ 中所有失败的测试，并确保针对该目录的 scripts/run_tests.sh 通过
+```
+
+**你会看到的现象：**
+
+* **目标被接受** — `⊙ Goal set (20-turn budget): <你的目标>`
+* **第 1 轮运行** — Hermes 开始工作，就像你把目标作为普通消息发送一样。
+* **评审运行** — 该轮结束后，评审模型决定是 `done`（完成）还是 `continue`（继续）。
+* **必要时触发循环** — 如果结果为 `continue`，你会看到 `↻ Continuing toward goal (1/20): <评审理由>`，Hermes 会自动执行下一步。
+* **终止** — 最终你会看到 `✓ Goal achieved: <理由>` 或者 `⏸ Goal paused — N/20 turns used`（目标暂停 — 已使用 N/20 轮）。
+
+## 命令
+
+| 命令 | 作用 |
+| --- | --- |
+| ** /goal \<文本\>** | 设置（或替换）现有的持续目标。立即开启第一轮工作，因此你无需发送单独的消息。 |
+| ** /goal** 或 **/goal status** | 显示当前目标、其状态以及已使用的轮次。 |
+| ** /goal pause** | 停止自动续接循环，但不清除目标。 |
+| ** /goal resume** | 恢复循环（将轮次计数器重置为零）。 |
+| ** /goal clear** | 彻底清除目标。 |
+
+在 CLI 和所有网关平台（Telegram, Discord, Slack, Matrix, Signal, WhatsApp, SMS, iMessage, Webhook, API server 以及 Web 仪表板）上，这些命令的功能完全一致。
+
+## 行为细节
+
+### 评审员 (The judge)
+
+在每一轮结束后，Hermes 会调用一个辅助模型，并提供以下信息：
+
+* 现有的目标文本。
+* 智能体最近的一次最终回复（文本的最后约 4 KB）。
+* 一个系统提示词，要求评审员以严格的 JSON 格式回复：`{"done": <bool>, "reason": "<one-sentence rationale>"}`。
+
+评审员的设计非常保守：只有当回复 **明确** 确认目标已完成、最终产出已清晰生成，或者目标无法实现/被阻塞（此时被视为 DONE，并附带阻塞原因，以免在不可能完成的任务上浪费额度）时，评审员才会将目标标记为 **done**。
+
+### 故障放行语义 (Fail-open semantics)
+
+如果评审员出错（网络波动、回复格式错误、辅助客户端不可用），Hermes 会将裁定结果视为 **continue** —— 故障的评审员永远不会阻碍进度。**轮次预算** 是真正的最后防线。
+
+### 轮次预算
+
+默认值为 20 次续接轮次（在 `config.yaml` 中配置为 `goals.max_turns`）。当达到预算上限时，Hermes 会自动暂停并告知你具体的后续操作：
+
+> ⏸ Goal paused — 20/20 turns used. Use /goal resume to keep going, or /goal clear to stop.
+
+`/goal resume` 会将计数器重置为零，因此你可以按需分段继续执行任务。
+
+### 用户消息始终具有优先级
+
+在目标活跃期间，你发送的任何真实消息都优先于续接循环。在 CLI 中，你的消息会排在队列中的续接动作之前进入 `_pending_input`；在网关平台上，它同样通过适配器的 FIFO 队列进行处理。评审员会在你发起的这一轮之后再次运行 —— 因此，如果你的消息恰好完成了目标，评审员会捕捉到这一点并停止循环。
+
+### 运行中安全机制（网关平台）
+
+当智能体已经在运行时，执行 `/goal status`、`/goal pause` 和 `/goal clear` 是安全的 —— 它们只触及控制平面状态，不会中断当前的轮次。在运行中设置**新**目标（`/goal <新文本>`）会被拒绝，并提示你先执行 `/stop`，以防旧的续接任务与新的任务产生竞争。
+
+#### 持久化
+
+目标状态存储在 `SessionDB.state_meta` 中，键名为 `goal:<session_id>`。这意味着 `/resume` 可以从你上次离开的地方直接恢复 —— 设置一个目标，合上笔记本电脑，明天回来，执行 `/resume`，目标依然保持在你离开时的状态（活跃、暂停或完成）。
+
+#### 提示词缓存 (Prompt cache)
+
+续接提示词是追加到历史记录中的普通用户角色消息。它**不会**修改系统提示词、切换工具集，或以任何会导致 Hermes 提示词缓存失效的方式触动对话。运行一个 20 轮的目标，在缓存方面的成本与 20 轮正常对话完全相同。
+
+## 配置
+
+在 `~/.hermes/config.yaml` 中添加：
+
+```yaml
+goals:
+  # 在 Hermes 自动暂停并请求你执行 /goal resume 之前的最大续接轮次。
+  # 默认值为 20。如果你想要更紧凑的循环，可以调低此值；
+  # 如果是长时间运行的重构任务，可以调高此值。
+  max_turns: 20
+```
+
+### 选择评审模型
+
+评审员使用的是 `goal_judge` 辅助任务。默认情况下，它指向你的主模型（参见 [辅助模型](https://hermes-agent.nousresearch.com/docs/user-guide/configuration#auxiliary-models)）。如果你想将评审任务路由到一个廉价且快速的模型以降低成本，可以添加覆盖配置：
+
+```yaml
+auxiliary:
+  goal_judge:
+    provider: openrouter
+    model: google/gemini-3-flash-preview
+```
+
+评审调用量很小（约 200 个输出 token）且每轮运行一次，因此廉价且快速的模型通常是正确的选择。
+
+## 示例演示
+
+```text
+You: /goal Create four files /tmp/note_{1..4}.txt, one per turn, each containing its number as text
+
+  ⊙ Goal set (20-turn budget): Create four files /tmp/note_{1..4}.txt, one per turn, each containing its number as text
+
+Hermes: Creating /tmp/note_1.txt now.
+  💻 echo "1" > /tmp/note_1.txt   (0.1s)
+  I've created /tmp/note_1.txt with the content "1". I'll continue with the remaining files on the next turn as you specified.
+
+  ↻ Continuing toward goal (1/20): Only 1 of 4 files has been created; 3 files remain.
+
+Hermes: [Continuing toward your standing goal]
+  💻 echo "2" > /tmp/note_2.txt   (0.1s)
+  Created /tmp/note_2.txt. Two more to go.
+
+  ↻ Continuing toward goal (2/20): 2 of 4 files created; 2 remain.
+
+Hermes: [Continuing toward your standing goal]
+  💻 echo "3" > /tmp/note_3.txt   (0.1s)
+  Created /tmp/note_3.txt.
+
+  ↻ Continuing toward goal (3/20): 3 of 4 files created; 1 remains.
+
+Hermes: [Continuing toward your standing goal]
+  💻 echo "4" > /tmp/note_4.txt   (0.1s)
+  All four files have been created: /tmp/note_1.txt through /tmp/note_4.txt, each containing its number.
+
+  ✓ Goal achieved: All four files were created with the specified content, completing the goal.
+
+You: _
+```
+
+四轮对话，一次 `/goal` 调用，你无需发送任何 “继续” 提示词。
+
+## 当评审员出错时
+
+没有完美的评审员。以下是两种需要注意的失败模式：
+
+1. **假阴性（False negative）** —— 目标实际上已完成，但评审员提示 “继续”。**轮次预算** 可以兜底这种情况。你会看到 `⏸ Goal paused`，此时你可以执行 `/goal clear` 或直接发送新消息。
+2. **假阳性（False positive）** —— 还有工作未完成，但评审员认为已 “完成”。你会看到 `✓ Goal achieved`，但你心知肚明。发送一条后续消息以继续工作，或更精准地重设目标：`/goal <更具体的文本>`。评审员的系统提示词被设计得非常保守，以使假阳性比假阴性更罕见。
+
+如果你觉得评审裁定没有说服力，`↻ Continuing toward goal` 或 `✓ Goal achieved` 行中的理由文本会告诉你评审员看到了什么。这通常足以诊断是目标文本含糊不清，还是模型的回复含糊不清。
+
+## 归属说明
+
+`/goal` 是 Hermes 对 **Ralph 循环（Ralph loop）** 模式的实现。其面向用户的设计——跨轮次保持目标活跃、直到达成才停止，以及创建/暂停/恢复/清除等控制功能——是由 OpenAI Codex 团队的 Eric Traut 在 **Codex CLI 0.128.0** 中推广并发布的。我们的实现是独立的（中央 `CommandDef` 注册表、`SessionDB.state_meta` 持久化、辅助客户端评审员、网关侧的适配器 FIFO 续接），但这个点子属于他们。功劳归于其创造者。
+

@@ -1,0 +1,596 @@
+---
+title: 安全
+description: hermes agent 安全使用指南
+---
+
+Hermes 代理采用了纵深防御的安全模型。本页面涵盖了每一个安全边界 —— 从命令批准到容器隔离，再到消息平台上的用户授权。
+
+
+## 概述 (Overview)
+
+该安全模型包含七个层级：
+
+* **用户授权** —— 谁可以与代理对话（白名单、私聊配对）。
+* **危险命令批准** —— 破坏性操作的 “人工在环” 确认。
+* **容器隔离** —— 使用经过加固设置的 Docker/Singularity/Modal 沙箱。
+* **MCP 凭据过滤** —— 为 MCP 子进程提供环境变量隔离。
+* **上下文文件扫描** —— 检测项目文件中的提示词注入（Prompt Injection）。
+* **跨会话隔离** —— 会话间无法访问彼此的数据或状态；定时任务（Cron job）的存储路径经过加固，以防止路径穿越攻击。
+* **输入消毒** —— 终端工具后端的当前工作目录参数会根据白名单进行验证，以防止 Shell 注入。
+
+## 危险命令批准 (Dangerous Command Approval)
+
+在执行任何命令之前，Hermes 会根据一份精心整理的危险模式列表进行检查。如果匹配成功，用户必须明确批准。
+
+### 批准模式 (Approval Modes)
+
+批准系统支持三种模式，通过 `~/.hermes/config.yaml` 中的 `approvals.mode` 进行配置：
+
+```yaml
+approvals:
+  mode: manual    # manual | smart | off
+  timeout: 60     # 等待用户响应的秒数（默认：60）
+```
+
+| 模式 | 行为 |
+| --- | --- |
+| **manual** (默认) | 针对危险命令始终提示用户批准。 |
+| **smart** | 使用辅助 LLM 评估风险。低风险命令（如 `python -c "print('hello')"`）会自动批准；真正危险的命令会自动拒绝；不确定时会升级为人工提示。 |
+| **off** | 禁用所有批准检查 —— 等同于开启 `--yolo` 运行。所有命令无需提示直接执行。 |
+
+:::caution[安全警告]
+将 `approvals.mode` 设置为 `off` 会禁用所有安全提示。请仅在受信任的环境（CI/CD、容器等）中使用。
+:::
+
+### YOLO 模式 (YOLO Mode)
+
+YOLO 模式会绕过当前会话中 **所有** 危险命令的批准提示。可以通过以下三种方式激活：
+
+1. **CLI 标志**：使用 `hermes --yolo` 或 `hermes chat --yolo` 开启会话。
+2. **斜杠命令**：在会话期间输入 `/yolo` 以切换开启/关闭。
+3. **环境变量**：设置 `HERMES_YOLO_MODE=1`。
+
+`/yolo` 命令是一个状态切换（**Toggle**）—— 每次使用都会切换该模式：
+
+```text
+> /yolo
+ ⚡ **YOLO 模式已开启** —— 所有命令将自动批准。请谨慎使用。
+> /yolo
+ ⚠️ **YOLO 模式已关闭** —— 危险命令将需要批准。
+```
+
+YOLO 模式在 CLI 和网关会话中均可用。在内部，它会设置 `HERMES_YOLO_MODE` 环境变量，并在每次命令执行前进行检查。
+
+:::danger[安全警告]
+YOLO 模式会禁用会话中所有危险命令的安全检查 —— **硬性屏蔽列表（见下文）除外**。请仅在您完全信任生成的命令时使用（例如：在随用随弃的环境中运行经过充分测试的自动化脚本）。
+:::
+
+### 硬性屏蔽列表 (Hardline Blocklist - 始终开启的底线)
+
+某些命令具有毁灭性 —— 诸如不可逆的文件系统擦除、分叉炸弹（fork bomb）、对块设备的直接写入 —— 无论如何，Hermes 都会拒绝运行它们，**即使满足以下条件也不例外**：
+
+* 已开启 `--yolo` 或 `/yolo`。
+* `approvals.mode` 设置为 `off`。
+* 定时任务运行在无头（Headless）`approve` 模式下。
+* 用户明确点击了 “始终允许”。
+
+该屏蔽列表是 `--yolo` 模式之下的底线。它在批准层看到命令 **之前** 就会触发，且没有覆盖标志。目前涵盖的模式（不详尽；与 `tools/approval.py::UNRECOVERABLE_BLOCKLIST` 保持同步）：
+
+| 模式 | 屏蔽原因 |
+| --- | --- |
+| `rm -rf /` 及其明显的变体 | 擦除文件系统根目录 |
+| `rm -rf --no-preserve-root /` | 显式 “确认操作根目录” 的变体 |
+| <code>:()&#123; : &#124; :& &#125;;:</code> bash 分叉炸弹 | 导致主机卡死，直至重启 |
+| 在已挂载的根设备上执行 `mkfs.*` | 格式化运行中的系统 |
+| `dd if=/dev/zero of=/dev/sd*` | 向物理磁盘写零 |
+| 在根文件系统顶层将不受信任的 URL 通过管道传给 `sh` | 远程代码执行攻击向量过于广泛，无法批准 |
+
+如果您触碰了屏蔽列表，工具调用将向代理返回说明性错误，且不执行任何操作。如果合法的流程确实需要这些命令（例如，您是 “擦除并重装” 流水线的操作员），请在代理之外运行它们。
+
+### 批准超时 (Approval Timeout)
+
+当危险命令提示出现时，用户有可配置的响应时间。如果在此时间内未给出响应，命令默认会被 **拒绝**（关闭优先）。
+
+在 `~/.hermes/config.yaml` 中配置超时：
+
+```yaml
+approvals:
+  timeout: 60  # 秒（默认：60）
+```
+
+### 哪些情况会触发批准 (What Triggers Approval)
+
+以下模式会触发批准提示（定义于 `tools/approval.py`）：
+
+| 模式 | 描述 |
+| --- | --- |
+| `rm -r` / `rm --recursive` | 递归删除 |
+| `rm ... /` | 在根路径下删除 |
+| `chmod 777/666 / o+w / a+w` | 所有人/其他用户可写权限 |
+| `chmod --recursive` 配合不安全权限 | 递归设置所有人/其他用户可写（长标志） |
+| `chown -R root / chown --recursive root` | 递归更改所有者为 root |
+| `mkfs` | 格式化文件系统 |
+| `dd if` | 磁盘复制 |
+| `> /dev/sd` | 写入块设备 |
+| `DROP TABLE/DATABASE` | SQL 删除表/数据库 |
+| `DELETE FROM` (不带 WHERE) | SQL 无条件删除 |
+| `TRUNCATE TABLE` | SQL 清空表 |
+| `> /etc/` | 覆盖系统配置 |
+| `systemctl stop/restart/disable/mask` | 停止/重启/禁用系统服务 |
+| `kill -9 -1` | 杀死所有进程 |
+| `pkill -9` | 强制杀死进程 |
+| 分叉炸弹模式 | 分叉炸弹 |
+| `bash -c` / `sh -c` / `zsh -c` / `ksh -c` | 通过 `-c` 标志执行 Shell 命令（包括组合标志如 `-lc`） |
+| `python -e` / `perl -e` / `ruby -e` / `node -c` | 通过 `-e/-c` 标志执行脚本 |
+| `curl ... | sh`/`wget ... |
+| `bash <(curl ...)` / `sh <(wget ...)` | 通过进程替换执行远程脚本 |
+| 使用 `tee` 写入 `/etc/`, `~/.ssh/`, `~/.hermes/.env` | 通过 tee 覆盖敏感文件 |
+| 使用 `>` / `>>` 写入 `/etc/`, `~/.ssh/`, `~/.hermes/.env` | 通过重定向覆盖敏感文件 |
+| `xargs rm` | 配合 rm 使用 xargs |
+| `find -exec rm` / `find -delete` | 配合破坏性操作使用 find |
+| `scp/mv/install` 到 `/etc/` | 拷贝/移动文件到系统配置目录 |
+| `sed -i` / `sed --in-place` 作用于 `/etc/` | 就地编辑系统配置 |
+| `pkill/killall hermes/gateway` | 防止自杀进程 |
+| 配合 `&/disown/nohup/setsid` 运行 `gateway run` | 防止在服务管理器之外启动网关 |
+
+:::note[信息]
+**容器绕过**：当在 `docker`, `singularity`, `modal`, `daytona` 或 `vercel_sandbox` 后端运行时，会 **跳过** 危险命令检查，因为容器本身就是安全边界。容器内的破坏性命令无法伤害宿主机。
+:::
+
+### 批准流程 (CLI)
+
+在交互式 CLI 中，危险命令会显示行内批准提示：
+
+```text
+  ⚠️  DANGEROUS COMMAND: recursive delete
+      rm -rf /tmp/old-project
+
+      [o]nce  |  [s]ession  |  [a]lways  |  [d]eny
+
+      Choice [o/s/a/D]:
+```
+
+四个选项：
+
+* **once** — 允许执行单次。
+* **session** — 在本次会话的剩余时间内允许该模式。
+* **always** — 添加到永久白名单（保存到 `config.yaml`）。
+* **deny** (默认) — 拦截该命令。
+
+### 批准流程 (网关/消息平台)
+
+在消息平台上，代理会将危险命令的详情发送到聊天窗口并等待用户回复：
+
+* 回复 `yes`, `y`, `approve`, `ok` 或 `go` 表示批准。
+* 回复 `no`, `n`, `deny` 或 `cancel` 表示拒绝。
+
+运行网关时会自动设置 `HERMES_EXEC_ASK=1` 环境变量。
+
+### 永久白名单 (Permanent Allowlist)
+
+以 “always” 批准的命令保存在 `~/.hermes/config.yaml` 中：
+
+```yaml
+# 永久允许的危险命令模式
+command_allowlist:
+  - rm
+  - systemctl
+```
+
+这些模式会在启动时加载，并在未来的所有会话中静默批准。
+
+:::tip[提示]
+使用 `hermes config edit` 来查看或从永久白名单中移除模式。
+:::
+
+## 用户授权（网关） 
+
+运行消息网关时，Hermes 通过分层授权系统控制谁可以与机器人交互。
+
+### 授权检查顺序
+
+`_is_user_authorized()` 方法按以下顺序进行检查：
+
+1. **平台级 “允许所有” 标志**（例如 `DISCORD_ALLOW_ALL_USERS=true`）
+2. **私聊配对批准列表**（通过配对码批准的用户）
+3. **平台特定的白名单**（例如 `TELEGRAM_ALLOWED_USERS=12345,67890`）
+4. **全局白名单**（`GATEWAY_ALLOWED_USERS=12345,67890`）
+5. **全局 “允许所有” 标志**（`GATEWAY_ALLOW_ALL_USERS=true`）
+6. **默认：拒绝**
+
+### 平台白名单
+
+在 `~/.hermes/.env` 中以逗号分隔的形式设置允许的用户 ID：
+
+```bash
+# 平台特定的白名单
+TELEGRAM_ALLOWED_USERS=123456789,987654321
+DISCORD_ALLOWED_USERS=111222333444555666
+WHATSAPP_ALLOWED_USERS=15551234567
+SLACK_ALLOWED_USERS=U01ABC123
+
+# 跨平台白名单（对所有平台生效）
+GATEWAY_ALLOWED_USERS=123456789
+
+# 平台级“允许所有”（请谨慎使用）
+DISCORD_ALLOW_ALL_USERS=true
+
+# 全局“允许所有”（请极端谨慎使用）
+GATEWAY_ALLOW_ALL_USERS=true
+```
+
+:::caution[安全警告]
+如果 **未配置任何白名单** 且未设置 `GATEWAY_ALLOW_ALL_USERS`，则 **所有用户都将被拒绝**。网关启动时会记录警告：
+
+```
+No user allowlists configured. All unauthorized users will be denied.
+Set GATEWAY_ALLOW_ALL_USERS=true in ~/.hermes/.env to allow open access,
+or configure platform allowlists (e.g., TELEGRAM_ALLOWED_USERS=your_id).
+```
+:::
+
+### 私聊配对系统 (DM Pairing System)
+
+为了提供更灵活的授权，Hermes 包含了一个基于代码的配对系统。bot 所有者不需要预先提供用户 ID，未知用户会收到一个一次性配对码，由所有者通过 CLI 进行批准。
+
+**工作原理：**
+
+1. 未知用户向 bot 发送私聊消息。
+2. bot 回复一个 8 字符的配对码。
+3. bot 所有者在 CLI 上运行 `hermes pairing approve <platform> <code>`。
+4. 该用户在该平台上获得永久批准。
+
+在 `~/.hermes/config.yaml` 中控制对未授权私聊的处理方式：
+
+```yaml
+unauthorized_dm_behavior: pair
+
+whatsapp:
+  unauthorized_dm_behavior: ignore
+```
+
+* `pair` 是默认值：未授权的私聊会收到配对码回复。
+* `ignore`：静默丢弃未授权的私聊消息。
+* 平台配置段会覆盖全局默认值，因此您可以保持 Telegram 的配对功能，同时让 WhatsApp 保持静默。
+
+**安全特性**（基于 OWASP + NIST SP 800-63-4 指南）：
+
+| 特性 | 详情 |
+| --- | --- |
+| **代码格式** | 从 32 字符无歧义字母表（无 0/O/1/I）中生成的 8 位字符 |
+| **随机性** | 加密级随机 (`secrets.choice()`) |
+| **代码有效期 (TTL)** | 1 小时过期 |
+| **频率限制** | 每用户每 10 分钟限 1 次请求 |
+| **待处理上限** | 每平台最多 3 个待处理代码 |
+| **锁定机制** | 5 次批准尝试失败 → 锁定 1 小时 |
+| **文件安全** | 对所有配对数据文件执行 `chmod 0600` |
+| **日志记录** | 配对码绝不会记录到标准输出 (stdout) |
+
+**配对 CLI 命令：**
+
+```bash
+# 列出待处理和已批准的用户
+hermes pairing list
+
+# 批准一个配对码
+hermes pairing approve telegram ABC12DEF
+
+# 撤销用户访问权限
+hermes pairing revoke telegram 123456789
+
+# 清除所有待处理代码
+hermes pairing clear-pending
+```
+
+**存储：** 配对数据存储在 `~/.hermes/pairing/` 目录下，按平台划分 JSON 文件：
+
+* `{platform}-pending.json` —— 待处理的配对请求
+* `{platform}-approved.json` —— 已批准的用户
+* `_rate_limits.json` —— 频率限制和锁定跟踪
+
+## 容器隔离 (Container Isolation)
+
+当使用 `docker` 终端后端时，Hermes 会对每个容器应用严格的安全加固措施。
+
+### Docker 安全标志 (Docker Security Flags)
+
+每个容器都带有以下标志运行（定义在 `tools/environments/docker.py` 中）：
+
+```python
+_SECURITY_ARGS = [
+    "--cap-drop", "ALL",                          # 丢弃所有 Linux 能力 (Capabilities)
+    "--cap-add", "DAC_OVERRIDE",                  # 允许 Root 写入绑定挂载的目录
+    "--cap-add", "CHOWN",                         # 软件包管理器需要更改文件所有权
+    "--cap-add", "FOWNER",                        # 软件包管理器需要更改文件所有权
+    "--security-opt", "no-new-privileges",         # 阻止权限提升
+    "--pids-limit", "256",                         # 限制进程数量
+    "--tmpfs", "/tmp:rw,nosuid,size=512m",         # 限制大小的 /tmp
+    "--tmpfs", "/var/tmp:rw,noexec,nosuid,size=256m",  # 禁止执行的 /var/tmp
+    "--tmpfs", "/run:rw,noexec,nosuid,size=64m",   # 禁止执行的 /run
+]
+```
+
+### 资源限制 (Resource Limits)
+
+容器资源可在 `~/.hermes/config.yaml` 中进行配置：
+
+```yaml
+terminal:
+  backend: docker
+  docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
+  docker_forward_env: []  # 仅限显式白名单；保持为空可防止机密泄露至容器
+  container_cpu: 1        # CPU 核心数
+  container_memory: 5120  # 单位 MB (默认 5GB)
+  container_disk: 51200   # 单位 MB (默认 50GB，需在 XFS 上使用 overlay2)
+  container_persistent: true  # 跨会话持久化文件系统
+```
+
+### 文件系统持久化 (Filesystem Persistence)
+
+* **持久化模式** (`container_persistent: true`)：将 `~/.hermes/sandboxes/docker/<task_id>/` 中的 `/workspace` 和 `/root` 进行绑定挂载。
+* **临时模式** (`container_persistent: false`)：为工作空间使用 `tmpfs` —— 清理时所有内容都会丢失。
+
+:::tip[提示]
+对于生产环境的网关部署，请使用 `docker`、`modal`、`daytona` 或 `vercel_sandbox` 后端，以将代理命令与宿主机系统隔离开来。这样可以完全省去危险命令批准的环节。
+:::
+
+:::caution[安全警告]
+如果您将变量名添加到 `terminal.docker_forward_env` 中，这些变量会有意地被注入到终端命令的容器中。这对于 `GITHUB_TOKEN` 等任务特定的凭据非常有用，但也意味着容器内运行的代码可以读取并外泄这些信息。
+:::
+
+### 终端后端安全对比 (Terminal Backend Security Comparison)
+
+| 后端 (Backend) | 隔离级别 (Isolation) | 危险命令检查 (Dangerous Cmd Check) | 最适用场景 (Best For) |
+| --- | --- | --- | --- |
+| **local** | 无 —— 在宿主机运行 | ✅ 是 | 开发环境、受信任用户 |
+| **ssh** | 远程机器 | ✅ 是 | 在独立服务器上运行 |
+| **docker** | 容器 | ❌ 已跳过（容器即边界） | 生产环境网关 |
+| **singularity** | 容器 | ❌ 已跳过 | HPC（高性能计算）环境 |
+| **modal** | 云沙箱 | ❌ 已跳过 | 可扩展的云隔离 |
+| **daytona** | 云沙箱 | ❌ 已跳过 | 持久化云工作空间 |
+| **vercel_sandbox** | 云微型虚拟机 (microVM) | ❌ 已跳过 | 具有快照持久性的云执行环境 |
+
+## 环境变量透传 (Environment Variable Passthrough)
+
+`execute_code` 和 `terminal` 工具都会从子进程中剔除敏感环境变量，以防止 LLM 生成的代码外泄凭据。然而，声明了 `required_environment_variables` 的技能（Skills）确实需要访问这些变量。
+
+### 工作原理
+
+有两种机制允许特定变量通过沙箱过滤器：
+
+**1. 技能作用域透传（自动）**
+
+当加载一个技能（通过 `skill_view` 或 `/skill` 命令）且该技能声明了 `required_environment_variables` 时，环境中实际已设置的任何相关变量都会自动注册为透传变量。尚未设置的变量（处于 setup-needed 状态）则**不会**被注册。
+
+```markdown
+# 技能 SKILL.md 的 Frontmatter 示例
+required_environment_variables:
+  - name: TENOR_API_KEY
+    prompt: Tenor API key
+    help: 从 https://developers.google.com/tenor 获取密钥
+```
+
+加载此技能后，`TENOR_API_KEY` 将自动透传至 `execute_code`、`terminal` (local) 以及远程后端 (Docker, Modal) —— 无需手动配置。
+
+* **Docker 与 Modal**：在 v0.5.1 版本之前，Docker 的 `forward_env` 与技能透传是两个独立的系统。现在它们已合并 —— 技能声明的环境变量会自动转发到 Docker 容器和 Modal 沙箱中，无需再手动添加到 `docker_forward_env`。
+
+**2. 基于配置的透传（手动）**
+
+对于未被任何技能声明的环境变量，可以将其添加到 `config.yaml` 中的 `terminal.env_passthrough`：
+
+```yaml
+terminal:
+  env_passthrough:
+    - MY_CUSTOM_KEY
+    - ANOTHER_TOKEN
+```
+
+### 凭据文件透传（OAuth 令牌等） (Credential File Passthrough)
+
+某些技能在沙箱中需要的是 **文件**（而不仅仅是环境变量）—— 例如，Google Workspace 将 OAuth 令牌存储在当前配置文件的 `HERMES_HOME` 下的 `google_token.json` 中。技能在 Frontmatter 中声明这些文件：
+
+```markdown
+required_credential_files:
+  - path: google_token.json
+    description: Google OAuth2 令牌（由设置脚本创建）
+  - path: google_client_secret.json
+    description: Google OAuth2 客户端机密
+```
+
+加载后，Hermes 会检查这些文件是否存在于当前配置文件的 `HERMES_HOME` 中，并注册挂载：
+
+* **Docker**：以只读方式绑定挂载 (`-v host:container:ro`)。
+* **Modal**：在沙箱创建时挂载，并在每条命令执行前同步（可处理会话中途的 OAuth 设置）。
+* **Local**：无需操作（文件已可访问）。
+
+您也可以在 `config.yaml` 中手动列出凭据文件：
+
+```yaml
+terminal:
+  credential_files:
+    - google_token.json
+    - my_custom_oauth_token.json
+```
+
+路径相对于 `~/.hermes/`。文件会被挂载到容器内的 `/root/.hermes/` 目录。
+
+### 各沙箱的过滤规则 (What Each Sandbox Filters)
+
+| 沙箱 (Sandbox) | 默认过滤器 (Default Filter) | 透传覆盖 (Passthrough Override) |
+| --- | --- | --- |
+| **execute_code** | 屏蔽名称中包含 `KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `CREDENTIAL`, `PASSWD`, `AUTH` 的变量；仅允许带有安全前缀的变量通过 | ✅ 透传变量会绕过这两项检查 |
+| **terminal** (local) | 屏蔽显式的 Hermes 基础设施变量（服务商密钥、网关令牌、工具 API 密钥） | ✅ 透传变量会绕过屏蔽列表 |
+| **terminal** (Docker) | 默认不透传任何宿主机环境变量 | ✅ 透传变量 + `docker_forward_env` 会通过 `-e` 转发 |
+| **terminal** (Modal) | 默认不透传任何宿主机环境/文件 | ✅ 凭据文件会挂载；环境透传通过同步实现 |
+| **MCP** | 屏蔽除安全系统变量和显式配置的 `env` 之外的所有内容 | ❌ 不受透传影响（请改用 MCP 的 `env` 配置） |
+
+### 安全考量 (Security Considerations)
+
+* 透传仅影响您或您的技能 **明确声明** 的变量 —— 对于任意 LLM 生成的代码，默认安全态势保持不变。
+* 在 Docker 容器中，凭据文件是以 **只读** 方式挂载的。
+* **Skills Guard** 会在安装前扫描技能内容，检查是否存在可疑的环境变量访问模式。
+* 缺失或未设置的变量绝不会被注册（你无法泄露不存在的东西）。
+* **Hermes 基础设施机密**（如模型服务商 API 密钥、网关令牌）绝不应添加到 `env_passthrough` —— 它们拥有专门的保护机制。
+
+## MCP 凭据处理
+
+MCP（模型上下文协议）服务器子进程接收 **过滤后的环境**，以防止意外的凭据泄露。
+
+### 安全环境变量
+
+只有以下变量会从主机传递到 MCP stdio 子进程：
+
+```
+PATH, HOME, USER, LANG, LC_ALL, TERM, SHELL, TMPDIR
+```
+
+以及任何 `XDG_*` 变量。所有其他环境变量（API 密钥、令牌、机密信息）都会被 **剥离**。
+
+在 MCP 服务器的 `env` 配置中明确定义的变量会被传递：
+
+```yaml
+mcp_servers:
+  github:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_..."  # 只有此变量会被传递
+```
+
+### 凭据脱敏
+
+来自 MCP 工具的错误消息在返回给 LLM 之前会进行清理。以下模式将被替换为 `[REDACTED]`：
+
+* GitHub PATs (`ghp_...`)
+* OpenAI 风格的密钥 (`sk-...`)
+* Bearer 令牌
+* `token=`, `key=`, `API_KEY=`, `password=`, `secret=` 等参数
+
+### 网站访问策略
+
+你可以限制代理通过其 Web 和浏览器工具访问哪些网站。这对于防止代理访问内部服务、管理面板或其他敏感 URL 非常有用。
+
+```yaml
+# 在 ~/.hermes/config.yaml 中
+security:
+  website_blocklist:
+    enabled: true
+    domains:
+      - "*.internal.company.com"
+      - "admin.example.com"
+    shared_files:
+      - "/etc/hermes/blocked-sites.txt"
+```
+
+当请求被屏蔽的 URL 时，工具会返回一个错误，说明该域名根据策略已被屏蔽。该黑名单强制应用于 `web_search`、`web_extract`、`browser_navigate` 以及所有具备 URL 处理能力的工具。
+有关详细信息，请参阅配置指南中的 [网站黑名单](https://hermes-agent.nousresearch.com/docs/user-guide/configuration#website-blocklist)。
+
+### SSRF 防护
+
+所有具备 URL 处理能力的工具（Web 搜索、Web 提取、视觉、浏览器）在获取内容前都会验证 URL，以防止服务端请求伪造 (SSRF) 攻击。被拦截的地址包括：
+
+* **私有网络** (RFC 1918): `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+* **回环地址 (Loopback)**: `127.0.0.0/8`, `::1`
+* **链路本地地址 (Link-local)**: `169.254.0.0/16`（包括位于 `169.254.169.254` 的云元数据）
+* **CGNAT / 共享地址空间** (RFC 6598): `100.64.0.0/10`（如 Tailscale, WireGuard VPNs）
+* **云元数据主机名**: `metadata.google.internal`, `metadata.goog`
+* **保留、组播及未指定的地址**
+
+SSRF 防护在面向互联网使用时始终处于激活状态，且 DNS 解析失败会被视为阻止（故障关闭）。重定向链在每一跳都会重新验证，以防止基于重定向的绕过。
+
+#### 有意允许私有 URL
+
+某些设置合法地需要访问私有/内部 URL —— 例如将 `home.arpa` 解析到 RFC 1918 空间的家庭网络、仅限局域网的 Ollama/llama.cpp 端点、内部 Wiki、云元数据调试等。对于这些情况，提供了一个全局选择性退出选项：
+
+```yaml
+security:
+  allow_private_urls: true   # 默认值: false
+```
+
+当开启时，Web 工具、浏览器、视觉 URL 获取和网关媒体下载将不再拒绝 RFC 1918 / 回环 / 链路本地 / CGNAT / 云元数据目标。**这是一种故意的信任边界转移** —— 仅在可以接受“代理针对本地网络运行任意提示词注入（Prompt-injected）URL”这一风险的机器上启用。面向公众的网关应保持关闭。
+
+主机子串保护（防止利用 Unicode 域名欺骗技巧，即使底层 IP 是公网地址）无论此设置如何都会保持开启。
+
+### Tirith 执行前安全扫描
+
+Hermes 集成了 [tirith](https://github.com/sheeki03/tirith)，在执行命令前对其内容进行扫描。Tirith 能检测到单纯依靠模式匹配会遗漏的威胁：
+
+* 同形异义词 URL 欺骗（国际化域名攻击）
+* 管道传输至解释器模式 (`curl | bash`, `wget | sh`)
+* 终端注入攻击
+
+Tirith 在首次使用时会从 GitHub releases 自动安装，并进行 SHA-256 校验和验证（如果 `cosign` 可用，还会进行 cosign 来源验证）。
+
+```yaml
+# 在 ~/.hermes/config.yaml 中
+security:
+  tirith_enabled: true       # 启用/禁用 tirith 扫描 (默认: true)
+  tirith_path: "tirith"      # tirith 二进制文件路径 (默认: PATH 查找)
+  tirith_timeout: 5          # 子进程超时时间（秒）
+  tirith_fail_open: true     # 当 tirith 不可用时是否允许执行 (默认: true)
+```
+
+当 `tirith_fail_open` 为 `true`（默认）时，如果 Tirith 未安装或超时，命令将继续执行。在离散度高的安全环境中，请将其设置为 `false`，以便在 Tirith 不可用时拦截命令。
+
+Tirith 的裁定结果会整合到审批流中：安全的命令直接通过，而可疑和被拦截的命令将触发用户审批，并显示完整的 Tirith 调查结果（严重程度、标题、描述、更安全的替代方案）。用户可以批准或拒绝 —— 默认选择是拒绝，以确保无人值守场景的安全。
+
+### 上下文文件注入保护
+
+上下文文件（`AGENTS.md`, `.cursorrules`, `SOUL.md`）在包含进系统提示词之前会进行提示词注入扫描。扫描器检查以下内容：
+
+* 忽略/不顾之前指令的命令
+* 带有可疑关键词的隐藏 HTML 注释
+* 尝试读取机密信息（`.env`, `credentials`, `.netrc`）
+* 通过 `curl` 进行凭据窃取
+* 不可见的 Unicode 字符（零宽空格、双向覆盖）
+
+被拦截的文件将显示警告：
+
+```
+[BLOCKED: AGENTS.md contained potential prompt injection (prompt_injection). Content not loaded.]
+```
+
+## 生产部署最佳实践
+
+### 网关部署清单
+
+1. **设置明确的允许列表** —— 绝不要在生产环境中使用 `GATEWAY_ALLOW_ALL_USERS=true`
+2. **使用容器后端** —— 在 `config.yaml` 中设置 `terminal.backend: docker`
+3. **限制资源配额** —— 设置适当的 CPU、内存和磁盘限制
+4. **安全存储机密信息** —— 将 API 密钥保存在 `~/.hermes/.env` 中，并设置适当的文件权限
+5. **启用 DM 配对** —— 尽可能使用配对码，而不是硬编码用户 ID
+6. **审查命令允许列表** —— 定期审计 `config.yaml` 中的 `command_allowlist`
+7. **设置 `MESSAGING_CWD**` —— 不要让代理在敏感目录中运行
+8. **以非 root 用户运行** —— 绝不要以 root 身份运行网关
+9. **监控日志** —— 检查 `~/.hermes/logs/` 以发现未经授权的访问尝试
+10. **保持更新** —— 定期运行 `hermes update` 以获取安全补丁
+
+### 保护 API 密钥
+
+```bash
+# 为 .env 文件设置适当的权限
+chmod 600 ~/.hermes/.env
+
+# 为不同的服务保留独立的密钥
+# 绝不要将 .env 文件提交至版本控制系统
+```
+
+### 网络隔离
+
+为了实现最高安全性，请在独立的机器或虚拟机上运行网关。在 `config.yaml` 中设置 `terminal.backend: ssh`，然后通过 `~/.hermes/.env` 中的环境变量提供主机详情：
+
+```yaml
+# ~/.hermes/config.yaml
+terminal:
+  backend: ssh
+```
+
+```bash
+# ~/.hermes/.env
+TERMINAL_SSH_HOST=agent-worker.local
+TERMINAL_SSH_USER=hermes
+TERMINAL_SSH_KEY=~/.ssh/hermes_agent_key
+```
+
+SSH 连接详情保存在 `.env`（而非 `config.yaml`）中，因此它们不会随配置文件导出而被签入或共享。这能将网关的消息连接与代理的命令执行隔离开来。
+

@@ -1,0 +1,98 @@
+---
+title: 集成
+description: hermes agent 集成
+---
+
+Hermes Agent 连接到外部系统，用于 AI 推理、工具服务器、IDE 工作流、程序化访问等。这些集成扩展了 Hermes 的能力以及它可以运行的位置。
+
+## AI 提供商与路由
+
+Hermes 开箱即支持多个 AI 推理提供商。使用 `hermes model` 进行交互式配置，或在 `config.yaml` 中进行设置。
+
+* [AI 提供商](https://hermes-agent.nousresearch.com/docs/user-guide/features/provider-routing) —— OpenRouter、Anthropic、OpenAI、Google，以及任何兼容 OpenAI 的端点。Hermes 会按提供商自动检测视觉、流式输出和工具使用等能力。
+* [提供商路由](https://hermes-agent.nousresearch.com/docs/user-guide/features/provider-routing) —— 对由哪些底层提供商处理你的 OpenRouter 请求进行细粒度控制。通过排序、白名单、黑名单和显式优先级排序，针对成本、速度或质量进行优化。
+* [备用提供商](https://hermes-agent.nousresearch.com/docs/user-guide/features/fallback-providers) —— 当主模型遇到错误时，自动故障转移到备用 LLM 提供商。包括主模型备用，以及用于视觉、压缩和网页提取的独立辅助任务备用。
+
+## 工具服务器（MCP）
+
+* [MCP 服务器](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp) —— 通过模型上下文协议将 Hermes 连接到外部工具服务器。无需编写原生 Hermes 工具，即可访问来自 GitHub、数据库、文件系统、浏览器栈、内部 API 等的工具。支持 stdio 和 SSE 两种传输方式、按服务器进行工具过滤，以及具备能力感知的资源/提示注册。
+
+## Web 搜索后端
+
+`web_search` 和 `web_extract` 工具支持四种后端提供商，可通过 `config.yaml` 或 `hermes tools` 进行配置：
+
+| 后端            | 环境变量                | 搜索 | 提取 | 爬取 |
+| ------------- | ------------------- | -- | -- | -- |
+| Firecrawl（默认） | `FIRECRAWL_API_KEY` | ✔  | ✔  | ✔  |
+| Parallel      | `PARALLEL_API_KEY`  | ✔  | ✔  | —  |
+| Tavily        | `TAVILY_API_KEY`    | ✔  | ✔  | ✔  |
+| Exa           | `EXA_API_KEY`       | ✔  | ✔  | —  |
+
+快速设置示例：
+
+```yaml
+web:
+  backend: firecrawl    # firecrawl | parallel | tavily | exa
+```
+
+如果未设置 `web.backend`，则会根据可用的 API key 自动检测后端。也支持通过 `FIRECRAWL_API_URL` 使用自托管 Firecrawl。
+
+## 浏览器自动化
+
+Hermes 包含完整的浏览器自动化能力，并提供多种后端选项，用于浏览网站、填写表单和提取信息：
+
+* **Browserbase** —— 托管云浏览器，带有反机器人工具、验证码解决和住宅代理
+* **Browser Use** —— 另一种云浏览器提供商
+* **通过 CDP 使用本地 Chrome** —— 使用 `/browser connect` 连接到正在运行的 Chrome 实例
+* **本地 Chromium** —— 通过 `agent-browser` CLI 使用无头本地浏览器
+
+有关设置和用法，请参阅 [浏览器自动化](https://hermes-agent.nousresearch.com/docs/user-guide/features/browser)。
+
+## 语音与 TTS 提供商
+
+跨所有消息平台的文本转语音和语音转文本：
+
+| 提供商          | 质量 | 成本 | API Key                  |
+| ------------ | -- | -- | ------------------------ |
+| Edge TTS（默认） | 良好 | 免费 | 不需要                      |
+| ElevenLabs   | 极佳 | 付费 | `ELEVENLABS_API_KEY`     |
+| OpenAI TTS   | 良好 | 付费 | `VOICE_TOOLS_OPENAI_KEY` |
+| MiniMax      | 良好 | 付费 | `MINIMAX_API_KEY`        |
+| NeuTTS       | 良好 | 免费 | 不需要                      |
+
+语音转文本支持六种提供商：本地 `faster-whisper`（免费，在设备本地运行）、本地命令包装器、Groq、OpenAI Whisper API、Mistral 和 xAI。语音消息转录可在 Telegram、Discord、WhatsApp 和其他消息平台中使用。详情请参阅 Voice & TTS 和 Voice Mode。
+
+## IDE 与编辑器集成
+
+* [IDE 集成（ACP）](https://hermes-agent.nousresearch.com/docs/user-guide/features/acp)—— 在兼容 ACP 的编辑器中使用 Hermes Agent，例如 VS Code、Zed 和 JetBrains。Hermes 作为 ACP 服务器运行，在你的编辑器中渲染聊天消息、工具活动、文件差异和终端命令。
+
+## 程序化访问
+
+* [API 服务器](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server) —— 将 Hermes 暴露为兼容 OpenAI 的 HTTP 端点。任何支持 OpenAI 格式的前端 —— Open WebUI、LobeChat、LibreChat、NextChat、ChatBox —— 都可以连接并将 Hermes 作为后端使用，同时保留其完整工具集。
+
+## 记忆与个性化
+
+* [内置记忆](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory) —— 通过 `MEMORY.md` 和 `USER.md` 文件实现持久化、经过整理的记忆。Agent 会维护有边界的个人笔记和用户画像数据存储，并在不同会话之间保留。
+* [记忆提供商](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers) —— 接入外部记忆后端，以实现更深层的个性化。支持八种提供商：Honcho（辩证推理）、OpenViking（分层检索）、Mem0（云端提取）、Hindsight（知识图谱）、Holographic（本地 SQLite）、RetainDB（混合搜索）、ByteRover（基于 CLI）和 Supermemory。
+
+## 消息平台
+
+Hermes 可作为网关机器人运行在 19+ 个消息平台上，所有平台都通过同一个 `gateway` 子系统进行配置：
+
+* Telegram、Discord、Slack、WhatsApp、Signal、Matrix、Mattermost、Email、SMS、DingTalk、Feishu/Lark、WeCom、WeCom Callback、Weixin、BlueBubbles、QQ Bot、Yuanbao、Home Assistant、Microsoft Teams、Webhooks
+
+有关平台对比表和设置指南，请参阅 [Messaging Gateway 概览](https://hermes-agent.nousresearch.com/docs/user-guide/messaging)。
+
+## 家庭自动化
+
+* [Home Assistant](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/homeassistant) —— 通过四个专用工具控制智能家居设备：`ha_list_entities`、`ha_get_state`、`ha_list_services`、`ha_call_service`。当配置了 `HASS_TOKEN` 时，Home Assistant 工具集会自动激活。
+
+## 插件
+
+* [插件系统](https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins) —— 无需修改核心代码，即可使用自定义工具、生命周期钩子和 CLI 命令扩展 Hermes。插件会从 `~/.hermes/plugins/`、项目本地的 `.hermes/plugins/` 以及通过 pip 安装的入口点中发现。
+* [构建插件](https://hermes-agent.nousresearch.com/docs/guides/build-a-hermes-plugin) —— 创建包含工具、钩子和 CLI 命令的 Hermes 插件的分步指南。
+
+## 训练与评估
+
+* [批处理](https://hermes-agent.nousresearch.com/docs/user-guide/features/batch-processing) —— 并行运行 Agent 处理数百个提示，生成结构化的 ShareGPT 格式轨迹数据，用于训练数据生成或评估。
+

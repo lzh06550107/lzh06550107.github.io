@@ -1,0 +1,230 @@
+---
+title: 构建 Video Generation Provider Plugin
+description: hermes agent 构建 Video Generation Provider Plugin
+---
+
+Video-gen provider plugins 注册一个 backend，用于处理每一次 `video_generate` tool call。内置 providers（xAI、FAL）以 plugins 形式发布。你可以通过将目录放入 `plugins/video_gen/<name>/` 来添加新的 provider，或覆盖 bundled provider。
+
+:::tip[提示]
+Video-gen 几乎逐行镜像 Image Generation Provider Plugins —— 如果你已经构建过 image-gen backend，那么你已经知道它的结构。主要区别是：一个用于声明 modalities / aspect-ratios / durations 的 `capabilities()` 方法，以及一个 routing convention（传入 `image_url` 时使用 image-to-video；省略它时使用 text-to-video —— provider 会在内部选择正确的 endpoint）。
+:::
+
+## 统一界面（一个工具，两种模态）
+
+`video_generate` 工具通过一个参数暴露两种模态：
+
+* Text-to-video —— 只带 `prompt` 调用。provider 会路由到它的 text-to-video endpoint。
+* Image-to-video —— 带 `prompt + image_url` 调用。provider 会路由到它的 image-to-video endpoint。
+
+Edit 和 extend 被有意排除在范围之外。大多数 backends 不支持它们，而且这种不一致会迫使 agent 的工具描述中出现 per-backend prose。
+
+## 发现机制如何工作
+
+Hermes 会在三个地方扫描 video-gen backends：
+
+1. Bundled —— `<repo>/plugins/video_gen/<name>/`（以 `kind: backend` 自动加载）
+2. User —— `~/.hermes/plugins/video_gen/<name>/`（通过 `plugins.enabled` 选择启用）
+3. Pip —— 声明 `hermes_agent.plugins` entry point 的 packages
+
+每个 plugin 的 `register(ctx)` 函数会调用 `ctx.register_video_gen_provider(...)`。active provider 由 `config.yaml` 中的 `video_gen.provider` 选择；`hermes tools` → Video Generation 会引导用户完成选择。与 `image_generate` 不同，仓库中没有 legacy backend —— 每个 provider 都是 plugin。
+
+## 目录结构
+
+```text
+plugins/video_gen/my-backend/
+├── __init__.py      # VideoGenProvider subclass + register()
+└── plugin.yaml      # Manifest with kind: backend
+```
+
+## VideoGenProvider ABC
+
+子类化 `agent.video_gen_provider.VideoGenProvider`。必需：`name` property 和 `generate()` 方法。
+
+```python
+# plugins/video_gen/my-backend/__init__.py
+from typing import Any, Dict, List, Optional
+import os
+
+from agent.video_gen_provider import (
+    VideoGenProvider,
+    error_response,
+    success_response,
+)
+
+
+class MyVideoGenProvider(VideoGenProvider):
+    @property
+    def name(self) -> str:
+        return "my-backend"
+
+    @property
+    def display_name(self) -> str:
+        return "My Backend"
+
+    def is_available(self) -> bool:
+        return bool(os.environ.get("MY_API_KEY"))
+
+    def list_models(self) -> List[Dict[str, Any]]:
+        # 每个 entry 都是一个 model FAMILY —— 用户只选择一次的名称。
+        # 你的 provider 的 generate() 会根据是否传入 image_url，
+        # 在 family 内部进行路由。
+        return [
+            {
+                "id": "fast",
+                "display": "Fast",
+                "speed": "~30s",
+                "strengths": "Cheapest tier",
+                "price": "$0.05/s",
+                "modalities": ["text", "image"],  # advisory
+            },
+        ]
+
+    def default_model(self) -> Optional[str]:
+        return "fast"
+
+    def capabilities(self) -> Dict[str, Any]:
+        return {
+            "modalities": ["text", "image"],
+            "aspect_ratios": ["16:9", "9:16"],
+            "resolutions": ["720p", "1080p"],
+            "min_duration": 1,
+            "max_duration": 10,
+            "supports_audio": False,
+            "supports_negative_prompt": True,
+            "max_reference_images": 0,
+        }
+
+    def get_setup_schema(self) -> Dict[str, Any]:
+        return {
+            "name": "My Backend",
+            "badge": "paid",
+            "tag": "Short description shown in `hermes tools`",
+            "env_vars": [
+                {
+                    "key": "MY_API_KEY",
+                    "prompt": "My Backend API key",
+                    "url": "https://mybackend.example.com/keys",
+                },
+            ],
+        }
+
+    def generate(
+        self,
+        prompt: str,
+        *,
+        model: Optional[str] = None,
+        image_url: Optional[str] = None,
+        reference_image_urls: Optional[List[str]] = None,
+        duration: Optional[int] = None,
+        aspect_ratio: str = "16:9",
+        resolution: str = "720p",
+        negative_prompt: Optional[str] = None,
+        audio: Optional[bool] = None,
+        seed: Optional[int] = None,
+        **kwargs: Any,  # 始终忽略未知 kwargs，以便 forward-compat
+    ) -> Dict[str, Any]:
+        # ROUTE：是否存在 image_url 决定使用哪个 endpoint。
+        if image_url:
+            endpoint = "my-backend/image-to-video"
+            modality_used = "image"
+        else:
+            endpoint = "my-backend/text-to-video"
+            modality_used = "text"
+
+        # ... 调用你的 API ...
+
+        return success_response(
+            video="https://your-cdn/output.mp4",
+            model=model or "fast",
+            prompt=prompt,
+            modality=modality_used,
+            aspect_ratio=aspect_ratio,
+            duration=duration or 5,
+            provider=self.name,
+        )
+
+
+def register(ctx) -> None:
+    ctx.register_video_gen_provider(MyVideoGenProvider())
+```
+
+## Plugin manifest
+
+```yaml
+# plugins/video_gen/my-backend/plugin.yaml
+name: my-backend
+version: 1.0.0
+description: "My video generation backend"
+author: Your Name
+kind: backend
+requires_env:
+  - MY_API_KEY
+```
+
+## `video_generate` schema
+
+该工具在每个 backend 上暴露同一个 schema。Providers 会忽略它们不支持的参数。
+
+| Parameter              | What it does                                                   |
+| ---------------------- | -------------------------------------------------------------- |
+| `prompt`               | 文本指令（必需）                                                       |
+| `image_url`            | 设置时 → image-to-video；省略时 → text-to-video                       |
+| `reference_image_urls` | Style / character refs（provider-dependent）                     |
+| `duration`             | 秒数 —— provider 会 clamp                                         |
+| `aspect_ratio`         | `"16:9"`、`"9:16"`、`"1:1"` 等 —— provider 会 clamp                |
+| `resolution`           | `"480p"` / `"540p"` / `"720p"` / `"1080p"` —— provider 会 clamp |
+| `negative_prompt`      | 要避免的内容（仅 Pixverse / Kling）                                     |
+| `audio`                | Native audio（Veo3 / Pixverse pricing tier）                     |
+| `seed`                 | Reproducibility                                                |
+| `model`                | 覆盖 active model / family                                       |
+
+provider 的 `capabilities()` 会声明这些参数中哪些会被遵守。agent 会在工具描述中看到 active backend 的 capabilities；当用户通过 `hermes tools` 更改 backend 时，该描述会动态重建。
+
+## Model families 和 endpoint routing（FAL 模式）
+
+当你的 backend 对每个 “model” 有多个 endpoints 时 —— 比如 FAL，每个 family（Veo 3.1、Pixverse v6、Kling O3）都有 `/text-to-video` 和 `/image-to-video` URL —— 将每个 family 表示为一个 catalog entry。你的 `generate()` 会根据是否传入 `image_url` 选择正确的 endpoint：
+
+```python
+FAMILIES = {
+    "veo3.1": {
+        "text_endpoint": "fal-ai/veo3.1",
+        "image_endpoint": "fal-ai/veo3.1/image-to-video",
+        # ... family-specific capability flags ...
+    },
+}
+
+def generate(self, prompt, *, image_url=None, model=None, **kwargs):
+    family_id, family = _resolve_family(model)
+    endpoint = family["image_endpoint"] if image_url else family["text_endpoint"]
+    # ... 根据 family 声明的 capability flags 构建 payload，调用 endpoint ...
+```
+
+用户在 `hermes tools` 中只选择一次 `veo3.1`。agent 永远不需要考虑 endpoints —— 它只需要传入（或不传入）`image_url`。
+
+## 选择优先级
+
+对于 per-instance model knobs（参见 `plugins/video_gen/fal/__init__.py`）：
+
+1. `model=` keyword from the tool call
+2. `<PROVIDER>_VIDEO_MODEL` env var
+3. `video_gen.<provider>.model` in `config.yaml`
+4. `video_gen.model` in `config.yaml`（当它是你的 IDs 之一时）
+5. Provider 的 `default_model()`
+
+## 响应形态
+
+`success_response()` 和 `error_response()` 会生成每个 backend 返回的 dict shape。请使用它们 —— 不要手写 dict。
+
+Success keys：`success`、`video`（URL 或 absolute path）、`model`、`prompt`、`modality`（`"text"` 或 `"image"`）、`aspect_ratio`、`duration`、`provider`，以及 `extra`。
+
+Error keys：`success`、`video`（`None`）、`error`、`error_type`、`model`、`prompt`、`aspect_ratio`、`provider`。
+
+## Artifact 保存位置
+
+如果你的 backend 返回 base64，请使用 `save_b64_video()` 写入 `$HERMES_HOME/cache/videos/`。对于从后续 HTTP fetch 得到的 raw bytes，请使用 `save_bytes_video()`。否则直接返回 upstream URL —— gateway 会在 delivery 时解析 remote URLs。
+
+## 测试
+
+在 `tests/plugins/video_gen/test_<name>_plugin.py` 下放一个 smoke test。xAI 和 FAL 测试展示了该模式 —— register、验证 catalog、分别在有无 `image_url` 的情况下执行 routing，并断言 missing auth 时返回干净的 error responses。
+
+

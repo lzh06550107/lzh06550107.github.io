@@ -1,0 +1,152 @@
+---
+title: Azure AI Foundry
+description: hermes agent Azure AI Foundry
+---
+
+Hermes Agent 将 Azure AI Foundry（以及 Azure OpenAI）作为一等 provider 支持。单个 Azure 资源可以托管两种不同 wire format 的模型：
+
+* **OpenAI-style** —— 在类似 `https://<resource>.openai.azure.com/openai/v1` 的 endpoint 上使用 `POST /v1/chat/completions`。用于 GPT-4.x、GPT-5.x、Llama、Mistral，以及大多数开放权重模型。
+* **Anthropic-style** —— 在类似 `https://<resource>.services.ai.azure.com/anthropic` 的 endpoint 上使用 `POST /v1/messages`。当 Azure Foundry 通过 Anthropic Messages API 格式提供 Claude 模型时使用。
+
+设置向导会探测你的 endpoint，并自动检测它使用哪种 transport、有哪些可用 deployments，以及每个模型的 context length。
+
+## 前置条件
+
+* 一个 Azure AI Foundry 或 Azure OpenAI 资源，并且至少有一个 deployment
+* 该资源的 API key（可在 Azure Portal 的 “Keys and Endpoint” 下找到）
+* 该 deployment 的 endpoint URL
+
+## 快速开始
+
+```bash
+hermes model
+# → Select "Azure Foundry"
+# → Enter your endpoint URL
+# → Enter your API key
+# Hermes probes the endpoint and auto-detects transport + models
+# → Pick a model from the list (or type a deployment name manually)
+```
+
+向导会：
+
+1. 嗅探 URL path —— 以 `/anthropic` 结尾的 URL 会被识别为 Azure Foundry Claude routes。
+2. 探测 `GET <base>/models` —— 如果 endpoint 返回 OpenAI 形状的 model list，Hermes 会切换到 `chat_completions`，并用返回的 deployment IDs 预填 picker。
+3. 探测 Anthropic Messages 形状 —— 对于不暴露 `/models` 但接受 Anthropic Messages 格式的 endpoints，这是 fallback。
+4. 回退到手动输入 —— 对于拒绝所有探测的 private / gated endpoints，仍然可以工作；你可以手动选择 API mode，并输入 deployment name。
+
+所选模型的 context length 会通过 Hermes 的标准 metadata chain（`models.dev`、provider metadata，以及硬编码的 family fallbacks）解析，并存储到 `config.yaml` 中，这样模型就能正确设置自己的 context window。
+
+## 配置（写入 `config.yaml`）
+
+运行向导后，你会看到类似这样的内容：
+
+```yaml
+model:
+  provider: azure-foundry
+  base_url: https://my-resource.openai.azure.com/openai/v1
+  api_mode: chat_completions         # or "anthropic_messages"
+  default: gpt-5.4-mini              # your deployment / model name
+  context_length: 400000             # auto-detected
+```
+
+以及在 `~/.hermes/.env` 中：
+
+```env
+AZURE_FOUNDRY_API_KEY=<your-azure-key>
+```
+
+## OpenAI-style endpoints（GPT、Llama 等）
+
+Azure OpenAI 的 v1 GA endpoint 可以用标准 openai Python client 接入，只需最少改动：
+
+```yaml
+model:
+  provider: azure-foundry
+  base_url: https://my-resource.openai.azure.com/openai/v1
+  api_mode: chat_completions
+  default: gpt-5.4
+```
+
+重要行为：
+
+* GPT-5.x、codex 和 o-series 会自动路由到 Responses API。Azure Foundry 将 GPT-5 / codex / o1 / o3 / o4 模型部署为仅支持 Responses API —— 对它们调用 `/chat/completions` 会返回 400 `"The requested operation is unsupported."`。Hermes 会按名称检测这些模型 family，并透明地将 `api_mode` 升级为 `codex_responses`，即使 `config.yaml` 中仍然写着 `api_mode: chat_completions`。GPT-4、GPT-4o、Llama、Mistral 和其他 deployments 会继续使用 `/chat/completions`。
+* 会自动使用 `max_completion_tokens`。Azure OpenAI（和直接 OpenAI 一样）要求 gpt-4o、o-series 和 gpt-5.x 模型使用 `max_completion_tokens`。Hermes 会根据 endpoint 发送正确的参数。
+* 需要 `api-version` 的 pre-v1 endpoints。如果你有类似 `https://<resource>.openai.azure.com/openai?api-version=2025-04-01-preview` 的旧 base URL，Hermes 会提取 query string，并在每个请求中通过 `default_query` 转发它（否则 OpenAI SDK 在拼接 paths 时会丢弃它）。
+
+## Anthropic-style endpoints（通过 Azure Foundry 使用 Claude）
+
+对于 Claude deployments，请使用 Anthropic-style route：
+
+```yaml
+model:
+  provider: azure-foundry
+  base_url: https://my-resource.services.ai.azure.com/anthropic
+  api_mode: anthropic_messages
+  default: claude-sonnet-4-6
+```
+
+重要行为：
+
+* 会从 base URL 中剥离 `/v1`。Anthropic SDK 会在每个 request URL 后附加 `/v1/messages` —— Hermes 会在把 URL 交给 SDK 之前移除结尾的 `/v1`，以避免出现重复 `/v1` 的路径。
+* `api-version` 会通过 `default_query` 发送，而不是追加到 URL 上。Azure Anthropic 需要一个 `api-version` query string。把它硬编码进 base URL 会产生类似 `/anthropic?api-version=.../v1/messages` 的畸形路径，并返回 404。Hermes 会改为通过 Anthropic SDK 的 `default_query` 传递 `api-version=2025-04-15`。
+* OAuth token refresh 会被禁用。Azure deployments 使用静态 API keys。适用于 Anthropic Console 的 `~/.claude/.credentials.json` OAuth token refresh loop 会对 Azure endpoints 明确跳过，以防 Claude Code OAuth token 在 session 中覆盖你的 Azure key。
+
+## 替代方案：`provider: anthropic` + Azure base URL
+
+如果你已经配置了 `provider: anthropic`，并且只是想把它指向 Azure AI Foundry 中的 Claude，则可以完全跳过 `azure-foundry` provider：
+
+```yaml
+model:
+  provider: anthropic
+  base_url: https://my-resource.services.ai.azure.com/anthropic
+  key_env: AZURE_ANTHROPIC_KEY
+  default: claude-sonnet-4-6
+```
+
+并在 `~/.hermes/.env` 中设置 `AZURE_ANTHROPIC_KEY`。Hermes 会检测 base URL 中的 `azure.com`，并绕过 Claude Code OAuth token chain，使 Azure key 直接通过 `x-api-key` auth 使用。
+
+`key_env` 是标准的 snake_case 字段名；`api_key_env`（以及 camelCase 的 `keyEnv` / `apiKeyEnv`）也会作为 alias 被接受。如果同时设置了 `key_env` 和 `AZURE_ANTHROPIC_KEY` / `ANTHROPIC_API_KEY`，则 `key_env` 指定的 env var 优先。
+
+## Model discovery
+
+Azure 不提供只使用 API key 就能列出已部署 model deployments 的 endpoint。Deployment enumeration 需要 Azure Resource Manager authentication（`az cognitiveservices account deployment list`）和 Azure AD principal，而不是 inference API key。
+
+Hermes 能做什么：
+
+* Azure OpenAI v1 endpoints（`<resource>.openai.azure.com/openai/v1`）会暴露 `GET /models`，其中包含该资源可用的 model catalog。Hermes 会使用该列表预填 model picker。
+* Azure Foundry `/anthropic` routes：通过 URL path 检测，model name 手动输入。
+* Private / firewalled endpoints：手动输入，并显示友好的 “couldn't probe” 消息。
+
+你始终可以直接输入 deployment name —— Hermes 不会根据返回列表强制校验。
+
+## 环境变量
+
+| 变量                       | 用途                                                                |
+| ------------------------ | ----------------------------------------------------------------- |
+| `AZURE_FOUNDRY_API_KEY`  | Azure AI Foundry / Azure OpenAI 的主 API key                        |
+| `AZURE_FOUNDRY_BASE_URL` | Endpoint URL（通过 `hermes model` 设置；env var 会作为 fallback 使用）        |
+| `AZURE_ANTHROPIC_KEY`    | 用于 `provider: anthropic` + Azure base URL（替代 `ANTHROPIC_API_KEY`） |
+
+## 故障排查
+
+gpt-5.x deployments 出现 `401 Unauthorized`。Azure 在 `/chat/completions` 上提供 gpt-5.x，而不是 `/responses`。当 URL 包含 `openai.azure.com` 时，Hermes 会自动处理这一点；但如果你看到带有 `Invalid API key` body 的 401，请检查 `config.yaml` 中的 `api_mode` 是否为 `chat_completions`。
+
+`/v1/messages?api-version=.../v1/messages` 出现 404。这是 pre-fix Azure Anthropic 设置中的 malformed-URL bug。升级 Hermes —— `api-version` 参数现在会通过 `default_query` 传递，而不是硬编码进 base URL，因此 SDK 在拼接 URL 时不会破坏它。
+
+向导显示 `"Auto-detection incomplete."`。endpoint 拒绝了 `/models` probe 和 Anthropic Messages probe。对于位于防火墙之后或带 IP allow-list 的 private endpoints，这是正常的。回退到手动 API mode 选择，并输入你的 deployment name —— 一切仍然可以工作，只是 Hermes 无法预填 picker。
+
+选错 transport。再次运行 `hermes model`，向导会重新探测。如果探测仍然选择了错误模式，你可以直接编辑 `config.yaml`：
+
+```yaml
+model:
+  provider: azure-foundry
+  api_mode: anthropic_messages   # or chat_completions
+```
+
+## 相关内容
+
+* [Environment variables](https://hermes-agent.nousresearch.com/docs/reference/environment-variables)
+* [Configuration](https://hermes-agent.nousresearch.com/docs/user-guide/configuration)
+* [AWS Bedrock](https://hermes-agent.nousresearch.com/docs/guides/aws-bedrock) —— 另一个主要云 provider 集成 
+
+

@@ -1,0 +1,152 @@
+---
+title: 学习路径
+description: Hermes Agent 学习路径与推荐阅读顺序
+---
+
+Hermes Agent 功能强大 —— 它可以是 CLI 助手、Telegram/Discord 机器人、任务自动化工具、强化学习（RL）训练平台等等。本页面将根据你的经验水平和目标，帮助你确定从哪里开始以及该阅读哪些内容。
+
+:::tip[从这里开始]
+如果你还没有安装 Hermes Agent，请先阅读 [安装指南](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/installation)，然后完成 [快速入门](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/quickstart)。下文所有内容均假设你已拥有一个可以运行的安装环境。
+:::
+
+## 如何使用本页面
+
+* **了解自己的水平？** 直接跳转到 [按经验水平划分](https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/learning-path#by-experience-level) 表格，按照对应等级的阅读顺序进行学习。
+* **有明确的目标？** 跳过表格，直接查看 [按使用场景划分](https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/learning-path#by-use-case)，找到匹配的方案。
+* **随便看看？** 查看 [核心功能概览](https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/learning-path#core-functionalities) 表格，快速了解 Hermes Agent 的所有能力。
+
+## 按经验水平划分
+
+| 等级 | 目标 | 推荐阅读 | 预计耗时 |
+| --- | --- | --- | --- |
+| **初学者** | 启动并运行，进行基础对话，使用内置工具 | [安装](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/installation) → [快速入门](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/quickstart) → [CLI 使用](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/cli-usage) → [配置](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/configuration) | ~1 小时 |
+| **进阶者** | 设置消息机器人，使用记忆、Cron 任务和技能等高级功能 | [会话](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/sessions) → [消息传递](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/message-passing) → [工具](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/tools) → [技能](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/skills) → [记忆](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/memory) → [Cron](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/cron) | ~2–3 小时 |
+| **高级用户** | 构建自定义工具，创建技能，进行 RL 训练，贡献代码 | [架构](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/architecture) → [添加工具](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/adding-tools) → [创建技能](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/creating-skills) → [RL 训练](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/rl-training) → [贡献指南](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/contribution-guide) | ~4–6 小时 |
+
+## 按使用场景划分
+
+选择与你目标匹配的场景。每个场景都按推荐的阅读顺序链接了相关文档。
+
+### "我想要一个 CLI 编程助手"
+
+将 Hermes Agent 作为交互式终端助手，用于编写、审查和运行代码。
+
+1. [安装](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/installation)
+2. [快速入门](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/quickstart)
+3. [CLI 使用](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/cli-usage)
+4. [代码执行](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/code-execution)
+5. [上下文文件](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/context-files)
+6. [提示与技巧](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/tips-and-tricks)
+
+:::tip[提示]
+使用上下文文件直接将文件引入对话。Hermes Agent 可以读取、编辑并运行你项目中的代码。
+:::
+
+### "我想要一个 Telegram/Discord 机器人"
+
+在常用的消息平台上部署 Hermes Agent。
+
+1. [安装](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/installation)
+2. [配置](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/configuration)
+3. [消息传递概述](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/message-passing-overview)
+4. [Telegram 设置](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/telegram-setup)
+5. [Discord 设置](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/discord-setup)
+6. [语音模式（在 Hermes 中使用语音）](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/voice-mode)
+7. [安全性](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/security)
+
+**完整项目示例：**
+
+* [每日简报机器人](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/guides/daily-briefing-bot)
+* [团队 Telegram 助手](https://hermes-agent.nousresearch.com/docs/zh-Hans/guides/team-telegram-assistant)
+
+### "我想要自动化任务"
+
+安排定期任务、运行批处理作业或链接 Agent 动作。
+
+1. [快速入门](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/quickstart)
+2. [Cron 定期任务](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/cron)
+3. [批处理](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/batch-processing)
+4. [任务委派 (Delegation)](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/delegation)
+5. [钩子 (Hooks)](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/hooks)
+
+:::tip[提示]
+Cron 任务让 Hermes Agent 能按计划运行 —— 每日摘要、定期检查、自动化报告 —— 无需你在场。
+:::
+
+### "我想要构建自定义工具/技能"
+
+使用你自己的工具和可重用的技能包来扩展 Hermes Agent。
+
+1. [插件](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/plugins)
+2. [构建一个 Hermes 插件](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/building-a-hermes-plugin)
+3. [工具概述](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/tools-overview)
+4. [技能概述](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/skills-overview)
+5. [MCP (Model Context Protocol)](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/mcp)
+6. [架构](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/architecture)
+7. [添加工具](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/adding-tools)
+8. [创建技能](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/creating-skills)
+
+:::tip[提示]
+对于大多数自定义工具的创建，请从 “插件” 开始。[添加工具](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/adding-tools) 页面适用于 Hermes 核心开发，而非普通的自定义工具路径。
+:::
+
+### "我想要训练模型"
+
+使用 Hermes Agent 内置的 RL 训练流水线，通过强化学习微调模型行为。
+
+1. [快速入门](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/quickstart)
+2. [配置](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/configuration)
+3. [RL 训练](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/rl-training)
+4. [服务商路由 (Provider Routing)](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/provider-routing)
+5. [架构](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/architecture)
+
+:::tip[提示]
+当你已经理解 Hermes Agent 处理对话和工具调用的基础知识时，RL 训练的效果最好。如果你是新手，请先完成 “初学者” 路径。
+:::
+
+### "我想要将其作为 Python 库使用"
+
+通过编程方式将 Hermes Agent 集成到你自己的 Python 应用程序中。
+
+1. [安装](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/installation)
+2. [快速入门](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/quickstart)
+3. [Python 库指南](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/python-library-guide)
+4. [架构](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/architecture)
+5. [工具](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/tools)
+6. [会话](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/sessions)
+
+## 核心功能概览
+
+不确定有哪些功能？这里是主要功能的快速索引：
+
+| 功能 | 作用 | 链接 |
+| --- | --- | --- |
+| **工具 (Tools)** | Agent 可调用的内置工具（文件 I/O、搜索、Shell 等） | [工具](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/tools) |
+| **技能 (Skills)** | 可安装的插件包，用于增加新能力 | [技能](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/skills) |
+| **记忆 (Memory)** | 跨会话的持久记忆 | [记忆](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/memory) |
+| **上下文文件** | 将文件和目录输入到对话中 | [上下文文件](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/context-files) |
+| **MCP** | 通过 Model Context Protocol 连接外部工具服务器 | [MCP](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/mcp) |
+| **Cron** | 安排定期运行的 Agent 任务 | [Cron](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/cron) |
+| **委派 (Delegation)** | 创建子 Agent 进行并行工作 | [委派](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/delegation) |
+| **代码执行** | 运行调用 Hermes 工具的 Python 脚本 | [代码执行](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/code-execution) |
+| **浏览器 (Browser)** | 网页浏览与抓取 | [浏览器](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/browser) |
+| **钩子 (Hooks)** | 事件驱动的回调和中间件 | [钩子](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/hooks) |
+| **批处理** | 批量处理多个输入 | [批处理](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/batch-processing) |
+| **RL 训练** | 通过强化学习微调模型 | [RL 训练](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/rl-training) |
+| **服务商路由** | 在多个 LLM 服务商之间路由请求 | [服务商路由](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/provider-routing) |
+
+## 下一步读什么？
+
+根据你当前的进度：
+
+* **刚完成安装？** → 前往 [快速入门](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/quickstart) 开启你的第一次对话。
+* **已完成快速入门？** → 阅读 [CLI 使用](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/cli-usage) 和 [配置](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/configuration) 来定制你的环境。
+* **熟悉基础操作了？** → 探索[工具](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/tools)、[技能](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/skills)和[记忆](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/memory)，解锁 Agent 的全部能力。
+* **正在为团队进行设置？** → 阅读[安全性](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/security)和[会话](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/sessions)，了解访问控制和对话管理。
+* **准备好进行开发了？** → 跳转到[开发者指南](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/developer-guide)深入了解内部机制并开始贡献代码。
+* **想要实战案例？** → 查看[指南](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/getting-started/guides)部分，获取真实项目案例和技巧。
+
+:::tip[提示]
+你不需要阅读所有内容。选择与你目标匹配的路径，按顺序点击链接，你将很快上手。你可以随时回到本页面寻找下一步操作。
+:::
+

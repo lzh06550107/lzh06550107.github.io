@@ -1,0 +1,367 @@
+---
+title: 网页搜索与提取
+description: hermes agent 网页搜索与提取
+---
+
+Hermes Agent 包含两个可由模型调用的网页工具，并由多个服务商提供支持：
+
+* **web_search** — 搜索网页并返回排名结果
+* **web_extract** — 获取并提取一个或多个 URL 的可读内容（当后端支持时，内置深层爬取支持）
+
+两者均通过统一的后端选择进行配置。服务商可通过 `hermes tools` 进行选择，或直接在 `config.yaml` 中设置。递归爬取功能（如 Firecrawl/Tavily）通过 `web_extract` 开放，而不是作为独立的 `web_crawl` 工具。
+
+## 后端服务
+
+| 服务商 | 环境变量 | 搜索 (Search) | 提取 (Extract) | 爬取 (Crawl) | 免费额度 |
+| --- | --- | --- | --- | --- | --- |
+| **Firecrawl** (默认) | `FIRECRAWL_API_KEY` | ✔ | ✔ | ✔ | 500 积分/月 |
+| **SearXNG** | `SEARXNG_URL` | ✔ | — | — | 免费 (自行托管) |
+| **Tavily** | `TAVILY_API_KEY` | ✔ | ✔ | ✔ | 1,000 次搜索/月 |
+| **Exa** | `EXA_API_KEY` | ✔ | ✔ | — | 1,000 次搜索/月 |
+| **Parallel** | `PARALLEL_API_KEY` | ✔ | ✔ | — | 付费 |
+
+**功能拆分配置：** 你可以独立地为搜索和提取使用不同的服务商 —— 例如，使用 SearXNG（免费）进行搜索，使用 Firecrawl 进行提取。请参阅下文的 [按功能配置](https://hermes-agent.nousresearch.com/docs/user-guide/features/web-search#per-capability-configuration) 部分。
+
+:::tip[Nous 订阅者]
+如果你拥有付费的 [Nous Portal](https://portal.nousresearch.com/) 订阅，网页搜索和提取功能可通过 [Tool Gateway](https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-gateway) 使用托管的 Firecrawl —— 无需 API 密钥。运行 `hermes tools` 即可启用。
+:::
+
+## `web_extract` 如何处理长页面
+
+后端返回的是原始页面 Markdown，其体积可能非常巨大（如论坛帖子、文档站点、带有嵌入评论的新闻文章）。为了保持上下文窗口的可用性并降低成本，`web_extract` 在将返回内容交给智能体之前，会先通过 **`web_extract` 辅助模型** 进行处理。该行为纯粹由内容大小驱动：
+
+| 页面大小（字符） | 处理方式 |
+| --- | --- |
+| **5,000 以下** | 原样返回 —— 无 LLM 调用，完整 Markdown 直接传给智能体 |
+| **5,000 – 500,000** | 通过 `web_extract` 辅助模型进行单次总结，输出上限约为 5,000 字符 |
+| **500,000 – 2,000,000** | 分块处理：拆分为 10 万字符的块，并行总结每一块，然后合成最终总结（约 5,000 字符） |
+| **超过 2,000,000** | 拒绝处理，并提示使用 `web_crawl` 配合聚焦提取指令或更具体的源 |
+
+总结过程会保留原始格式中的引用、代码块和关键事实 —— 它是一个内容压缩器，而非改写器。如果总结失败或超时，Hermes 会回退并提供原始内容的前 5,000 字符，而不是返回一个无用的错误。
+
+### 哪个模型负责总结？
+
+由 **`web_extract` 辅助任务** 负责。默认情况下（`auxiliary.web_extract.provider: "auto"`），它就是你的 **主聊天模型** —— 与 `hermes model` 设置的服务商和模型一致。这对于大多数配置来说没问题，但如果你使用的是昂贵的推理模型（如 Opus、MiniMax M2.7 等），每次长页面提取都会增加显著的成本。
+
+若要将提取总结路由到廉价、快速的模型（无论主模型为何）：
+
+```yaml
+# ~/.hermes/config.yaml
+auxiliary:
+  web_extract:
+    provider: openrouter
+    model: google/gemini-3-flash-preview
+    timeout: 360       # 秒；如果遇到总结超时请调高此值
+```
+
+或者通过交互式选择：`hermes model` → `Configure auxiliary models` → `web_extract`。
+
+请参阅 [辅助模型 (Auxiliary Models)](https://hermes-agent.nousresearch.com/docs/user-guide/configuration#auxiliary-models) 章节获取完整的参考说明和按任务覆盖的模式。
+
+### 当总结产生干扰时
+
+如果你明确需要原始、未经总结的页面内容 —— 例如，你正在抓取一个结构化页面，而 LLM 总结可能会丢掉重要字段 —— 请改用 `browser_navigate` + `browser_snapshot`。浏览器工具返回的是实时辅助功能树（accessibility tree），且不会经过辅助模型重写（但在极巨页面上受限于其自身 8,000 字符的快照上限）。
+
+## 设置
+
+### 通过 `hermes tools` 快速设置
+
+运行 `hermes tools`，导航至 **Web Search & Extract**，然后选择一个服务商。向导会提示输入所需的 URL 或 API 密钥，并将其写入你的配置中。
+
+```bash
+hermes tools
+```
+
+### Firecrawl (默认)
+
+全功能搜索、提取和爬取。推荐大多数用户使用。
+
+```bash
+# ~/.hermes/.env
+FIRECRAWL_API_KEY=fc-your-key-here
+```
+
+在 [firecrawl.dev](https://firecrawl.dev) 获取密钥。免费版每月包含 500 积分。
+
+**自托管 Firecrawl：** 指向你自己的实例而非云端 API：
+
+```bash
+# ~/.hermes/.env
+FIRECRAWL_API_URL=http://localhost:3002
+```
+
+当设置了 `FIRECRAWL_API_URL` 时，API 密钥是可选的（通过 `USE_DB_AUTHENTICATION=false` 禁用服务器身份验证）。
+
+## SearXNG (免费，自托管)
+
+SearXNG 是一款尊重隐私的开源元搜索引擎，它整合了 70 多个搜索引擎的结果。**无需 API 密钥** —— 只需将 Hermes 指向正在运行的 SearXNG 实例即可。
+
+SearXNG **仅支持搜索** —— `web_extract`（包括其爬取模式）需要单独的提取服务商。
+
+**选项 A — 使用 Docker 自托管 (推荐)**
+
+这可以为你提供一个没有速率限制的私有实例。
+
+**1. 创建工作目录：**
+
+```bash
+mkdir -p ~/searxng/searxng
+cd ~/searxng
+```
+
+**2. 编写 `docker-compose.yml`：**
+
+```yaml
+# ~/searxng/docker-compose.yml
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888/
+    restart: unless-stopped
+```
+
+**3. 启动容器：**
+
+```bash
+docker compose up -d
+```
+
+**4. 启用 JSON API 格式：**
+
+SearXNG 默认禁用了 JSON 输出。复制生成的配置并启用它：
+
+```bash
+# 从容器中复制自动生成的配置
+docker cp searxng:/etc/searxng/settings.yml ~/searxng/searxng/settings.yml
+```
+
+打开 `~/searxng/searxng/settings.yml` 并找到 `formats` 块（约在第 84 行）：
+
+```yaml
+# 修改前 (默认 — JSON 已禁用):
+formats:
+  - html
+
+# 修改后 (为 Hermes 启用 JSON):
+formats:
+  - html
+  - json
+```
+
+**5. 重启以应用配置：**
+
+```bash
+docker cp ~/searxng/searxng/settings.yml searxng:/etc/searxng/settings.yml
+docker restart searxng
+```
+
+**6. 验证是否工作：**
+
+```bash
+curl -s "http://localhost:8888/search?q=test&format=json" | python3 -c \
+  "import sys,json; d=json.load(sys.stdin); print(f'{len(d[\"results\"])} results')"
+```
+
+你应该看到类似 `10 results` 的输出。如果你收到 `403 Forbidden`，说明 JSON 格式仍处于禁用状态 —— 请重新检查第 4 步。
+
+**7. 配置 Hermes：**
+
+```bash
+# ~/.hermes/.env
+SEARXNG_URL=http://localhost:8888
+```
+
+然后在 `~/.hermes/config.yaml` 中选择 SearXNG 作为搜索后端：
+
+```yaml
+web:
+  search_backend: "searxng"
+```
+
+或者通过 `hermes tools` → **Web Search & Extract** → **SearXNG** 进行设置。
+
+**选项 B — 使用公共实例**
+
+公共 SearXNG 实例列表可在 [searx.space](https://searx.space) 找到。请筛选出 **已启用 JSON 格式**（显示在表格中）的实例。
+
+```bash
+# ~/.hermes/.env
+SEARXNG_URL=https://searx.example.com
+```
+
+:::caution[公共实例说明]
+公共实例存在速率限制、在线率不稳定等问题，且可能随时禁用 JSON 格式。对于生产用途，强烈建议自行托管。
+:::
+
+#### 将 SearXNG 与提取服务商配对
+
+SearXNG 仅处理搜索；你需要一个独立的服务商用于 `web_extract`（包括任何深度爬取模式）。请使用按功能区分的配置项：
+
+```yaml
+# ~/.hermes/config.yaml
+web:
+  search_backend: "searxng"
+  extract_backend: "firecrawl"   # 或 tavily, exa, parallel
+```
+
+通过此配置，Hermes 将使用 SearXNG 处理所有搜索查询，并使用 Firecrawl 进行 URL 提取 —— 从而将免费搜索与高质量提取结合起来。
+
+## Tavily
+
+针对 AI 优化的搜索、提取和爬取服务，提供慷慨的免费额度。
+
+```bash
+# ~/.hermes/.env
+TAVILY_API_KEY=tvly-your-key-here
+```
+
+在 [app.tavily.com](https://app.tavily.com/home) 获取密钥。免费版每月包含 1,000 次搜索。
+
+### Exa
+
+具备语义理解能力的神经搜索。适用于研究和寻找概念相关的内容。
+
+```bash
+# ~/.hermes/.env
+EXA_API_KEY=your-exa-key-here
+```
+
+在 [exa.ai](https://exa.ai) 获取密钥。免费版每月包含 1,000 次搜索。
+
+### Parallel
+
+具备深度研究能力的 AI 原生搜索与提取服务。
+
+```bash
+# ~/.hermes/.env
+PARALLEL_API_KEY=your-parallel-key-here
+```
+
+在 [parallel.ai](https://parallel.ai) 获取访问权限。
+
+## 配置
+
+### 单一后端
+
+为所有网页功能设置统一的服务商：
+
+```yaml
+# ~/.hermes/config.yaml
+web:
+  backend: "searxng"   # 可选：firecrawl | searxng | tavily | exa | parallel
+```
+
+### 按功能配置
+
+为搜索和提取使用不同的服务商。这允许你将免费搜索 (SearXNG) 与付费提取服务商结合使用，反之亦然：
+
+```yaml
+# ~/.hermes/config.yaml
+web:
+  search_backend: "searxng"     # 由 web_search 使用
+  extract_backend: "firecrawl"  # 由 web_extract（及其深度爬取模式）使用
+```
+
+当按功能配置的键为空时，两者都会回退到 `web.backend`。如果 `web.backend` 也为空，后端将根据现有的 API 密钥或 URL 自动检测。
+
+**优先级顺序（按功能）：**
+
+1. `web.search_backend` / `web.extract_backend`（显式按功能指定）
+2. `web.backend`（共享回退项）
+3. 从环境变量中自动检测
+
+### 自动检测
+
+如果没有显式配置后端，Hermes 会根据设置的凭据自动选择第一个可用的后端：
+
+| 存在的凭据 | 自动选择的后端 |
+| --- | --- |
+| `FIRECRAWL_API_KEY` 或 `FIRECRAWL_API_URL` | firecrawl |
+| `PARALLEL_API_KEY` | parallel |
+| `TAVILY_API_KEY` | tavily |
+| `EXA_API_KEY` | exa |
+| `SEARXNG_URL` | searxng |
+
+## 验证你的设置
+
+运行 `hermes setup` 来查看检测到了哪个网页后端：
+
+```
+✅ Web Search & Extract (searxng)
+```
+
+或者通过 CLI 进行检查：
+
+```bash
+# 激活虚拟环境并直接运行网页工具模块
+source ~/.hermes/hermes-agent/.venv/bin/activate
+python -m tools.web_tools
+```
+
+这将打印出当前激活的后端及其状态：
+
+```
+✅ Web backend: searxng
+   Using SearXNG (search only): http://localhost:8888
+```
+
+## 故障排除
+
+**`web_search` 返回 `{"success": false}**`
+
+* 检查 `SEARXNG_URL` 是否可访问：`curl -s "http://localhost:8888/search?q=test&format=json"`
+* 如果收到 HTTP 403 错误，说明 JSON 格式被禁用 —— 请在 `settings.yml` 的 `formats` 列表中添加 `json` 并重启。
+* 如果收到连接错误，容器可能未运行：`docker ps | grep searxng`
+
+**`web_extract` 提示 “search-only backend” (仅限搜索的后端)**
+
+SearXNG 无法提取 URL 内容。请将 `web.extract_backend` 设置为支持提取的服务商：
+
+```yaml
+web:
+  search_backend: "searxng"
+  extract_backend: "firecrawl"  # 或 tavily / exa / parallel
+```
+
+**SearXNG 返回 0 个结果**
+
+部分公共实例禁用了特定的搜索引擎或类别。请尝试：
+
+* 更换查询词。
+* 从 [searx.space](https://searx.space) 选择另一个公共实例。
+* 自行托管实例以获得可靠的结果。
+
+**在公共实例上受到频率限制 (Rate limited)**
+
+切换到自托管实例（见上文 **选项 A**）。使用 Docker 托管的私有实例没有频率限制。
+
+**`web_extract` 返回截断的内容并附带 “summarization timed out” (总结超时) 备注**
+
+辅助模型未能在配置的超时时间内完成总结。你可以：
+
+* 在 `config.yaml` 中调高 `auxiliary.web_extract.timeout`（全新安装默认为 360 秒，若该键缺失则默认为 30 秒）。
+* 将 `web_extract` 辅助任务切换到更快的模型（例如 `google/gemini-3-flash-preview`） —— 参见 **`web_extract` 如何处理长页面**。
+* 对于不适合使用总结工具的页面，请改用 `browser_navigate`。
+
+**可选技能：`searxng-search**`
+
+对于需要直接通过 `curl` 使用 SearXNG 的智能体（例如，当网页工具集不可用时的备选方案），可以安装 `searxng-search` 可选技能：
+
+```bash
+hermes skills install official/research/searxng-search
+```
+
+该技能将教会智能体如何：
+
+* 通过 `curl` 或 Python 调用 SearXNG JSON API。
+* 按类别（综合(`general`)、新闻(`news`)、科学(`science`)等）进行过滤。
+* 处理分页和错误情况。
+* 在 SearXNG 无法访问时进行优雅回退。
+
+

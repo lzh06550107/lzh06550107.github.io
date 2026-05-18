@@ -1,0 +1,199 @@
+---
+title: 提供商路由
+description: hermes agent 提供商路由
+---
+
+当使用 OpenRouter 作为你的 LLM 提供商时，Hermes Agent 支持提供商路由 —— 可以对哪些底层 AI 提供商处理你的请求以及它们的优先级进行细粒度控制。
+
+OpenRouter 会将请求路由到许多提供商（例如 Anthropic、Google、AWS Bedrock、Together AI）。提供商路由让你可以针对成本、速度、质量进行优化，或强制执行特定的提供商要求。
+
+## 配置
+
+在你的 `~/.hermes/config.yaml` 中添加 `provider_routing` 部分：
+
+```yaml
+provider_routing:
+  sort: "price"           # 如何对提供商进行排序
+  only: []                # 白名单：只使用这些提供商
+  ignore: []              # 黑名单：永不使用这些提供商
+  order: []               # 显式提供商优先级顺序
+  require_parameters: false  # 只使用支持所有参数的提供商
+  data_collection: null   # 控制数据收集（"allow" 或 "deny"）
+```
+
+:::note[信息]
+提供商路由仅在使用 OpenRouter 时生效。对于直接连接的提供商（例如直接连接到 Anthropic API），它没有效果。
+:::
+
+## 选项
+
+### `sort`
+
+控制 OpenRouter 如何为你的请求对可用提供商进行排序。
+
+| 值              | 描述                 |
+| -------------- | ------------------ |
+| `"price"`      | 最便宜的提供商优先          |
+| `"throughput"` | 每秒 token 数最快的提供商优先 |
+| `"latency"`    | 首 token 延迟最低的提供商优先 |
+
+```yaml
+provider_routing:
+  sort: "price"
+```
+
+### `only`
+
+提供商名称白名单。设置后，只会使用这些提供商。所有其他提供商都会被排除。
+
+```yaml
+provider_routing:
+  only:
+    - "Anthropic"
+    - "Google"
+```
+
+### `ignore`
+
+提供商名称黑名单。这些提供商永远不会被使用，即使它们提供最便宜或最快的选项。
+
+```yaml
+provider_routing:
+  ignore:
+    - "Together"
+    - "DeepInfra"
+```
+
+### `order`
+
+显式优先级顺序。列表中靠前的提供商会被优先使用。未列出的提供商会作为备用。
+
+```yaml
+provider_routing:
+  order:
+    - "Anthropic"
+    - "Google"
+    - "AWS Bedrock"
+```
+
+### `require_parameters`
+
+当为 true 时，OpenRouter 只会路由到支持你请求中所有参数的提供商（例如 `temperature`、`top_p`、`tools` 等）。这样可以避免参数被静默丢弃。
+
+```yaml
+provider_routing:
+  require_parameters: true
+```
+
+### `data_collection`
+
+控制提供商是否可以将你的提示词用于训练。选项为 `"allow"` 或 `"deny"`。
+
+```yaml
+provider_routing:
+  data_collection: "deny"
+```
+
+## 实际示例
+
+### 针对成本优化
+
+路由到最便宜的可用提供商。适合高频使用和开发：
+
+```yaml
+provider_routing:
+  sort: "price"
+```
+
+### 针对速度优化
+
+为交互式使用优先选择低延迟提供商：
+
+```yaml
+provider_routing:
+  sort: "latency"
+```
+
+### 针对吞吐量优化
+
+最适合长文本生成，此时每秒 token 数很重要：
+
+```yaml
+provider_routing:
+  sort: "throughput"
+```
+
+### 锁定到特定提供商
+
+确保所有请求都通过特定提供商，以保持一致性：
+
+```yaml
+provider_routing:
+  only:
+    - "Anthropic"
+```
+
+### 避免特定提供商
+
+排除你不想使用的提供商（例如出于数据隐私考虑）：
+
+```yaml
+provider_routing:
+  ignore:
+    - "Together"
+    - "Lepton"
+  data_collection: "deny"
+```
+
+### 带备用的首选顺序
+
+先尝试你的首选提供商，如果不可用则回退到其他提供商：
+
+```yaml
+provider_routing:
+  order:
+    - "Anthropic"
+    - "Google"
+  require_parameters: true
+```
+
+## 工作方式
+
+Provider routing 偏好会通过每次 API 调用中的 `extra_body.provider` 字段传递给 OpenRouter API。这适用于：
+
+* **CLI 模式** —— 在 `~/.hermes/config.yaml` 中配置，启动时加载
+* **Gateway 模式** —— 使用同一个配置文件，在 gateway 启动时加载
+
+路由配置会从 `config.yaml` 读取，并在创建 `AIAgent` 时作为参数传入：
+
+```text
+providers_allowed  ← 来自 provider_routing.only
+providers_ignored  ← 来自 provider_routing.ignore
+providers_order    ← 来自 provider_routing.order
+provider_sort      ← 来自 provider_routing.sort
+provider_require_parameters ← 来自 provider_routing.require_parameters
+provider_data_collection    ← 来自 provider_routing.data_collection
+```
+
+:::tip[提示]
+
+你可以组合多个选项。例如，按价格排序，但排除某些提供商，并要求支持参数：
+
+```yaml
+provider_routing:
+  sort: "price"
+  ignore: ["Together"]
+  require_parameters: true
+  data_collection: "deny"
+```
+
+:::
+
+## 默认行为
+
+当没有配置 `provider_routing` 部分时（默认情况），OpenRouter 会使用自己的默认路由逻辑，通常会自动平衡成本和可用性。
+
+:::tip[Provider Routing vs. 备用模型]
+Provider routing 控制 OpenRouter 内部由哪些子提供商处理你的请求。如果想在主模型失败时自动故障转移到完全不同的提供商，请参阅 [Fallback Providers](https://hermes-agent.nousresearch.com/docs/user-guide/features/fallback-providers)。
+:::
+

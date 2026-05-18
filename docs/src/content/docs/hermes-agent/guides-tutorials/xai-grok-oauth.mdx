@@ -1,0 +1,226 @@
+---
+title: xAI Grok OAuth（SuperGrok 订阅）
+description: hermes agent xAI Grok OAuth（SuperGrok 订阅）
+---
+
+Hermes Agent 支持通过基于浏览器的 OAuth 登录流程接入 xAI Grok，该流程会连接到 `accounts.x.ai`，并使用你现有的 SuperGrok 订阅。不需要 `XAI_API_KEY` —— 只需登录一次，Hermes 会在后台自动刷新你的 session。
+
+该 transport 复用了 `codex_responses` adapter（xAI 暴露的是 Responses 风格的 endpoint），因此 reasoning、tool-calling、streaming 和 prompt caching 都无需任何 adapter 修改即可工作。
+
+同一个 OAuth bearer token 也会被 Hermes 中所有直连 xAI 的功能复用 —— TTS、image generation、video generation 和 transcription —— 因此一次登录即可覆盖这四项功能。
+
+## 概览
+
+| 项目               | 值                                         |
+| ---------------- | ----------------------------------------- |
+| Provider ID      | `xai-oauth`                               |
+| Display name     | xAI Grok OAuth（SuperGrok 订阅）              |
+| Auth type        | Browser OAuth 2.0 PKCE（loopback callback） |
+| Transport        | xAI Responses API（`codex_responses`）      |
+| Default model    | `grok-4.3`                                |
+| Endpoint         | `https://api.x.ai/v1`                     |
+| Auth server      | `https://accounts.x.ai`                   |
+| Requires env var | 否（此 provider 不使用 `XAI_API_KEY`）           |
+| Subscription     | SuperGrok（任意有效套餐）                         |
+
+## 前置条件
+
+* Python 3.9+
+* 已安装 Hermes Agent
+* 你的 xAI 账号拥有有效的 SuperGrok 订阅
+* 本地机器上有可用浏览器（远程 session 可使用 `--no-browser`）
+
+## 快速开始
+
+```bash
+# Launch the provider and model picker
+hermes model
+# → Select "xAI Grok OAuth (SuperGrok Subscription)" from the provider list
+# → Hermes opens your browser to accounts.x.ai
+# → Approve access in the browser
+# → Pick a model (grok-4.3 is at the top)
+# → Start chatting
+
+hermes
+```
+
+首次登录后，credentials 会存储在 `~/.hermes/auth.json` 下，并在过期前自动刷新。
+
+手动登录
+
+你可以不通过 model picker，直接触发登录：
+
+```bash
+hermes auth add xai-oauth
+```
+
+远程 / 无头 sessions
+
+在没有可用浏览器的服务器、容器或 SSH sessions 中，Hermes 会检测远程环境，并打印 authorization URL，而不是打开浏览器。
+
+重要：loopback listener 仍然运行在远程机器的 `127.0.0.1:56121` 上。xAI redirect 需要访问该 listener，因此如果你直接在笔记本电脑上打开 URL，会失败（`Could not establish connection. We couldn't reach your app.`），除非你转发端口：
+
+```bash
+# In a separate terminal on your local machine:
+ssh -N -L 56121:127.0.0.1:56121 user@remote-host
+
+# Then in your SSH session on the remote machine:
+hermes auth add xai-oauth --no-browser
+# Open the printed authorize URL in your local browser.
+```
+
+通过 jump box / bastion：添加 `-J jump-user@jump-host`。
+
+请参见 OAuth over SSH / Remote Hosts，获取完整分步说明，包括 ProxyJump chains、mosh/tmux 和 ControlMaster 注意事项。
+
+## 登录如何工作
+
+1. Hermes 会打开你的浏览器并跳转到 `accounts.x.ai`。
+2. 你登录（或确认现有 session）并批准访问。
+3. xAI 会重定向回 Hermes，tokens 会保存到 `~/.hermes/auth.json`。
+4. 从那以后，Hermes 会在后台刷新 access token —— 你会保持登录状态，直到你运行 `hermes auth remove xai-oauth`，或从你的 xAI 账号设置中撤销访问。
+
+## 检查登录状态
+
+```bash
+hermes doctor
+```
+
+`◆ Auth Providers` 部分会显示每个 provider 的当前状态，包括 `xai-oauth`。
+
+## 切换模型
+
+```bash
+hermes model
+# → Select "xAI Grok OAuth (SuperGrok Subscription)"
+# → Pick from the model list (grok-4.3 is pinned to the top)
+```
+
+或者直接设置模型：
+
+```bash
+hermes config set model.default grok-4.3
+hermes config set model.provider xai-oauth
+```
+
+## 配置参考
+
+登录后，`~/.hermes/config.yaml` 会包含：
+
+```yaml
+model:
+  default: grok-4.3
+  provider: xai-oauth
+  base_url: https://api.x.ai/v1
+```
+
+### Provider aliases
+
+以下所有内容都会解析为 `xai-oauth`：
+
+```bash
+hermes --provider xai-oauth        # canonical
+hermes --provider grok-oauth       # alias
+hermes --provider x-ai-oauth       # alias
+hermes --provider xai-grok-oauth   # alias
+```
+
+## 直连 xAI 工具（TTS / Image / Video / Transcription）
+
+通过 OAuth 登录后，每个直连 xAI 的工具都会自动复用同一个 bearer token —— 除非你更想使用 API key，否则不需要单独设置。
+
+为每个工具选择后端：
+
+```bash
+hermes tools
+# → Text-to-Speech       → "xAI TTS"
+# → Image Generation     → "xAI Grok Imagine (image)"
+# → Video Generation     → "xAI Grok Imagine"
+```
+
+如果已经存储了 OAuth tokens，picker 会确认这一点，并跳过 credential prompt。如果既没有 OAuth，也没有设置 `XAI_API_KEY`，picker 会提供一个三选一菜单：OAuth 登录、粘贴 API key，或跳过。
+
+:::note[视频生成默认关闭]
+`video_gen` toolset 默认是禁用的。在 agent 可以调用 `video_generate` 之前，需要在 `hermes tools` → 🎬 Video Generation 中启用它（按空格）。否则 agent 可能会回退到随附的 ComfyUI skill，该 skill 也被标记为视频生成。
+:::
+
+### 模型
+
+| 工具    | 模型                             | 备注                     |
+| ----- | ------------------------------ | ---------------------- |
+| Chat  | `grok-4.3`                     | 默认；通过 OAuth 登录时会自动选择   |
+| Chat  | `grok-4.20-0309-reasoning`     | Reasoning variant      |
+| Chat  | `grok-4.20-0309-non-reasoning` | Non-reasoning variant  |
+| Chat  | `grok-4.20-multi-agent-0309`   | Multi-agent variant    |
+| Image | `grok-imagine-image`           | 默认；约 5–10 秒            |
+| Image | `grok-imagine-image-quality`   | 更高保真度；约 10–20 秒        |
+| Video | `grok-imagine-video`           | 文本转视频和图片转视频；最多 7 张参考图  |
+| TTS   | 默认 voice                       | xAI `/v1/tts` endpoint |
+
+chat catalog 会从磁盘上的 `models.dev` cache 中实时派生；新的 xAI releases 会在该 cache 刷新后自动出现。`grok-4.3` 始终固定在列表顶部。
+
+## 环境变量
+
+| 变量                          | 作用                                                                        |
+| --------------------------- | ------------------------------------------------------------------------- |
+| `XAI_BASE_URL`              | 覆盖默认的 `https://api.x.ai/v1` endpoint（很少需要）。                               |
+| `HERMES_INFERENCE_PROVIDER` | 在运行时强制指定 active provider，例如 `HERMES_INFERENCE_PROVIDER=xai-oauth hermes`。 |
+
+## 故障排查
+
+### Token expired —— 没有自动重新登录
+
+Hermes 会在每个 session 前刷新 token，并且在收到 401 时再次被动刷新。如果刷新失败并返回 `invalid_grant`（refresh token 已被撤销，或账号已轮换），Hermes 会显示一个类型化的重新认证消息，而不是崩溃。
+
+修复：再次运行 `hermes auth add xai-oauth`，开始一次新的登录。
+
+### Authorization timed out
+
+loopback listener 有有限的过期窗口（默认 180 秒）。如果你没有及时批准登录，Hermes 会抛出 timeout error。
+
+修复：重新运行 `hermes auth add xai-oauth`（或 `hermes model`）。流程会重新开始。
+
+### State mismatch（可能是 CSRF）
+
+Hermes 检测到 authorization server 返回的 state 值与它发送的不匹配。
+
+修复：重新登录。如果问题持续存在，请检查是否有 proxy 或 redirect 正在修改 OAuth response。
+
+### 从远程服务器登录
+
+在 SSH 或 container sessions 中，Hermes 会打印 authorization URL，而不是打开浏览器。loopback callback listener 仍然绑定在远程主机的 `127.0.0.1:56121` 上 —— 如果没有 SSH local-forward，你笔记本电脑上的浏览器无法访问它：
+
+```bash
+# Local machine, separate terminal:
+ssh -N -L 56121:127.0.0.1:56121 user@remote-host
+
+# Remote machine:
+hermes auth add xai-oauth --no-browser
+```
+
+完整 walkthrough（jump boxes、mosh/tmux、port conflicts）：OAuth over SSH / Remote Hosts。
+
+### 运行时出现 `"No xAI credentials found"` 错误
+
+auth store 中没有 `xai-oauth` 条目，也没有设置 `XAI_API_KEY`。你还没有登录，或者 credential 文件已被删除。
+
+修复：运行 `hermes model` 并选择 xAI Grok OAuth provider，或者运行 `hermes auth add xai-oauth`。
+
+## 退出登录
+
+要删除所有已保存的 xAI Grok OAuth credentials：
+
+```bash
+hermes auth logout xai-oauth
+```
+
+这会清除 `auth.json` 中的 singleton OAuth entry，以及 `xai-oauth` 的所有 credential-pool rows。如果你只想删除单个 pool entry，请使用 `hermes auth remove xai-oauth <index|id|label>`（运行 `hermes auth list xai-oauth` 查看它们）。
+
+## 另请参见
+
+* OAuth over SSH / Remote Hosts —— 如果 Hermes 和你的浏览器不在同一台机器上，这是必读内容
+* AI Providers reference
+* Environment Variables
+* Configuration
+* Voice & TTS
+

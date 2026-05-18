@@ -1,0 +1,220 @@
+---
+title: 上下文文件
+description: hermes agent 上下文文件
+---
+
+Hermes Agent 会自动发现并加载用于塑造其行为的上下文文件。部分文件为项目本地文件，通过工作目录发现；而 **SOUL.md** 现已成为 Hermes 实例的全局文件，仅从 **HERMES_HOME** 加载。
+
+## 支持的上下文文件
+
+| 文件 | 用途 | 发现方式 |
+| --- | --- | --- |
+| **.hermes.md / HERMES.md** | 项目指令（最高优先级） | 向上遍历至 Git 根目录 |
+| **AGENTS.md** | 项目指令、约定、架构 | 启动时的当前工作目录（CWD）+ 逐步探测子目录 |
+| **CLAUDE.md** | Claude Code 上下文文件（亦可检测） | 启动时的当前工作目录（CWD）+ 逐步探测子目录 |
+| **SOUL.md** | 此 Hermes 实例的全局人格与语调定制 | 仅限 **HERMES_HOME/SOUL.md** |
+| **.cursorrules** | Cursor IDE 编码约定 | 仅限当前工作目录（CWD） |
+| **.cursor/rules/*.mdc** | Cursor IDE 规则模块 | 仅限当前工作目录（CWD） |
+
+:::note[优先级系统]
+每个会话仅加载 **一种** 项目上下文类型（首个匹配项生效）：`.hermes.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules`。**SOUL.md** 始终作为代理身份（#1 号槽位）独立加载。
+:::
+
+## AGENTS.md
+
+**AGENTS.md** 是主要的项目上下文文件。它告知代理项目的结构、应遵循的约定以及任何特殊指令。
+
+### 渐进式子目录发现
+
+在会话开始时，Hermes 会将工作目录中的 **AGENTS.md** 加载到系统提示词中。随着代理在会话期间进入子目录（通过 `read_file`、`terminal`、`search_files` 等工具），它会**渐进式地发现**这些目录中的上下文文件，并在它们变得相关时将其注入到对话中。
+
+```text
+my-project/
+├── AGENTS.md              ← 启动时加载（系统提示词）
+├── frontend/
+│   └── AGENTS.md          ← 代理读取 frontend/ 文件时发现
+├── backend/
+│   └── AGENTS.md          ← 代理读取 backend/ 文件时发现
+└── shared/
+    └── AGENTS.md          ← 代理读取 shared/ 文件时发现
+
+```
+
+相比于在启动时加载所有内容，这种方法有两个优势：
+
+* **避免系统提示词膨胀** —— 子目录提示仅在需要时出现。
+* **维护提示词缓存** —— 系统提示词在各轮次之间保持稳定。
+
+每个子目录在每会话中最多被检查一次。发现机制还会向上遍历父目录，因此读取 `backend/src/main.py` 会发现 `backend/AGENTS.md`，即使 `backend/src/` 本身没有上下文文件。
+
+> **信息**
+> 子目录上下文文件会通过与启动上下文文件相同的**安全扫描**。恶意文件将被拦截。
+
+### AGENTS.md 示例
+
+```markdown
+# 项目上下文
+
+这是一个使用 Next.js 14 前端和 Python FastAPI 后端的 Web 应用程序。
+
+## 架构
+- 前端：`/frontend` 目录下使用 App Router 的 Next.js 14
+- 后端：`/backend` 目录下的 FastAPI，使用 SQLAlchemy ORM
+- 数据库：PostgreSQL 16
+- 部署：在 Hetzner VPS 上使用 Docker Compose
+
+## 约定
+- 所有前端代码使用 TypeScript 严格模式
+- Python 代码遵循 PEP 8，处处使用类型提示 (type hints)
+- 所有 API 端点返回 JSON，结构为 `{data, error, meta}`
+- 测试文件存放在 `__tests__/` 目录（前端）或 `tests/` 目录（后端）
+
+## 重要注意事项
+- 严禁直接修改迁移文件 —— 请使用 Alembic 命令
+- `.env.local` 文件包含真实的 API 密钥，请勿提交
+- 前端端口为 3000，后端为 8000，数据库为 5432
+```
+
+## SOUL.md
+
+`SOUL.md` 用于控制代理的人格、语气和沟通风格。详见 [人格 (Personality)](https://hermes-agent.nousresearch.com/docs/user-guide/features/personality) 页面。
+
+**存储位置：**
+
+* `~/.hermes/SOUL.md`
+* 如果你在运行 Hermes 时指定了自定义主目录，则为 `$HERMES_HOME/SOUL.md`
+
+**重要细节：**
+
+* 如果文件尚不存在，Hermes 会自动生成一个默认的 **SOUL.md**。
+* Hermes **仅**从 **HERMES_HOME** 加载 **SOUL.md**。
+* Hermes **不会**在工作目录中探测 **SOUL.md**。
+* 如果该文件为空，则不会向提示词中添加任何来自 **SOUL.md** 的内容。
+* 如果该文件有内容，内容将在经过扫描和截断处理后按原样注入。
+
+## .cursorrules
+
+Hermes 兼容 Cursor IDE 的 **.cursorrules** 文件以及 **.cursor/rules/*.mdc** 规则模块。如果这些文件存在于您的项目根目录中，且未发现更高优先级的上下文文件（如 **.hermes.md**、**AGENTS.md** 或 **CLAUDE.md**），它们将被加载为项目上下文。
+
+这意味着您现有的 Cursor 约定在运行 Hermes 时会自动生效。
+
+## 上下文文件如何加载
+
+### 在启动时（系统提示词）
+
+上下文文件由 `agent/prompt_builder.py` 中的 `build_context_files_prompt()` 进行加载：
+
+* **扫描工作目录** —— 按顺序检查 `.hermes.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules`（首个匹配项生效）。
+* **内容读取** —— 每个文件均以 UTF-8 文本格式读取。
+* **安全扫描** —— 检查内容是否存在提示词注入（prompt injection）模式。
+* **截断处理** —— 超过 20,000 字符的文件将进行首尾截断（保留 70% 头部，20% 尾部，并在中间添加标记）。
+* **组装** —— 所有章节统一合并在 `# Project Context` 标题下。
+* **注入** —— 组装后的内容被添加到系统提示词中。
+
+### 在会话期间（渐进式发现）
+
+`agent/subdirectory_hints.py` 中的 `SubdirectoryHintTracker` 会监控工具调用参数中的文件路径：
+
+* **路径提取** —— 每次工具调用后，从参数（路径、工作目录、shell 命令）中提取文件路径。
+* **祖先遍历** —— 检查该目录及其最多 5 级父目录（在已访问过的目录处停止）。
+* **提示加载** —— 如果发现 `AGENTS.md`、`CLAUDE.md` 或 `.cursorrules`，则将其加载（每个目录仅加载首个匹配项）。
+* **安全扫描** —— 使用与启动文件相同的提示词注入扫描。
+* **截断处理** —— 每个文件限制在 8,000 字符以内。
+* **注入** —— 附加到工具执行结果中，使模型能够自然地在上下文中看到它。
+
+最终的提示词章节大致如下：
+
+```markdown
+# Project Context
+
+The following project context files have been loaded and should be followed:
+
+## AGENTS.md
+
+[此处为您的 AGENTS.md 内容]
+
+## .cursorrules
+
+[此处为您的 .cursorrules 内容]
+
+[此处为您的 SOUL.md 内容]
+
+```
+
+请注意，**SOUL** 的内容是直接插入的，没有任何额外的封装文本。
+
+## 安全：提示词注入保护
+
+所有上下文文件在被包含之前，都会经过潜在提示词注入的扫描。扫描器会检查以下内容：
+
+* **指令覆盖尝试**：“忽略之前的指令 (ignore previous instructions)”、“无视你的规则 (disregard your rules)”
+* **欺骗模式**：“不要告诉用户 (do not tell the user)”
+* **系统提示词覆盖**：“系统提示词覆盖 (system prompt override)”
+* **隐藏的 HTML 注释**：`<!-- ignore instructions -->`
+* **隐藏的 div 元素**：`<div style="display:none">`
+* **凭据窃取**：`curl ... $API_KEY`
+* **敏感文件访问**：`cat .env`、`cat credentials`
+* **不可见字符**：零宽空格 (zero-width spaces)、双向覆盖 (bidirectional overrides)、词语连接符 (word joiners)
+
+如果检测到任何威胁模式，该文件将被拦截：
+
+```
+[BLOCKED: AGENTS.md contained potential prompt injection (prompt_injection). Content not loaded.]
+```
+
+:::caution[重要]
+该扫描器可以防御常见的注入模式，但它不能替代对共享仓库中上下文文件的审查。在处理非本人创建的项目时，请务必核实 **AGENTS.md** 的内容。
+:::
+
+## 大小限制
+
+| 限制项 | 数值 |
+| --- | --- |
+| **单文件最大字符数** | 20,000 (~7,000 tokens) |
+| **头部截断比例** | 70% |
+| **尾部截断比例** | 20% |
+| **截断标记比例** | 10%（显示字符数并建议使用文件工具） |
+
+当文件超过 20,000 字符时，截断消息如下：
+
+```
+[...truncated AGENTS.md: kept 14000+4000 of 25000 chars. Use file tools to read the full file.]
+```
+
+## 编写高效上下文文件的技巧
+
+:::tip[AGENTS.md 最佳实践]
+
+1. **保持简洁** —— 字符数尽量远低于 20,000；代理在每一轮对话中都会读取它。
+2. **使用标题结构化** —— 利用 `##` 章节划分架构、约定和重要注意事项。
+3. **包含具体示例** —— 展示偏好的代码模式、API 结构和命名规范。
+4. **明确提及“禁止行为”** —— 例如：“严禁直接修改迁移文件”。
+5. **列出关键路径与端口** —— 代理在执行终端命令时会用到这些信息。
+6. **随项目演进而更新** —— 过时的上下文比没有上下文更糟糕。
+
+:::
+
+### 各子目录专属上下文
+
+对于单体大仓库（monorepo），请将特定于子目录的指令放在嵌套的 **AGENTS.md** 文件中：
+
+```markdown
+<!-- frontend/AGENTS.md -->
+# 前端上下文
+
+- 使用 `pnpm` 而非 `npm` 进行包管理
+- 组件存放在 `src/components/`，页面存放在 `src/app/`
+- 使用 Tailwind CSS，严禁使用内联样式
+- 使用 `pnpm test` 运行测试
+```
+
+```markdown
+<!-- backend/AGENTS.md -->
+# 后端上下文
+
+- 使用 `poetry` 进行依赖管理
+- 使用 `poetry run uvicorn main:app --reload` 运行开发服务器
+- 所有端点都需要编写 OpenAPI 文档字符串 (docstrings)
+- 数据库模型位于 `models/`，架构 (schemas) 位于 `schemas/`
+```
+

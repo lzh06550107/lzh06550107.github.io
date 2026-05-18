@@ -1,0 +1,192 @@
+---
+title: ACP Internals
+description: hermes agent ACP Internals
+---
+
+ACP adapter 将 Hermes 的同步 `AIAgent` 包装在一个异步 JSON-RPC stdio server 中。
+
+关键实现文件：
+
+* acp_adapter/entry.py
+* acp_adapter/server.py
+* acp_adapter/session.py
+* acp_adapter/events.py
+* acp_adapter/permissions.py
+* acp_adapter/tools.py
+* acp_adapter/auth.py
+* acp_registry/agent.json
+
+## Boot flow
+
+```text
+hermes acp / hermes-acp / python -m acp_adapter
+  -> acp_adapter.entry.main()
+  -> 在 server 启动前解析 --version / --check / --setup
+  -> 加载 ~/.hermes/.env
+  -> 配置 stderr logging
+  -> 构造 HermesACPAgent
+  -> acp.run_agent(agent, use_unstable_protocol=True)
+```
+
+Zed ACP Registry 路径通过以下方式启动同一个 adapter：
+
+```text
+uvx --from 'hermes-agent[acp]==<version>' hermes-acp
+```
+
+并指向 `hermes-agent` 的 PyPI release。
+
+Stdout 保留给 ACP JSON-RPC transport 使用。人类可读日志输出到 stderr。
+
+## 主要组件
+
+### `HermesACPAgent`
+
+`acp_adapter/server.py` 实现 ACP agent protocol。
+
+职责：
+
+* `initialize / authenticate`
+* `new/load/resume/fork/list/cancel` session methods
+* prompt execution
+* session model switching
+* 将同步 `AIAgent` callbacks 接入 ACP async notifications
+
+### `SessionManager`
+
+* `acp_adapter/session.py` 跟踪 live ACP sessions。
+
+每个 session 存储：
+
+* `session_id`
+* `agent`
+* `cwd`
+* `model`
+* `history`
+* `cancel_event`
+
+manager 是 thread-safe 的，并支持：
+
+* create
+* get
+* remove
+* fork
+* list
+* cleanup
+* cwd updates
+
+### Event bridge
+
+`acp_adapter/events.py` 将 `AIAgent` callbacks 转换为 ACP `session_update` events。
+
+桥接的 callbacks：
+
+* `tool_progress_callback`
+* `thinking_callback`（当前在 ACP bridge 中设置为 None —— reasoning 会改通过 `step_callback` 转发）
+* `step_callback`
+
+因为 `AIAgent` 在 worker thread 中运行，而 ACP I/O 位于 main event loop 上，所以 bridge 使用：
+
+```python
+asyncio.run_coroutine_threadsafe(...)
+```
+
+### Permission bridge
+
+`acp_adapter/permissions.py` 将危险 terminal approval prompts 适配为 ACP permission requests。
+
+映射：
+
+* `allow_once` -> Hermes once
+* `allow_always` -> Hermes always
+* `reject options` -> Hermes deny
+
+Timeouts 和 bridge failures 默认 deny。
+
+### Tool rendering helpers
+
+`acp_adapter/tools.py` 将 Hermes tools 映射到 ACP tool kinds，并构建面向 editor 的 content。
+
+示例：
+
+* `patch / write_file` -> file diffs
+* `terminal` -> shell command text
+* `read_file / search_files` -> text previews
+* large results -> 为 UI safety 截断的 text blocks
+
+## Session lifecycle
+
+```text
+new_session(cwd)
+  -> create SessionState
+  -> create AIAgent(platform="acp", enabled_toolsets=["hermes-acp"])
+  -> bind task_id/session_id to cwd override
+
+prompt(..., session_id)
+  -> 从 ACP content blocks 中提取 text
+  -> reset cancel event
+  -> 安装 callbacks + approval bridge
+  -> 在 ThreadPoolExecutor 中运行 AIAgent
+  -> 更新 session history
+  -> emit final agent message chunk
+```
+
+### Cancelation
+
+`cancel(session_id)`：
+
+* 设置 session cancel event
+* 在可用时调用 `agent.interrupt()`
+* 导致 prompt response 返回 `stop_reason="cancelled"`
+
+### Forking
+
+`fork_session()` 会将 message history deep-copy 到新的 live session 中，保留 conversation state，同时为 fork 提供自己的 session ID 和 cwd。
+
+## Provider / auth behavior
+
+ACP 不实现自己的 auth store。
+
+相反，它复用 Hermes 的 runtime resolver：
+
+* `acp_adapter/auth.py`
+* `hermes_cli/runtime_provider.py`
+
+因此 ACP 会声明并使用当前配置的 Hermes provider / credentials。它还始终声明一个 terminal setup auth method（`hermes-setup`，args `--setup`），这样首次运行的 registry clients 可以在启动普通 ACP session 前打开 Hermes 的交互式 model / provider 配置。
+
+## Working directory binding
+
+ACP sessions 携带 editor cwd。
+
+session manager 会通过 task-scoped terminal / file overrides，将该 cwd 绑定到 ACP session ID，因此 file 和 terminal tools 会相对于 editor workspace 运行。
+
+## Duplicate same-name tool calls
+
+Event bridge 按 tool name 使用 FIFO 跟踪 tool IDs，而不是每个 name 只跟踪一个 ID。这对于以下场景很重要：
+
+* parallel same-name calls
+* 同一个 step 中 repeated same-name calls
+
+没有 FIFO queues，completion events 会附加到错误的 tool invocation 上。
+
+## Approval callback restoration
+
+ACP 会在 prompt execution 期间临时在 terminal tool 上安装 approval callback，然后在之后恢复之前的 callback。这可以避免将 ACP session-specific approval handlers 永久安装为全局状态。
+
+## 当前限制
+
+* ACP sessions 会持久化到共享的 `~/.hermes/state.db`（`SessionDB`）中，并在 process restarts 后透明恢复；它们会出现在 `session_search` 中。
+
+* non-text prompt blocks 当前在 request text extraction 中会被忽略。
+
+* editor-specific UX 会因 ACP client implementation 而异。
+
+## 相关文件
+
+* `tests/acp/` —— ACP test suite
+* `toolsets.py` —— `hermes-acp` toolset definition
+* `hermes_cli/main.py` —— `hermes acp` CLI subcommand
+* `pyproject.toml` —— `[acp]` optional dependency + `hermes-acp` script
+
+
+

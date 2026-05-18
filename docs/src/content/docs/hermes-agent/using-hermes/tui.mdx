@@ -1,0 +1,218 @@
+---
+title: TUI
+description: TUI 使用指南
+---
+
+
+TUI 是 Hermes 的现代前端 —— 这是一个由与 [经典 CLI](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/cli) 相同的 Python 运行时所支撑的终端界面。同样的 Agent，同样的会话，同样的斜杠命令；却拥有一个更整洁、响应更迅速的交互界面。
+
+这是运行 Hermes 交互模式的推荐方式。
+
+## 启动
+
+```bash
+# 启动 TUI
+hermes --tui
+
+# 恢复最新的 TUI 会话（如果没有，则回退到最新的经典会话）
+hermes --tui -c
+hermes --tui --continue
+
+# 通过 ID 或标题恢复特定会话
+hermes --tui -r 20260409_000000_aa11bb
+hermes --tui --resume "my t0p session"
+
+# 直接运行源码 —— 跳过预构建步骤（供 TUI 贡献者使用）
+hermes --tui --dev
+```
+
+你也可以通过环境变量启用它：
+
+```bash
+export HERMES_TUI=1
+hermes          # 现在默认使用 TUI
+hermes chat     # 同上
+```
+
+经典 CLI 仍作为默认选项保留。[CLI 界面](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/cli) 文档中提到的所有内容 —— 斜杠命令、快捷命令、技能预载、人格设定、多行输入、中断 —— 在 TUI 中的工作方式完全一致。
+
+## 为什么选择 TUI
+
+* **首帧秒开** —— 横幅在应用完成加载前就会绘制，因此在 Hermes 启动时，终端永远不会有 “卡死” 感。
+* **非阻塞输入** —— 在会话准备就绪前即可输入并排队消息。一旦 Agent 上线，你的首条提示词会立即发送。
+* **丰富的叠加层** —— 模型选择器、会话选择器、审批和澄清提示均渲染为模态面板，而非行内流。
+* **实时会话面板** —— 工具和技能在初始化时会逐步填充。
+* **鼠标友好型选择** —— 拖动高亮时具有统一的背景色，而非 SGR 反色。使用终端标准的复制手势即可复制。
+* **交替屏幕渲染** —— 差分更新意味着流式传输时不会闪烁，退出后也不会留下混乱的滚动历史。
+* **编辑器特性** —— 针对长代码段的行内粘贴折叠、支持剪贴板图像回退的 `Cmd+V` / `Ctrl+V` 文本粘贴、带括号的粘贴保护（bracketed-paste safety）以及图像/文件路径附件的标准化。
+
+同样支持 [皮肤 (Skins)](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/skins) 和 [人格设定 (Personalities)](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/personality)。可以在会话中通过 `/skin ares` 或 `/personality pirate` 随时切换，UI 会实时重新渲染。详见 [皮肤与主题](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/skins) 以获取可自定义键值的完整列表，以及哪些键值适用于经典 CLI 或 TUI —— TUI 遵循横幅调色板、UI 颜色、提示符符号/颜色、会话显示、补全菜单、选择背景、`tool_prefix` 以及 `help_header`。
+
+## 环境要求
+
+* **Node.js $\ge$ 20** —— TUI 作为从 Python CLI 启动的子进程运行。使用 `hermes doctor` 可进行验证。
+* **TTY** —— 与经典 CLI 一样，重定向 stdin 或在非交互式环境中运行将回退到单次查询模式。
+
+首次启动时，Hermes 会将 TUI 的 Node 依赖安装到 `ui-tui/node_modules` 中（仅需一次，耗时几秒）。后续启动将非常迅速。如果你拉取了新的 Hermes 版本，当源码新于构建产物时，TUI 包会自动重新构建。
+
+### 外部预构建
+
+对于提供预构建包的发行版（如 Nix 或系统软件包），可以将 Hermes 指向该路径：
+
+```bash
+export HERMES_TUI_DIR=/path/to/prebuilt/ui-tui
+hermes --tui
+```
+
+该目录必须包含 `dist/entry.js` 和最新的 `node_modules`。
+
+## 按键绑定
+
+按键绑定与 [经典 CLI](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/cli#keybindings) 完全一致。唯一的行为差异如下：
+
+* **鼠标拖动**：以统一的选择背景高亮文本。
+* **Cmd+V / Ctrl+V**：首先尝试普通文本粘贴，若失败则尝试 OSC52/原生剪贴板读取，最后如果剪贴板或粘贴内容解析为图像，则进行图像附件。
+* **`/terminal-setup`**：安装本地 VS Code / Cursor / Windsurf 终端绑定，以在 macOS 上获得更好的 `Cmd+Enter` 以及撤销/重做对等体验。
+* **斜杠命令自动补全**：以带描述的浮动面板形式打开，而非行内下拉列表。
+* **Ctrl+X**：当高亮显示排队中的消息（在 Agent 运行时发送的消息）时，将其从队列中删除。`Esc` 取消编辑并取消高亮，但不删除。
+* **Ctrl+G / Ctrl+X Ctrl+E**：在 `$EDITOR` 中打开当前输入缓冲区进行多行/长提示词创作；保存并退出后内容将作为提示词发送。
+
+## 斜杠命令
+
+所有斜杠命令均保持不变。其中一些由 TUI 专属 —— 它们提供更丰富的输出或渲染为叠加层而非行内面板：
+
+| 命令 | TUI 行为 |
+| --- | --- |
+| `/help` | 分类命令叠加层，支持方向键导航 |
+| `/sessions` | 模态会话选择器 —— 支持预览、标题、Token 总计及行内恢复 |
+| `/model` | 按服务商分组的模态模型选择器，带费用提示 |
+| `/skin` | 实时预览 —— 浏览时即可应用主题更改 |
+| `/details` | 切换详细的工具调用细节（全局或按部分设置） |
+| `/usage` | 丰富的 Token / 费用 / 上下文面板 |
+| `/agents` (别名 `/tasks`) | 可观测性叠加层 —— 实时子 Agent 树，带终止/暂停控制，以及各分支的费用/Token/文件汇总和轮次历史 |
+| `/reload` | 将 `~/.hermes/.env` 重新读入运行中的 TUI 进程，使新添加的 API 密钥无需重启即可生效 |
+| `/mouse` | 运行时开启/关闭鼠标追踪（也会持久化到 `config.yaml` 的 `display.mouse_tracking`） |
+
+其他所有斜杠命令（包括已安装的技能、快捷命令和人格切换）的工作方式与经典 CLI 完全一致。详见 [斜杠命令参考](https://hermes-agent.nousresearch.com/docs/zh-Hans/reference/slash-commands)。
+
+## LaTeX 数学公式渲染
+
+TUI 的 Markdown 渲染管线支持行内渲染 LaTeX 数学公式：`$E = mc^2$` 和 `$$\frac{a}{b}$$` 会渲染为 Unicode 格式的数学符号，而非原始 TeX 源码。支持行内和块级公式；不支持的语法将回退显示包裹在代码跨度（code span）中的原始 TeX，以便于复制。
+
+此功能始终开启，无需配置。经典 CLI 则保留原始 TeX。
+
+## 浅色终端检测
+
+TUI 会自动检测浅色终端并相应切换到浅色主题。检测分为三个层级：
+
+1. **`HERMES_TUI_THEME` 环境变量** —— 最高优先级。取值：`light`、`dark` 或 6 位背景十六进制色值（如 `ffffff`）。
+2. **`COLORFGBG` 环境变量** —— 由类 xterm 终端使用的经典 “背景色是什么？” 提示。
+3. **通过 OSC 11 进行终端背景探测** —— 适用于不设置 `COLORFGBG` 的现代终端（如 Ghostty, Warp, iTerm2, WezTerm, Kitty）。
+
+如果你希望无论终端如何都永久使用浅色主题：
+
+```
+export HERMES_TUI_THEME=light
+```
+
+## 繁忙指示器样式
+
+状态栏的繁忙指示器是可插拔的 —— 默认情况下，在 Agent 工作期间每 2.5 秒轮换一次 Hermes 的可爱（kawaii）表情。可以通过配置或 `/indicator` 斜杠命令选择不同风格：
+
+```yaml
+display:
+  tui_status_indicator: kaomoji   # kaomoji | emoji | unicode | ascii
+```
+
+或在会话中设置：`/indicator emoji`（等）。各种风格都匹配了字符宽度，因此状态栏的其他部分在旋转时不会抖动。
+
+## 自动恢复
+
+默认情况下，`hermes --tui` 每次启动都会开启一个新会话。若要自动重新连接到最近的 TUI 会话（在终端或 SSH 连接意外中断时非常有用），请开启此选项：
+
+```bash
+export HERMES_TUI_RESUME=1          # 最近的 TUI 会话
+# 或：
+export HERMES_TUI_RESUME=<session-id>   # 指定会话
+```
+
+取消设置该变量，或在启动时显式传递 `--resume <id>` 即可覆盖此行为。
+
+### 状态行
+
+TUI 的状态行实时跟踪 Agent 状态：
+
+| 状态 | 含义 |
+| --- | --- |
+| `starting agent…` | 会话 ID 已生效；工具和技能仍在上线中。你可以输入内容 —— 消息将排队并在就绪后发送。 |
+| `ready` | Agent 处于空闲状态，接受输入。 |
+| `thinking… / running…` | Agent 正在推理或运行工具。 |
+| `interrupted` | 当前轮次已取消；按 Enter 键可重新发送。 |
+| `forging session… / resuming…` | 初始连接或 `--resume` 握手。 |
+
+各皮肤的状态栏颜色和阈值与经典 CLI 共享 —— 详见 [皮肤](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skins) 进行自定义。
+
+状态行还会显示：
+
+* **当前工作目录及 Git 分支** —— `~/projects/hermes-agent (docs/two-week-gap-sweep)`。当你通过侧边终端执行 `git checkout` 时，分支后缀会更新（基于 mtime 缓存），因此 TUI 能反映你真实的活动分支，而非启动时的状态。
+* **单次提示词耗时** —— 轮次运行时显示 `⏱ 12s/3m 45s`（实时），轮次完成后固定为 `⏲ 32s / 3m 45s`。第一个数字是自用户发送最后一条消息以来的时间；第二个是会话总时长。每次发送新提示词时都会重置。
+
+## 配置
+
+TUI 遵循所有标准 Hermes 配置：`~/.hermes/config.yaml`、配置文件 (profiles)、人格设定、皮肤、快捷命令、凭据池、记忆提供商、工具/技能启用情况。不存在 TUI 专用的配置文件。
+
+以下键值专门用于微调 TUI 界面：
+
+```yaml
+display:
+  skin: default              # 任何内置或自定义皮肤
+  personality: helpful
+  details_mode: collapsed    # hidden | collapsed | expanded —— 全局手风琴折叠默认值
+  sections:                  # 可选：针对各部分的覆盖设置
+    thinking: expanded       # 始终展开
+    tools: expanded          # 始终展开
+    activity: collapsed      # 重新启用活动面板（默认隐藏）
+  mouse_tracking: true       # 如果你的终端与鼠标报告冲突，请禁用
+```
+
+**运行时切换：**
+
+* `/details [hidden|collapsed|expanded|cycle]` —— 设置全局模式
+* `/details <section> [hidden|collapsed|expanded|reset]` —— 覆盖特定部分（可选部分：`thinking`, `tools`, `subagents`, `activity`）
+
+### 默认可见性
+
+TUI 默认配置了针对各部分的优化设置，将轮次呈现为实时转录流，而非一堵 “字符墙”：
+
+* `thinking` —— **expanded**。推理过程随模型输出实时在行内流式展示。
+* `tools` —— **expanded**。工具调用及其结果以开启状态渲染。
+* `subagents` —— 遵循全局 `details_mode`（默认折叠在符号下 —— 除非发生实际委派，否则保持静默）。
+* `activity` —— **hidden**。环境元信息（网关提示、终端对等建议、后台通知）对大多数日常使用来说属于噪音。工具失败仍会在失败的工具行中行内渲染；当所有面板都隐藏时，环境错误/警告会通过浮动告警进行兜底。
+
+针对各部分的覆盖设置优先级高于部分默认值和全局 `details_mode`。若要重塑布局：
+
+* `display.sections.thinking: collapsed` —— 将思考过程重新收纳到符号下。
+* `display.sections.tools: collapsed` —— 将工具调用重新收纳到符号下。
+* `display.sections.activity: collapsed` —— 重新选择开启活动面板。
+* 运行时执行 `/details <section> <mode>`。
+
+## 会话
+
+TUI 与经典 CLI 共享会话 —— 两者都写入同一个 `~/.hermes/state.db`。你可以在其中一个启动会话，在另一个中恢复。会话选择器会列出两个来源的会话，并带有来源标签。
+
+详见 [会话](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/sessions) 以获取生命周期、搜索、压缩和导出相关信息。
+
+### 切回经典 CLI
+
+启动 `hermes`（不带 `--tui`）将停留在经典 CLI。若要让机器偏好 TUI，请在你的 Shell 配置文件中设置 `export HERMES_TUI=1`。若要切回，取消该设置即可。
+
+如果 TUI 启动失败（无 Node、缺少包、TTY 问题），Hermes 会打印诊断信息并回退到经典模式，而不会让你卡住。
+
+### 另请参阅
+
+* [CLI 界面](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/cli) —— 完整的斜杠命令和按键绑定参考（共享）。
+* [会话](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/sessions) —— 恢复、分支和历史记录。
+* [皮肤与主题](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/skins) —— 自定义横幅、状态栏和叠加层。
+* [语音模式](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/voice) —— 在两个界面中均可使用。
+* [配置](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/configuration) —— 所有配置项。
+

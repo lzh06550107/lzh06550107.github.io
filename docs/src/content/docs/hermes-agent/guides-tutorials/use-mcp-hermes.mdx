@@ -1,0 +1,505 @@
+---
+title: 将 MCP 与 Hermes 一起使用
+description: hermes agent 将 MCP 与 Hermes 一起使用
+---
+
+本指南展示如何在日常工作流中实际使用 MCP 与 Hermes Agent。
+
+如果功能页面解释的是 MCP 是什么，那么本指南关注的是如何快速且安全地从 MCP 中获得价值。
+
+## 什么时候应该使用 MCP？
+
+在以下情况下使用 MCP：
+
+* 某个工具已经以 MCP 形式存在，而你不想构建原生 Hermes 工具
+* 你希望 Hermes 通过清晰的 RPC 层操作本地或远程系统
+* 你希望进行细粒度的按服务器暴露控制
+* 你希望将 Hermes 连接到内部 API、数据库或公司系统，而无需修改 Hermes 核心
+
+在以下情况下不要使用 MCP：
+
+* 内置 Hermes 工具已经可以很好地完成任务
+* 服务器暴露了庞大且危险的工具面，而你还没有准备好对其进行过滤
+* 你只需要一个非常窄的集成，而原生工具会更简单也更安全。
+
+## 心智模型
+
+可以把 MCP 理解为一个适配层：
+
+* Hermes 仍然是 Agent
+* MCP 服务器提供工具
+* Hermes 会在启动或重新加载时发现这些工具
+* 模型可以像使用普通工具一样使用它们
+* 你可以控制每个服务器有多少内容对模型可见
+
+最后一点很重要。良好的 MCP 使用方式不是“连接所有东西”，而是“连接正确的东西，并暴露最小但有用的能力面”。
+
+## 步骤 1：安装 MCP 支持
+
+如果你使用标准安装脚本安装了 Hermes，那么 MCP 支持已经包含在内（安装器会运行 `uv pip install -e ".[all]"`）。
+
+如果你安装时没有 extras，并且需要单独添加 MCP：
+
+```bash
+cd ~/.hermes/hermes-agent
+uv pip install -e ".[mcp]"
+```
+
+对于基于 npm 的服务器，请确保 Node.js 和 `npx` 可用。
+
+对于许多 Python MCP 服务器，`uvx` 是一个不错的默认选择。
+
+## 步骤 2：先添加一个服务器
+
+先从单个、安全的服务器开始。
+
+示例：仅允许访问一个项目目录的文件系统。
+
+```yaml
+mcp_servers:
+  project_fs:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/my-project"]
+```
+
+然后启动 Hermes：
+
+```bash
+hermes chat
+```
+
+现在提出一个具体请求：
+
+```text
+Inspect this project and summarize the repo layout.
+```
+
+## 步骤 3：验证 MCP 是否已加载
+
+你可以通过几种方式验证 MCP：
+
+* Hermes banner/status 在配置后应显示 MCP 集成
+* 询问 Hermes 当前有哪些可用工具
+* 配置变更后使用 `/reload-mcp`
+* 如果服务器连接失败，检查日志
+
+一个实用的测试提示词：
+
+```text
+Tell me which MCP-backed tools are available right now.
+```
+
+## 步骤 4：立即开始过滤
+
+如果服务器暴露了很多工具，不要等到以后再过滤。
+
+示例：只将你想要的工具列入白名单
+
+```yaml
+mcp_servers:
+  github:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "***"
+    tools:
+      include: [list_issues, create_issue, search_code]
+```
+
+这通常是敏感系统的最佳默认做法。
+
+## WSL2：将 WSL 中的 Hermes 桥接到 Windows Chrome
+
+这是以下场景下的实用设置：
+
+* Hermes 运行在 WSL2 中
+* 你想控制的浏览器是 Windows 上正常登录状态的 Chrome
+* 从 WSL 使用 `/browser connect` 比较别扭或不可靠
+
+在这种设置中，Hermes 不会直接连接到 Chrome。而是：
+
+* Hermes 运行在 WSL 中
+* Hermes 启动一个本地 stdio MCP 服务器
+* 该 MCP 服务器通过 Windows interop（`cmd.exe` 或 `powershell.exe`）启动
+* MCP 服务器附加到你的实时 Windows Chrome 会话
+
+心智模型：
+
+```text
+Hermes（WSL）-> MCP stdio 桥接 -> Windows Chrome
+```
+
+为什么这种模式有用
+
+* 你可以保留真实的 Windows 浏览器 profile、cookies 和登录状态
+* Hermes 仍然运行在其支持的 Unix 环境中（WSL2）
+* 浏览器控制会作为 MCP 工具暴露，而不是依赖 Hermes 核心浏览器传输
+
+推荐服务器
+
+使用 `chrome-devtools-mcp`。
+
+如果你的 Windows Chrome 已经从 `chrome://inspect/#remote-debugging` 启用了实时远程调试，请从 WSL 中这样添加：
+
+```bash
+hermes mcp add chrome-devtools-win --command cmd.exe --args /c npx -y chrome-devtools-mcp@latest --autoConnect --no-usage-statistics
+```
+
+保存服务器后：
+
+```bash
+hermes mcp test chrome-devtools-win
+```
+
+然后启动一个新的 Hermes 会话，或运行：
+
+```text
+/reload-mcp
+```
+
+### 典型提示词
+
+加载后，Hermes 可以直接使用带 MCP 前缀的浏览器工具。例如：
+
+```text
+调用 MCP 工具 mcp_chrome_devtools_win_list_pages，列出当前浏览器标签页。
+```
+
+### 什么时候 `/browser connect` 不是合适工具
+
+如果 Hermes 运行在 WSL 中，而 Chrome 运行在 Windows 上，即使 Chrome 已打开并且可调试，`/browser connect` 也可能失败。
+
+常见原因：
+
+* WSL 无法访问 Chrome 暴露给 Windows 工具的同一个主机本地端点
+* 较新的 Chrome 实时调试流程并不等同于经典的 `ws://localhost:9222`
+* 浏览器更容易通过 Windows 侧辅助工具（例如 `chrome-devtools-mcp`）附加
+
+在这些情况下，将 `/browser connect` 留给同一环境中的设置，并使用 MCP 进行 WSL 到 Windows 的浏览器桥接。
+
+### 已知陷阱
+
+* 当通过 MCP 使用 Windows stdio 可执行文件时，请从 Windows 挂载路径启动 Hermes，例如 `/mnt/c/Users/<you>` 或 `/mnt/c/workspace/...`。
+* 如果你从 `/root` 或 `/home/...` 启动 Hermes，Windows 可能会在 MCP 服务器启动前输出 UNC 当前目录警告。
+* 如果 `chrome-devtools-mcp --autoConnect` 在枚举页面时超时，请减少 Chrome 中的后台/冻结标签页，然后重试。
+
+### 示例：将危险操作加入黑名单
+
+```yaml
+mcp_servers:
+  stripe:
+    url: "https://mcp.stripe.com"
+    headers:
+      Authorization: "Bearer ***"
+    tools:
+      exclude: [delete_customer, refund_payment]
+```
+
+### 示例：同时禁用实用包装器
+
+```yaml
+mcp_servers:
+  docs:
+    url: "https://mcp.docs.example.com"
+    tools:
+      prompts: false
+      resources: false
+```
+
+## 过滤实际上会影响什么？
+
+Hermes 中由 MCP 暴露的功能分为两类：
+
+1. 服务器原生 MCP 工具
+
+* 通过以下配置过滤：
+
+- tools.include
+- tools.exclude
+
+2. Hermes 添加的实用包装器
+
+* 通过以下配置过滤：
+
+- tools.resources
+- tools.prompts
+
+### 你可能会看到的实用包装器
+
+资源：
+
+* list_resources
+* read_resource
+
+提示：
+
+* list_prompts
+* get_prompt
+
+这些包装器只有在以下条件同时满足时才会出现：
+
+* 你的配置允许它们，并且
+* MCP 服务器会话实际支持这些能力
+
+因此，如果某个服务器没有资源/提示能力，Hermes 不会假装它拥有这些能力。
+
+## 常见模式
+
+### 模式 1：本地项目助手
+
+当你希望 Hermes 在一个有边界的工作区内进行推理时，可以将 MCP 用于仓库本地的文件系统或 git 服务器。
+
+```yaml
+mcp_servers:
+  fs:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/project"]
+
+  git:
+    command: "uvx"
+    args: ["mcp-server-git", "--repository", "/home/user/project"]
+```
+
+好的提示词：
+
+```text
+Review the project structure and identify where configuration lives.
+```
+
+```text
+Check the local git state and summarize what changed recently.
+```
+
+### 模式 2：GitHub triage 助手
+
+```yaml
+mcp_servers:
+  github:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "***"
+    tools:
+      include: [list_issues, create_issue, update_issue, search_code]
+      prompts: false
+      resources: false
+```
+
+好的提示词：
+
+```text
+List open issues about MCP, cluster them by theme, and draft a high-quality issue for the most common bug.
+```
+
+```text
+Search the repo for uses of _discover_and_register_server and explain how MCP tools are registered.
+```
+
+### 模式 3：内部 API 助手
+
+```yaml
+mcp_servers:
+  internal_api:
+    url: "https://mcp.internal.example.com"
+    headers:
+      Authorization: "Bearer ***"
+    tools:
+      include: [list_customers, get_customer, list_invoices]
+      resources: false
+      prompts: false
+```
+
+好的提示词：
+
+```text
+Look up customer ACME Corp and summarize recent invoice activity.
+```
+
+在这种场景下，严格白名单远比排除列表更好。
+
+### 模式 4：文档 / 知识服务器
+
+有些 MCP 服务器暴露的 prompts 或 resources 更像是共享知识资产，而不是直接操作。
+
+```yaml
+mcp_servers:
+  docs:
+    url: "https://mcp.docs.example.com"
+    tools:
+      prompts: true
+      resources: true
+```
+
+好的提示词：
+
+```text
+List available MCP resources from the docs server, then read the onboarding guide and summarize it.
+```
+
+```text
+List prompts exposed by the docs server and tell me which ones would help with incident response.
+```
+
+## 教程：带过滤的端到端设置
+
+下面是一个实用的渐进流程。
+
+### 阶段 1：添加 GitHub MCP，并使用严格白名单
+
+```yaml
+mcp_servers:
+  github:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "***"
+    tools:
+      include: [list_issues, create_issue, search_code]
+      prompts: false
+      resources: false
+```
+
+启动 Hermes 并询问：
+
+```text
+Search the codebase for references to MCP and summarize the main integration points.
+```
+
+### 阶段 2：只在需要时扩展
+
+如果之后你也需要更新 issue：
+
+```yaml
+tools:
+  include: [list_issues, create_issue, update_issue, search_code]
+```
+
+然后重新加载：
+
+```text
+/reload-mcp
+```
+
+### 阶段 3：添加第二个服务器，并使用不同策略
+
+```yaml
+mcp_servers:
+  github:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "***"
+    tools:
+      include: [list_issues, create_issue, update_issue, search_code]
+      prompts: false
+      resources: false
+
+  filesystem:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/project"]
+```
+
+现在 Hermes 可以将它们结合起来：
+
+```text
+Inspect the local project files, then create a GitHub issue summarizing the bug you find.
+```
+
+这就是 MCP 变得强大的地方：无需修改 Hermes 核心，即可实现多系统工作流。
+
+## 安全使用建议
+
+### 对于危险系统，优先使用允许列表
+
+对于任何涉及财务、面向客户或具有破坏性的系统：
+
+* 使用 `tools.include`
+* 从尽可能小的工具集开始
+
+### 禁用未使用的实用工具
+
+如果你不希望模型浏览服务器提供的 resources/prompts，请将它们关闭：
+
+```yaml
+tools:
+  resources: false
+  prompts: false
+```
+
+### 保持服务器作用域尽可能窄
+
+示例：
+
+* 文件系统服务器只限定到一个项目目录，而不是整个 home 目录
+* git 服务器指向一个仓库
+* 内部 API 服务器默认只暴露偏读取类工具
+
+## 配置变更后重新加载
+
+```text
+/reload-mcp
+```
+
+在更改以下内容后执行此操作：
+
+* include/exclude 列表
+* enabled flags
+* resources/prompts 开关
+* auth headers / env
+
+## 按症状排查
+
+### “服务器已连接，但我预期的工具缺失”
+
+可能原因：
+
+* 被 `tools.include` 过滤掉了
+* 被 `tools.exclude` 排除了
+* 通过 `resources: false` 或 `prompts: false` 禁用了实用包装器
+* 服务器实际上并不支持 resources/prompts
+
+### “服务器已配置，但什么都没有加载”
+
+检查：
+
+* 没有在配置中遗留 `enabled: false`
+* 命令/运行时存在（`npx`、`uvx` 等）
+* HTTP 端点可访问
+* auth env 或 headers 正确
+
+### “为什么我看到的工具比 MCP 服务器声明的少？”
+
+因为 Hermes 现在会遵守你的按服务器策略和能力感知注册。这是预期行为，而且通常是可取的。
+
+### “如何在不删除配置的情况下移除 MCP 服务器？”
+
+使用：
+
+```yaml
+enabled: false
+```
+
+这会保留配置，但阻止连接和注册。
+
+## 推荐的首批 MCP 设置
+
+对大多数用户来说，适合作为第一批 MCP 服务器的选择：
+
+* filesystem
+* git
+* GitHub
+* fetch / documentation MCP servers
+* 一个范围很窄的内部 API
+
+不太适合作为第一批服务器的选择：
+
+* 带有大量破坏性操作且没有过滤的大型业务系统
+* 任何你还不够了解、无法约束其能力范围的系统
+
+## 相关文档
+
+* [MCP（Model Context Protocol）](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)
+* [FAQ](https://hermes-agent.nousresearch.com/docs/reference/faq)
+* [Slash Commands](https://hermes-agent.nousresearch.com/docs/reference/slash-commands)
+
+

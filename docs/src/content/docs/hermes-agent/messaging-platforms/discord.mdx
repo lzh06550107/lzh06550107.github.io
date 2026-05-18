@@ -1,0 +1,327 @@
+---
+title: Discord 设置
+description: hermes agent Discord 设置
+---
+
+Hermes 智能体可以作为机器人集成到 Discord 中，让您能够通过私信或服务器频道与您的 AI 助手进行聊天。该机器人会接收您的消息，通过 Hermes 智能体流水线（包括工具使用、记忆和推理）进行处理，并进行实时响应。它支持文本、语音消息、文件附件以及斜杠命令。
+
+在开始设置之前，以下是大多数人最想了解的部分：Hermes 进入您的服务器后的行为模式。
+
+## Hermes 的行为模式 (How Hermes Behaves)
+
+| 上下文场景 (Context) | 行为表现 (Behavior) |
+| --- | --- |
+| **私信 (DMs)** | Hermes 会回应每一条消息。无需 **`@mention`（提及）**。每条私信都拥有自己独立的会话。 |
+| **服务器频道** | 默认情况下，Hermes 仅在您 **`@mention`** 它时才会做出回应。如果您在频道中发帖但没有提及它，Hermes 会忽略该消息。 |
+| **自由响应频道** | 您可以通过 `DISCORD_FREE_RESPONSE_CHANNELS` 让特定频道无需提及，或者通过 `DISCORD_REQUIRE_MENTION=false` 全局禁用提及要求。这些频道中的消息会直接就地回复 —— 会自动跳过创建线程（auto-threading），以保持频道作为轻量级聊天的状态。 |
+| **线程 (Threads)** | Hermes 会在同一个线程内部进行回复。除非该线程或其父频道被配置为自由响应，否则提及规则仍然适用。就会话历史记录而言，线程与父频道保持隔离。 |
+| **多用户共享频道** | 为了安全和清晰，默认情况下，Hermes 会在频道内按用户隔离会话历史记录。在同一个频道中聊天的两个人不会共享同一个对话副本，除非您明确禁用了该隔离功能。 |
+| **提及其他用户的消息** | 当 `DISCORD_IGNORE_NO_MENTION` 为 `true`（默认值）时，如果某条消息 `@mention` 了其他用户但**没有**提及机器人，Hermes 将保持沉默。这可以防止机器人插手针对其他人的对话。如果您希望机器人响应所有消息（无论提及了谁），请将其设置为 `false`。这仅适用于服务器频道，不适用于私信。 |
+
+:::tip[提示]
+如果您想要一个普通的机器人帮助频道，让人们可以与 Hermes 对话而无需每次都标记（Tag）它，请将该频道添加至 `DISCORD_FREE_RESPONSE_CHANNELS`。
+:::
+
+### Discord 网关模型 (Discord Gateway Model)
+
+Discord 上的 Hermes 并不是一个无状态回复的 Webhook。它运行在完整的消息网关之上，这意味着每条发入的消息都会经过以下处理流程：
+
+1. 授权验证 (`DISCORD_ALLOWED_USERS`)
+2. 提及（Mention）/ 自由响应（Free-response）检查
+3. 会话查找
+4. 会话副本加载
+5. 正常的 Hermes 智能体执行（包括工具、记忆和斜杠命令）
+6. 将回复投递回 Discord
+
+这一点至关重要，因为在繁忙的服务器中，机器人的行为既取决于 Discord 的路由规则，也取决于 Hermes 的会话策略。
+
+### Discord 中的会话模型 (Session Model in Discord)
+
+默认情况下：
+
+* 每条私信（DM）获得其专属的会话
+* 每个服务器线程（Thread）获得其专属的会话命名空间
+* 共享频道中的每位用户在该频道内获得其各自独立的会话
+
+因此，如果 Alice 和 Bob 都在 `#research` 频道中与 Hermes 对话，默认情况下，即使他们使用的是同一个可见的 Discord 频道，Hermes 也会将它们视为相互独立的对话。
+
+该行为由 `config.yaml` 进行控制：
+
+```yaml
+group_sessions_per_user: true
+```
+
+只有当您明确希望整个房间共享同一个对话时，才将其设置为 `false`：
+
+```yaml
+group_sessions_per_user: false
+```
+
+共享会话对于协作房间可能会很有用，但它们也意味着：
+
+* 用户会共同导致上下文增长并分担 Token 成本
+* 某个人耗时且严重依赖工具的任务可能会使其他所有人的上下文膨胀
+* 某个人正在进行中的运行可能会中断同房间内另一个人的后续操作
+
+### 中断与并发 (Interrupts and Concurrency)
+
+Hermes 通过会话键（Session Key）来追踪运行中的智能体。
+
+在默认设置 `group_sessions_per_user: true` 下：
+
+* Alice 中断自己进行中的请求只会影响 Alice 在该频道内的会话
+* Bob 可以在同一个频道中继续对话，而不会继承 Alice 的历史记录，也不会中断 Alice 的运行
+
+在设置 `group_sessions_per_user: false` 下：
+
+* 整个房间为该频道/线程共享同一个运行中智能体插槽（Slot）
+* 来自不同用户的后续消息可能会相互中断，或者在彼此后面排队等待
+
+本指南将带您走过完整的设置流程 —— 从在 Discord 开发者门户（Developer Portal）上创建您的机器人，到发送您的第一条消息。
+
+## 步骤 1：创建 Discord 应用程序 (Step 1: Create a Discord Application)
+
+1. 前往 **Discord Developer Portal（开发者门户）** 并登录您的 Discord 账号。
+2. 点击右上角的 **New Application（新建应用程序）**。
+3. 为您的应用程序输入一个名称（例如 "Hermes Agent"），并勾选接受开发者服务条款。
+4. 点击 **Create（创建）**。
+5. 您将进入 **General Information（基本信息）** 页面。请记下 **Application ID（应用程序 ID）** —— 稍后在构建邀请链接时您会需要它。
+
+## 步骤 2：创建机器人 (Step 2: Create the Bot)
+
+1. 在左侧边栏中，点击 **Bot（机器人）**。
+2. Discord 会自动为您的应用程序创建一个机器人用户。您会看到该机器人的用户名，并且可以对其进行自定义。
+3. 在 **Authorization Flow（授权流程）** 下方：
+    * 将 **Public Bot（公开机器人）** 设置为 **ON** —— 这是使用 Discord 提供的邀请链接所必需的（推荐做法）。这允许 "Installation（安装）" 标签页生成默认的授权 URL。
+    * 保持 **Require OAuth2 Code Grant（需要 OAuth2 凭据授权）** 设置为 **OFF**。
+
+:::tip[提示]
+您可以在此页面上为您的机器人设置自定义头像和横幅。这就是用户在 Discord 中会看到的外观。
+:::
+
+:::[私有机器人替代方案]
+如果您希望保持机器人的私有状态（Public Bot = OFF），您 **必须** 在步骤 5 中使用手动 URL（Manual URL）方法，而不是使用 "Installation" 标签页。因为 Discord 提供的链接要求必须启用 Public Bot。
+:::
+
+### 步骤 3：启用特权网关意图 (Step 3: Enable Privileged Gateway Intents)
+
+这是整个设置过程中最关键的一步。如果没有启用正确的意图（Intents），您的机器人虽然可以连接到 Discord，但 **将无法读取消息内容**。
+
+在 **Bot** 页面上，向下滚动到 **Privileged Gateway Intents（特权网关意图）**。您会看到三个开关：
+
+| 意图 (Intent) | 用途 (Purpose) | 是否必填？(Required?) |
+| --- | --- | --- |
+| **Presence Intent** | 查看用户的在线/离线状态 | 可选 |
+| **Server Members Intent** | 访问成员列表，解析用户名 | **必填** |
+| **Message Content Intent** | 读取消息的文本内容 | **必填** |
+
+通过将开关切换为 **ON**，**同时启用 Server Members Intent 和 Message Content Intent**。
+
+* 如果没有 **Message Content Intent**，您的机器人可以接收到消息事件，但消息文本会是空的 —— 机器人字面意义上无法看到您输入的内容。
+* 如果没有 **Server Members Intent**，机器人将无法为允许的用户列表解析用户名，并且可能会无法识别是谁在给它发送消息。
+
+:::caution[这是 Discord 机器人无法正常工作的核心原因（排名第一）]
+如果您的机器人在线但从不回复消息，几乎可以肯定 **Message Content Intent** 被禁用了。请返回 **Developer Portal**，选择您的应用程序 → **Bot** → **Privileged Gateway Intents**，并确保 **Message Content Intent** 已切换为 **ON**。然后点击 **Save Changes**。
+:::
+
+**关于服务器数量限制：**
+
+* 如果您的机器人加入的服务器 **少于 100 个**，您可以直接自由地开启或关闭这些意图。
+* 如果您的机器人加入了 **100 个或更多** 服务器，Discord 会要求您提交验证申请才能使用特权意图。对于个人使用而言，无需担心这一点。
+
+点击页面底部的 **Save Changes（保存更改）**。
+
+## 第 4 步：获取机器人令牌 (Bot Token)
+
+机器人令牌是 Hermes Agent 用来登录您机器人的凭据。依然在 **Bot** 页面上：
+
+1. 在 **Token** 区域下方，点击 **Reset Token**（重置令牌）。
+2. 如果您的 Discord 账号启用了双重身份验证 (2FA)，请输入您的 2FA 验证码。
+3. Discord 将会显示您的新令牌。**请立即复制它。**
+
+:::caution[令牌仅显示一次]
+令牌只会在生成时显示一次。如果您不小心丢失了它，您将需要重新重置并生成一个新令牌。切勿公开分享您的令牌，也不要将其提交到 Git 中 —— 任何人只要拥有该令牌，就拥有对您机器人的完全控制权。
+:::
+
+将令牌妥善保存在安全的地方（例如密码管理器）。您将在第 8 步中用到它。
+
+## 第 5 步：生成邀请链接 (Invite URL)
+
+您需要一个 OAuth2 链接来将机器人邀请到您的服务器中。有两种方法可以实现：
+
+### 选项 A：使用 Installation 标签页（推荐）
+
+:::note[需要公开机器人]
+此方法要求在第 2 步中将 **Public Bot** 设置为 **ON**（开启）。如果您将 Public Bot 设置为了 OFF，请改用下方的 “手动拼接链接” 方法。
+:::
+
+1. 在左侧侧边栏中，点击 **Installation**。
+2. 在 **Installation Contexts** 下方，启用 **Guild Install**。
+3. 在 **Install Link** 处，选择 **Discord Provided Link**。
+4. 在 Guild Install 的 **Default Install Settings**（默认安装设置）下方：
+    * **Scopes（作用域）**：选择 **bot** 和 **applications.commands**。
+    * **Permissions（权限）**：选择下方列出的权限。
+
+### 选项 B：手动拼接链接 (Manual URL)
+
+您可以使用以下格式直接构建邀请链接：
+
+```text
+https://discord.com/oauth2/authorize?client_id=YOUR_APP_ID&scope=bot+applications.commands&permissions=274878286912
+```
+
+将 `YOUR_APP_ID` 替换为第 1 步中的 Application ID（应用 ID）。
+
+### 必要权限 (Required Permissions)
+
+以下是您的机器人所需的最基本权限：
+
+* **View Channels（查看频道）** —— 查看其有权访问的频道
+* **Send Messages（发送消息）** —— 回复您的消息
+* **Embed Links（嵌入链接）** —— 格式化富文本回复
+* **Attach Files（添加附件）** —— 发送图片、音频和文件输出
+* **Read Message History（阅读历史消息）** —— 维持对话上下文
+
+### 推荐的附加权限 (Recommended Additional Permissions)
+
+* **Send Messages in Threads（在帖子中发送消息）** —— 在帖子（Thread）对话中进行回复
+* **Add Reactions（添加反应）** —— 对消息添加表情反应以示确认
+
+### 权限整数值 (Permission Integers)
+
+| 级别 | 权限整数值 (Permissions Integer) | 包含的内容 |
+| --- | --- | --- |
+| **最低限度** | `117760` | 查看频道、发送消息、阅读历史消息、添加附件 |
+| **推荐设置** | `274878286912` | 包含上述所有权限，并外加：嵌入链接、在帖子中发送消息、添加反应 |
+
+## 第 6 步：邀请至您的服务器
+
+1. 在浏览器中打开邀请链接（来自 Installation 标签页或您手动拼接的链接）。
+2. 在 **Add to Server**（添加到服务器）下拉菜单中，选择您的服务器。
+3. 点击 **Continue**（继续），然后点击 **Authorize**（授权）。
+4. 如果出现提示，请完成验证码（CAPTCHA）认证。
+
+:::note[信息]
+您需要拥有该 Discord 服务器的 **Manage Server**（管理服务器）权限才能邀请机器人。如果您在下拉菜单中没有看到您的服务器，请让该服务器的管理员来使用此邀请链接。
+:::
+
+授权完成后，机器人将出现在您服务器的成员列表中（在您启动 Hermes 网关之前，它会显示为离线状态）。
+
+## 第 7 步：获取您的 Discord 用户 ID (User ID)
+
+Hermes Agent 使用您的 Discord 用户 ID 来控制谁可以与机器人进行交互。获取方法如下：
+
+1. 打开 Discord（桌面端或网页端应用）。
+2. 前往 **Settings**（设置） → **Advanced**（高级） → 将 **Developer Mode**（开发者模式）切换为 **ON**（开启）。
+3. 关闭设置。
+4. 右键点击您自己的用户名（在消息、成员列表或您的个人资料中均可） → 点击 **Copy User ID**（复制用户 ID）。
+
+您的用户 ID 是一串长数字，例如 `284102345871466496`。
+
+:::tip[提示]
+开启开发者模式后，您还可以用同样的方法复制 **频道 ID (Channel IDs)** 和 **服务器 ID (Server IDs)** —— 只需右键点击频道或服务器名称，然后选择 Copy ID 即可。如果您想手动设置一个主频道，就会需要用到频道 ID。
+:::
+
+## 第 8 步：配置 Hermes Agent
+
+### 选项 A：交互式设置（推荐）
+
+运行引导式设置命令：
+
+```
+hermes gateway setup
+```
+
+出现提示时选择 **Discord**，然后根据要求粘贴您的机器人令牌（bot token）和用户 ID（user ID）。
+
+### 选项 B：手动配置
+
+将以下内容添加到您的 `~/.hermes/.env` 文件中：
+
+```env
+# 必要配置
+DISCORD_BOT_TOKEN=your-bot-token
+DISCORD_ALLOWED_USERS=284102345871466496
+
+# 允许多个用户（用英文逗号分隔）
+# DISCORD_ALLOWED_USERS=284102345871466496,198765432109876543
+```
+
+然后启动网关：
+
+```
+hermes gateway
+```
+
+几秒钟内，机器人就会在 Discord 中上线。向它发送一条消息 —— 可以是私信（DM），也可以是在它能看到的频道里 —— 来进行测试。
+
+:::tip[提示]
+您可以在后台运行 `hermes gateway`，或者将其作为 systemd 服务运行以实现持久化运行。详情请参阅部署文档。
+:::
+
+## 配置参考 (Configuration Reference)
+
+Discord 的行为通过两个文件进行控制：用于存放凭据和环境变量级开关的 `~/.hermes/.env`，以及用于结构化设置的 `~/.hermes/config.yaml`。当两者同时设置了相同的值时，环境变量的优先级始终高于 `config.yaml` 中的值。
+
+### 环境变量 (.env)
+
+| 变量名 | 是否必填 | 默认值 | 描述 |
+| --- | --- | --- | --- |
+| **DISCORD_BOT_TOKEN** | 是 | — | 来自 Discord 开发者门户 (Discord Developer Portal) 的机器人令牌。 |
+| **DISCORD_ALLOWED_USERS** | 是 | — | 允许与机器人互动的 Discord 用户 ID，以英文逗号分隔。如果没有设置此项**或** `DISCORD_ALLOWED_ROLES`，网关将拒绝所有用户。 |
+| **DISCORD_ALLOWED_ROLES** | 否 | — | 以英文逗号分隔的 Discord 身份组 (Role) ID。任何拥有这些身份组之一的成员都将被授权 —— 与 `DISCORD_ALLOWED_USERS` 属于“或 (OR)”逻辑关系。连接时会自动启用“服务器成员意图 (Server Members Intent)”。这在管理团队人员更迭时非常有用：新管理员只要被授予该身份组就能立即获得访问权限，无需推送新配置。 |
+| **DISCORD_HOME_CHANNEL** | 否 | — | 机器人发送主动消息（如定时任务 cron 输出、提醒、通知）的频道 ID。 |
+| **DISCORD_HOME_CHANNEL_NAME** | 否 | "Home" | 日志和状态输出中主频道的显示名称。 |
+| **DISCORD_COMMAND_SYNC_POLICY** | 否 | "safe" | 控制原生斜杠命令 (slash-command) 的启动同步行为。`"safe"` 会比对现有的全局命令并仅更新发生更改的部分，当无法通过补丁 (patch) 应用 Discord 元数据更改时，则会重新创建命令。`"bulk"` 保留了旧的 `tree.sync()` 行为。`"off"` 则完全跳过启动同步。 |
+| **DISCORD_REQUIRE_MENTION** | 否 | true | 当为 `true` 时，机器人仅在服务器频道中被 `@提及 (@mentioned)` 时才会做出回应。设置为 `false` 时，它会回应每个频道中的所有消息。 |
+| **DISCORD_THREAD_REQUIRE_MENTION** | 否 | false | 当为 `true` 时，帖子内提及的快捷方式将被禁用 —— 帖子的准入门槛将与普通频道相同，即使机器人已经参与了对话，后续仍需要 `@提及`。当多个机器人共享同一个帖子且您希望每个机器人仅在被明确 `@提及` 时才触发时，请使用此设置。 |
+| **DISCORD_FREE_RESPONSE_CHANNELS** | 否 | — | 以英文逗号分隔的频道 ID 列表。在这些频道中，即使 `DISCORD_REQUIRE_MENTION` 为 `true`，机器人无需 `@提及` 也会做出回应。 |
+| **DISCORD_IGNORE_NO_MENTION** | 否 | true | 当为 `true` 时，如果某条消息 `@提及` 了其他用户但**没有**提及该机器人，机器人将保持沉默。这可以防止机器人插话到针对其他人的对话中。仅适用于服务器频道，不适用于私信 (DM)。 |
+| **DISCORD_AUTO_THREAD** | 否 | true | 当为 `true` 时，在文本频道中每次被 `@提及` 都会自动创建一个新帖子（Thread），从而将每个对话隔离开来（类似于 Slack 的行为）。已在帖子内部或私信 (DM) 中的消息不受影响。 |
+| **DISCORD_ALLOW_BOTS** | 否 | "none" | 控制机器人如何处理来自其他 Discord 机器人的消息。`"none"` —— 忽略所有其他机器人。`"mentions"` —— 仅接收 `@提及` 了 Hermes 的机器人消息。`"all"` —— 接收所有机器人消息。 |
+| **DISCORD_REACTIONS** | 否 | true | 当为 `true` 时，机器人会在处理消息期间添加表情符号反应（开始时添加 👀，成功时添加 ✅，出错时添加 ❌）。设置为 `false` 则完全禁用表情反应。 |
+| **DISCORD_IGNORED_CHANNELS** | 否 | — | 以英文逗号分隔的频道 ID 列表。机器人**绝不会**在这些频道中做出回应，即使被 `@提及` 也是如此。此设置的优先级高于所有其他频道设置。 |
+| **DISCORD_ALLOWED_CHANNELS** | 否 | — | 以英文逗号分隔的频道 ID 列表。设置后，机器人**仅**会在这些频道中做出回应（如果允许，也包括私信 DM）。此设置会覆盖 `config.yaml` 中的 `discord.allowed_channels`。可与 `DISCORD_IGNORED_CHANNELS` 结合使用以表达允许/拒绝规则。 |
+| **DISCORD_NO_THREAD_CHANNELS** | 否 | — | 以英文逗号分隔的频道 ID 列表。在这些频道中，机器人会直接在频道内回应，而不是创建帖子。仅在 `DISCORD_AUTO_THREAD` 为 `true` 时才相关。 |
+| **DISCORD_HISTORY_BACKFILL** | 否 | true | 当为 `true` 时，在机器人被提及时，将最近的频道历史滚动记录（自机器人上次回应以来）拼接到用户消息之前。以此来恢复机器人在启用 `require_mention` 时可能会遗漏的上下文。在私信 (DM) 和自由回应频道中会跳过此操作。设置为 `false` 可禁用此功能。 |
+| **DISCORD_HISTORY_BACKFILL_LIMIT** | 否 | 50 | 组装历史回填块时，向后扫描的最大消息条数。在实际操作中，扫描通常会提早停止 —— 停止在机器人自身于该频道中发送的最后一条消息处。 |
+| **DISCORD_REPLY_TO_MODE** | 否 | "first" | 控制回复引用行为：`"off"` —— 绝不回复引用原始消息；`"first"` —— 仅在第一条消息分块上进行回复引用（默认）；`"all"` —— 在每个分块上都进行回复引用。 |
+| **DISCORD_ALLOW_MENTION_EVERYONE** | 否 | false | 当为 `false`（默认）时，即使机器人的回应中包含这些令牌，它也无法 ping `@everyone` 或 `@here`。设置为 `true` 可以重新启用此功能。请参阅下方的**提及控制 (Mention Control)**。 |
+| **DISCORD_ALLOW_MENTION_ROLES** | 否 | false | 当为 `false`（默认）时，机器人无法 ping `@身份组` 提及。设置为 `true` 以允许此行为。 |
+| **DISCORD_ALLOW_MENTION_USERS** | 否 | true | 当为 `true`（默认）时，机器人可以通过 ID ping 单个用户。 |
+| **DISCORD_ALLOW_MENTION_REPLIED_USER** | 否 | true | 当为 `true`（默认）时，回复某条消息会 ping 原始作者。 |
+| **DISCORD_PROXY** | 否 | — | 用于 Discord 连接的代理 URL（HTTP、WebSocket、REST）。会覆盖 `HTTPS_PROXY/ALL_PROXY`。支持 `http://`、`https://` 和 `socks5://` 协议方案。 |
+| **HERMES_DISCORD_TEXT_BATCH_DELAY_SECONDS** | 否 | 0.6 | 适配器在刷新队列中的文本分块之前等待的缓冲时间窗口。对于使流式输出更平滑非常有用。 |
+| **HERMES_DISCORD_TEXT_BATCH_SPLIT_DELAY_SECONDS** | 否 | 2.0 | 当单条消息超过 Discord 的长度限制时，拆分分块之间的延迟时间。 |
+
+### 配置文件 (config.yaml)
+
+`~/.hermes/config.yaml` 中的 `discord` 区域镜像了上述的环境变量。`config.yaml` 中的设置将作为默认值应用 —— 如果已经设置了等效的环境变量，则以环境变量为准。
+
+```yaml
+# Discord-specific settings
+discord:
+  require_mention: true           # Require @mention in server channels
+  thread_require_mention: false   # If true, require @mention in threads too (multi-bot threads)
+  free_response_channels: ""      # Comma-separated channel IDs (or YAML list)
+  auto_thread: true               # Auto-create threads on @mention
+  reactions: true                 # Add emoji reactions during processing
+  ignored_channels: []            # Channel IDs where bot never responds
+  no_thread_channels: []          # Channel IDs where bot responds without threading
+  history_backfill: true          # Prepend recent channel scrollback on mention (default: true)
+  history_backfill_limit: 50      # Max messages to scan backwards (default: 50)
+  channel_prompts: {}             # Per-channel ephemeral system prompts
+  allow_mentions:                 # What the bot is allowed to ping (safe defaults)
+    everyone: false               # @everyone / @here pings (default: false)
+    roles: false                  # @role pings (default: false)
+    users: true                   # @user pings (default: true)
+    replied_user: true            # reply-reference pings the author (default: true)
+
+# Session isolation (applies to all gateway platforms, not just Discord)
+group_sessions_per_user: true     # Isolate sessions per user in shared channels
+```
+
+(省略)
+
+
+

@@ -1,0 +1,257 @@
+---
+title: 构建 Memory Provider Plugin
+description: hermes agent 构建 Memory Provider Plugin
+---
+
+Memory provider plugins 为 Hermes Agent 提供超出内置 `MEMORY.md` 和 `USER.md` 的持久化、跨会话知识。本指南介绍如何构建一个。
+
+:::tip[提示]
+Memory providers 是两种 provider plugin 类型之一。另一种是 Context Engine Plugins，它会替换内置的 context compressor。两者都遵循相同模式：单选、配置驱动，并通过 `hermes plugins` 管理。
+:::
+
+## 目录结构
+
+每个 memory provider 都位于 `plugins/memory/<name>/`：
+
+```text
+plugins/memory/my-provider/
+├── __init__.py      # MemoryProvider 实现 + register() 入口点
+├── plugin.yaml      # Metadata（name、description、hooks）
+└── README.md        # 设置说明、配置参考、工具
+```
+
+## MemoryProvider ABC
+
+你的 plugin 实现来自 `agent/memory_provider.py` 的 `MemoryProvider` 抽象基类：
+
+```python
+from agent.memory_provider import MemoryProvider
+
+class MyMemoryProvider(MemoryProvider):
+    @property
+    def name(self) -> str:
+        return "my-provider"
+
+    def is_available(self) -> bool:
+        """检查此 provider 是否可以激活。不要进行网络调用。"""
+        return bool(os.environ.get("MY_API_KEY"))
+
+    def initialize(self, session_id: str, **kwargs) -> None:
+        """在 agent 启动时调用一次。
+
+        kwargs 始终包括：
+          hermes_home (str): 当前活动的 HERMES_HOME 路径。用于存储。
+        """
+        self._api_key = os.environ.get("MY_API_KEY", "")
+        self._session_id = session_id
+
+    # ... 实现剩余方法
+```
+
+## 必需方法
+
+### 核心生命周期
+
+| 方法                                 | 何时调用            | 是否必须实现？       |
+| ---------------------------------- | --------------- | ------------- |
+| `name`（property）                   | 始终              | 是             |
+| `is_available()`                   | Agent init，激活之前 | 是 —— 不要进行网络调用 |
+| `initialize(session_id, **kwargs)` | Agent 启动        | 是             |
+| `get_tool_schemas()`               | init 之后，用于工具注入  | 是             |
+| `handle_tool_call(name, args)`     | 当 agent 使用你的工具时 | 是（如果你有工具）     |
+
+### Config
+
+| 方法                                 | 目的                             | 是否必须实现？          |
+| ---------------------------------- | ------------------------------ | ---------------- |
+| `get_config_schema()`              | 为 `hermes memory setup` 声明配置字段 | 是                |
+| `save_config(values, hermes_home)` | 将非 secret 配置写入原生位置             | 是（除非仅使用 env-var） |
+
+### 可选 Hooks
+
+| 方法                                         | 何时调用                   | 使用场景                  |
+| ------------------------------------------ | ---------------------- | --------------------- |
+| `system_prompt_block()`                    | System prompt 组装       | 静态 provider 信息        |
+| `prefetch(query)`                          | 每次 API 调用之前            | 返回召回的上下文              |
+| `queue_prefetch(query)`                    | 每轮之后                   | 为下一轮预热                |
+| `sync_turn(user, assistant)`               | 每个完成的 turn 之后          | 持久化 conversation      |
+| `on_session_end(messages)`                 | Conversation 结束        | 最终 extraction / flush |
+| `on_pre_compress(messages)`                | Context compression 之前 | 在丢弃前保存 insights       |
+| `on_memory_write(action, target, content)` | 内置 memory writes       | 镜像到你的 backend         |
+| `shutdown()`                               | 进程退出                   | 清理连接                  |
+
+## Config Schema
+
+`get_config_schema()` 返回一个字段描述符列表，供 `hermes memory setup` 使用：
+
+```python
+def get_config_schema(self):
+    return [
+        {
+            "key": "api_key",
+            "description": "My Provider API key",
+            "secret": True,           # → 写入 .env
+            "required": True,
+            "env_var": "MY_API_KEY",   # 显式 env var 名称
+            "url": "https://my-provider.com/keys",  # 获取位置
+        },
+        {
+            "key": "region",
+            "description": "Server region",
+            "default": "us-east",
+            "choices": ["us-east", "eu-west", "ap-south"],
+        },
+        {
+            "key": "project",
+            "description": "Project identifier",
+            "default": "hermes",
+        },
+    ]
+```
+
+带有 `secret: True` 和 `env_var` 的字段会进入 `.env`。非 secret 字段会传递给 `save_config()`。
+
+:::tip[Minimal vs Full Schema]
+`get_config_schema()` 中的每个字段都会在 `hermes memory setup` 期间被提示。拥有许多选项的 providers 应保持 schema 最小化 —— 只包含用户必须配置的字段（API key、必需 credentials）。将可选设置记录在配置文件参考中（例如 `$HERMES_HOME/myprovider.json`），而不是在 setup 期间全部提示。这可以保持 setup wizard 快速，同时仍然支持高级配置。请参考 Supermemory provider 的示例 —— 它只提示 API key；所有其他选项都位于 `supermemory.json`。
+:::
+
+## 保存配置
+
+```python
+def save_config(self, values: dict, hermes_home: str) -> None:
+    """将非 secret 配置写入你的原生位置。"""
+    import json
+    from pathlib import Path
+    config_path = Path(hermes_home) / "my-provider.json"
+    config_path.write_text(json.dumps(values, indent=2))
+```
+
+对于仅使用 env-var 的 providers，保留默认的 no-op。
+
+## Plugin 入口点
+
+```python
+def register(ctx) -> None:
+    """由 memory plugin discovery system 调用。"""
+    ctx.register_memory_provider(MyMemoryProvider())
+```
+
+## `plugin.yaml`
+
+```yaml
+name: my-provider
+version: 1.0.0
+description: "关于此 provider 作用的简短描述。"
+hooks:
+  - on_session_end    # 列出你实现的 hooks
+```
+
+## 线程契约
+
+`sync_turn()` 必须是非阻塞的。如果你的 backend 有延迟（API 调用、LLM 处理），请在 daemon thread 中运行工作：
+
+```python
+def sync_turn(self, user_content, assistant_content):
+    def _sync():
+        try:
+            self._api.ingest(user_content, assistant_content)
+        except Exception as e:
+            logger.warning("Sync failed: %s", e)
+
+    if self._sync_thread and self._sync_thread.is_alive():
+        self._sync_thread.join(timeout=5.0)
+    self._sync_thread = threading.Thread(target=_sync, daemon=True)
+    self._sync_thread.start()
+```
+
+## Profile Isolation
+
+所有存储路径都 **必须** 使用 `initialize()` 中的 `hermes_home` kwarg，而不是硬编码的 `~/.hermes`：
+
+```python
+# 正确 —— profile-scoped
+from hermes_constants import get_hermes_home
+data_dir = get_hermes_home() / "my-provider"
+
+# 错误 —— 在所有 profiles 之间共享
+data_dir = Path("~/.hermes/my-provider").expanduser()
+```
+
+## 测试
+
+完整的 E2E 测试模式请参见 `tests/agent/test_memory_plugin_e2e.py`，其中使用了一个真实的 SQLite provider。
+
+```python
+from agent.memory_manager import MemoryManager
+
+mgr = MemoryManager()
+mgr.add_provider(my_provider)
+mgr.initialize_all(session_id="test-1", platform="cli")
+
+# 测试 tool routing
+result = mgr.handle_tool_call("my_tool", {"action": "add", "content": "test"})
+
+# 测试 lifecycle
+mgr.sync_all("user msg", "assistant msg")
+mgr.on_session_end([])
+mgr.shutdown_all()
+```
+
+## 添加 CLI Commands
+
+Memory provider plugins 可以注册自己的 CLI subcommand tree（例如 `hermes my-provider status`、`hermes my-provider config`）。这使用基于约定的 discovery system —— 不需要修改核心文件。
+
+### 工作方式
+
+1. 将一个 `cli.py` 文件添加到你的 plugin 目录
+2. 定义一个 `register_cli(subparser)` 函数来构建 argparse tree
+3. memory plugin system 会在启动时通过 `discover_plugin_cli_commands()` 发现它
+4. 你的 commands 会出现在 `hermes <provider-name> <subcommand>` 下
+
+Active-provider gating：只有当你的 provider 是 config 中 active 的 `memory.provider` 时，你的 CLI commands 才会出现。如果用户尚未配置你的 provider，你的 commands 不会显示在 `hermes --help` 中。
+
+### 示例
+
+```python
+# plugins/memory/my-provider/cli.py
+
+def my_command(args):
+    """由 argparse 分发的 Handler。"""
+    sub = getattr(args, "my_command", None)
+    if sub == "status":
+        print("Provider is active and connected.")
+    elif sub == "config":
+        print("Showing config...")
+    else:
+        print("Usage: hermes my-provider <status|config>")
+
+def register_cli(subparser) -> None:
+    """构建 hermes my-provider argparse tree。
+
+    在 argparse setup time 由 discover_plugin_cli_commands() 调用。
+    """
+    subs = subparser.add_subparsers(dest="my_command")
+    subs.add_parser("status", help="Show provider status")
+    subs.add_parser("config", help="Show provider config")
+    subparser.set_defaults(func=my_command)
+```
+
+### 参考实现
+
+完整示例请参见 `plugins/memory/honcho/cli.py`，其中包含 13 个 subcommands、cross-profile management（`--target-profile`）和 config read/write。
+
+### 带 CLI 的目录结构
+
+```text
+plugins/memory/my-provider/
+├── __init__.py      # MemoryProvider implementation + register()
+├── plugin.yaml      # Metadata
+├── cli.py           # register_cli(subparser) — CLI commands
+└── README.md        # Setup instructions
+```
+
+## 单 Provider 规则
+
+同一时间只能有一个 external memory provider 处于 active 状态。如果用户尝试注册第二个，`MemoryManager` 会拒绝并发出 warning。这可以防止 tool schema bloat 和 backend 冲突。
+
+

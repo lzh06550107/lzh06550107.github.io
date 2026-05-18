@@ -1,0 +1,192 @@
+---
+title: 构建 Context Engine Plugin
+description: hermes agent 构建 Context Engine Plugin
+---
+
+Context engine plugins 会用另一种管理 conversation context 的策略替换内置的 `ContextCompressor`。例如，一个 Lossless Context Management（LCM）engine，它构建 knowledge DAG，而不是进行有损摘要。
+
+## 工作原理
+
+agent 的 context management 基于 `ContextEngine` ABC（`agent/context_engine.py`）。内置的 `ContextCompressor` 是默认实现。Plugin engines 必须实现相同接口。
+
+同一时间只能有一个 context engine 处于 active 状态。选择由 config 驱动：
+
+```yaml
+# config.yaml
+context:
+  engine: "compressor"    # 默认内置
+  engine: "lcm"           # 激活名为 "lcm" 的 plugin engine
+```
+
+Plugin engines 永远不会自动激活 —— 用户必须显式将 `context.engine` 设置为 plugin 的名称。
+
+## 目录结构
+
+每个 context engine 位于 `plugins/context_engine/<name>/`：
+
+```text
+plugins/context_engine/lcm/
+├── __init__.py      # 导出 ContextEngine 子类
+├── plugin.yaml      # metadata（name、description、version）
+└── ...              # engine 需要的任何其他 modules
+```
+
+## ContextEngine ABC
+
+你的 engine 必须实现这些必需方法：
+
+```python
+from agent.context_engine import ContextEngine
+
+class LCMEngine(ContextEngine):
+
+    @property
+    def name(self) -> str:
+        """短标识符，例如 'lcm'。必须匹配 config.yaml value。"""
+        return "lcm"
+
+    def update_from_response(self, usage: dict) -> None:
+        """每次 LLM 调用后，都会携带 usage dict 调用。
+
+        从 response 中更新 self.last_prompt_tokens、self.last_completion_tokens、
+        self.last_total_tokens。
+        """
+
+    def should_compress(self, prompt_tokens: int = None) -> bool:
+        """如果本轮应该触发 compaction，则返回 True。"""
+
+    def compress(self, messages: list, current_tokens: int = None,
+                 focus_topic: str = None) -> list:
+        """压缩 message list，并返回一个新的（可能更短的）list。
+
+        返回的 list 必须是有效的 OpenAI-format message sequence。
+
+        ``focus_topic`` 是来自手动 ``/compress <focus>`` 的可选 topic string；
+        支持 guided compression 的 engines 应优先保留与其相关的信息，
+        其他 engines 可以忽略它。
+        """
+```
+
+### 你的 engine 必须维护的类属性
+
+agent 会直接读取这些属性用于显示和日志记录：
+
+```python
+last_prompt_tokens: int = 0
+last_completion_tokens: int = 0
+last_total_tokens: int = 0
+threshold_tokens: int = 0        # 触发 compression 的阈值
+context_length: int = 0          # model 的完整 context window
+compression_count: int = 0       # compress() 已运行的次数
+```
+
+### 可选方法
+
+这些在 ABC 中有合理的默认值。按需 override：
+
+| 方法                                         | 默认值                               | 何时 override                                      |
+| ------------------------------------------ | --------------------------------- | ------------------------------------------------ |
+| `on_session_start(session_id, **kwargs)`   | No-op                             | 你需要加载持久化状态（DAG、DB）                               |
+| `on_session_end(session_id, messages)`     | No-op                             | 你需要 flush state、关闭连接                             |
+| `on_session_reset()`                       | 重置 token counters                 | 你有需要清理的 per-session state                        |
+| `update_model(model, context_length, ...)` | 更新 `context_length` + `threshold` | 你需要在 model switch 时重新计算 budgets                  |
+| `get_tool_schemas()`                       | 返回 `[]`                           | 你的 engine 提供 agent-callable tools（例如 `lcm_grep`） |
+| `handle_tool_call(name, args, **kwargs)`   | 返回 error JSON                     | 你实现 tool handlers                                |
+| `should_compress_preflight(messages)`      | 返回 `False`                        | 你可以做便宜的 pre-API-call estimate                    |
+| `get_status()`                             | 标准 token/threshold dict           | 你有 custom metrics 需要暴露                           |
+
+## Engine tools
+
+Context engines 可以暴露 agent 直接调用的工具。从 `get_tool_schemas()` 返回 schemas，并在 `handle_tool_call()` 中处理调用：
+
+```python
+def get_tool_schemas(self):
+    return [{
+        "name": "lcm_grep",
+        "description": "Search the context knowledge graph",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query"}
+            },
+            "required": ["query"],
+        },
+    }]
+
+def handle_tool_call(self, name, args, **kwargs):
+    if name == "lcm_grep":
+        results = self._search_dag(args["query"])
+        return json.dumps({"results": results})
+    return json.dumps({"error": f"Unknown tool: {name}"})
+```
+
+Engine tools 会在启动时注入到 agent 的工具列表中，并自动 dispatch —— 不需要 registry registration。
+
+## Registration
+
+### 通过目录（推荐）
+
+将你的 engine 放在 `plugins/context_engine/<name>/` 中。`__init__.py` 必须导出一个 `ContextEngine` 子类。discovery system 会自动发现并实例化它。
+
+### 通过通用 plugin system
+
+一个通用 plugin 也可以注册 context engine：
+
+```python
+def register(ctx):
+    engine = LCMEngine(context_length=200000)
+    ctx.register_context_engine(engine)
+```
+
+只能注册一个 engine。尝试注册第二个的 plugin 会被拒绝，并发出 warning。
+
+## Lifecycle
+
+1. Engine instantiated（plugin load 或 directory discovery）
+2. `on_session_start()` —— conversation begins
+3. `update_from_response()` —— after each API call
+4. `should_compress()` —— checked each turn
+5. `compress()` —— called when `should_compress()` returns True
+6. `on_session_end()` —— session boundary（CLI exit、`/reset`、gateway expiry）
+
+`on_session_reset()` 会在 `/new` 或 `/reset` 时调用，用于清除 per-session state，而不进行完整 shutdown。
+
+## Configuration
+
+用户可以通过 `hermes plugins` → Provider Plugins → Context Engine 选择你的 engine，或编辑 `config.yaml`：
+
+```yaml
+context:
+  engine: "lcm"   # 必须匹配你的 engine 的 name property
+```
+
+`compression` config block（`compression.threshold`、`compression.protect_last_n` 等）是内置 `ContextCompressor` 专用的。如果需要，你的 engine 应该定义自己的 config format，并在 initialization 期间从 `config.yaml` 读取。
+
+## Testing
+
+```python
+from agent.context_engine import ContextEngine
+
+def test_engine_satisfies_abc():
+    engine = YourEngine(context_length=200000)
+    assert isinstance(engine, ContextEngine)
+    assert engine.name == "your-name"
+
+def test_compress_returns_valid_messages():
+    engine = YourEngine(context_length=200000)
+    msgs = [{"role": "user", "content": "hello"}]
+    result = engine.compress(msgs)
+    assert isinstance(result, list)
+    assert all("role" in m for m in result)
+```
+
+完整的 ABC contract test suite 请参见 `tests/agent/test_context_engine.py`。
+
+## 另请参见
+
+* Context Compression and Caching —— 内置 compressor 的工作方式
+* Memory Provider Plugins —— 用于 memory 的类似 single-select plugin system
+* Plugins —— 通用 plugin system overview
+
+
+

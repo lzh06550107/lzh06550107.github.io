@@ -1,0 +1,278 @@
+---
+title: 人格与 SOUL.md
+description: hermes agent 人格与 SOUL.md
+---
+
+Hermes Agent 的人格是完全可定制的。**SOUL.md** 是其 **核心身份** —— 它是系统提示词中的首要内容，定义了代理的本质。
+
+* **SOUL.md** —— 存储在 `HERMES_HOME` 中的持久化人格文件，充当代理的身份标识（位于系统提示词的第 1 号槽位）。
+* **内置或自定义的 `/personality` 预设** —— 会话级的系统提示词叠加层。
+
+如果您想改变 Hermes 的身份 —— 或将其替换为完全不同的代理人格 —— 请编辑 **SOUL.md**。
+
+## SOUL.md 的运作机制
+
+Hermes 现在会自动在以下路径生成一个默认的 **SOUL.md** 文件：
+
+```
+~/.hermes/SOUL.md
+```
+
+更准确地说，它使用当前实例的 **HERMES_HOME** 环境变量。如果您运行 Hermes 时指定了自定义主目录，它将使用：
+
+```
+$HERMES_HOME/SOUL.md
+```
+
+### 重要行为特性
+
+* **核心身份标识**：**SOUL.md** 是代理的首要身份。它占据系统提示词的 **1 号槽位**，取代了硬编码的默认身份。
+* **自动初始化**：如果文件尚不存在，Hermes 会自动创建一个初始化的 **SOUL.md**。
+* **保护现有配置**：现有的用户 **SOUL.md** 文件永远不会被覆盖。
+* **路径唯一性**：Hermes **仅**从 **HERMES_HOME** 加载 **SOUL.md**，**不会** 在当前工作目录（CWD）中查找该文件。
+* **回退机制**：如果 **SOUL.md** 存在但为空，或者无法加载，Hermes 将回退到内置的默认身份。
+* **原样注入**：如果文件包含内容，该内容在经过安全扫描和截断处理后，将按原样注入到提示词中。
+* **非重复加载**：**SOUL.md** 不会在上下文文件部分重复出现 —— 它仅作为身份标识出现一次。
+
+这使得 **SOUL.md** 成为了真正的 “每用户” 或 “每实例” 的独立身份，而不仅仅是一个附加层。
+
+## 设计初衷
+
+这种设计保证了人格的可预测性。
+
+如果 Hermes 从你碰巧启动它的任意目录加载 **SOUL.md**，那么你的人格可能会在不同项目之间发生意想不到的变化。通过仅从 **HERMES_HOME** 加载，人格便属于 Hermes 实例本身。
+
+这也使得向用户解释变得更加简单：
+
+* “编辑 `~/.hermes/SOUL.md` 即可更改 Hermes 的默认人格。”
+
+## 编辑位置
+
+对于大多数用户：
+
+```
+~/.hermes/SOUL.md
+```
+
+如果你使用了自定义主目录：
+
+```
+$HERMES_HOME/SOUL.md
+```
+
+## SOUL.md 中应该包含什么？
+
+将其用于 **持久的语气和人格引导**，例如：
+
+* 语调（Tone）
+* 沟通风格
+* 直接程度
+* 默认的交互方式
+* 文风方面的禁忌
+* Hermes 应当如何处理不确定性、分歧或模棱两可的情况
+
+**不建议**将其用于以下内容：
+
+* 一次性的项目指令
+* 文件路径
+* 仓库约定
+* 临时的工作流细节
+
+这些内容应当放在 **AGENTS.md** 中，而非 **SOUL.md**。
+
+## 优质 SOUL.md 内容准则
+
+一份优秀的 SOUL 文件应当具备以下特点：
+
+* **跨上下文稳定性**：在不同场景下都能保持一致。
+* **适用性广**：足以涵盖多种对话类型。
+* **针对性强**：能够实质性地塑造语气和语调。
+* **专注于沟通与身份**：而非具体的任务指令。
+
+### 示例
+
+```markdown
+# 人格
+
+你是一位拥有敏锐品味的务实资深工程师。
+你追求真理、清晰度和实用性，而非流于表面的客套。
+
+## 风格
+- 保持直接，但不要显得冷漠。
+- 内容重于修饰，避免废话。
+- 当某些想法不可行时，勇于提出反对意见。
+- 坦诚地承认不确定性。
+- 除非深度解析确有必要，否则保持解释简洁。
+
+## 避免行为
+- 谄媚奉承。
+- 使用炒作性语言。
+- 如果用户的表述有误，不要盲从其逻辑框架。
+- 对显而易见的事情过度解释。
+
+## 技术姿态
+- 偏好简单的系统，而非投巧的系统。
+- 关注运维现实，而非理想化的架构。
+- 将边缘情况视为设计的一部分，而非后续的补救工作。
+```
+
+## Hermes 注入到提示词中的内容
+
+**SOUL.md** 的内容会直接进入系统提示词的 **1 号槽位** —— 即代理身份（Agent Identity）所在的位置。其周围不会添加任何封装性的修饰语言。
+
+注入的内容会经过以下处理：
+
+* **提示词注入（Prompt-injection）扫描**
+* **超大内容截断**
+
+如果该文件为空、仅包含空白字符或无法读取，Hermes 将回退到内置的默认身份（“You are Hermes Agent, an intelligent AI assistant created by Nous Research...”）。这种回退机制同样适用于设置了 `skip_context_files` 的情况（例如在子代理/委托上下文中）。
+
+## 安全扫描
+
+在被包含之前，**SOUL.md** 会像其他包含上下文的文件一样，接受针对提示词注入模式的安全扫描。
+
+这意味着您应当让其专注于角色人格/语气，而不是试图混入奇特的元指令（meta-instructions）。
+
+## SOUL.md 对比 AGENTS.md
+
+这是两者之间最重要的区别。
+
+### SOUL.md
+
+**适用于：**
+
+* 身份标识（Identity）
+* 语气（Tone）
+* 风格（Style）
+* 默认沟通方式
+* 人格层面的行为倾向
+
+### AGENTS.md
+
+**适用于：**
+
+* 项目架构
+* 编码规范
+* 工具偏好
+* 特定于仓库的工作流
+* 命令、端口、路径及部署备注
+
+**一个实用的判定规则：**
+
+* 如果它应该 **如影随形**（无论在哪个项目），请放入 **SOUL.md**。
+* 如果它 **属于某个特定项目**，请放入 **AGENTS.md**。
+
+## SOUL.md 对比 /personality
+
+**SOUL.md** 是您的持久默认人格。
+
+**/personality** 则是会话级的叠加层，用于更改或补充当前的系统提示词。
+
+因此：
+
+* **SOUL.md** = 基准语气
+* **/personality** = 临时的模式切换
+
+**示例：**
+
+* 保持一个务实的默认 SOUL，然后在辅导对话中使用 `/personality teacher`。
+* 保持一个简洁的 SOUL，然后在头脑风暴中使用 `/personality creative`。
+
+## 内置人格预设
+
+Hermes 附带了多种内置人格，您可以使用 `/personality` 命令随时切换。
+
+| 名称 | 描述 |
+| --- | --- |
+| **helpful** | 友好、通用的助手 |
+| **concise** | 简练、直击要点的回答 |
+| **technical** | 详尽、准确的技术专家 |
+| **creative** | 创新、跳出框架的思维 |
+| **teacher** | 带有清晰示例的耐心教育者 |
+| **kawaii** | 可爱的表情、闪烁符号和热情 ★ |
+| **catgirl** | 带有猫咪般表情的猫娘，喵~ (nya~) |
+| **pirate** | 赫密斯船长，精通技术的私掠海盗 |
+| **shakespeare** | 带有戏剧张力的吟游诗人散文 |
+| **surfer** | 完全放松的“哥们”范儿 (bro vibes) |
+| **noir** | 硬汉派侦探式叙述 |
+| **uwu** | 极致可爱的 uwu 腔调 |
+| **philosopher** | 对每一个问题进行深度沉思 |
+| **hype** | 极致的能量与热情！！！ |
+
+## 通过命令切换人格
+
+**命令行界面 (CLI)**
+
+* `/personality` —— 显示当前人格及可用选项
+* `/personality concise` —— 切换为简洁模式
+* `/personality technical` —— 切换为技术专家模式
+
+**即时通讯平台 (Messaging platforms)**
+
+* `/personality teacher` —— 切换为老师模式
+
+这些命令是便捷的叠加层（overlays），但除非叠加层对设定进行了实质性的改变，否则您的全局 **SOUL.md** 仍会赋予 Hermes 持久的默认人格。
+
+## 在配置文件中自定义人格
+
+您还可以在 `~/.hermes/config.yaml` 文件的 `agent.personalities` 字段下定义命名的自定义人格。
+
+```yaml
+agent:
+  personalities:
+    codereviewer: >
+      你是一位细致入微的代码审查者。请识别代码中的漏洞（bugs）、安全问题、
+      性能隐患以及不清晰的设计选择。回答要精准且具有建设性。
+```
+
+定义完成后，即可通过以下命令切换：
+
+```
+/personality codereviewer
+```
+
+## 推荐工作流
+
+一套强有力的默认配置方案如下：
+
+* 在 `~/.hermes/SOUL.md` 中保留一个经过深思熟虑的全局 **SOUL.md**。
+* 将项目指令存放在 **AGENTS.md** 中。
+* 仅在需要临时切换模式时使用 **/personality**。
+
+这样你可以获得：
+
+* 稳定的语调（Voice）。
+* 归属于项目本身的特定行为。
+* 必要时的临时控制权。
+
+## 人格如何与完整提示词交互
+
+从高层级来看，提示词堆栈包括：
+
+1. **SOUL.md**（代理身份 —— 若不可用则使用内置回退方案）
+2. 工具感知行为引导
+3. 记忆/用户上下文
+4. 技能（Skills）引导
+5. 上下文文件（`AGENTS.md`, `.cursorrules`）
+6. 时间戳
+7. 特定平台的格式化提示
+8. 可选的系统提示词叠加层（如 `/personality`）
+
+`SOUL.md` 是基石 —— 所有其他内容都构建在其基础之上。
+
+## 相关文档
+
+* [上下文文件（Context Files）](https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files)
+* [配置（Configuration）](https://hermes-agent.nousresearch.com/docs/user-guide/configuration)
+* [技巧与最佳实践](https://hermes-agent.nousresearch.com/docs/guides/tips)
+* [SOUL.md 指南](https://hermes-agent.nousresearch.com/docs/guides/use-soul-with-hermes)
+
+## CLI 外观对比对话人格
+
+对话人格与 CLI 外观是相互独立的：
+
+* `SOUL.md`、`agent.system_prompt` 以及 `/personality` 影响 Hermes 的 **说话方式**。
+* `display.skin` 和 `/skin` 影响 Hermes 在终端里的 **外观样式**。
+
+关于终端外观设置，请参阅 [皮肤与主题（Skins & Themes）](https://hermes-agent.nousresearch.com/docs/user-guide/features/skins)。
+

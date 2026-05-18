@@ -1,0 +1,22 @@
+---
+title: Nix & NixOS 设置
+description: Hermes Agent 提供了一个 Nix flake，支持三个层级的集成：
+---
+
+| 集成层级 | 适用对象 | 你将获得 |
+| --- | --- | --- |
+| **nix run / nix profile install** | 任何 Nix 用户 (macOS, Linux) | 包含所有依赖项的预编译二进制文件 —— 随后使用标准的 CLI 工作流 |
+| **NixOS module (原生)** | NixOS 服务器部署 | 声明式配置、强化的 systemd 服务、受管的机密信息 (secrets) |
+| **NixOS module (容器)** | 需要自我修改能力的智能体 | 除上述内容外，还包含一个持久化的 Ubuntu 容器，智能体可在其中执行 `apt/pip/npm install` |
+
+:::note[与标准安装的区别]
+
+`curl | bash` 安装程序自行管理 Python、Node 及相关依赖项。Nix flake 替代了所有这些：每一个 Python 依赖项都是由 [uv2nix](https://github.com/pyproject-nix/uv2nix) 构建的 Nix 衍生式 (derivation)，运行时的工具 (Node.js, git, ripgrep, ffmpeg) 都被封装进二进制文件的 PATH 中。这里没有运行时的 pip，无需激活虚拟环境 (venv)，也不需要执行 `npm install`。
+
+对于 **非 NixOS 用户**，这仅改变了安装步骤。后续的一切（`hermes setup`、`hermes gateway install`、配置编辑）都与标准安装完全一致。
+
+对于 **NixOS 模块用户**，整个生命周期则完全不同：配置存在于 `configuration.nix` 中，机密信息通过 sops-nix/agenix 管理，服务作为一个 systemd 单元运行，且 CLI 端的配置命令会被禁用。你管理 hermes 的方式与管理任何其他 NixOS 服务完全相同。
+
+:::
+
+

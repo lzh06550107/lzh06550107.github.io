@@ -1,0 +1,182 @@
+---
+title: AWS Bedrock
+description: hermes agent AWS Bedrock
+---
+
+Hermes Agent 使用 **Converse API** 原生支持 Amazon Bedrock —— 不是 OpenAI 兼容 endpoint。这让你可以完整访问 Bedrock 生态系统：IAM 认证、Guardrails、跨区域 inference profiles，以及所有 foundation models。
+
+## 前置条件
+
+* AWS credentials —— boto3 credential chain 支持的任何来源：
+
+    * IAM instance role（EC2、ECS、Lambda —— 零配置）
+    * `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` 环境变量
+    * 用于 SSO 或 named profiles 的 `AWS_PROFILE`
+    * 本地开发使用 `aws configure`
+
+* boto3 —— 使用以下命令安装：
+
+    ```bash
+    pip install hermes-agent[bedrock]
+    ```
+
+* IAM permissions —— 至少需要：
+
+    * `bedrock:InvokeModel` 和 `bedrock:InvokeModelWithResponseStream`（用于 inference）
+    * `bedrock:ListFoundationModels` 和 `bedrock:ListInferenceProfiles`（用于 model discovery）
+
+:::tip[EC2 / ECS / Lambda]
+在 AWS compute 上，附加一个拥有 `AmazonBedrockFullAccess` 的 IAM role 就完成了。不需要 API keys，也不需要 `.env` 配置 —— Hermes 会自动检测 instance role。
+:::
+
+## 快速开始
+
+```bash
+# Install with Bedrock support
+pip install hermes-agent[bedrock]
+
+# Select Bedrock as your provider
+hermes model
+# → Choose "More providers..." → "AWS Bedrock"
+# → Select your region and model
+
+# Start chatting
+hermes chat
+```
+
+## 配置
+
+运行 `hermes model` 后，你的 `~/.hermes/config.yaml` 会包含：
+
+```yaml
+model:
+  default: us.anthropic.claude-sonnet-4-6
+  provider: bedrock
+  base_url: https://bedrock-runtime.us-east-2.amazonaws.com
+
+bedrock:
+  region: us-east-2
+```
+
+### 区域
+
+通过以下任意方式设置 AWS region（优先级从高到低）：
+
+1. `config.yaml` 中的 `bedrock.region`
+2. `AWS_REGION` 环境变量
+3. `AWS_DEFAULT_REGION` 环境变量
+4. 默认值：`us-east-1`
+
+### Guardrails
+
+要将 Amazon Bedrock Guardrails 应用于所有模型调用：
+
+```yaml
+bedrock:
+  region: us-east-2
+  guardrail:
+    guardrail_identifier: "abc123def456"  # From the Bedrock console
+    guardrail_version: "1"                # Version number or "DRAFT"
+    stream_processing_mode: "async"       # "sync" or "async"
+    trace: "disabled"                     # "enabled", "disabled", or "enabled_full"
+```
+
+### Model Discovery
+
+Hermes 会通过 Bedrock control plane 自动发现可用模型。你可以自定义 discovery：
+
+```yaml
+bedrock:
+  discovery:
+    enabled: true
+    provider_filter: ["anthropic", "amazon"]  # Only show these providers
+    refresh_interval: 3600                     # Cache for 1 hour
+```
+
+## 可用模型
+
+Bedrock 模型使用 inference profile IDs 进行按需调用。`hermes model` 选择器会自动显示这些模型，并将推荐模型放在顶部：
+
+| 模型                | ID                                            | 备注               |
+| ----------------- | --------------------------------------------- | ---------------- |
+| Claude Sonnet 4.6 | `us.anthropic.claude-sonnet-4-6`              | 推荐 —— 速度与能力的最佳平衡 |
+| Claude Opus 4.6   | `us.anthropic.claude-opus-4-6-v1`             | 最强能力             |
+| Claude Haiku 4.5  | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 最快的 Claude       |
+| Amazon Nova Pro   | `us.amazon.nova-pro-v1:0`                     | Amazon 的旗舰模型     |
+| Amazon Nova Micro | `us.amazon.nova-micro-v1:0`                   | 最快、最便宜           |
+| DeepSeek V3.2     | `deepseek.v3.2`                               | 强大的开放模型          |
+| Llama 4 Scout 17B | `us.meta.llama4-scout-17b-instruct-v1:0`      | Meta 的最新模型       |
+
+:::note[跨区域推理]
+以 `us.` 为前缀的模型使用跨区域 inference profiles，可提供更好的容量，并在 AWS 区域之间自动故障转移。以 `global.` 为前缀的模型会在全球所有可用区域之间路由。
+:::
+
+## 会话中切换模型
+
+在对话中使用 `/model` 命令：
+
+```text
+/model us.amazon.nova-pro-v1:0
+/model deepseek.v3.2
+/model us.anthropic.claude-opus-4-6-v1
+```
+
+## 诊断
+
+```bash
+hermes doctor
+```
+
+doctor 会检查：
+
+* AWS credentials 是否可用（env vars、IAM role、SSO）
+* 是否已安装 `boto3`
+* Bedrock API 是否可访问（`ListFoundationModels`）
+* 你所在区域中可用模型的数量
+
+## Gateway（消息平台）
+
+Bedrock 可与所有 Hermes gateway 平台一起使用（Telegram、Discord、Slack、飞书等）。将 Bedrock 配置为你的 provider，然后正常启动 gateway：
+
+```bash
+hermes gateway setup
+hermes gateway start
+```
+
+gateway 会读取 `config.yaml`，并使用相同的 Bedrock provider 配置。
+
+## 故障排查
+
+### `"No API key found"` / `"No AWS credentials"`
+
+Hermes 会按以下顺序检查 credentials：
+
+1. `AWS_BEARER_TOKEN_BEDROCK`
+2. `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`
+3. `AWS_PROFILE`
+4. EC2 instance metadata（IMDS）
+5. ECS container credentials
+6. Lambda execution role
+
+如果都没有找到，请运行 `aws configure`，或为你的 compute instance 附加 IAM role。
+
+### `"Invocation of model ID ... with on-demand throughput isn't supported"`
+
+请使用 inference profile ID（以 `us.` 或 `global.` 为前缀），而不是裸 foundation model ID。例如：
+
+```text
+❌ anthropic.claude-sonnet-4-6
+✅ us.anthropic.claude-sonnet-4-6
+```
+
+### `"ThrottlingException"`
+
+你已经触达 Bedrock 的单模型 rate limit。Hermes 会自动使用 backoff 进行重试。要提高限制，请在 AWS Service Quotas 控制台中请求 quota increase。
+
+## 一键 AWS 部署
+
+如果想在 EC2 上使用 CloudFormation 进行完全自动化部署：
+
+`sample-hermes-agent-on-aws-with-bedrock` —— 创建 VPC、IAM role、EC2 instance，并自动配置 Bedrock。可在任意区域一键部署。
+
+

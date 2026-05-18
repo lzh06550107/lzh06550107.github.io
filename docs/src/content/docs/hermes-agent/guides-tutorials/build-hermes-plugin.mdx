@@ -1,0 +1,1128 @@
+---
+title: 构建 Hermes 插件
+description: hermes agent 构建 Hermes 插件
+---
+
+本指南将带你从零开始构建一个完整的 Hermes 插件。完成后，你将拥有一个可运行的插件，其中包含多个工具、生命周期钩子、随附的数据文件，以及一个捆绑的 skill —— 也就是插件系统支持的全部内容。
+
+:::note[不确定你需要哪份指南？]
+Hermes 有几种不同的可插拔接口 —— 有些使用 Python 的 `register_*` API，另一些则是配置驱动或直接放入目录即可。请先使用这张对照表：
+
+| 如果你想添加……                                              | 阅读                                                                       |
+| ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| 自定义工具、钩子、斜杠命令、skills 或 CLI 子命令                        | 本指南（通用插件接口）                                                              |
+| LLM / 推理后端（新的 provider）                               | Model Provider Plugins                                                   |
+| gateway 渠道（Discord/Telegram/IRC/Teams 等）              | Adding Platform Adapters                                                 |
+| memory 后端（Honcho/Mem0/Supermemory 等）                  | Memory Provider Plugins                                                  |
+| context-compression 引擎                                | Context Engine Plugins                                                   |
+| image-generation 后端                                   | Image Generation Provider Plugins                                        |
+| video-generation 后端                                   | Video Generation Provider Plugins                                        |
+| TTS 后端（任意 CLI —— Piper、VoxCPM、Kokoro、voice cloning 等） | TTS custom command providers —— 配置驱动，无需 Python                           |
+| STT 后端（自定义 whisper / ASR CLI）                         | Voice Message Transcription —— 将 `HERMES_LOCAL_STT_COMMAND` 设置为 shell 模板 |
+| 通过 MCP 接入外部工具（filesystem、GitHub、Linear、任意 MCP server） | MCP —— 在 `config.yaml` 中声明 `mcp_servers.<name>`                          |
+| Gateway event hooks（在启动、会话事件、命令时触发）                   | Event Hooks —— 将 `HOOK.yaml` + `handler.py` 放入 `~/.hermes/hooks/<name>/` |
+| Shell hooks（在事件上运行 shell 命令）                          | Shell Hooks —— 在 `config.yaml` 的 `hooks:` 下声明                            |
+| 额外的 skill 来源（自定义 GitHub 仓库、私有 skill indexes）          | Skills —— `hermes skills tap add <repo>` · Publishing a tap              |
+| 一等核心 inference provider（不是插件）                         | Adding Providers                                                         |
+
+查看完整的 Pluggable interfaces 表，可以获得每种扩展接口的统一视图，包括配置驱动型（TTS、STT、MCP、shell hooks）和直接放入目录型（gateway hooks）风格。
+:::
+
+## 你正在构建什么
+
+一个带有两个工具的计算器插件：
+
+* `calculate` — 计算数学表达式（`2**16`、`sqrt(144)`、`pi * 5**2`）
+* `unit_convert` — 在单位之间转换（`100 F → 37.78 C`、`5 km → 3.11 mi`）
+
+另外还有一个记录每次工具调用的 hook，以及一个捆绑的 skill 文件。
+
+## 步骤 1：创建插件目录
+
+```bash
+mkdir -p ~/.hermes/plugins/calculator
+cd ~/.hermes/plugins/calculator
+```
+
+## 步骤 2：编写 manifest
+
+创建 `plugin.yaml`：
+
+```yaml
+name: calculator
+version: 1.0.0
+description: Math calculator — evaluate expressions and convert units
+provides_tools:
+  - calculate
+  - unit_convert
+provides_hooks:
+  - post_tool_call
+```
+
+这会告诉 Hermes：“我是一个名为 calculator 的插件，我提供工具和 hooks。”
+`provides_tools` 和 `provides_hooks` 字段是插件注册内容的列表。
+
+你可以添加的可选字段：
+
+```yaml
+author: Your Name
+requires_env:          # gate loading on env vars; prompted during install
+  - SOME_API_KEY       # simple format — plugin disabled if missing
+  - name: OTHER_KEY    # rich format — shows description/url during install
+    description: "Key for the Other service"
+    url: "https://other.com/keys"
+    secret: true
+```
+
+## 步骤 3：编写工具 schemas
+
+创建 `schemas.py` —— 这是 LLM 用来决定何时调用你的工具的内容：
+
+```python
+"""Tool schemas — what the LLM sees."""
+
+CALCULATE = {
+    "name": "calculate",
+    "description": (
+        "Evaluate a mathematical expression and return the result. "
+        "Supports arithmetic (+, -, *, /, **), functions (sqrt, sin, cos, "
+        "log, abs, round, floor, ceil), and constants (pi, e). "
+        "Use this for any math the user asks about."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "expression": {
+                "type": "string",
+                "description": "Math expression to evaluate (e.g., '2**10', 'sqrt(144)')",
+            },
+        },
+        "required": ["expression"],
+    },
+}
+
+UNIT_CONVERT = {
+    "name": "unit_convert",
+    "description": (
+        "Convert a value between units. Supports length (m, km, mi, ft, in), "
+        "weight (kg, lb, oz, g), temperature (C, F, K), data (B, KB, MB, GB, TB), "
+        "and time (s, min, hr, day)."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number",
+                "description": "The numeric value to convert",
+            },
+            "from_unit": {
+                "type": "string",
+                "description": "Source unit (e.g., 'km', 'lb', 'F', 'GB')",
+            },
+            "to_unit": {
+                "type": "string",
+                "description": "Target unit (e.g., 'mi', 'kg', 'C', 'MB')",
+            },
+        },
+        "required": ["value", "from_unit", "to_unit"],
+    },
+}
+```
+
+**为什么 schemas 很重要**：`description` 字段是 LLM 判断何时使用你的工具的依据。要具体说明它能做什么，以及什么时候使用它。`parameters` 定义 LLM 传入哪些参数。
+
+## 步骤 4：编写工具 handlers
+
+创建 `tools.py` —— 这是当 LLM 调用你的工具时实际执行的代码：
+
+```python
+"""Tool handlers — the code that runs when the LLM calls each tool."""
+
+import json
+import math
+
+# Safe globals for expression evaluation — no file/network access
+_SAFE_MATH = {
+    "abs": abs, "round": round, "min": min, "max": max,
+    "pow": pow, "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
+    "tan": math.tan, "log": math.log, "log2": math.log2, "log10": math.log10,
+    "floor": math.floor, "ceil": math.ceil,
+    "pi": math.pi, "e": math.e,
+    "factorial": math.factorial,
+}
+
+
+def calculate(args: dict, **kwargs) -> str:
+    """Evaluate a math expression safely.
+
+    Rules for handlers:
+    1. Receive args (dict) — the parameters the LLM passed
+    2. Do the work
+    3. Return a JSON string — ALWAYS, even on error
+    4. Accept **kwargs for forward compatibility
+    """
+    expression = args.get("expression", "").strip()
+    if not expression:
+        return json.dumps({"error": "No expression provided"})
+
+    try:
+        result = eval(expression, {"__builtins__": {}}, _SAFE_MATH)
+        return json.dumps({"expression": expression, "result": result})
+    except ZeroDivisionError:
+        return json.dumps({"expression": expression, "error": "Division by zero"})
+    except Exception as e:
+        return json.dumps({"expression": expression, "error": f"Invalid: {e}"})
+
+
+# Conversion tables — values are in base units
+_LENGTH = {"m": 1, "km": 1000, "mi": 1609.34, "ft": 0.3048, "in": 0.0254, "cm": 0.01}
+_WEIGHT = {"kg": 1, "g": 0.001, "lb": 0.453592, "oz": 0.0283495}
+_DATA = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+_TIME = {"s": 1, "ms": 0.001, "min": 60, "hr": 3600, "day": 86400}
+
+
+def _convert_temp(value, from_u, to_u):
+    # Normalize to Celsius
+    c = {"F": (value - 32) * 5/9, "K": value - 273.15}.get(from_u, value)
+    # Convert to target
+    return {"F": c * 9/5 + 32, "K": c + 273.15}.get(to_u, c)
+
+
+def unit_convert(args: dict, **kwargs) -> str:
+    """Convert between units."""
+    value = args.get("value")
+    from_unit = args.get("from_unit", "").strip()
+    to_unit = args.get("to_unit", "").strip()
+
+    if value is None or not from_unit or not to_unit:
+        return json.dumps({"error": "Need value, from_unit, and to_unit"})
+
+    try:
+        # Temperature
+        if from_unit.upper() in {"C","F","K"} and to_unit.upper() in {"C","F","K"}:
+            result = _convert_temp(float(value), from_unit.upper(), to_unit.upper())
+            return json.dumps({"input": f"{value} {from_unit}", "result": round(result, 4),
+                             "output": f"{round(result, 4)} {to_unit}"})
+
+        # Ratio-based conversions
+        for table in (_LENGTH, _WEIGHT, _DATA, _TIME):
+            lc = {k.lower(): v for k, v in table.items()}
+            if from_unit.lower() in lc and to_unit.lower() in lc:
+                result = float(value) * lc[from_unit.lower()] / lc[to_unit.lower()]
+                return json.dumps({"input": f"{value} {from_unit}",
+                                 "result": round(result, 6),
+                                 "output": f"{round(result, 6)} {to_unit}"})
+
+        return json.dumps({"error": f"Cannot convert {from_unit} → {to_unit}"})
+    except Exception as e:
+        return json.dumps({"error": f"Conversion failed: {e}"})
+```
+
+handlers 的关键规则：
+
+1. 签名：`def my_handler(args: dict, **kwargs) -> str`
+2. 返回：始终返回 JSON 字符串。成功和错误都一样。
+3. 永不抛出异常：捕获所有异常，并返回错误 JSON。
+4. 接受 `**kwargs`：Hermes 未来可能会传入额外上下文。
+
+## 步骤 5：编写注册代码
+
+创建 `__init__.py` —— 这会把 schemas 连接到 handlers：
+
+```python
+"""Calculator plugin — registration."""
+
+import logging
+
+from . import schemas, tools
+
+logger = logging.getLogger(__name__)
+
+# Track tool usage via hooks
+_call_log = []
+
+def _on_post_tool_call(tool_name, args, result, task_id, **kwargs):
+    """Hook: runs after every tool call (not just ours)."""
+    _call_log.append({"tool": tool_name, "session": task_id})
+    if len(_call_log) > 100:
+        _call_log.pop(0)
+    logger.debug("Tool called: %s (session %s)", tool_name, task_id)
+
+
+def register(ctx):
+    """Wire schemas to handlers and register hooks."""
+    ctx.register_tool(name="calculate",    toolset="calculator",
+                      schema=schemas.CALCULATE,    handler=tools.calculate)
+    ctx.register_tool(name="unit_convert", toolset="calculator",
+                      schema=schemas.UNIT_CONVERT, handler=tools.unit_convert)
+
+    # This hook fires for ALL tool calls, not just ours
+    ctx.register_hook("post_tool_call", _on_post_tool_call)
+```
+
+`register()` 做了什么：
+
+* 启动时只调用一次
+* `ctx.register_tool()` 会把你的工具放入 registry —— 模型会立即看到它
+* `ctx.register_hook()` 会订阅生命周期事件
+* `ctx.register_cli_command()` 会注册一个 CLI 子命令（例如 `hermes my-plugin <subcommand>`）
+* `ctx.register_command()` 会注册一个会话内斜杠命令（例如在 CLI / gateway chat 内使用 `/myplugin <args>`）—— 参见下面的“注册斜杠命令”
+* `ctx.dispatch_tool(name, arguments)` —— 使用父 agent 的上下文调用任何其他工具（内置工具或来自其他插件的工具），approvals、credentials、task_id 会自动接好。对于需要调用 terminal、read_file 或任何其他工具的斜杠命令 handlers 来说很有用，就像模型直接调用该工具一样。
+* 如果这个函数崩溃，该插件会被禁用，但 Hermes 会继续正常运行
+
+**`dispatch_tool` 示例 —— 一个运行工具的斜杠命令：**
+
+```python
+def handle_scan(ctx, argstr):
+    """Implement /scan by invoking the terminal tool through the registry."""
+    result = ctx.dispatch_tool("terminal", {"command": f"find . -name '{argstr}'"})
+    return result  # returned to the caller's chat UI
+
+def register(ctx):
+    ctx.register_command("scan", handle_scan, help="Find files matching a glob")
+```
+
+被 dispatch 的工具会经过正常的 approval、redaction 和 budget pipelines —— 它是真正的工具调用，而不是绕过它们的快捷方式。
+
+## 步骤 6：测试它
+
+启动 Hermes：
+
+```bash
+hermes
+```
+
+你应该能在 banner 的工具列表中看到 `calculator: calculate, unit_convert`。
+
+尝试这些提示词：
+
+```text
+What's 2 to the power of 16?
+Convert 100 fahrenheit to celsius
+What's the square root of 2 times pi?
+How many gigabytes is 1.5 terabytes?
+```
+
+检查插件状态：
+
+```text
+/plugins
+```
+
+输出：
+
+```text
+Plugins (1):
+  ✓ calculator v1.0.0 (2 tools, 1 hooks)
+```
+
+### 调试插件发现
+
+如果你的插件没有显示出来 —— 或者显示出来但没有加载 —— 设置 `HERMES_PLUGINS_DEBUG=1`，以便在 stderr 上获得详细的发现日志：
+
+```bash
+HERMES_PLUGINS_DEBUG=1 hermes plugins list
+```
+
+你会看到每个插件来源（bundled、user、project、entry-points）的信息：
+
+* 扫描了哪些目录，以及每个目录产生了多少 manifests
+* 每个 manifest：解析后的 key、name、kind、source、磁盘路径
+* 跳过原因：通过配置禁用、未在配置中启用、exclusive plugin、没有 `plugin.yaml`、达到深度上限
+* 加载时：正在导入的插件，以及 `register(ctx)` 注册内容的一行摘要（tools、hooks、slash commands、CLI commands）
+* 解析失败时：异常的完整 traceback（YAML scanner errors 等）
+* `register()` 失败时：完整 traceback，会指向你的 `__init__.py` 中抛出异常的那一行
+
+同样的日志始终会写入 `~/.hermes/logs/agent.log`：失败信息以 WARNING 级别记录；设置 env var 后，所有信息以 DEBUG 级别记录。所以如果你无法带 env var 运行（例如在 gateway 内），可以改为 tail 日志文件：
+
+```bash
+hermes logs --level WARNING | grep -i plugin
+```
+
+插件没有出现的常见原因：
+
+* **未在配置中启用** —— 插件是 opt-in 的。运行 `hermes plugins enable <name>`（name 来自 plugins list 输出；对于嵌套布局，可能是 `<category>/<plugin>`）。
+* **目录布局错误** —— 必须是 `~/.hermes/plugins/<plugin-name>/plugin.yaml`（扁平结构），或者 `~/.hermes/plugins/<category>/<plugin-name>/plugin.yaml`（一层 category 嵌套，最多一层）。更深的内容会被忽略。
+* **缺少 `__init__.py`** —— 插件目录需要同时有 `plugin.yaml` 和带有 `register(ctx)` 函数的 `__init__.py`。
+* **`kind` 错误** —— gateway adapters 需要在 manifest 中设置 `kind: platform`。Memory providers 会被自动检测为 `kind: exclusive`，并通过 `memory.provider` 配置路由，而不是通过 `plugins.enabled`。
+
+你的插件最终结构
+
+```text
+~/.hermes/plugins/calculator/
+├── plugin.yaml      # “我是 calculator，我提供工具和 hooks”
+├── __init__.py      # 连接：schemas → handlers，注册 hooks
+├── schemas.py       # LLM 读取的内容（描述 + 参数规范）
+└── tools.py         # 实际运行的内容（calculate、unit_convert 函数）
+```
+
+四个文件，清晰分离：
+
+* **Manifest** 声明插件是什么
+* **Schemas** 为 LLM 描述工具
+* **Handlers** 实现实际逻辑
+* **Registration** 把所有内容连接起来
+
+## 插件还能做什么？
+
+### 随附数据文件
+
+把任何文件放入你的插件目录，并在导入时读取它们：
+
+```python id="2i6jc9"
+# In tools.py or __init__.py
+from pathlib import Path
+
+_PLUGIN_DIR = Path(__file__).parent
+_DATA_FILE = _PLUGIN_DIR / "data" / "languages.yaml"
+
+with open(_DATA_FILE) as f:
+    _DATA = yaml.safe_load(f)
+```
+
+### 捆绑 skills
+
+插件可以随附 skill 文件，agent 会通过 `skill_view("plugin:skill")` 加载它们。在你的 `__init__.py` 中注册它们：
+
+```text id="mz6r61"
+~/.hermes/plugins/my-plugin/
+├── __init__.py
+├── plugin.yaml
+└── skills/
+    ├── my-workflow/
+    │   └── SKILL.md
+    └── my-checklist/
+        └── SKILL.md
+```
+
+```python id="ppnkyq"
+from pathlib import Path
+
+def register(ctx):
+    skills_dir = Path(__file__).parent / "skills"
+    for child in sorted(skills_dir.iterdir()):
+        skill_md = child / "SKILL.md"
+        if child.is_dir() and skill_md.exists():
+            ctx.register_skill(child.name, skill_md)
+```
+
+agent 现在可以用它们的命名空间名称加载你的 skills：
+
+```python id="mrjhp6"
+skill_view("my-plugin:my-workflow")   # → 插件版本
+skill_view("my-workflow")              # → 内置版本（不变）
+```
+
+**关键属性：**
+
+* 插件 skills 是只读的 —— 它们不会进入 `~/.hermes/skills/`，也不能通过 `skill_manage` 编辑。
+* 插件 skills 不会列在系统提示词的 `<available_skills>` 索引中 —— 它们是 opt-in 的显式加载。
+* 裸 skill 名称不受影响 —— 命名空间可以防止与内置 skills 冲突。
+* 当 agent 加载插件 skill 时，会在前面添加一个 bundle context banner，列出同一插件中的 sibling skills。
+
+:::tip[旧模式]
+旧的 `shutil.copy2` 模式（把 skill 复制到 `~/.hermes/skills/`）仍然可用，但会产生与内置 skills 的名称冲突风险。对于新插件，优先使用 `ctx.register_skill()`。
+:::
+
+### 基于环境变量进行门控
+
+如果你的插件需要 API key：
+
+```yaml
+# plugin.yaml — simple format (backwards-compatible)
+requires_env:
+  - WEATHER_API_KEY
+```
+
+如果没有设置 `WEATHER_API_KEY`，插件会被禁用，并显示清晰的消息。不会崩溃，agent 中也不会报错 —— 只是显示 `"Plugin weather disabled (missing: WEATHER_API_KEY)"`。
+
+当用户运行 `hermes plugins install` 时，系统会交互式提示他们输入任何缺失的 `requires_env` 变量。值会自动保存到 `.env`。
+
+为了获得更好的安装体验，可以使用带描述和注册链接的 rich format：
+
+```yaml
+# plugin.yaml — rich format
+requires_env:
+  - name: WEATHER_API_KEY
+    description: "API key for OpenWeather"
+    url: "https://openweathermap.org/api"
+    secret: true
+```
+
+| 字段          | 必填 | 描述                      |
+| ----------- | -- | ----------------------- |
+| name        | 是  | 环境变量名称                  |
+| description | 否  | 在安装提示中显示给用户             |
+| url         | 否  | 获取凭证的位置                 |
+| secret      | 否  | 如果为 true，输入会被隐藏（类似密码字段） |
+
+两种格式可以混合在同一个列表中。已经设置的变量会被静默跳过。
+
+### 条件性工具可用性
+
+对于依赖可选库的工具：
+
+```python
+ctx.register_tool(
+    name="my_tool",
+    schema={...},
+    handler=my_handler,
+    check_fn=lambda: _has_optional_lib(),  # False = tool hidden from model
+)
+```
+
+注册多个 hooks
+
+```python
+def register(ctx):
+    ctx.register_hook("pre_tool_call", before_any_tool)
+    ctx.register_hook("post_tool_call", after_any_tool)
+    ctx.register_hook("pre_llm_call", inject_memory)
+    ctx.register_hook("on_session_start", on_new_session)
+    ctx.register_hook("on_session_end", on_session_end)
+```
+
+### Hook 参考
+
+每个 hook 都在 [Event Hooks reference](https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks#plugin-hooks) 中有完整文档 —— 包括 callback 签名、参数表、每个 hook 触发的确切时间，以及示例。下面是摘要：
+
+| Hook                | 触发时机                                         | Callback 签名                                                                                                          | 返回                |
+| ------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| pre_tool_call       | 在任何工具执行之前                                    | `tool_name: str, args: dict, task_id: str`                                                                           | 忽略                |
+| post_tool_call      | 在任何工具返回之后                                    | `tool_name: str, args: dict, result: str, task_id: str, duration_ms: int`                                            | 忽略                |
+| pre_llm_call        | 每轮一次，在 tool-calling loop 之前                  | `session_id: str, user_message: str, conversation_history: list, is_first_turn: bool, model: str, platform: str`     | context injection |
+| post_llm_call       | 每轮一次，在 tool-calling loop 之后（仅成功轮次）           | `session_id: str, user_message: str, assistant_response: str, conversation_history: list, model: str, platform: str` | 忽略                |
+| on_session_start    | 创建新 session 时（仅第一轮）                          | `session_id: str, model: str, platform: str`                                                                         | 忽略                |
+| on_session_end      | 每次 `run_conversation` 调用结束 + CLI 退出时         | `session_id: str, completed: bool, interrupted: bool, model: str, platform: str`                                     | 忽略                |
+| on_session_finalize | CLI / gateway 关闭一个 active session 时          | `session_id: str \| None, platform: str`                                                                             | 忽略                |
+| on_session_reset    | Gateway 切换到新的 session key 时（`/new`、`/reset`） | `session_id: str, platform: str`                                                                                     | 忽略                |
+
+大多数 hooks 都是 fire-and-forget observers —— 它们的返回值会被忽略。例外是 `pre_llm_call`，它可以向 conversation 中注入 context。
+
+所有 callbacks 都应该接受 `**kwargs`，以便向前兼容。如果某个 hook callback 崩溃，它会被记录并跳过。其他 hooks 和 agent 会继续正常运行。
+
+### `pre_llm_call` context injection
+
+这是唯一一个返回值有意义的 hook。当 `pre_llm_call` callback 返回一个带有 `"context"` key 的 dict（或一个普通字符串）时，Hermes 会把该文本注入到当前轮次的用户消息中。这是 memory plugins、RAG integrations、guardrails，以及任何需要给模型提供额外 context 的插件所使用的机制。
+
+**返回格式**
+
+```python id="5vzexm"
+# Dict with context key
+return {"context": "Recalled memories:\n- User prefers dark mode\n- Last project: hermes-agent"}
+
+# Plain string (equivalent to the dict form above)
+return "Recalled memories:\n- User prefers dark mode"
+
+# Return None or don't return → no injection (observer-only)
+return None
+```
+
+任何非 `None`、非空、且带有 `"context"` key 的返回值（或普通的非空字符串）都会被收集，并追加到当前轮次的用户消息中。
+
+**注入如何工作**
+
+注入的 context 会追加到用户消息中，而不是 system prompt 中。这是一个有意的设计选择：
+
+* **Prompt cache preservation** —— system prompt 在各轮次之间保持完全相同。Anthropic 和 OpenRouter 会缓存 system prompt 前缀，因此保持它稳定，可以在多轮对话中节省 75%+ 的 input tokens。如果插件修改 system prompt，每一轮都会 cache miss。
+* **Ephemeral** —— 注入只发生在 API 调用时。conversation history 中的原始用户消息永远不会被修改，也不会有任何内容持久化到 session 数据库。
+* **system prompt 是 Hermes 的领域** —— 它包含模型特定指导、工具强制规则、personality instructions，以及缓存的 skill 内容。插件会在用户输入旁边贡献 context，而不是改变 agent 的核心 instructions。
+
+**示例：Memory recall plugin**
+
+```python id="vtdpqy"
+"""Memory plugin — recalls relevant context from a vector store."""
+
+import httpx
+
+MEMORY_API = "https://your-memory-api.example.com"
+
+def recall_context(session_id, user_message, is_first_turn, **kwargs):
+    """Called before each LLM turn. Returns recalled memories."""
+    try:
+        resp = httpx.post(f"{MEMORY_API}/recall", json={
+            "session_id": session_id,
+            "query": user_message,
+        }, timeout=3)
+        memories = resp.json().get("results", [])
+        if not memories:
+            return None  # nothing to inject
+
+        text = "Recalled context from previous sessions:\n"
+        text += "\n".join(f"- {m['text']}" for m in memories)
+        return {"context": text}
+    except Exception:
+        return None  # fail silently, don't break the agent
+
+def register(ctx):
+    ctx.register_hook("pre_llm_call", recall_context)
+```
+
+示例：Guardrails plugin
+
+```python id="78nsxb"
+"""Guardrails plugin — enforces content policies."""
+
+POLICY = """You MUST follow these content policies for this session:
+- Never generate code that accesses the filesystem outside the working directory
+- Always warn before executing destructive operations
+- Refuse requests involving personal data extraction"""
+
+def inject_guardrails(**kwargs):
+    """Injects policy text into every turn."""
+    return {"context": POLICY}
+
+def register(ctx):
+    ctx.register_hook("pre_llm_call", inject_guardrails)
+```
+
+示例：Observer-only hook（无注入）
+
+```python id="0x3zt0"
+"""Analytics plugin — tracks turn metadata without injecting context."""
+
+import logging
+logger = logging.getLogger(__name__)
+
+def log_turn(session_id, user_message, model, is_first_turn, **kwargs):
+    """Fires before each LLM call. Returns None — no context injected."""
+    logger.info("Turn: session=%s model=%s first=%s msg_len=%d",
+                session_id, model, is_first_turn, len(user_message or ""))
+    # No return → no injection
+
+def register(ctx):
+    ctx.register_hook("pre_llm_call", log_turn)
+```
+
+#### 多个插件返回 context
+
+当多个插件从 `pre_llm_call` 返回 context 时，它们的输出会用双换行连接起来，并一起追加到用户消息中。顺序遵循插件发现顺序（按插件目录名称的字母顺序）。
+
+### 注册 CLI 命令
+
+插件可以添加自己的 `hermes <plugin>` 子命令树：
+
+```python
+def _my_command(args):
+    """Handler for hermes my-plugin <subcommand>."""
+    sub = getattr(args, "my_command", None)
+    if sub == "status":
+        print("All good!")
+    elif sub == "config":
+        print("Current config: ...")
+    else:
+        print("Usage: hermes my-plugin <status|config>")
+
+def _setup_argparse(subparser):
+    """Build the argparse tree for hermes my-plugin."""
+    subs = subparser.add_subparsers(dest="my_command")
+    subs.add_parser("status", help="Show plugin status")
+    subs.add_parser("config", help="Show plugin config")
+    subparser.set_defaults(func=_my_command)
+
+def register(ctx):
+    ctx.register_tool(...)
+    ctx.register_cli_command(
+        name="my-plugin",
+        help="Manage my plugin",
+        setup_fn=_setup_argparse,
+        handler_fn=_my_command,
+    )
+```
+
+注册之后，用户可以运行 `hermes my-plugin status`、`hermes my-plugin config` 等。
+
+**Memory provider 插件** 则使用一种基于约定的方式：在你的插件 `cli.py` 文件中添加一个 `register_cli(subparser)` 函数。Memory 插件发现系统会自动找到它 —— 不需要调用 `ctx.register_cli_command()`。详情请参见 [Memory Provider Plugin 指南](https://hermes-agent.nousresearch.com/docs/developer-guide/memory-provider-plugin#adding-cli-commands)。
+
+**Active-provider gating**：Memory 插件 CLI 命令只有在它们的 provider 是配置中 active 的 `memory.provider` 时才会出现。如果用户尚未设置你的 provider，你的 CLI 命令就不会让 help 输出变得杂乱。
+
+### 注册斜杠命令
+
+插件可以注册会话内斜杠命令 —— 也就是用户在对话过程中输入的命令（例如 `/lcm status` 或 `/ping`）。这些命令在 CLI 和 gateway（Telegram、Discord 等）中都可用。
+
+```python
+def _handle_status(raw_args: str) -> str:
+    """Handler for /mystatus — called with everything after the command name."""
+    if raw_args.strip() == "help":
+        return "Usage: /mystatus [help|check]"
+    return "Plugin status: all systems nominal"
+
+def register(ctx):
+    ctx.register_command(
+        "mystatus",
+        handler=_handle_status,
+        description="Show plugin status",
+    )
+```
+
+注册之后，用户可以在任何 session 中输入 `/mystatus`。该命令会出现在自动补全、`/help` 输出，以及 Telegram bot 菜单中。
+
+签名：
+
+```python
+ctx.register_command(name: str, handler: Callable, description: str = "")
+```
+
+| 参数          | 类型                          | 描述                                   |
+| ----------- | --------------------------- | ------------------------------------ |
+| name        | str                         | 不带前导斜杠的命令名称（例如 `"lcm"`、`"mystatus"`） |
+| handler     | Callable[[str], str | None] | 使用原始参数字符串调用。也可以是 async               |
+| description | str                         | 显示在 `/help`、自动补全，以及 Telegram bot 菜单中 |
+
+与 `register_cli_command()` 的关键区别：
+
+|            | register_command()              | register_cli_command() |
+| ---------- | ------------------------------- | ---------------------- |
+| 调用方式       | session 中的 `/name`              | 终端中的 `hermes name`     |
+| 工作位置       | CLI sessions、Telegram、Discord 等 | 仅终端                    |
+| Handler 接收 | 原始 args 字符串                     | argparse `Namespace`     |
+| 使用场景       | 诊断、状态、快速操作                      | 复杂子命令树、设置向导            |
+
+**冲突保护**：如果插件尝试注册一个与内置命令冲突的名称（`help`、`model`、`new` 等），注册会被静默拒绝，并写入一条日志警告。内置命令始终优先。
+
+**Async handlers**：gateway dispatch 会自动检测并 await async handlers，因此你可以使用同步或异步函数：
+
+```python
+async def _handle_check(raw_args: str) -> str:
+    result = await some_async_operation()
+    return f"Check result: {result}"
+
+def register(ctx):
+    ctx.register_command("check", handler=_handle_check, description="Run async check")
+```
+
+### 从斜杠命令中 dispatch 工具
+
+需要编排工具的斜杠命令 handlers（例如通过 `delegate_task` 启动子 agent、调用 `file_edit` 等）应该使用 `ctx.dispatch_tool()`，而不是深入访问框架内部。父 agent 的上下文（workspace hints、spinner、model inheritance）会自动接好。
+
+```python id="zwbu6e"
+def register(ctx):
+    def _handle_deliver(raw_args: str):
+        result = ctx.dispatch_tool(
+            "delegate_task",
+            {
+                "goal": raw_args,
+                "toolsets": ["terminal", "file", "web"],
+            },
+        )
+        return result
+
+    ctx.register_command(
+        "deliver",
+        handler=_handle_deliver,
+        description="Delegate a goal to a subagent",
+    )
+```
+
+**签名：**
+
+```python id="0rezf5"
+ctx.dispatch_tool(name: str, args: dict, *, parent_agent=None) -> str
+```
+
+| 参数           | 类型           | 描述                                                       |
+| ------------ | ------------ | -------------------------------------------------------- |
+| name         | str          | 工具 registry 中注册的工具名称（例如 `"delegate_task"`、`"file_edit"`） |
+| args         | dict         | 工具参数，形状与模型会发送的内容相同                                       |
+| parent_agent | Agent | None | 可选覆盖项。省略时，会从当前 CLI agent 解析；或在 gateway 模式下降级处理           |
+
+**运行时行为：**
+
+* **CLI 模式**：`parent_agent` 会从 active CLI agent 中解析，因此 workspace hints、spinner 和 model selection 会按预期继承。
+* **Gateway 模式**：没有 CLI agent，因此工具会优雅降级 —— workspace 从 `TERMINAL_CWD` 读取，并且不显示 spinner。
+* **显式覆盖**：如果调用方显式传入 `parent_agent=`，则会尊重该值，不会覆盖。
+
+这是从插件命令中 dispatch 工具的公开、稳定接口。插件不应该访问 `ctx._cli_ref.agent` 或类似的私有状态。
+
+:::tip[提示]
+本指南涵盖 **通用插件**（tools、hooks、slash commands、CLI commands）。下面的章节会简要说明每种专用插件类型的编写模式；每个章节都会链接到完整指南，用于查看字段参考和示例。
+:::
+
+## 专用插件类型
+
+除了通用接口之外，Hermes 还有五种专用插件类型。每一种都作为一个目录放在 `plugins/<category>/<name>/`（内置）或 `~/.hermes/plugins/<category>/<name>/`（用户）下。不同 category 的约定不同 —— 选择你需要的类型，然后阅读它的完整指南。
+
+### 模型 provider 插件 —— 添加一个 LLM 后端
+
+把一个 profile 放入 `plugins/model-providers/<name>/`：
+
+```python
+# plugins/model-providers/acme/__init__.py
+from providers import register_provider
+from providers.base import ProviderProfile
+
+register_provider(ProviderProfile(
+    name="acme",
+    aliases=("acme-inference",),
+    display_name="Acme Inference",
+    env_vars=("ACME_API_KEY", "ACME_BASE_URL"),
+    base_url="https://api.acme.example.com/v1",
+    auth_type="api_key",
+    default_aux_model="acme-small-fast",
+    fallback_models=("acme-large-v3", "acme-medium-v3"),
+))
+```
+
+```yaml
+# plugins/model-providers/acme/plugin.yaml
+name: acme-provider
+kind: model-provider
+version: 1.0.0
+description: Acme Inference — OpenAI-compatible direct API
+```
+
+第一次有任何内容调用 `get_provider_profile()` 或 `list_providers()` 时会进行惰性发现 —— `auth.py`、`config.py`、`doctor.py`、`models.py`、`runtime_provider.py`，以及 `chat_completions` transport 都会自动接入它。用户插件会按名称覆盖内置插件。
+
+**完整指南**：Model Provider Plugins —— 字段参考、可覆盖 hooks（`prepare_messages`、`build_extra_body`、`build_api_kwargs_extras`、`fetch_models`）、`api_mode` 选择、认证类型、测试。
+
+### Platform 插件 —— 添加一个 gateway 渠道
+
+把一个 adapter 放入 `plugins/platforms/<name>/`：
+
+```python
+# plugins/platforms/myplatform/adapter.py
+from gateway.platforms.base import BasePlatformAdapter
+
+class MyPlatformAdapter(BasePlatformAdapter):
+    async def connect(self): ...
+    async def send(self, chat_id, text): ...
+    async def disconnect(self): ...
+
+def check_requirements():
+    import os
+    return bool(os.environ.get("MYPLATFORM_TOKEN"))
+
+def _env_enablement():
+    import os
+    tok = os.getenv("MYPLATFORM_TOKEN", "").strip()
+    if not tok:
+        return None
+    return {"token": tok}
+
+def register(ctx):
+    ctx.register_platform(
+        name="myplatform",
+        label="MyPlatform",
+        adapter_factory=lambda cfg: MyPlatformAdapter(cfg),
+        check_fn=check_requirements,
+        required_env=["MYPLATFORM_TOKEN"],
+        # Auto-populate PlatformConfig.extra from env so env-only setups
+        # show up in `hermes gateway status` without SDK instantiation.
+        env_enablement_fn=_env_enablement,
+        # Opt in to cron delivery: `deliver=myplatform` routes to this var.
+        cron_deliver_env_var="MYPLATFORM_HOME_CHANNEL",
+        emoji="💬",
+        platform_hint="You are chatting via MyPlatform. Keep responses concise.",
+    )
+```
+
+```yaml
+# plugins/platforms/myplatform/plugin.yaml
+name: myplatform-platform
+label: MyPlatform
+kind: platform
+version: 1.0.0
+description: MyPlatform gateway adapter
+requires_env:
+  - name: MYPLATFORM_TOKEN
+    description: "Bot token from the MyPlatform console"
+    password: true
+optional_env:
+  - name: MYPLATFORM_HOME_CHANNEL
+    description: "Default channel for cron delivery"
+    password: false
+```
+
+**完整指南**：Adding Platform Adapters —— 完整的 `BasePlatformAdapter` 约定、消息路由、认证门控、设置向导集成。可以查看 `plugins/platforms/irc/`，这是一个仅使用标准库的可运行示例。
+
+### Memory provider 插件 —— 添加一个跨 session 的知识后端
+
+把一个 `MemoryProvider` 的实现放入 `plugins/memory/<name>/`：
+
+```python
+# plugins/memory/my-memory/__init__.py
+from agent.memory_provider import MemoryProvider
+
+class MyMemoryProvider(MemoryProvider):
+    @property
+    def name(self) -> str:
+        return "my-memory"
+
+    def is_available(self) -> bool:
+        import os
+        return bool(os.environ.get("MY_MEMORY_API_KEY"))
+
+    def initialize(self, session_id: str, **kwargs) -> None:
+        self._session_id = session_id
+
+    def sync_turn(self, user_message, assistant_response, **kwargs) -> None:
+        ...
+
+    def prefetch(self, query: str, **kwargs) -> str | None:
+        ...
+
+def register(ctx):
+    ctx.register_memory_provider(MyMemoryProvider())
+```
+
+Memory providers 是单选的 —— 同一时间只有一个处于 active 状态，通过 `config.yaml` 中的 `memory.provider` 选择。
+
+**完整指南**：Memory Provider Plugins —— 完整的 `MemoryProvider` ABC、线程约定、profile 隔离、通过 `cli.py` 注册 CLI 命令。
+
+### Context engine 插件 —— 替换 context compressor
+
+```python
+# plugins/context_engine/my-engine/__init__.py
+from agent.context_engine import ContextEngine
+
+class MyContextEngine(ContextEngine):
+    @property
+    def name(self) -> str:
+        return "my-engine"
+
+    def should_compress(self, messages, model) -> bool: ...
+    def compress(self, messages, model) -> list[dict]: ...
+
+def register(ctx):
+    ctx.register_context_engine(MyContextEngine())
+```
+
+Context engines 是单选的 —— 通过 `config.yaml` 中的 `context.engine` 选择。
+
+**完整指南**：Context Engine Plugins。
+
+### Image-generation 后端
+
+把一个 provider 放入 `plugins/image_gen/<name>/`：
+
+```python
+# plugins/image_gen/my-imggen/__init__.py
+from agent.image_gen_provider import ImageGenProvider
+
+class MyImageGenProvider(ImageGenProvider):
+    @property
+    def name(self) -> str:
+        return "my-imggen"
+
+    def is_available(self) -> bool: ...
+    def generate(self, prompt: str, **kwargs) -> str: ...   # returns image path
+
+def register(ctx):
+    ctx.register_image_gen_provider(MyImageGenProvider())
+```
+
+```yaml
+# plugins/image_gen/my-imggen/plugin.yaml
+name: my-imggen
+kind: backend
+version: 1.0.0
+description: Custom image generation backend
+```
+
+**完整指南**：Image Generation Provider Plugins —— 完整的 `ImageGenProvider` ABC、`list_models()` / `get_setup_schema()` 元数据、`success_response()` / `error_response()` helpers、base64 与 URL 输出、用户覆盖、pip 分发。
+
+**参考示例**：`plugins/image_gen/openai/`（通过 OpenAI SDK 使用 DALL-E / GPT-Image）、`plugins/image_gen/openai-codex/`、`plugins/image_gen/xai/`（Grok image gen）。
+
+## 非 Python 扩展接口
+
+Hermes 也接受完全不是 Python 插件的扩展。这些内容显示在 Pluggable interfaces 表中；下面的章节会简要说明每种编写风格。
+
+### MCP servers —— 注册外部工具
+
+Model Context Protocol（MCP）服务器可以在不使用任何 Python 插件的情况下，将自己的工具注册到 Hermes 中。在 `~/.hermes/config.yaml` 中声明它们：
+
+```yaml
+mcp_servers:
+  filesystem:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/projects"]
+    timeout: 120
+
+  linear:
+    url: "https://mcp.linear.app/sse"
+    auth:
+      type: "oauth"
+```
+
+Hermes 会在启动时连接到每个 server，列出其工具，并将它们与内置工具一起注册。LLM 会像看到任何其他工具一样看到它们。**完整指南**：MCP。
+
+### Gateway event hooks —— 在生命周期事件上触发
+
+将一个 manifest + handler 放入 `~/.hermes/hooks/<name>/`：
+
+```yaml
+# ~/.hermes/hooks/long-task-alert/HOOK.yaml
+name: long-task-alert
+description: Send a push notification when a long task finishes
+events:
+  - agent:end
+```
+
+```python
+# ~/.hermes/hooks/long-task-alert/handler.py
+async def handle(event_type: str, context: dict) -> None:
+    if context.get("duration_seconds", 0) > 120:
+        # send notification …
+        pass
+```
+
+事件包括 `gateway:startup`、`session:start`、`session:end`、`session:reset`、`agent:start`、`agent:step`、`agent:end`，以及通配符 `command:*`。hooks 中的错误会被捕获并记录 —— 它们永远不会阻塞主 pipeline。
+
+**完整指南**：Gateway Event Hooks。
+
+### Shell hooks —— 在工具调用时运行 shell 命令
+
+如果你只是想在某个工具触发时运行脚本（通知、审计日志、桌面提醒、自动格式化器），可以在 `config.yaml` 中使用 shell hooks —— 不需要 Python：
+
+```yaml
+hooks:
+  - event: post_tool_call
+    command: "notify-send 'Tool ran: {tool_name}'"
+    when:
+      tools: [terminal, patch, write_file]
+```
+
+支持与 Python 插件 hooks 相同的所有事件（`pre_tool_call`、`post_tool_call`、`pre_llm_call`、`post_llm_call`、`on_session_start`、`on_session_end`、`pre_gateway_dispatch`），并且还支持用于 `pre_tool_call` 阻塞决策的结构化 JSON 输出。
+
+**完整指南**：Shell Hooks。
+
+### Skill sources —— 添加自定义 skill registry
+
+如果你维护一个 GitHub skills 仓库（或者想从内置来源之外的社区索引中拉取），可以把它添加为一个 tap：
+
+```bash
+hermes skills tap add myorg/skills-repo
+hermes skills search my-workflow --source myorg/skills-repo
+hermes skills install myorg/skills-repo/my-workflow
+```
+
+发布你自己的 tap 只是一个带有 `skills/<skill-name>/SKILL.md` 目录的 GitHub 仓库 —— 不需要 server 或 registry 注册。
+
+**完整指南**：Skills Hub · Publishing a custom tap（仓库布局、最小示例、非默认路径、信任级别）。
+
+### 通过 command templates 使用 TTS / STT
+
+任何读取 / 写入音频或文本的 CLI 都可以通过 `config.yaml` 插入 —— 不需要 Python 代码：
+
+```yaml
+tts:
+  provider: voxcpm
+  providers:
+    voxcpm:
+      type: command
+      command: "voxcpm --ref ~/voice.wav --text-file {input_path} --out {output_path}"
+      output_format: mp3
+      voice_compatible: true
+```
+
+对于 STT，将 `HERMES_LOCAL_STT_COMMAND` 指向一个 shell template。支持的 placeholders：`{input_path}`、`{output_path}`、`{format}`、`{voice}`、`{model}`、`{speed}`（TTS）；`{input_path}`、`{output_dir}`、`{language}`、`{model}`（STT）。任何与路径交互的 CLI 都会自动成为一个插件。
+
+**完整指南**：TTS custom command providers · STT。
+
+## 通过 pip 分发
+
+如果要公开分享插件，请向你的 Python package 添加一个 entry point：
+
+```toml
+# pyproject.toml
+[project.entry-points."hermes_agent.plugins"]
+my-plugin = "my_plugin_package"
+```
+
+```bash
+pip install hermes-plugin-calculator
+# Plugin auto-discovered on next hermes startup
+```
+
+## 通过 NixOS 分发
+
+如果你提供带 entry points 的 `pyproject.toml`，NixOS 用户可以声明式安装你的插件：
+
+**Entry-point 插件**（推荐用于分发）：
+
+```nix
+# User's configuration.nix
+services.hermes-agent.extraPythonPackages = [
+  (pkgs.python312Packages.buildPythonPackage {
+    pname = "my-plugin";
+    version = "1.0.0";
+    src = pkgs.fetchFromGitHub {
+      owner = "you";
+      repo = "hermes-my-plugin";
+      rev = "v1.0.0";
+      hash = "sha256-...";  # nix-prefetch-url --unpack
+    };
+    format = "pyproject";
+    build-system = [ pkgs.python312Packages.setuptools ];
+  })
+];
+```
+
+**Directory 插件**（不需要 `pyproject.toml`）：
+
+```nix
+services.hermes-agent.extraPlugins = [
+  (pkgs.fetchFromGitHub {
+    owner = "you";
+    repo = "hermes-my-plugin";
+    rev = "v1.0.0";
+    hash = "sha256-...";
+  })
+];
+```
+
+查看 [Nix Setup 指南](https://hermes-agent.nousresearch.com/docs/getting-started/nix-setup#plugins)，获取完整文档，包括 overlay 用法和冲突检查。
+
+## 常见错误
+
+**Handler 没有返回 JSON 字符串：**
+
+```python
+# 错误 —— 返回了一个 dict
+def handler(args, **kwargs):
+    return {"result": 42}
+
+# 正确 —— 返回 JSON 字符串
+def handler(args, **kwargs):
+    return json.dumps({"result": 42})
+```
+
+**Handler 签名中缺少 `**kwargs`：**
+
+```python
+# 错误 —— 如果 Hermes 传入额外 context，就会出问题
+def handler(args):
+    ...
+
+# 正确
+def handler(args, **kwargs):
+    ...
+```
+
+**Handler 抛出异常：**
+
+```python
+# 错误 —— 异常会传播，工具调用失败
+def handler(args, **kwargs):
+    result = 1 / int(args["value"])  # ZeroDivisionError!
+    return json.dumps({"result": result})
+
+# 正确 —— 捕获异常并返回错误 JSON
+def handler(args, **kwargs):
+    try:
+        result = 1 / int(args.get("value", 0))
+        return json.dumps({"result": result})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+```
+
+**Schema description 太模糊：**
+
+```python
+# 不好 —— 模型不知道什么时候使用它
+"description": "Does stuff"
+
+# 好 —— 模型确切知道什么时候以及如何使用
+"description": "Evaluate a mathematical expression. Use for arithmetic, trig, logarithms. Supports: +, -, *, /, **, sqrt, sin, cos, log, pi, e."
+```
+

@@ -1,0 +1,326 @@
+---
+title: Context Compression 和 Caching
+description: hermes agent Context Compression 和 Caching
+---
+
+Hermes Agent 使用双重 compression 系统和 Anthropic prompt caching，在长对话中高效管理 context window 使用量。
+
+源文件：`agent/context_engine.py`（ABC）、`agent/context_compressor.py`（默认 engine）、`agent/prompt_caching.py`、`gateway/run.py`（session hygiene）、`run_agent.py`（搜索 `_compress_context`）
+
+## 可插拔 Context Engine
+
+Context management 构建在 `ContextEngine` ABC（`agent/context_engine.py`）之上。内置的 `ContextCompressor` 是默认实现，但插件可以用其他 engines 替换它（例如 Lossless Context Management）。
+
+```yaml
+context:
+  engine: "compressor"    # default — built-in lossy summarization
+  engine: "lcm"           # example — plugin providing lossless context
+```
+
+engine 负责：
+
+* 决定什么时候触发 compaction（`should_compress()`）
+* 执行 compaction（`compress()`）
+* 可选地暴露 agent 可调用的工具（例如 `lcm_grep`）
+* 跟踪 API responses 中的 token usage
+
+选择通过 `config.yaml` 中的 `context.engine` 配置驱动。解析顺序：
+
+1. 检查 `plugins/context_engine/<name>/` 目录
+2. 检查通用 plugin system（`register_context_engine()`）
+3. 回退到内置的 `ContextCompressor`
+
+Plugin engines 永远不会自动激活 —— 用户必须显式将 `context.engine` 设置为该插件的名称。默认的 `"compressor"` 始终使用内置实现。
+
+可以通过 `hermes plugins` → Provider Plugins → Context Engine 进行配置，或者直接编辑 `config.yaml`。
+
+关于构建 context engine 插件，请参见 [Context Engine Plugins](https://hermes-agent.nousresearch.com/docs/developer-guide/context-engine-plugin)。
+
+## 双重 Compression 系统
+
+Hermes 有两个独立运行的 compression 层：
+
+```text
+                     ┌──────────────────────────┐
+  Incoming message   │   Gateway Session Hygiene │  在 context 的 85% 时触发
+  ─────────────────► │   (pre-agent, rough est.) │  大型 sessions 的安全网
+                     └─────────────┬────────────┘
+                                   │
+                                   ▼
+                     ┌──────────────────────────┐
+                     │   Agent ContextCompressor │  在 context 的 50% 时触发（默认）
+                     │   (in-loop, real tokens)  │  常规 context management
+                     └──────────────────────────┘
+```
+
+### 1. Gateway Session Hygiene（85% 阈值）
+
+位于 `gateway/run.py`（搜索 `Session hygiene: auto-compress`）。这是一个安全网，会在 agent 处理消息之前运行。它可以防止 sessions 在 turns 之间增长过大时导致 API 失败（例如 Telegram / Discord 中隔夜累积的消息）。
+
+* Threshold：固定为模型 context length 的 85%
+* Token source：优先使用上一轮 API 报告的实际 tokens；如果没有，则回退到基于字符的粗略估算（`estimate_messages_tokens_rough`）
+* Fires：仅当 `len(history) >= 4` 且 compression 已启用时触发
+* Purpose：捕获逃过 agent 自身 compressor 的 sessions
+
+gateway hygiene 阈值有意设置得比 agent compressor 更高。把它设为 50%（与 agent 相同）会导致长 gateway sessions 中每一轮都过早 compression。
+
+### 2. Agent ContextCompressor（50% 阈值，可配置）
+
+位于 `agent/context_compressor.py`。这是主要的 compression 系统，运行在 agent 的 tool loop 内部，可以访问准确的、由 API 报告的 token counts。
+
+## 配置
+
+所有 compression 设置都会从 `config.yaml` 的 `compression` key 下读取：
+
+```yaml
+compression:
+  enabled: true              # Enable/disable compression (default: true)
+  threshold: 0.50            # Fraction of context window (default: 0.50 = 50%)
+  target_ratio: 0.20         # How much of threshold to keep as tail (default: 0.20)
+  protect_last_n: 20         # Minimum protected tail messages (default: 20)
+
+# Summarization model/provider configured under auxiliary:
+auxiliary:
+  compression:
+    model: null              # Override model for summaries (default: auto-detect)
+    provider: auto           # Provider: "auto", "openrouter", "nous", "main", etc.
+    base_url: null           # Custom OpenAI-compatible endpoint
+```
+
+### 参数详情
+
+| 参数                | 默认值    | 范围          | 描述                                                                |
+| ----------------- | ------ | ----------- | ----------------------------------------------------------------- |
+| `threshold`       | `0.50` | `0.0-1.0`   | 当 prompt tokens ≥ `threshold × context_length` 时触发 compression    |
+| `target_ratio`    | `0.20` | `0.10-0.80` | 控制 tail protection token budget：`threshold_tokens × target_ratio` |
+| `protect_last_n`  | `20`   | `≥1`        | 始终保留的最近 messages 的最小数量                                            |
+| `protect_first_n` | `3`    | hardcoded   | System prompt + 第一次 exchange 始终保留                                 |
+
+计算值（对于默认配置下的 200K context 模型）
+
+```text
+context_length       = 200,000
+threshold_tokens     = 200,000 × 0.50 = 100,000
+tail_token_budget    = 100,000 × 0.20 = 20,000
+max_summary_tokens   = min(200,000 × 0.05, 12,000) = 10,000
+```
+
+## Compression Algorithm
+
+`ContextCompressor.compress()` 方法遵循一个 4 阶段算法：
+
+### Phase 1：裁剪旧工具结果（便宜，无 LLM 调用）
+
+受保护 tail 之外的旧工具结果（>200 字符）会被替换为：
+
+```text
+[Old tool output cleared to save context space]
+```
+
+这是一个低成本的预处理步骤，可以从冗长的工具输出中节省大量 tokens（文件内容、terminal 输出、搜索结果）。
+
+### Phase 2：确定边界
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  Message list                                               │
+│                                                             │
+│  [0..2]  ← protect_first_n（system + 第一次 exchange）       │
+│  [3..N]  ← middle turns → 被总结                            │
+│  [N..end] ← tail（按 token budget 或 protect_last_n）        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Tail protection 基于 token budget：从末尾向前遍历，累计 tokens，直到预算耗尽。如果预算保护的 messages 少于固定的 `protect_last_n` 数量，则回退到固定的 `protect_last_n` 数量。
+
+边界会对齐，以避免拆分 `tool_call` / `tool_result` 组。`_align_boundary_backward()` 方法会向前越过连续的 tool results，找到父 assistant message，从而保持组完整。
+
+### Phase 3：生成结构化 Summary
+
+:::caution[Summary 模型 context length]
+summary 模型的 context window 必须至少和主 agent 模型一样大。整个 middle section 会在一次 `call_llm(task="compression")` 调用中发送给 summary 模型。如果 summary 模型的 context 更小，API 会返回 context-length error —— `_generate_summary()` 会捕获它、记录 warning，并返回 `None`。然后 compressor 会丢弃 middle turns，且没有 summary，从而静默丢失 conversation context。这是 compaction 质量下降最常见的原因。
+:::
+
+Middle turns 会使用 auxiliary LLM 和结构化模板进行总结：
+
+```markdown
+## Goal
+[What the user is trying to accomplish]
+
+## Constraints & Preferences
+[User preferences, coding style, constraints, important decisions]
+
+## Progress
+### Done
+[Completed work — specific file paths, commands run, results]
+### In Progress
+[Work currently underway]
+### Blocked
+[Any blockers or issues encountered]
+
+## Key Decisions
+[Important technical decisions and why]
+
+## Relevant Files
+[Files read, modified, or created — with brief note on each]
+
+## Next Steps
+[What needs to happen next]
+
+## Critical Context
+[Specific values, error messages, configuration details]
+```
+
+Summary budget 会根据被压缩内容的数量动态缩放：
+
+* 公式：`content_tokens × 0.20`（`_SUMMARY_RATIO` 常量）
+* 最小值：2,000 tokens
+* 最大值：`min(context_length × 0.05, 12,000)` tokens
+
+### Phase 4：组装压缩后的 Messages
+
+压缩后的 message list 是：
+
+1. Head messages（首次 compression 时，会在 system prompt 中追加一条 note）
+2. Summary message（role 会被选择为避免连续相同 role 违规）
+3. Tail messages（不修改）
+
+孤立的 `tool_call` / `tool_result` pairs 会由 `_sanitize_tool_pairs()` 清理：
+
+1. 引用已删除 calls 的 tool results → 删除
+2. 结果被删除的 tool calls → 注入 stub result
+
+### Iterative Re-compression
+
+后续 compression 时，previous summary 会传给 LLM，并指示它更新 summary，而不是从零开始总结。这可以在多次 compactions 之间保留信息 —— items 会从 “In Progress” 移动到 “Done”，新的 progress 会被添加，过时信息会被移除。
+
+compressor 实例上的 `_previous_summary` 字段会存储上一次 summary text，用于这个目的。
+
+## Before / After 示例
+
+### Compression 前（45 条 messages，约 95K tokens）
+
+```text
+[0] system:    "You are a helpful assistant..."（system prompt）
+[1] user:      "Help me set up a FastAPI project"
+[2] assistant: <tool_call> terminal: mkdir project </tool_call>
+[3] tool:      "directory created"
+[4] assistant: <tool_call> write_file: main.py </tool_call>
+[5] tool:      "file written (2.3KB)"
+    ... 另外 30 轮 file editing、testing、debugging ...
+[38] assistant: <tool_call> terminal: pytest </tool_call>
+[39] tool:      "8 passed, 2 failed\n..."（5KB 输出）
+[40] user:      "Fix the failing tests"
+[41] assistant: <tool_call> read_file: tests/test_api.py </tool_call>
+[42] tool:      "import pytest\n..."（3KB）
+[43] assistant: "I see the issue with the test fixtures..."
+[44] user:      "Great, also add error handling"
+```
+
+### Compression 后（25 条 messages，约 45K tokens）
+
+```text
+[0] system:    "You are a helpful assistant...
+               [Note: Some earlier conversation turns have been compacted...]"
+[1] user:      "Help me set up a FastAPI project"
+[2] assistant: "[CONTEXT COMPACTION] Earlier turns were compacted...
+
+               ## Goal
+               Set up a FastAPI project with tests and error handling
+
+               ## Progress
+               ### Done
+               - Created project structure: main.py, tests/, requirements.txt
+               - Implemented 5 API endpoints in main.py
+               - Wrote 10 test cases in tests/test_api.py
+               - 8/10 tests passing
+
+               ### In Progress
+               - Fixing 2 failing tests (test_create_user, test_delete_user)
+
+               ## Relevant Files
+               - main.py — FastAPI app with 5 endpoints
+               - tests/test_api.py — 10 test cases
+               - requirements.txt — fastapi, pytest, httpx
+
+               ## Next Steps
+               - Fix failing test fixtures
+               - Add error handling"
+[3] user:      "Fix the failing tests"
+[4] assistant: <tool_call> read_file: tests/test_api.py </tool_call>
+[5] tool:      "import pytest\n..."
+[6] assistant: "I see the issue with the test fixtures..."
+[7] user:      "Great, also add error handling"
+```
+
+## Prompt Caching（Anthropic）
+
+来源：`agent/prompt_caching.py`
+
+通过缓存 conversation prefix，在多轮对话中将 input token 成本降低约 75%。使用 Anthropic 的 `cache_control` breakpoints。
+
+### 策略：`system_and_3`
+
+Anthropic 每个 request 最多允许 4 个 `cache_control` breakpoints。Hermes 使用 `"system_and_3"` 策略：
+
+```text
+Breakpoint 1: System prompt           （所有 turns 中保持稳定）
+Breakpoint 2: 倒数第 3 条 non-system message  ─┐
+Breakpoint 3: 倒数第 2 条 non-system message   ├─ Rolling window
+Breakpoint 4: 最后一条 non-system message      ─┘
+```
+
+### 工作方式
+
+`apply_anthropic_cache_control()` 会 deep-copy messages，并注入 `cache_control` markers：
+
+```python
+# Cache marker format
+marker = {"type": "ephemeral"}
+# Or for 1-hour TTL:
+marker = {"type": "ephemeral", "ttl": "1h"}
+```
+
+marker 会根据 content type 应用到不同位置：
+
+| Content Type   | Marker 放置位置                                                 |
+| -------------- | ----------------------------------------------------------- |
+| String content | 转换为 `[{"type": "text", "text": ..., "cache_control": ...}]` |
+| List content   | 添加到最后一个元素的 dict 中                                           |
+| None / empty   | 添加为 `msg["cache_control"]`                                  |
+| Tool messages  | 添加为 `msg["cache_control"]`（仅 native Anthropic）              |
+
+### Cache-Aware 设计模式
+
+1. Stable system prompt：System prompt 是 breakpoint 1，并会跨所有 turns 缓存。避免在对话中途修改它（compression 只会在第一次 compaction 时追加一条 note）。
+
+2. Message ordering matters：Cache hits 需要 prefix matching。在中间添加或删除 messages 会使后续所有内容的 cache 失效。
+
+3. Compression cache interaction：Compression 后，compressed region 的 cache 会失效，但 system prompt cache 会保留。rolling 3-message window 会在 1–2 轮内重新建立 caching。
+
+4. TTL selection：默认是 `5m`（5 分钟）。对于用户在 turns 之间可能休息的长时间 sessions，可以使用 `1h`。
+
+### 启用 Prompt Caching
+
+当满足以下条件时，prompt caching 会自动启用：
+
+* 模型是 Anthropic Claude 模型（根据 model name 检测）
+* provider 支持 `cache_control`（native Anthropic API 或 OpenRouter）
+
+```yaml
+# config.yaml — TTL is configurable (must be "5m" or "1h")
+prompt_caching:
+  cache_ttl: "5m"
+```
+
+CLI 会在启动时显示 caching 状态：
+
+```text
+💾 Prompt caching: ENABLED (Claude via OpenRouter, 5m TTL)
+```
+
+## Context Pressure Warnings
+
+中间 context-pressure warnings 已被移除（参见 `run_agent.py` 中的 iteration-budget block，其中注明：“No intermediate pressure warnings — they caused models to 'give up' prematurely on complex tasks”）。当 prompt tokens 达到配置的 `compression.threshold`（默认 50%）时，compression 会直接触发，不再有提前 warning 步骤；gateway session hygiene 会作为第二层安全网，在模型 context window 的 85% 处触发。
+

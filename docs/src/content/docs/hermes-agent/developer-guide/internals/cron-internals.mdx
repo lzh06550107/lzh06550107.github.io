@@ -1,0 +1,228 @@
+---
+title: Cron Internals
+description: hermes agent Cron Internals
+---
+
+cron 子系统提供 scheduled task execution —— 从简单的一次性延迟，到带有 skill injection 和 cross-platform delivery 的 recurring cron-expression jobs。
+
+## 关键文件
+
+| File                     | Purpose                                                       |
+| ------------------------ | ------------------------------------------------------------- |
+| `cron/jobs.py`           | Job model、storage、对 `jobs.json` 的 atomic read/write           |
+| `cron/scheduler.py`      | Scheduler loop —— due-job detection、execution、repeat tracking |
+| `tools/cronjob_tools.py` | 面向 model 的 cronjob tool registration 和 handler                |
+| `gateway/run.py`         | Gateway integration —— long-running loop 中的 cron ticking      |
+| `hermes_cli/cron.py`     | CLI `hermes cron` subcommands                                 |
+
+## Scheduling Model
+
+支持四种 schedule formats：
+
+| Format          | Example                 | Behavior                                              |
+| --------------- | ----------------------- | ----------------------------------------------------- |
+| Relative delay  | `30m`, `2h`, `1d`       | One-shot，在指定 duration 后触发                             |
+| Interval        | `every 2h`, `every 30m` | Recurring，按固定间隔触发                                     |
+| Cron expression | `0 9 * * *`             | 标准 5-field cron syntax（minute、hour、day、month、weekday） |
+| ISO timestamp   | `2025-01-15T09:00:00`   | One-shot，在精确时间触发                                      |
+
+面向 model 的 surface 是一个单独的 `cronjob` tool，带有 action-style operations：`create`、`list`、`update`、`pause`、`resume`、`run`、`remove`。
+
+## Job Storage
+
+Jobs 存储在 `~/.hermes/cron/jobs.json` 中，并使用 atomic write semantics（写入 temp file，然后 rename）。每个 job record 包含：
+
+```json
+{
+  "id": "a1b2c3d4e5f6",
+  "name": "Daily briefing",
+  "prompt": "Summarize today's AI news and funding rounds",
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 9 * * *",
+    "display": "0 9 * * *"
+  },
+  "skills": ["ai-funding-daily-report"],
+  "deliver": "telegram:-1001234567890",
+  "repeat": {
+    "times": null,
+    "completed": 42
+  },
+  "state": "scheduled",
+  "enabled": true,
+  "next_run_at": "2025-01-16T09:00:00Z",
+  "last_run_at": "2025-01-15T09:00:00Z",
+  "last_status": "ok",
+  "created_at": "2025-01-01T00:00:00Z",
+  "model": null,
+  "provider": null,
+  "script": null
+}
+```
+
+### Job Lifecycle States
+
+| State       | Meaning                             |
+| ----------- | ----------------------------------- |
+| `scheduled` | Active，会在下一个 scheduled time 触发      |
+| `paused`    | Suspended —— 在 resumed 之前不会触发       |
+| `completed` | Repeat count exhausted 或已经触发过的一次性任务 |
+| `running`   | 当前正在执行（transient state）             |
+
+### Backward Compatibility
+
+旧 jobs 可能有单个 `skill` 字段，而不是 `skills` array。scheduler 会在 load time 对其进行规范化 —— 单个 `skill` 会提升为 `skills: [skill]`。
+
+## Scheduler Runtime
+
+### Tick Cycle
+
+scheduler 会按周期性 tick 运行（默认：每 60 秒）：
+
+```text
+tick()
+  1. 获取 scheduler lock（防止 overlapping ticks）
+  2. 从 jobs.json 加载所有 jobs
+  3. 过滤 due jobs（next_run <= now AND state == "scheduled"）
+  4. 对每个 due job：
+     a. 将 state 设置为 "running"
+     b. 创建新的 AIAgent session（没有 conversation history）
+     c. 按顺序加载 attached skills（作为 user messages 注入）
+     d. 通过 agent 运行 job prompt
+     e. 将 response deliver 到已配置 target
+     f. 更新 run_count，计算 next_run
+     g. 如果 repeat count exhausted → state = "completed"
+     h. 否则 → state = "scheduled"
+  5. 将更新后的 jobs 写回 jobs.json
+  6. 释放 scheduler lock
+```
+
+### Gateway Integration
+
+在 gateway mode 中，scheduler 会在一个专用 background thread（`gateway/run.py` 中的 `_start_cron_ticker`）中运行，每 60 秒调用一次 `scheduler.tick()`，并与 message handling 并行。
+
+在 CLI mode 中，cron jobs 只会在运行 `hermes cron` commands 或 active CLI sessions 期间触发。
+
+### Fresh Session Isolation
+
+每个 cron job 都在一个完全 fresh agent session 中运行：
+
+* 没有来自 previous runs 的 conversation history
+* 没有 previous cron executions 的 memory（除非持久化到 memory / files）
+* prompt 必须是 self-contained —— cron jobs 不能提出 clarifying questions
+* `cronjob` toolset 会被禁用（recursion guard）
+
+## Skill-Backed Jobs
+
+cron job 可以通过 `skills` 字段附加一个或多个 skills。在执行时：
+
+1. Skills 会按指定顺序加载
+2. 每个 skill 的 `SKILL.md` content 会作为 context 注入
+3. job 的 prompt 会被追加为 task instruction
+4. agent 会处理组合后的 skill context + prompt
+
+这使 reusable、tested workflows 成为可能，而无需将完整 instructions 粘贴进 cron prompts。例如：
+
+```text
+创建 daily funding report → 附加 `"ai-funding-daily-report"` skill
+```
+
+### Script-Backed Jobs
+
+Jobs 也可以通过 `script` 字段附加一个 Python script。script 会在每个 agent turn 之前运行，并且其 stdout 会作为 context 注入 prompt。这支持 data collection 和 change detection patterns：
+
+```python
+# ~/.hermes/scripts/check_competitors.py
+import requests, json
+# Fetch competitor release notes, diff against last run
+# Print summary to stdout — agent analyzes and reports
+```
+
+script timeout 默认是 120 秒。`_get_script_timeout()` 会通过三层 chain 解析限制：
+
+1. Module-level override —— `_SCRIPT_TIMEOUT`（用于 tests / monkeypatching）。只有当它与默认值不同时才使用。
+2. Environment variable —— `HERMES_CRON_SCRIPT_TIMEOUT`
+3. Config —— `config.yaml` 中的 `cron.script_timeout_seconds`（通过 `load_config()` 读取）
+4. Default —— 120 秒
+
+### Provider Recovery
+
+`run_job()` 会将用户配置的 fallback providers 和 credential pool 传入 `AIAgent` instance：
+
+* Fallback providers —— 从 `config.yaml` 读取 `fallback_providers`（list）或 `fallback_model`（legacy dict），匹配 gateway 的 `_load_fallback_model()` pattern。作为 `fallback_model=` 传给 `AIAgent.__init__`，后者会将两种格式规范化为 fallback chain。
+* Credential pool —— 使用 resolved runtime provider name，通过 `agent.credential_pool` 中的 `load_pool(provider)` 加载。只有当 pool 有 credentials（`pool.has_credentials()`）时才传入。支持在 429 / rate-limit errors 时进行 same-provider key rotation。
+
+这镜像了 gateway 的行为 —— 如果没有它，cron agents 会在 rate limits 时失败，而不会尝试 recovery。
+
+## Delivery Model
+
+Cron job results 可以 delivery 到任何受支持的平台：
+
+| Target         | Syntax                            | Example                                   |
+| -------------- | --------------------------------- | ----------------------------------------- |
+| Origin chat    | `origin`                          | Delivery 到创建 job 的 chat                   |
+| Local file     | `local`                           | 保存到 `~/.hermes/cron/output/`              |
+| Telegram       | `telegram` 或 `telegram:<chat_id>` | `telegram:-1001234567890`                 |
+| Discord        | `discord` 或 `discord:#channel`    | `discord:#engineering`                    |
+| Slack          | `slack`                           | Delivery 到 Slack home channel             |
+| WhatsApp       | `whatsapp`                        | Delivery 到 WhatsApp home                  |
+| Signal         | `signal`                          | Delivery 到 Signal                         |
+| Matrix         | `matrix`                          | Delivery 到 Matrix home room               |
+| Mattermost     | `mattermost`                      | Delivery 到 Mattermost home                |
+| Email          | `email`                           | 通过 email delivery                         |
+| SMS            | `sms`                             | 通过 SMS delivery                           |
+| Home Assistant | `homeassistant`                   | Delivery 到 HA conversation                |
+| DingTalk       | `dingtalk`                        | Delivery 到 DingTalk                       |
+| Feishu         | `feishu`                          | Delivery 到 Feishu                         |
+| WeCom          | `wecom`                           | Delivery 到 WeCom                          |
+| Weixin         | `weixin`                          | Delivery 到 Weixin（WeChat）                 |
+| BlueBubbles    | `bluebubbles`                     | 通过 BlueBubbles delivery 到 iMessage        |
+| QQ Bot         | `qqbot`                           | 通过 Official API v2 delivery 到 QQ（Tencent） |
+
+对于 Telegram topics，请使用格式 `telegram:<chat_id>:<thread_id>`（例如 `telegram:-1001234567890:17585`）。
+
+### Response Wrapping
+
+默认情况下（`cron.wrap_response: true`），cron deliveries 会被包装为：
+
+* 一个标识 cron job name 和 task 的 header
+* 一个 footer，说明 agent 无法在 conversation 中看到已 delivery 的 message
+
+cron response 中的 `[SILENT]` 前缀会完全抑制 delivery —— 适用于只需要写入文件或执行 side effects 的 jobs。
+
+### Session Isolation
+
+Cron deliveries 不会被镜像到 gateway session conversation history 中。它们只存在于 cron job 自己的 session 中。这可以防止 target chat 的 conversation 中出现 message alternation violations。
+
+## Recursion Guard
+
+Cron-run sessions 会禁用 `cronjob` toolset。这可以防止：
+
+* scheduled job 创建新的 cron jobs
+* 可能导致 token usage 爆炸的 recursive scheduling
+* job 内部意外修改 job schedule
+
+## Locking
+
+scheduler 使用跨进程 file-based locking（Unix 上的 `fcntl.flock`，Windows 上的 `msvcrt.locking`）来防止 overlapping ticks 将同一批 due-job batch 执行两次 —— 即使是在 gateway 的 in-process ticker 和独立的 `hermes cron` / 手动 `tick()` 调用之间。如果无法获取 lock，`tick()` 会立即返回 0。
+
+## CLI Interface
+
+`hermes cron` CLI 提供直接的 job management：
+
+```bash
+hermes cron list                    # 显示所有 jobs
+hermes cron create                  # 交互式创建 job（alias: add）
+hermes cron edit <job_id>           # 编辑 job configuration
+hermes cron pause <job_id>          # 暂停 running job
+hermes cron resume <job_id>         # 恢复 paused job
+hermes cron run <job_id>            # 触发立即执行
+hermes cron remove <job_id>         # 删除 job
+```
+
+Related Docs
+
+* Cron Feature Guide
+* Gateway Internals
+* Agent Loop Internals
+

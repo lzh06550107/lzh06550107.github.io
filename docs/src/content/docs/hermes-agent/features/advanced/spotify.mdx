@@ -1,0 +1,271 @@
+---
+title: Spotify
+description: hermes agent Spotify
+---
+
+Hermes 可以直接控制 Spotify —— 包括播放、队列、搜索、歌单、已保存的歌曲/专辑以及收听历史 —— 这一切都是利用基于 PKCE OAuth 的 Spotify 官方 Web API 实现的。令牌（Tokens）存储在 `~/.hermes/auth.json` 中，并在遇到 401 错误时自动刷新；每台机器您只需登录一次。
+
+与 Hermes 内置的 OAuth 集成（如 Google、GitHub Copilot、Codex）不同，Spotify 要求每位用户注册属于自己的轻量级开发者应用。Spotify 不允许第三方发布可供所有人使用的公开 OAuth 应用。这一过程大约需要两分钟，`hermes auth spotify` 会引导您完成整个操作。
+
+## 前提条件（Prerequisites）
+
+* **一个 Spotify 账号。** 免费版（Free）即可使用搜索、歌单、媒体库和活动工具。高级版（Premium）则是播放控制（播放、暂停、跳过、进度跳转、音量、添加至队列、切换播放设备）的必要条件。
+* **已安装并正在运行 Hermes Agent。**
+* **针对播放工具：需要有一个处于活动状态的 Spotify Connect 设备** —— Spotify 应用必须在至少一台设备（手机、桌面端、网页播放器、音箱）上处于打开状态，这样 Web API 才有可控制的对象。如果没有设备处于活动状态，您将收到 **403 Forbidden** 报错，并伴有 “no active device（无活动设备）” 的提示；此时在任意设备上打开 Spotify 并重试即可。
+
+## 设置
+
+### 一键完成：`hermes tools`
+
+这是最快的路径。运行：
+
+```bash
+hermes tools
+```
+
+滚动到 **🎵 Spotify**，按空格键将其勾选开启，然后按 `s` 保存。Hermes 会直接带您进入 OAuth 流程 —— 如果您还没有 Spotify 应用，它会在线引导您创建一个。完成后，工具集便会同时处于启用且已认证的状态。
+
+如果您更喜欢将这些步骤分开执行（或者您稍后需要重新认证），请使用下面的两步走流程。
+
+### 两步走流程
+
+**1. 启用工具集**
+
+```bash
+hermes tools
+```
+
+将 **🎵 Spotify** 切换为开启状态并保存，当在线向导打开时，将其关闭（Ctrl+C）。此时工具集仍会保持开启状态；只有认证步骤被推迟了。
+
+**2. 运行登录向导**
+
+```bash
+hermes auth spotify
+```
+
+这 7 个 Spotify 工具只有在完成第 1 步后才会出现在智能体的工具集中 —— 它们默认是关闭的，这样不需要它们的用户就不用在每次 API 调用时都附带额外的工具架构（schemas）。
+
+如果没有设置 `HERMES_SPOTIFY_CLIENT_ID`，Hermes 会在线引导您完成应用注册：
+
+1. 在您的浏览器中打开 `https://developer.spotify.com/dashboard`
+2. 打印出需要粘贴到 Spotify “Create app（创建应用）” 表单中的准确数值
+3. 提示您输入获取到的 Client ID（客户端 ID）
+4. 将其保存到 `~/.hermes/.env` 中，以便后续运行跳过此步骤
+5. 直接进入 OAuth 授权同意流程
+
+在您批准之后，令牌将被写入 `~/.hermes/auth.json` 中的 `providers.spotify` 下。当前激活的推理供应商 **不会** 被更改 —— Spotify 认证是独立于您的 LLM 供应商的。
+
+## 创建 Spotify 应用（向导所需填写的内容）
+
+当控制面板打开后，点击 **Create app** 并填写以下内容：
+
+| 字段（Field） | 数值（Value） |
+| --- | --- |
+| **App name** | 任意内容（例如 `hermes-agent`） |
+| **App description** | 任意内容（例如 `personal Hermes integration`） |
+| **Website** | 留空 |
+| **Redirect URI** | `http://127.0.0.1:43827/spotify/callback` |
+| **Which API/SDKs?** | 勾选 **Web API** |
+
+勾选同意条款并点击 **Save**。在接下来的页面中点击 **Settings** → 复制 **Client ID** 并将其粘贴到 Hermes 的提示框中。这是 Hermes 唯一需要的数值 —— PKCE 架构不需要使用客户端密钥（client secret）。
+
+## 在 SSH / 无头（headless）环境中运行
+
+如果检测到设置了 `SSH_CLIENT` 或 `SSH_TTY`，Hermes 会在运行向导和 OAuth 步骤时自动跳过浏览器的主动打开。请复制 Hermes 打印出来的控制面板 URL 和授权 URL，在您本地机器的浏览器中打开它们并正常进行 —— 远程主机上的本地 HTTP 监听器依然会在 43827 端口上运行。如果您需要通过 SSH 隧道访问它，请转发该端口：`ssh -L 43827:127.0.0.1:43827 remote`。
+
+## 验证（Verify）
+
+```bash
+hermes auth status spotify
+```
+
+显示令牌是否存在以及访问令牌（access token）何时过期。刷新是自动进行的：当任何 Spotify API 调用返回 401 错误时，客户端会使用刷新令牌进行交换并重试一次。刷新令牌在 Hermes 重启后依然保持持久化，因此只有当您在 Spotify 账户设置中撤销了该应用，或者运行了 `hermes auth logout spotify` 时，才需要重新进行认证。
+
+## 使用方式
+
+登录成功后，智能体将可以使用 7 个 Spotify 工具。您只需以自然语言与智能体交谈 —— 它会自动选择正确的工具和操作。为了获得最佳的使用体验，智能体还会加载一个附带的技能（skill），用以学习规范的使用模式（例如：单次搜索后播放、何时无需预检 `get_state` 等）。
+
+```text
+> play some miles davis（播放一些迈尔斯·戴维斯的歌）
+> what am I listening to（我正在听什么歌？）
+> add this track to my Late Night Jazz playlist（将这首歌添加到我的深夜爵士歌单中）
+> skip to the next song（跳到下一首歌）
+> make a new playlist called "Focus 2026" and add the last three songs I played（创建一个名为 "Focus 2026" 的新歌单，并将我最近播放的三首歌添加进去）
+> which of my saved albums are by Radiohead（在我收藏的专辑中，哪些是电台司令的？）
+> search for acoustic covers of Blackbird（搜索 Blackbird 的不插电翻唱版本）
+> transfer playback to my kitchen speaker（将播放切换到我的厨房音箱上）
+```
+
+### 工具参考
+
+所有修改播放状态的操作均接受一个可选的 `device_id` 参数以指定特定的设备。如果省略，Spotify 将默认使用当前处于活动状态的设备。
+
+#### `spotify_playback`
+
+控制和查看播放状态，以及获取最近播放的历史记录。
+
+| 操作（Action） | 用途（Purpose） | 高级版限制（Premium?） |
+| --- | --- | --- |
+| `get_state` | 完整的播放状态（歌曲、设备、进度、随机/重复模式） | 否 |
+| `get_currently_playing` | 仅获取当前播放的歌曲（若返回 204 则代表为空 —— 详见下文） | 否 |
+| `play` | 开始/恢复播放。可选参数：`context_uri`、`uris`、`offset`、`position_ms` | 是 |
+| `pause` | 暂停播放 | 是 |
+| `next` / `previous` | 跳过当前歌曲 / 返回上一首 | 是 |
+| `seek` | 跳转至指定进度 `position_ms` | 是 |
+| `set_repeat` | 设置重复模式 `state = track / context / off` | 是 |
+| `set_shuffle` | 设置随机模式 `state = true / false` | 是 |
+| `set_volume` | 设置音量 `volume_percent = 0-100` | 是 |
+| `recently_played` | 最近播放的歌曲。可选参数：`limit`、`before`、`after`（Unix 毫秒时间戳） | 否 |
+
+#### `spotify_devices`
+
+| 操作（Action） | 用途（Purpose） |
+| --- | --- |
+| `list` | 列出您账户可见的每一个 Spotify Connect 设备 |
+| `transfer` | 将播放切换至 `device_id`。可选参数 `play: true` 可在切换后立即开始播放 |
+
+#### `spotify_queue`
+
+| 操作（Action） | 用途（Purpose） | 高级版限制（Premium?） |
+| --- | --- | --- |
+| `get` | 获取当前正在排队的歌曲 | 否 |
+| `add` | 将 `uri` 追加到队列末尾 | 是 |
+
+#### `spotify_search`
+
+搜索目录。必须传入 `query`（查询词）。可选参数：`types`（包含 `track / album / artist / playlist / show / episode` 的数组）、`limit`、`offset`、`market`。
+
+#### `spotify_playlists`
+
+| 操作（Action） | 用途（Purpose） | 必填参数（Required args） |
+| --- | --- | --- |
+| `list` | 用户的歌单列表 | — |
+| `get` | 获取单个歌单及歌曲 | `playlist_id` |
+| `createNew` | 创建新歌单 | `name`（可选参数：`description`、`public`、`collaborative`） |
+| `add_items` | 添加歌曲 | `playlist_id`、`uris`（可选参数：`position`） |
+| `remove_items` | 移除歌曲 | `playlist_id`、`uris`（可选参数：`snapshot_id`） |
+| `update_details` | 重命名 / 编辑歌单信息 | `playlist_id` + `name`、`description`、`public`、`collaborative` 中的任意参数 |
+
+#### `spotify_albums`
+
+| 操作（Action） | 用途（Purpose） | 必填参数（Required args） |
+| --- | --- | --- |
+| `get` | 获取专辑元数据 | `album_id` |
+| `tracks` | 获取专辑中的歌曲列表 | `album_id` |
+
+#### `spotify_library`
+
+统一访问已保存的歌曲和专辑。可通过 `kind` 参数选择对应的集合。
+
+* **必填参数：** `kind = tracks` 或 `albums`，以及对应的 `action`。
+
+| 操作（Action） | 用途（Purpose） |
+| --- | --- |
+| `list` | 分页列出媒体库内容 |
+| `save` | 将 `ids / uris` 添加到媒体库 |
+| `remove` | 从媒体库中移除 `ids / uris` |
+
+### 功能矩阵：免费版与高级版（Feature matrix: Free vs Premium）
+
+只读工具适用于免费版账号。任何修改播放状态或队列的操作均需要高级版。
+
+| 适用于免费版（Works on Free） | 需要高级版（Premium required） |
+| --- | --- |
+| `spotify_search`（全部） | `spotify_playback` —— play, pause, next, previous, seek, set_repeat, set_shuffle, set_volume |
+| `spotify_playback` —— get_state, get_currently_playing, recently_played | `spotify_queue` —— add |
+| `spotify_devices` —— list | `spotify_devices` —— transfer |
+| `spotify_queue` —— get |  |
+| `spotify_playlists`（全部） |  |
+| `spotify_albums`（全部） |  |
+| `spotify_library`（全部） |  |
+
+## 定时任务：Spotify + cron（Scheduling: Spotify + cron）
+
+由于 Spotify 工具属于常规的 Hermes 工具，因此在 Hermes 会话中运行的 cron 定时任务可以按照任何计划时间来触发播放。无需编写新代码。
+
+### 早晨唤醒歌单（Morning wake-up playlist）
+
+```bash
+hermes cron add \
+  --name "morning-commute" \
+  "0 7 * * 1-5" \
+  "Transfer playback to my kitchen speaker and start my 'Morning Commute' playlist. Volume to 40. Shuffle on."
+```
+
+**工作日每天早晨 7 点会发生什么：**
+
+1. Cron 会启动一个无头（headless）的 Hermes 会话。
+2. 智能体读取提示词，调用 `spotify_devices list` 根据名称找到“kitchen speaker”，然后依次调用 `spotify_devices transfer` → `spotify_playback set_volume` → `spotify_playback set_shuffle` → `spotify_search` + `spotify_playback play`。
+3. 音乐在目标音箱上开始播放。总成本：一个会话，几次工具调用，无需人工干预。
+
+### 夜间放松（Wind-down at night）
+
+```bash
+hermes cron add \
+  --name "wind-down" \
+  "30 22 * * *" \
+  "Pause Spotify. Then set volume to 20 so it's quiet when I start it again tomorrow."
+```
+
+### 注意事项（Gotchas）
+
+* **当 cron 触发时，必须存在一个处于活动状态的设备。** 如果没有任何 Spotify 客户端（手机/电脑/Connect 音箱）在运行，播放操作将返回 `403 no active device`。对于早晨的歌单，小技巧是将目标设定为一个始终在线的设备（如 Sonos、Echo、智能音箱），而不是你的手机。
+* **任何修改播放状态的操作均需要高级版（Premium）** —— 包括播放、暂停、跳过、音量调节、切换设备。只读类的 cron 定时任务（例如定时“将我最近播放的曲目通过邮件发送给我”）在免费版上可以正常工作。
+* **Cron 智能体会继承你当前启用的工具集。** 必须在 `hermes tools` 中启用 Spotify，cron 会话才能看到 Spotify 工具。
+* **Cron 定时任务运行时会带有 `skip_memory=True**`，因此它们不会向你的记忆库中写入内容。
+
+完整的 cron 参考指南：[Cron 任务](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron)。
+
+## 退出登录（Sign out）
+
+```bash
+hermes auth logout spotify
+```
+
+从 `~/.hermes/auth.json` 中移除令牌。若要同时清除应用配置，请从 `~/.hermes/.env` 中删除 `HERMES_SPOTIFY_CLIENT_ID`（以及 `HERMES_SPOTIFY_REDIRECT_URI`，如果您设置了的话），或者重新运行向导。
+
+若要在 Spotify 端撤销该应用，请访问 [连接到您账户的应用](https://www.spotify.com/account/apps/) 并点击 **移除访问权限（REMOVE ACCESS）**。
+
+## 故障排除（Troubleshooting）
+
+* **403 Forbidden — Player command failed: No active device found** —— 您需要至少在一台设备上运行 Spotify。请在您的手机、电脑或网页播放器上打开 Spotify 应用，随便播放一首歌曲几秒钟以注册该设备，然后重试。运行 `spotify_devices list` 可以查看当前可见的设备。
+* **403 Forbidden — Premium required** —— 您正在使用免费版账户尝试执行修改播放状态的操作。请参阅上文的功能矩阵。
+* **get_currently_playing 返回 204 No Content** —— 当前没有任何设备在播放内容。这是 Spotify 的正常响应，而非错误；Hermes 会将其呈现为一个带解释性的空结果（`is_playing: false`）。
+* **INVALID_CLIENT: Invalid redirect URI** —— 您 Spotify 应用设置中的重定向 URI 与 Hermes 正在使用的不匹配。默认值为 `http://127.0.0.1:43827/spotify/callback`。您可以将该地址添加到您应用的允许重定向 URI 列表中，或者在 `~/.hermes/.env` 中将 `HERMES_SPOTIFY_REDIRECT_URI` 设置为您注册的任意内容。
+* **429 Too Many Requests** —— 触发了 Spotify 的速率限制。Hermes 会返回一个友好的错误提示；请等待一分钟后重试。如果该问题持续出现，您可能是在脚本中运行了紧密的循环 —— Spotify 的配额大约每 30 秒重置一次。
+* **持续返回 401 Unauthorized** —— 您的刷新令牌已被撤销（通常是因为您从账户中移除了该应用，或者该应用已被删除）。请重新运行 `hermes auth spotify`。
+* **向导没有打开浏览器** —— 如果您通过 SSH 连接或在没有显示器的容器中运行，Hermes 会检测到这一点并跳过自动打开步骤。请手动复制并打开它打印出的控制面板 URL。
+
+### 高级：自定义权限范围
+
+默认情况下，Hermes 会请求其附带的每个工具所需的全部权限范围（scopes）。如果您想限制访问权限，可以进行覆盖：
+
+```bash
+hermes auth spotify --scope "user-read-playback-state user-modify-playback-state playlist-read-private"
+```
+
+权限范围参考：[Spotify Web API 权限范围](https://developer.spotify.com/documentation/web-api/concepts/scopes)。如果您请求的权限范围少于某个工具所需的范围，该工具的调用将失败并返回 403 错误。
+
+### 高级：自定义客户端 ID / 重定向 URI
+
+```bash
+hermes auth spotify --client-id <id> --redirect-uri http://localhost:3000/callback
+```
+
+或者在 `~/.hermes/.env` 中进行永久设置：
+
+```env
+HERMES_SPOTIFY_CLIENT_ID=<your_id>
+HERMES_SPOTIFY_REDIRECT_URI=http://localhost:3000/callback
+```
+
+该重定向 URI 必须在您的 Spotify 应用设置中列入白名单。默认值几乎适用于所有人 —— 只有在 43827 端口被占用的情况下才需要更改它。
+
+### 文件的存储位置
+
+| 文件/位置 | 内容（Contents） |
+| --- | --- |
+| `~/.hermes/auth.json` → `providers.spotify` | 访问令牌（access token）、刷新令牌（refresh token）、过期时间、权限范围（scope）、重定向 URI |
+| `~/.hermes/.env` | `HERMES_SPOTIFY_CLIENT_ID`，以及可选的 `HERMES_SPOTIFY_REDIRECT_URI` |
+| **Spotify 应用（Spotify app）** | 由您在 `developer.spotify.com/dashboard` 拥有；包含客户端 ID（Client ID）和重定向 URI 白名单 |
+

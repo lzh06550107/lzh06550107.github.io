@@ -1,0 +1,148 @@
+---
+title: AI提供商
+description: hermes agent AI提供商
+---
+
+本页介绍如何为 Hermes Agent 设置推理提供商 —— 从 OpenRouter 和 Anthropic 等云 API，到 Ollama 和 vLLM 等自托管端点，再到高级路由和备用配置。你至少需要配置一个提供商才能使用 Hermes。
+
+## 推理提供商
+
+你至少需要一种连接到 LLM 的方式。使用 `hermes model` 可以交互式切换提供商和模型，也可以直接配置：
+
+| 提供商                  | 设置                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Nous Portal          | `hermes model`（OAuth，基于订阅）                                                                                    |
+| OpenAI Codex         | `hermes model`（ChatGPT OAuth，使用 Codex 模型）                                                                     |
+| GitHub Copilot       | `hermes model`（OAuth 设备码流程、`COPILOT_GITHUB_TOKEN`、`GH_TOKEN` 或 `gh auth token`）                               |
+| GitHub Copilot ACP   | `hermes model`（启动本地 `copilot --acp --stdio`）                                                                  |
+| Anthropic            | `hermes model`（通过 OAuth 使用 Claude Max + 额外使用额度；也支持 Anthropic API key 或手动 setup-token —— 见下方说明）                |
+| OpenRouter           | 在 `~/.hermes/.env` 中设置 `OPENROUTER_API_KEY`                                                                   |
+| NovitaAI             | 在 `~/.hermes/.env` 中设置 `NOVITA_API_KEY`（provider: `novita`，200+ 模型，Model API、Agent Sandbox、GPU Cloud）         |
+| AI Gateway           | 在 `~/.hermes/.env` 中设置 `AI_GATEWAY_API_KEY`（provider: `ai-gateway`）                                           |
+| z.ai / GLM           | 在 `~/.hermes/.env` 中设置 `GLM_API_KEY`（provider: `zai`）                                                         |
+| Kimi / Moonshot      | 在 `~/.hermes/.env` 中设置 `KIMI_API_KEY`（provider: `kimi-coding`）                                                |
+| Kimi / Moonshot（中国）  | 在 `~/.hermes/.env` 中设置 `KIMI_CN_API_KEY`（provider: `kimi-coding-cn`；别名：`kimi-cn`、`moonshot-cn`）               |
+| Arcee AI             | 在 `~/.hermes/.env` 中设置 `ARCEEAI_API_KEY`（provider: `arcee`；别名：`arcee-ai`、`arceeai`）                           |
+| GMI Cloud            | 在 `~/.hermes/.env` 中设置 `GMI_API_KEY`（provider: `gmi`；别名：`gmi-cloud`、`gmicloud`）                               |
+| MiniMax              | 在 `~/.hermes/.env` 中设置 `MINIMAX_API_KEY`（provider: `minimax`）                                                 |
+| MiniMax China        | 在 `~/.hermes/.env` 中设置 `MINIMAX_CN_API_KEY`（provider: `minimax-cn`）                                           |
+| Alibaba Cloud        | 在 `~/.hermes/.env` 中设置 `DASHSCOPE_API_KEY`（provider: `alibaba`）                                               |
+| Alibaba Coding Plan  | `DASHSCOPE_API_KEY`（provider: `alibaba-coding-plan`，别名：`alibaba_coding`）—— 单独的计费 SKU，不同的端点                    |
+| Kilo Code            | 在 `~/.hermes/.env` 中设置 `KILOCODE_API_KEY`（provider: `kilocode`）                                               |
+| Xiaomi MiMo          | 在 `~/.hermes/.env` 中设置 `XIAOMI_API_KEY`（provider: `xiaomi`，别名：`mimo`、`xiaomi-mimo`）                           |
+| Tencent TokenHub     | 在 `~/.hermes/.env` 中设置 `TOKENHUB_API_KEY`（provider: `tencent-tokenhub`，别名：`tencent`、`tokenhub`、`tencentmaas`） |
+| OpenCode Zen         | 在 `~/.hermes/.env` 中设置 `OPENCODE_ZEN_API_KEY`（provider: `opencode-zen`）                                       |
+| OpenCode Go          | 在 `~/.hermes/.env` 中设置 `OPENCODE_GO_API_KEY`（provider: `opencode-go`）                                         |
+| DeepSeek             | 在 `~/.hermes/.env` 中设置 `DEEPSEEK_API_KEY`（provider: `deepseek`）                                               |
+| Hugging Face         | 在 `~/.hermes/.env` 中设置 `HF_TOKEN`（provider: `huggingface`，别名：`hf`）                                            |
+| Google / Gemini      | 在 `~/.hermes/.env` 中设置 `GOOGLE_API_KEY`（或 `GEMINI_API_KEY`）（provider: `gemini`）                               |
+| Google Gemini（OAuth） | `hermes model` → “Google Gemini (OAuth)”（provider: `google-gemini-cli`，支持免费额度，浏览器 PKCE 登录）                    |
+| LM Studio            | `hermes model` → “LM Studio”（provider: `lmstudio`，可选 `LM_API_KEY`）                                            |
+| Custom Endpoint      | `hermes model` → 选择 “Custom endpoint”（保存到 `config.yaml`）                                                      |
+
+对于官方 API key 路径，请参阅专门的 Google Gemini 指南。
+
+:::tip[模型 key 别名]
+在 `model:` 配置部分中，你可以使用 `default:` 或 `model:` 作为模型 ID 的 key 名称。`model: { default: my-model }` 和 `model: { model: my-model }` 的作用完全相同。
+:::
+
+### 通过 OAuth 使用 Google Gemini（google-gemini-cli）
+
+`google-gemini-cli` 提供商使用 Google 的 Cloud Code Assist 后端 —— 也就是 Google 自己的 `gemini-cli` 工具所使用的同一个 API。它同时支持免费层级（个人账号拥有慷慨的每日配额）和付费层级（通过 GCP 项目使用 Standard/Enterprise）。
+
+**快速开始：**
+
+```bash
+hermes model
+# → 选择 "Google Gemini (OAuth)"
+# → 查看政策警告，确认
+# → 浏览器打开 accounts.google.com，登录
+# → 完成 —— Hermes 会在第一次请求时自动为你配置免费层级
+```
+
+Hermes 默认内置 Google 的公开 `gemini-cli` 桌面 OAuth 客户端 —— 也就是 Google 在其开源 `gemini-cli` 中包含的同一组凭据。桌面 OAuth 客户端不是机密客户端（PKCE 提供安全性）。你不需要安装 `gemini-cli`，也不需要注册自己的 GCP OAuth 客户端。
+
+**认证工作方式：**
+
+* PKCE 授权码流程，面向 `accounts.google.com`
+* 浏览器回调地址为 `http://127.0.0.1:8085/oauth2callback`（如果端口被占用，则使用临时端口回退）
+* Token 存储在 `~/.hermes/auth/google_oauth.json`（`chmod 0600`，原子写入，跨进程 `fcntl` 锁）
+* 在过期前 60 秒自动刷新
+* 无头环境（SSH、`HERMES_HEADLESS=1`）→ 粘贴模式回退
+* 进行中的刷新去重 —— 两个并发请求不会重复刷新
+* `invalid_grant`（刷新令牌被撤销）→ 凭据文件被清除，并提示用户重新登录
+
+**推理工作方式：**
+
+* 流量发送到 `https://cloudcode-pa.googleapis.com/v1internal:generateContent`（或用于流式输出的 `:streamGenerateContent?alt=sse`），而不是付费的 `v1beta/openai` 端点
+* 请求体会被包装为 `{project, model, user_prompt_id, request}`
+* OpenAI 形态的 `messages[]`、`tools[]`、`tool_choice` 会被转换为 Gemini 原生的 `contents[]`、`tools[].functionDeclarations`、`toolConfig` 形态
+* 响应会被转换回 OpenAI 形态，因此 Hermes 的其余部分无需改动即可正常工作
+
+**层级与项目 ID：**
+
+| 你的情况                                 | 需要做什么                                                                |
+| ------------------------------------ | -------------------------------------------------------------------- |
+| 个人 Google 账号，想使用免费层级                 | 什么都不用做 —— 登录后开始聊天                                                    |
+| Workspace / Standard / Enterprise 账号 | 设置 `HERMES_GEMINI_PROJECT_ID` 或 `GOOGLE_CLOUD_PROJECT` 为你的 GCP 项目 ID |
+| 受 VPC-SC 保护的组织                       | Hermes 会检测 `SECURITY_POLICY_VIOLATED` 并自动强制使用 standard-tier          |
+
+免费层级会在首次使用时自动配置一个由 Google 管理的项目。不需要 GCP 设置。
+
+配额监控：
+
+```bash
+/gquota
+```
+
+显示每个模型剩余的 Code Assist 配额，并带有进度条：
+
+```text
+Gemini Code Assist quota  (project: 123-abc)
+
+  gemini-2.5-pro                      ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░   85%
+  gemini-2.5-flash [input]            ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░   92%
+```
+
+:::caution[政策风险]
+Google 认为将 Gemini CLI OAuth 客户端用于第三方软件属于政策违规。一些用户报告称账号受到了限制。为了获得最低风险的体验，请改用 `gemini` 提供商，通过你自己的 API key 使用。Hermes 会在 OAuth 开始前显示预先警告，并要求明确确认。
+:::
+
+#### 自定义 OAuth 客户端（可选）：
+
+如果你更愿意注册自己的 Google OAuth 客户端 —— 例如，将配额和同意范围限定在你自己的 GCP 项目中 —— 请设置：
+
+```bash
+HERMES_GEMINI_CLIENT_ID=your-client.apps.googleusercontent.com
+HERMES_GEMINI_CLIENT_SECRET=...   # 对桌面客户端来说是可选的
+```
+
+在 `console.cloud.google.com/apis/credentials` 注册一个桌面应用 OAuth 客户端，并启用 Generative Language API。
+
+:::note[Codex 说明]
+OpenAI Codex 提供商通过设备码进行认证（打开一个 URL，输入代码）。Hermes 会将生成的凭据存储在自己的认证存储中，路径为 `~/.hermes/auth.json`，并且在存在 `~/.codex/auth.json` 时，可以从中导入现有 Codex CLI 凭据。不需要安装 Codex CLI。
+:::
+
+:::warning[警告]
+即使使用 Nous Portal、Codex 或自定义端点，某些工具（视觉、网页摘要、MoA）也会使用单独的“辅助”模型。默认情况下（`auxiliary.*.provider: "auto"`），Hermes 会将这些任务路由到你的主聊天模型 —— 也就是你在 `hermes model` 中选择的同一个模型。你可以单独覆盖每个任务，将其路由到更便宜/更快的模型（例如 OpenRouter 上的 Gemini Flash）—— 请参阅 [辅助模型](https://hermes-agent.nousresearch.com/docs/user-guide/configuration#auxiliary-models)。
+:::
+
+:::tip[Nous 工具网关]
+付费 Nous Portal 订阅用户还可以访问 [Tool Gateway](https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-gateway) —— 通过你的订阅路由网页搜索、图像生成、TTS 和浏览器自动化。不需要额外的 API key。它会在 `hermes model` 设置期间自动提供，也可以稍后通过 `hermes tools` 启用。
+:::
+
+### 模型管理的两个命令
+
+Hermes 有两个模型命令，它们用于不同的目的：
+
+| 命令             | 在哪里运行          | 作用                                       |
+| -------------- | -------------- | ---------------------------------------- |
+| `hermes model` | 你的终端中（不在任何会话内） | 完整设置向导 —— 添加提供商、运行 OAuth、输入 API key、配置端点 |
+| `/model`       | 在 Hermes 聊天会话内 | 在已经配置好的提供商和模型之间快速切换                      |
+
+如果你想切换到一个尚未设置过的提供商（例如你只配置了 OpenRouter，但想使用 Anthropic），你需要使用 `hermes model`，而不是 `/model`。先退出当前会话（`Ctrl+C` 或 `/quit`），运行 `hermes model`，完成提供商设置，然后启动一个新会话。
+
+### Anthropic (Native)
+
+
+

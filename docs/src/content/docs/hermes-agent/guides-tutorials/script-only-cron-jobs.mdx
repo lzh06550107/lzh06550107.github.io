@@ -1,0 +1,238 @@
+---
+title: 使用 Cron 自动化任何事情
+description: hermes agent 使用 Cron 自动化任何事情
+---
+
+有时候你已经确切知道自己想发送什么消息。你不需要 agent 对它进行推理 —— 你只需要一个脚本按定时器运行，并把它的输出（如果有）发送到 Telegram / Discord / Slack / Signal。
+
+Hermes 将其称为 **no-agent 模式**。它就是去掉 LLM 的 cron 系统。
+
+```text
+   ┌──────────────────┐          ┌──────────────────┐
+   │ scheduler tick   │  every   │ run script       │
+   │ (every N minutes)│ ──────▶ │ (bash or python) │
+   └──────────────────┘          └──────────────────┘
+                                          │
+                                          │ stdout
+                                          ▼
+                                 ┌──────────────────┐
+                                 │ delivery router  │
+                                 │ (telegram/disc…) │
+                                 └──────────────────┘
+```
+
+* **不调用 LLM**。零 tokens、零 agent 循环、零模型花费。
+* **脚本就是 job**。脚本决定是否告警。输出内容 → 消息会被发送。没有输出 → 静默 tick。
+* **Bash 或 Python**。`.sh` / `.bash` 文件会在 `/bin/bash` 下运行；任何其他扩展名都会在当前 Python 解释器下运行。`~/.hermes/scripts/` 中的任何内容都可以接受。
+* **同一个 scheduler**。它与 LLM jobs 一起存在于 `cronjob` 中 —— 暂停、恢复、列表、日志和投递目标都以相同方式工作。
+
+## 什么时候使用它
+
+在以下场景中使用 no-agent 模式：
+
+* Memory / disk / GPU watchdogs。每 5 分钟运行一次，只有在超过阈值时才告警。
+* CI hooks。部署完成 → 发布 commit SHA。构建失败 → 发送日志最后 100 行。
+* Periodic metrics。比如“每天上午 9 点发送 Stripe 收入”，只需简单 API 调用 + 格式化输出。
+* External event pollers。检查一个 API，在状态变化时告警。
+* Heartbeats。每隔 N 分钟 ping 一个 dashboard，证明主机仍然在线。
+
+当你需要 agent 决定要说什么时，使用普通的（LLM 驱动的）cron job —— 例如总结长文档、从 feed 中挑选有趣条目、起草适合人类阅读的消息。no-agent 路径适用于脚本的 stdout 本身就已经是消息的情况。
+
+## 从聊天中创建一个
+
+no-agent 模式真正的优势在于，agent 本身可以为你设置 watchdog —— 不需要编辑器、不需要 shell、不需要记住 CLI flags。你描述想要什么，Hermes 编写脚本、设置计划任务，并告诉你它什么时候会触发。
+
+### 示例 transcript
+
+> 你：每 5 分钟检查一次，如果 RAM 超过 85%，就在 Telegram 上提醒我
+> Hermes：（写入 `~/.hermes/scripts/memory-watchdog.sh`，然后调用带有 `no_agent=true` 的 `cronjob(...)`）
+> 已设置。每 5 分钟运行一次，只有当 RAM 超过 85% 时才提醒 Telegram。脚本：`memory-watchdog.sh`。Job ID：`abc123`。
+
+在底层，agent 会进行两次工具调用：
+
+```python
+# 1. Write the check script
+write_file(
+    path="~/.hermes/scripts/memory-watchdog.sh",
+    content='''#!/usr/bin/env bash
+ram_pct=$(free | awk '/^Mem:/ {printf "%d", $3 * 100 / $2}')
+if [ "$ram_pct" -ge 85 ]; then
+  echo "RAM ${ram_pct}% on $(hostname)"
+fi
+# Empty stdout = silent tick; no message sent.
+''',
+)
+```
+
+```python
+# 2. Schedule it — no_agent=True skips the LLM on every tick
+cronjob(
+    action="create",
+    schedule="every 5m",
+    script="memory-watchdog.sh",
+    no_agent=True,
+    deliver="telegram",
+    name="memory-watchdog",
+)
+```
+
+从那以后，每次 tick 都是免费的：scheduler 会运行脚本，如果 stdout 非空，就把它通过 Telegram 发送出去，并且永远不会触碰模型。
+
+### agent 会为你决定什么
+
+当你提出类似“当 X 时提醒我”或“每 N 分钟检查 Y，如果 Z 就告诉我”这样的请求时，Hermes 的 cronjob 工具描述会告诉它：只要消息内容完全由脚本决定，就使用 `no_agent=True`。当请求需要推理时，它会回退到普通的 LLM 驱动路径（例如“总结新的 issues”、“挑选最有趣的 headlines”、“起草一条友好的提醒”）。
+
+你不需要自己指定 `--no-agent`。只需要描述行为即可。
+
+### 从聊天中管理 watchdogs
+
+agent 可以像创建 jobs 一样暂停、恢复、编辑和删除它们：
+
+> 你：今晚停止 memory watchdog
+> Hermes：（调用 `cronjob(action='pause', job_id='abc123')`）
+> 已暂停。可以说“重新打开它”，或者通过 `hermes cron resume abc123` 恢复。
+> 你：把它改成每 15 分钟一次
+> Hermes：（调用 `cronjob(action='update', job_id='abc123', schedule='every 15m')`）
+
+完整生命周期（create / list / update / pause / resume / run-now / remove）都可以由 agent 使用，不需要你学习任何 CLI 命令。
+
+## 从 CLI 创建一个
+
+更喜欢 shell？CLI 路径可以用三条命令实现相同结果：
+
+```bash
+# 1. Write your script
+cat > ~/.hermes/scripts/memory-watchdog.sh <<'EOF'
+#!/usr/bin/env bash
+# Alert when RAM usage is over 85%. Silent otherwise.
+RAM_PCT=$(free | awk '/^Mem:/ {printf "%d", $3 * 100 / $2}')
+if [ "$RAM_PCT" -ge 85 ]; then
+  echo "⚠ RAM ${RAM_PCT}% on $(hostname)"
+fi
+# Empty stdout = silent run; no message sent.
+EOF
+chmod +x ~/.hermes/scripts/memory-watchdog.sh
+
+# 2. Schedule it
+hermes cron create "every 5m" \
+  --no-agent \
+  --script memory-watchdog.sh \
+  --deliver telegram \
+  --name "memory-watchdog"
+
+# 3. Verify
+hermes cron list
+hermes cron run <job_id>    # fire it once to test
+```
+
+这就是全部内容。没有 prompt、没有 skill、没有模型。
+
+## 脚本输出如何映射到投递
+
+| 脚本行为                                        | 结果                            |
+| ------------------------------------------- | ----------------------------- |
+| Exit 0，stdout 非空                            | stdout 会原样投递                  |
+| Exit 0，stdout 为空                            | 静默 tick —— 不投递                |
+| Exit 0，stdout 最后一行包含 `{"wakeAgent": false}` | 静默 tick（与 LLM jobs 共享 gate）   |
+| 非零退出码                                       | 投递错误告警（因此坏掉的 watchdog 不会静默失败） |
+| 脚本超时                                        | 投递错误告警                        |
+
+“为空时静默”的行为是经典 watchdog 模式的关键：脚本可以每分钟免费运行，但频道只有在确实需要注意时才会看到消息。
+
+## 脚本规则
+
+脚本必须位于 `~/.hermes/scripts/` 中。这一点在 job 创建时和运行时都会强制执行 —— 绝对路径、`~/` 展开，以及路径遍历模式（`../`）都会被拒绝。该目录也会与 LLM jobs 使用的 pre-check script gate 共享。
+
+解释器会根据文件扩展名选择：
+
+| 扩展名           | 解释器                         |
+| ------------- | --------------------------- |
+| `.sh`、`.bash` | `/bin/bash`                 |
+| 其他任何扩展名       | `sys.executable`（当前 Python） |
+
+我们有意不遵循 `#!/...` shebangs —— 保持解释器集合明确且较小，可以减少 scheduler 所信任的攻击面。
+
+## Schedule 语法
+
+与所有其他 cron jobs 相同：
+
+```bash
+hermes cron create "every 5m"        # interval
+hermes cron create "every 2h"
+hermes cron create "0 9 * * *"       # standard cron: 9am daily
+hermes cron create "30m"             # one-shot: run once in 30 minutes
+```
+
+完整语法请参见 cron 功能参考。
+
+## 投递目标
+
+`--deliver` 接受 gateway 所知道的一切。下面是一些常见形式：
+
+```bash
+--deliver telegram                       # platform home channel
+--deliver telegram:-1001234567890        # specific chat
+--deliver telegram:-1001234567890:17585  # specific Telegram forum topic
+--deliver discord:#ops
+--deliver slack:#engineering
+--deliver signal:+15551234567
+--deliver local                          # just save to ~/.hermes/cron/output/
+```
+
+对于 bot-token 平台（Telegram、Discord、Slack、Signal、SMS、WhatsApp），脚本运行时不需要正在运行的 gateway —— 该工具会使用已经在 `~/.hermes/.env` / `~/.hermes/config.yaml` 中配置好的凭证，直接调用每个平台的 REST endpoint。
+
+## 编辑和生命周期
+
+```bash
+hermes cron list                                    # see all jobs
+hermes cron pause <job_id>                          # stop firing, keep definition
+hermes cron resume <job_id>
+hermes cron edit <job_id> --schedule "every 10m"    # adjust cadence
+hermes cron edit <job_id> --agent                   # flip to LLM mode
+hermes cron edit <job_id> --no-agent --script …     # flip back
+hermes cron remove <job_id>                         # delete it
+```
+
+适用于 LLM jobs 的所有功能（暂停、恢复、手动触发、投递目标变更）也同样适用于 no-agent jobs。
+
+## 完整示例：磁盘空间告警
+
+```bash
+cat > ~/.hermes/scripts/disk-alert.sh <<'EOF'
+#!/usr/bin/env bash
+# Alert when / or /home is over 90% full.
+THRESHOLD=90
+df -h / /home 2>/dev/null | awk -v t="$THRESHOLD" '
+  NR > 1 && $5+0 >= t {
+    printf "⚠ Disk %s full on %s\n", $5, $6
+  }
+'
+EOF
+chmod +x ~/.hermes/scripts/disk-alert.sh
+
+hermes cron create "*/15 * * * *" \
+  --no-agent \
+  --script disk-alert.sh \
+  --deliver telegram \
+  --name "disk-alert"
+```
+
+当两个文件系统都低于 90% 时保持静默；当某个文件系统满了时，每个超过阈值的文件系统准确发送一行。
+
+## 与其他模式的比较
+
+| 方式                                    | 运行内容                         | 什么时候使用                                        |
+| ------------------------------------- | ---------------------------- | --------------------------------------------- |
+| `cronjob --no-agent`（本页）              | 你的脚本按 Hermes 的 schedule 运行   | 不需要推理的 recurring watchdogs / alerts / metrics |
+| `cronjob`（默认，LLM）                     | 带可选 pre-check script 的 Agent | 当消息内容需要基于数据进行推理时                              |
+| OS cron + curl 到 webhook subscription | 你的脚本按 OS schedule 运行         | 当 Hermes 本身可能不健康时（也就是你正在监控的对象）                |
+
+对于关键系统健康 watchdogs，如果它们必须在 gateway 宕机时仍然触发，请使用 OS 级 cron，并用普通的 `curl` 发送到 Hermes webhook subscription（或任何外部告警 endpoint）—— 这些会作为独立的 OS 进程运行，不依赖 Hermes 是否在线。in-gateway scheduler 更适合用于被监控对象是外部系统的情况。
+
+## 相关内容
+
+* [Automate Anything with Cron](https://hermes-agent.nousresearch.com/docs/guides/automate-with-cron) —— LLM 驱动的 cron 模式。
+* [Scheduled Tasks（Cron）reference](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron) —— 完整 schedule 语法、生命周期、投递路由。
+* [Webhook Subscriptions](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks) —— 用于外部 schedulers 的 fire-and-forget HTTP 入口。
+* [Gateway Internals](https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals) —— delivery-router 内部机制。
+

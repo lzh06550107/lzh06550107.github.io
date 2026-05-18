@@ -1,0 +1,143 @@
+---
+title: 图像生成
+description: hermes agent 图像生成
+---
+
+Hermes Agent 通过 FAL.ai 根据文本提示词生成图像。系统开箱即用支持九种模型，每种模型在速度、质量和成本之间都有不同的权衡。当前激活的模型可通过 `hermes tools` 进行用户配置，并持久化保存在 `config.yaml` 中。
+
+## 支持的模型
+
+| 模型 | 速度 | 优势 | 价格 |
+| --- | --- | --- | --- |
+| **fal-ai/flux-2/klein/9b** (默认) | `<1s` | 快速、文字清晰 | $0.006/百万像素 |
+| **fal-ai/flux-2-pro** | ~6s | 影棚级照片写实感 | $0.03/百万像素 |
+| **fal-ai/z-image/turbo** | ~2s | 中英双语，6B 参数 | $0.005/百万像素 |
+| **fal-ai/nano-banana-pro** | ~8s | Gemini 3 Pro，推理深度，文字渲染 | $0.15/千张 |
+| **fal-ai/gpt-image-1.5** | ~15s | 提示词遵循能力 | $0.034/张 |
+| **fal-ai/gpt-image-2** | ~20s | 顶级文字渲染 + 中日韩语言支持，世界感知的照片写实 | $0.04–0.06/张 |
+| **fal-ai/ideogram/v3** | ~5s | 最佳排版能力 | $0.03–0.09/张 |
+| **fal-ai/recraft/v4/pro/text-to-image** | ~8s | 设计、品牌系统、生产就绪型 | $0.25/张 |
+| **fal-ai/qwen-image** | ~12s | 基于大语言模型，处理复杂文本 | $0.02/百万像素 |
+
+价格为编写本文时的 FAL 报价；请查看 [fal.ai](https://fal.ai/) 获取当前数值。
+
+## 设置
+
+:::tip[Nous 订阅用户]
+
+如果你拥有 [Nous Portal](https://portal.nousresearch.com/) 付费订阅，可以通过工具网关 [Tool Gateway](https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-gateway) 使用图像生成功能，无需 FAL API 密钥。你的模型选择在两种路径下均可保持同步。
+
+如果受管网关针对特定模型返回 `HTTP 4xx` 错误，说明该模型尚未在门户端代理——智能体会告知你相关情况及补救措施（设置 `FAL_KEY` 以直接访问，或选择其他模型）。
+
+:::
+
+### 获取 FAL API 密钥
+
+1. 在 [fal.ai](https://fal.ai/) 注册。
+2. 从仪表板生成 API 密钥。
+
+### 配置并选择模型
+
+运行工具命令：
+
+```
+hermes tools
+```
+
+导航至 `🎨 Image Generation`，选择你的后端（Nous Subscription 或 FAL.ai），随后选择器将以对齐的表格列出所有支持的模型——使用方向键导航，回车键确认选择：
+
+```text
+  模型                            速度     优势                         价格
+  fal-ai/flux-2/klein/9b         <1s      快速、文字清晰                $0.006/MP   ← 当前使用中
+  fal-ai/flux-2-pro              ~6s      影棚级照片写实感              $0.03/MP
+  fal-ai/z-image/turbo           ~2s      中英双语，6B 参数             $0.005/MP
+  ...
+```
+
+你的选择将保存至 `config.yaml`：
+
+```yaml
+image_gen:
+  model: fal-ai/flux-2/klein/9b
+  use_gateway: false            # 如果使用 Nous 订阅则为 true
+```
+
+### GPT-Image 质量
+
+`fal-ai/gpt-image-1.5` 和 `fal-ai/gpt-image-2` 的请求质量固定为 `medium`（1024×1024 分辨率下约为每张 $0.034–$0.06）。我们没有向用户开放 `low` / `high` 档位的选项，以便让所有用户的 Nous Portal 账单保持可预测性——不同档位之间的成本差距可达 3 到 22 倍。如果你想要更经济的选择，请选择 Klein 9B 或 Z-Image Turbo；如果你追求更高质量，请使用 Nano Banana Pro 或 Recraft V4 Pro。
+
+## 使用方法
+
+面向智能体的模式（schema）被有意设计得极其精简——模型会自动采用你所配置的任何设置：
+
+* 生成一张带有樱花的宁静山地景观图
+* 创作一张睿智老猫头鹰的正方形肖像——使用排版模型
+* 为我制作一张未来城市景观，横屏比例
+
+## 宽高比
+
+从智能体的角度来看，所有模型都接受相同的三个宽高比。在内部，每个模型的原生尺寸规范会被自动填充：
+
+| 智能体输入 | image_size (flux/z-image/qwen/recraft/ideogram) | aspect_ratio (nano-banana-pro) | image_size (gpt-image-1.5) | image_size (gpt-image-2) |
+| --- | --- | --- | --- | --- |
+| **landscape (横屏)** | landscape_16_9 | 16:9 | 1536x1024 | landscape_4_3 (1024×768) |
+| **square (正方形)** | square_hd | 1:1 | 1024x1024 | square_hd (1024×1024) |
+| **portrait (竖屏)** | portrait_16_9 | 9:16 | 1024x1536 | portrait_4_3 (768×1024) |
+
+* **GPT Image 2** 映射到 4:3 预设而非 16:9，是因为其最小像素数要求为 655,360——而 `landscape_16_9` 预设（1024×576 = 589,824）会被拒绝。
+* 这种转换发生在 `_build_fal_payload()` 中——智能体代码永远不需要了解各个模型之间的模式差异。
+
+## 自动放大（Upscaling）
+
+通过 FAL 的 **Clarity Upscaler** 进行放大的功能是针对模型开启的：
+
+| 模型 | 是否放大？ | 原因 |
+| --- | --- | --- |
+| **fal-ai/flux-2-pro** | ✓ | 向后兼容（曾是选择器出现前的默认设置） |
+| **所有其他模型** | ✗ | 快速模型会失去其秒级生成的优势；高分辨率模型则不需要 |
+
+当运行放大时，它使用以下设置：
+
+* **放大倍数 (Upscale factor)**：2×
+* **创造力 (Creativity)**：0.35
+* **相似度 (Resemblance)**：0.6
+* **引导缩放 (Guidance scale)**：4
+* **推理步数 (Inference steps)**：18
+
+如果放大失败（网络问题、速率限制），将自动返回原始图像。
+
+## 内部工作原理
+
+1. **模型解析** —— `_resolve_fal_model()` 从 `config.yaml` 读取 `image_gen.model`，回退至 `FAL_IMAGE_MODEL` 环境变量，最后回退至 `fal-ai/flux-2/klein/9b`。
+2. **载荷构建** —— `_build_fal_payload()` 将你的 `aspect_ratio` 转换为模型的原生格式（预设枚举、宽高比枚举或 GPT 字面量），合并模型的默认参数，应用任何调用者覆盖，然后过滤出该模型的 `supports` 白名单，确保绝不发送不支持的键。
+3. **提交** —— `_submit_fal_request()` 通过直接的 FAL 凭据或受管的 Nous 网关进行路由。
+4. **放大** —— 仅在模型元数据包含 `upscale: True` 时运行。
+5. **交付** —— 最终图像 URL 返回给智能体，智能体发出 `MEDIA:<url>` 标签，平台适配器将其转换为原生媒体。
+
+## 调试
+
+启用调试日志：
+
+```
+export IMAGE_TOOLS_DEBUG=true
+```
+
+调试日志保存在 `./logs/image_tools_debug_<session_id>.json`，包含每次调用的详细信息（模型、参数、耗时、错误）。
+
+## 平台交付方式
+
+| 平台 | 交付方式 |
+| --- | --- |
+| **CLI** | 图像 URL 以 Markdown 格式打印 `![](url)` —— 点击即可打开 |
+| **Telegram** | 带有提示词作为说明文字的照片消息 |
+| **Discord** | 嵌入在消息中 |
+| **Slack** | URL 由 Slack 展开显示 |
+| **WhatsApp** | 媒体消息 |
+| **其他** | 纯文本格式的 URL |
+
+## 局限性
+
+* **需要 FAL 凭据**（直接使用 `FAL_KEY` 或 Nous 订阅）
+* **仅限文本生成图像** —— 此工具不支持局部重绘（inpainting）、图生图（img2img）或编辑
+* **临时 URL** —— FAL 返回的托管 URL 会在数小时或数天后失效；如需请本地保存
+* **各模型约束** —— 某些模型不支持 `seed`、`num_inference_steps` 等。`supports` 过滤器会自动丢弃不支持的参数；这是预期行为

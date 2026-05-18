@@ -52,38 +52,33 @@ export default defineConfig({
             ],
             sidebar: [
                 {
-                    label: 'Start Here',
-                    items: [
-                        { label: 'Getting Started', link: '/guides/getting-started/' },
-                        { label: 'Configuration', link: '/guides/configuration/' },
-                        { label: 'Customize the Theme', link: '/guides/theming/' },
-                    ],
+                    label: 'Getting Started',
+                    autogenerate: { directory: 'hermes-agent/getting-started',},   
                 },
                 {
-                    label: 'Showcase',
-                    items: [
-                        { label: 'Starlight Components', link: '/showcase/starlight-components/' },
-                        { label: 'Splash Pages', link: '/showcase/splash-pages/' },
-                        { label: 'Typography', link: '/showcase/typography/' },
-                    ],
+                    label: 'Using Hermes',
+                    autogenerate: { directory: 'hermes-agent/using-hermes',},   
                 },
                 {
-                    label: 'Splash Examples',
-                    items: [
-                        { label: 'Centered', link: '/showcase/splash/centered/' },
-                        { label: 'Centered Top', link: '/showcase/splash/centered-top/' },
-                        { label: 'Split Left', link: '/showcase/splash/split-left/' },
-                        { label: 'Split Right', link: '/showcase/splash/split-right/' },
-                        { label: 'Banner', link: '/showcase/splash/banner/' },
-                    ],
+                    label: 'Features',
+                    autogenerate: { directory: 'hermes-agent/features',},  
                 },
                 {
-                    label: 'Reference',
-                    items: [
-                        { label: 'Theme Components', link: '/reference/components/' },
-                        { label: 'Plugin API', link: '/reference/plugin-api/' },
-                    ],
+                    label: 'Messaging Platforms',
+                    autogenerate: { directory: 'hermes-agent/messaging-platforms',},  
                 },
+                {
+                    label: 'Integrations',
+                    autogenerate: { directory: 'hermes-agent/integrations',},  
+                },
+                {
+                    label: 'Guides & Tutorials',
+                    autogenerate: { directory: 'hermes-agent/guides-tutorials',},  
+                },
+                {
+                    label: 'Developer Guide',
+                    autogenerate: { directory: 'hermes-agent/developer-guide',},  
+                }
             ],
         }),
     ],

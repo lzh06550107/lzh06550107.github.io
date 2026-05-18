@@ -1,0 +1,364 @@
+---
+title: Plugin LLM 访问
+description: hermes agent Plugin LLM 访问
+---
+
+`ctx.llm` 是 plugin 发起 LLM 调用的受支持方式。Chat completion、结构化提取、同步、异步、带图片或不带图片 —— 同一个接口、同一个信任门控、同一套由 host 拥有的 credentials。
+
+当 plugins 需要做一些涉及模型、但不属于 agent conversation 的事情时，就会使用它。比如：一个 hook 将 tool error 重写成非工程师也能读懂的内容。一个 gateway adapter 在入站消息排队之前对其进行翻译。一个 slash command 总结一段很长的粘贴内容。一个 scheduled job 对昨天的活动进行评分，并向 status board 写入一行内容。一个 pre-filter 判断某条消息是否值得唤醒 agent。
+
+这些都是 agent 不应该参与其中的任务。它们只需要一次 LLM 调用、一个 typed answer，然后结束。
+
+## 最小可能调用
+
+```python
+result = ctx.llm.complete(messages=[{"role": "user", "content": "ping"}])
+return result.text
+```
+
+这就是完整 API，一行搞定。没有 key、没有 provider config、没有 SDK initialization。plugin 会使用用户当前正在使用的任何 provider 和 model —— 当用户切换 providers 时，plugin 会自动跟随。
+
+## 一个更完整的 chat 示例
+
+```python
+result = ctx.llm.complete(
+    messages=[
+        {"role": "system", "content": "Rewrite errors as one short sentence a non-engineer can act on."},
+        {"role": "user",   "content": traceback_text},
+    ],
+    max_tokens=64,
+    purpose="hooks.error-rewrite",
+)
+return result.text
+```
+
+`purpose` 是一个自由形式的 audit string —— 它会出现在 `agent.log` 和 `result.audit` 中，这样 operators 可以看到哪个 plugin 发起了哪个调用。它是可选的，但对于任何频繁触发的内容都推荐使用。
+
+## 结构化输出
+
+当 plugin 需要 typed answer 时，切换到 structured lane：
+
+```python
+result = ctx.llm.complete_structured(
+    instructions="Score this support reply for urgency (0–1) and pick a category.",
+    input=[{"type": "text", "text": message_body}],
+    json_schema=TRIAGE_SCHEMA,
+    purpose="support.triage",
+    temperature=0.0,
+    max_tokens=128,
+)
+
+if result.parsed["urgency"] > 0.8:
+    await dispatch_to_oncall(result.parsed["category"], message_body)
+```
+
+host 会向 provider 请求 JSON output，在本地作为 fallback 进行解析，如果安装了 `jsonschema`，则会根据你的 schema 进行验证，并在 `result.parsed` 上返回一个 Python object。如果 model 无法生成有效 JSON，`result.parsed` 为 None，而 `result.text` 会携带 raw response。
+
+## 这个 lane 给你什么
+
+* 一个调用，四种形态。`complete()` 用于 chat，`complete_structured()` 用于 typed JSON，`acomplete()` 和 `acomplete_structured()` 用于 asyncio。相同参数，相同 result objects。
+
+* Host-owned credentials。OAuth tokens、refresh flows、credential pool、per-task aux overrides —— Hermes 已经拥有的每一种 credential 概念都会生效。plugin 永远不会看到 token；host 会通过 `result.audit` 将调用归因回去。
+
+* Bounded。单次 sync 或 async 调用。没有 streaming，没有 tool loops，没有 conversation state 需要管理。声明 input，获取 result，返回。
+
+* Fail-closed trust。一个你从未配置过的 plugin 不能选择它自己的 provider、model、agent 或 stored credential。默认姿态是“使用用户正在使用的内容”。Operators 可以在 `config.yaml` 中按 plugin 选择性启用特定 overrides。
+
+## 快速开始
+
+下面有两个完整 plugins —— 一个 chat，一个 structured。两者都位于单个 `register(ctx)` 函数内，并且不需要任何外部配置，就可以基于用户当前 active 的任何 model 运行。
+
+### Chat completion —— `/tldr`
+
+```python
+def register(ctx):
+    ctx.register_command(
+        name="tldr",
+        handler=lambda raw: _tldr(ctx, raw),
+        description="Summarise the supplied text in one paragraph.",
+        args_hint="<text>",
+    )
+
+
+def _tldr(ctx, raw_args: str) -> str:
+    text = raw_args.strip()
+    if not text:
+        return "Usage: /tldr <text to summarise>"
+    result = ctx.llm.complete(
+        messages=[
+            {"role": "system",
+             "content": "Summarise the user's text in one tight paragraph. No preamble."},
+            {"role": "user", "content": text},
+        ],
+        max_tokens=256,
+        temperature=0.3,
+        purpose="tldr",
+    )
+    return result.text
+```
+
+`result.text` 是 model 的 response；`result.usage` 携带 token counts；`result.provider` 和 `result.model` 携带 attribution。
+
+### 结构化提取 —— `/paste-to-tasks`
+
+```python
+def register(ctx):
+    ctx.register_command(
+        name="paste-to-tasks",
+        handler=lambda raw: _paste_to_tasks(ctx, raw),
+        description="Turn freeform meeting notes into structured tasks.",
+        args_hint="<text>",
+    )
+
+
+_TASKS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "tasks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "owner":  {"type": "string"},
+                    "action": {"type": "string"},
+                    "due":    {"type": "string", "description": "ISO date or empty"},
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    "required": ["tasks"],
+}
+
+
+def _paste_to_tasks(ctx, raw_args: str) -> str:
+    if not raw_args.strip():
+        return "Usage: /paste-to-tasks <meeting notes>"
+    result = ctx.llm.complete_structured(
+        instructions=(
+            "Extract concrete action items from these meeting notes. "
+            "One task per actionable line. If no owner is named, leave 'owner' blank."
+        ),
+        input=[{"type": "text", "text": raw_args}],
+        json_schema=_TASKS_SCHEMA,
+        schema_name="meeting.tasks",
+        purpose="paste-to-tasks",
+        temperature=0.0,
+        max_tokens=512,
+    )
+    if result.parsed is None:
+        return f"Couldn't parse a response. Raw output:\n{result.text}"
+    lines = [f"- [{t.get('owner') or '?'}] {t['action']}" for t in result.parsed["tasks"]]
+    return "\n".join(lines) or "(no tasks found)"
+```
+
+第三个完整示例这次带有 image input，位于 `hermes-example-plugins` repo（参考 plugins 的 companion repo —— 不随 `hermes-agent` 本身捆绑）。对于 async surface（带有 `asyncio.gather()` 的 `acomplete()` / `acomplete_structured()`），请参见同一 repo 中的 `plugin-llm-async-example`。
+
+## 何时使用哪一个
+
+| 你想要……                                              | 使用                                       |
+| -------------------------------------------------- | ---------------------------------------- |
+| 自由形式文本响应（翻译、摘要、重写、生成）                              | `complete()`                             |
+| 多轮 prompt（system + few-shot examples + user）       | `complete()`                             |
+| 返回 typed dict，并根据 schema 验证                        | `complete_structured()`                  |
+| Image-or-text input，并返回 typed dict                 | `complete_structured()`                  |
+| 从 async code 中发起相同调用（gateway adapters、async hooks） | `acomplete()` / `acomplete_structured()` |
+
+其他所有内容 —— provider selection、model resolution、auth、fallback、timeout、vision routing —— 在这四种调用中都是一样的。
+
+## API surface
+
+`ctx.llm` 是 `agent.plugin_llm.PluginLlm` 的一个实例。
+
+### complete()
+
+```python
+result = ctx.llm.complete(
+    messages=[{"role": "user", "content": "Hi"}],
+    provider=None,         # 可选，受 gate 控制 — Hermes provider id（例如 "openrouter"）
+    model=None,            # 可选，受 gate 控制 — 该 provider 期望的任何字符串
+    temperature=None,
+    max_tokens=None,
+    timeout=None,          # 秒
+    agent_id=None,         # 可选，受 gate 控制
+    profile=None,          # 可选，受 gate 控制 — 显式 auth-profile 名称
+    purpose="optional-audit-string",
+)
+# → PluginLlmCompleteResult(text, provider, model, agent_id, usage, audit)
+```
+
+普通 chat completion。`messages` 是标准 OpenAI 形态 —— 一个由 `{"role": "...", "content": "..."}` dict 组成的 list。多轮 prompts（system + few-shot user/assistant pairs + final user）与使用 OpenAI SDK 时完全一样。
+
+`provider=` 和 `model=` 是独立的，并且遵循与 host 主配置相同的形态（`model.provider + model.model`）。只设置 `model=` 会使用用户 active provider 上的不同模型。同时设置两者则会完全切换 provider。任何一个参数如果没有 operator opt-in，都会抛出 `PluginLlmTrustError`。
+
+### complete_structured()
+
+```python
+result = ctx.llm.complete_structured(
+    instructions="What you want extracted.",
+    input=[
+        {"type": "text",  "text": "..."},
+        {"type": "image", "data": b"...", "mime_type": "image/png"},
+        {"type": "image", "url":  "https://..."},
+    ],
+    json_schema={...},     # 可选 — 触发 parsed result + validation
+    json_mode=False,       # 没有 schema 时设置为 True，仍然请求 JSON
+    schema_name=None,      # 可选的人类可读 schema 名称
+    system_prompt=None,
+    provider=None,         # 可选，受 gate 控制
+    model=None,            # 可选，受 gate 控制
+    temperature=None,
+    max_tokens=None,
+    timeout=None,
+    agent_id=None,
+    profile=None,
+    purpose=None,
+)
+# → PluginLlmStructuredResult(text, provider, model, agent_id,
+#                             usage, parsed, content_type, audit)
+```
+
+Inputs 是 typed text 或 image blocks（raw bytes 会自动 base64 编码为 `data:` URL）。当提供 `json_schema` 或 `json_mode=True` 时，host 会通过 `response_format` 向 provider 请求 JSON output，在本地作为 fallback 进行解析，并且如果安装了 `jsonschema`，会根据你的 schema 进行验证。
+
+`result.content_type == "json"` —— `result.parsed` 是一个匹配你的 schema 的 Python object。
+
+`result.content_type == "text"` —— parsing 或 validation 失败；检查 `result.text` 获取 raw model response。
+
+### Async
+
+```python
+result = await ctx.llm.acomplete(messages=...)
+result = await ctx.llm.acomplete_structured(instructions=..., input=...)
+```
+
+参数和 result types 与它们的 sync counterparts 相同。从 gateway adapters、async hooks，或任何已经运行在 asyncio loop 上的 plugin code 中使用这些方法。
+
+### Result attributes
+
+```python
+@dataclass
+class PluginLlmCompleteResult:
+    text: str                    # assistant 的 response
+    provider: str                # 例如 "openrouter", "anthropic"
+    model: str                   # provider 为此次调用返回的任何模型
+    agent_id: str                # 使用了谁的 model/auth
+    usage: PluginLlmUsage        # tokens + cache + cost estimate
+    audit: Dict[str, Any]        # plugin_id, purpose, profile
+
+@dataclass
+class PluginLlmStructuredResult(PluginLlmCompleteResult):
+    parsed: Optional[Any]        # 当 content_type == "json" 时的 JSON object
+    content_type: str            # "json" 或 "text"
+    # 提供 schema_name 时，audit 也会携带 schema_name
+```
+
+`usage` 携带 `input_tokens`、`output_tokens`、`total_tokens`、`cache_read_tokens`、`cache_write_tokens`，以及 provider 返回这些字段时的 `cost_usd`。
+
+## Trust gate
+
+默认行为是 fail-closed。没有 `plugins.entries` config block 时，plugin 可以：
+
+* 针对用户 active provider 和 model 运行四种方法中的任意一种，
+* 设置 request-shaping arguments（`temperature`、`max_tokens`、`timeout`、`system_prompt`、`purpose`、`messages`、`instructions`、`input`、`json_schema`），
+
+……仅此而已。`provider=`、`model=`、`agent_id=` 和 `profile=` 参数会抛出 `PluginLlmTrustError`，直到 operator opt-in。
+
+大多数 plugins 永远不需要本节内容。一个只调用 `ctx.llm.complete(messages=...)` 且不带 overrides 的 plugin，会运行在用户当前 active 的内容上，并且 zero-config 即可工作。下面的 block 只在 plugin 明确想要固定到与用户不同的 model 或 provider 时才相关。
+
+```yaml
+plugins:
+  entries:
+    my-plugin:
+      llm:
+        # 允许此 plugin 选择不同的 Hermes provider
+        # （必须是 Hermes 已经知道的 provider — 名称与
+        # `hermes model` 和 config.yaml model.provider 相同）。
+        allow_provider_override: true
+
+        # 可选，限制哪些 providers。使用 ["*"] 表示任意。
+        allowed_providers:
+          - openrouter
+          - anthropic
+
+        # 允许此 plugin 请求特定 model。
+        allow_model_override: true
+
+        # 可选，限制哪些 models。使用 ["*"] 表示任意。
+        # Models 会按 plugin 发送的字符串进行字面匹配 —
+        # Hermes 不会查找任何内容。
+        allowed_models:
+          - openai/gpt-4o-mini
+          - anthropic/claude-3-5-haiku
+
+        # 允许 cross-agent calls（少见）。
+        allow_agent_id_override: false
+
+        # 允许 plugin 请求特定 stored auth profile
+        # （例如同一 provider 上的不同 OAuth account）。
+        allow_profile_override: false
+```
+
+plugin id 是 flat plugins 的 manifest `name:` 字段，或 nested plugins 的 path-derived key（`image_gen/openai`、`memory/honcho` 等）。
+
+### gate 强制执行的内容
+
+| Override    | Default | Config key                      |
+| ----------- | ------- | ------------------------------- |
+| `provider=` | denied  | `allow_provider_override: true` |
+| ↳ allowlist | —       | `allowed_providers: [...]`      |
+| `model=`    | denied  | `allow_model_override: true`    |
+| ↳ allowlist | —       | `allowed_models: [...]`         |
+| `agent_id=` | denied  | `allow_agent_id_override: true` |
+| `profile=`  | denied  | `allow_profile_override: true`  |
+
+每个 override 都是独立受 gate 控制的。授予 `allow_model_override` 并不会同时授予 `allow_provider_override` —— 一个被信任可以选择 model 的 plugin，仍然会固定在用户 active provider 上，除非它也获得 provider gate。
+
+### gate 不需要强制执行的内容
+
+* Request-shaping arguments —— `temperature`、`max_tokens`、`timeout`、`system_prompt`、`purpose`、`messages`、`instructions`、`input`、`json_schema`、`schema_name`、`json_mode` —— 始终允许；它们不会选择 credentials 或 routes。
+* 默认 deny 姿态意味着未配置的 plugin 仍然可以做有用工作 —— 它只是运行在 active provider 和 model 上。Operators 只有在 plugins 想要更细的 routing 时，才需要考虑 `plugins.entries`。
+
+## host 拥有什么
+
+下面是 `ctx.llm` 为 plugin 处理、因此你不必处理的完整列表：
+
+* Provider resolution。读取用户 config 中的 `model.provider + model.model`（或 trusted 时的 explicit overrides）。
+* Auth。从 `~/.hermes/auth.json` / env 中拉取 API keys、OAuth tokens 或 refresh tokens，包括配置了 credential pool 时的 credential pool。plugin 永远看不到它们。
+* Vision routing。当提供 image input 且用户 active text model 是 text-only 时，host 会自动 fallback 到已配置的 vision model。
+* Fallback chain。如果用户 primary provider 发生 5xx 或 429，请求会先经过 Hermes 常规的 aggregator-aware fallback，然后才向 plugin 返回错误。
+* Timeout。遵守你的 `timeout=` 参数，并 fallback 到 `auxiliary.<task>.timeout` config 或 global aux default。
+* JSON shaping。当你请求 JSON 时，会向 provider 发送 `response_format`，然后如果 provider 返回 code-fenced response，则从本地重新解析。
+* Schema validation。当安装了 `jsonschema` 时，根据你的 `json_schema` 进行验证；否则记录一条 debug line 并跳过严格验证。
+* Audit log。每次调用都会向 `agent.log` 写入一条 INFO line，其中包含 plugin id、provider/model、purpose 和 token totals。
+
+## plugin 拥有什么
+
+* Request shape。chat 使用 `messages`，structured 使用 `instructions + input`。plugin 构建 prompt；host 运行它。
+* Schema。你想要返回的任何 shape。host 不会为你推断它。
+* Error handling。`complete_structured()` 会在空 inputs 和 schema-validation failure 时抛出 `ValueError`。当 trust gate 拒绝 override 时会触发 `PluginLlmTrustError`。其他任何内容（provider 5xx、未配置 credentials、timeout）都会抛出 `auxiliary_client.call_llm()` 抛出的内容。
+* Cost。每次调用都会运行在用户的付费 provider 上。不要不假思索地对每条 gateway message 循环调用 `complete()`，要考虑 token 花费。
+
+## 它在 plugin surface 中的位置
+
+现有的 `ctx.*` 方法会扩展一个已有的 Hermes subsystem：
+
+| `ctx.register_tool`               | 添加一个 agent 可调用的 tool  |
+| --------------------------------- | --------------------- |
+| `ctx.register_platform`           | 接入新的 gateway adapter  |
+| `ctx.register_image_gen_provider` | 替换 image-gen backend  |
+| `ctx.register_memory_provider`    | 替换 memory backend     |
+| `ctx.register_context_engine`     | 替换 context compressor |
+| `ctx.register_hook`               | 观察 lifecycle event    |
+
+`ctx.llm` 是第一个让 plugin 能够在带外运行用户正在对话的同一个 model 的 surface，而不属于上述任何一种。这就是它唯一的职责。如果你的 plugin 需要注册一个由 agent 调用的 tool，请使用 `register_tool`。如果它需要响应 lifecycle event，请使用 `register_hook`。如果它需要自己发起 model call —— 无论什么原因，结构化或非结构化 —— 使用 `ctx.llm`。
+
+## 参考
+
+* Implementation：`agent/plugin_llm.py`
+* Tests：`tests/agent/test_plugin_llm.py`
+* Reference plugins（companion repo）：
+    * `plugin-llm-example` —— 带 image input 的 sync structured extraction
+    * `plugin-llm-async-example` —— 使用 `asyncio.gather()` 的 async
+* Auxiliary client（底层 engine）：参见 Provider Runtime。
+
+

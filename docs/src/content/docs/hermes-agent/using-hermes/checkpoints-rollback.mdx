@@ -1,0 +1,233 @@
+---
+title: 检查点和 /rollback
+description: hermes agent 检查点和回滚使用指南
+---
+
+Hermes 代理可以在执行 **破坏性操作** 之前自动为您的项目拍摄快照，并可以通过单个命令进行恢复。从 v2 版本开始，检查点（Checkpoints）功能为 **选择性开启（opt-in）**——由于大多数用户从不使用 `/rollback`，且影子存储（shadow-store）随时间增长会占用不少空间，因此默认关闭。
+
+使用 `--checkpoints` 参数为每个会话启用检查点：
+
+```bash
+hermes chat --checkpoints
+```
+
+或在 `~/.hermes/config.yaml` 中全局启用：
+
+```yaml
+checkpoints:
+  enabled: true
+```
+
+这个安全网由内部的检查点管理器（Checkpoint Manager）驱动，它在 `~/.hermes/checkpoints/store/` 下维护一个单一的共享影子 Git 仓库——您的实际项目 `.git` 永远不会被触碰。代理工作的每个项目都共享同一个存储库，因此 Git 的内容寻址对象数据库可以在跨项目和跨轮次之间进行去重。
+
+## 什么会触发检查点
+
+在以下操作之前会自动执行检查点拍摄：
+
+* **文件工具** —— `write_file` 和 `patch`
+* **破坏性终端命令** —— `rm`, `rmdir`, `cp`, `install`, `mv`, `sed -i`, `truncate`, `dd`, `shred`，输出重定向 (`>`) 以及 `git reset/clean/checkout`
+
+代理在每个会话轮次中对每个目录 **最多创建一次检查点**，因此长时间运行的会话不会产生泛滥的快照。
+
+## 快速参考
+
+**会话内斜杠命令：**
+
+| 命令 | 说明 |
+| --- | --- |
+| `/rollback` | 列出所有检查点及其变更统计 |
+| `/rollback <N>` | 恢复到检查点 N（同时撤销上一轮对话） |
+| `/rollback diff <N>` | 预览检查点 N 与当前状态之间的差异 |
+| `/rollback <N> <file>` | 从检查点 N 恢复单个文件 |
+
+**用于在会话外检查和管理存储的 CLI：**
+
+| 命令 | 说明 |
+| --- | --- |
+| `hermes checkpoints` | 显示总大小、项目计数、各项目明细 |
+| `hermes checkpoints status` | 与裸命令 `checkpoints` 相同 |
+| `hermes checkpoints list` | `status` 的别名 |
+| `hermes checkpoints prune` | 强制清理：删除孤立/过期条目、执行 GC、强制执行大小限制 |
+| `hermes checkpoints clear` | 清空整个检查点库（执行前会询问） |
+| `hermes checkpoints clear-legacy` | 仅删除从 v1 迁移过来的 `legacy-*` 归档 |
+
+## 检查点工作原理
+
+高层流程如下：
+
+1. Hermes 检测到工具即将 **修改** 工作树中的文件。
+2. 在每次对话轮次（每个目录）中，它会：
+
+  * 为该文件解析一个合理的项目根目录。
+  * 初始化或重用位于 `~/.hermes/checkpoints/store/` 的 **单一共享影子存储**。
+  * 暂存到各项目的索引（index）中，构建树对象，并提交到各项目的引用（refs/hermes/）。
+
+3. 这些各项目的引用形成了检查点历史记录，您可以通过 `/rollback` 进行检查和恢复。
+
+![检查点工作原理示意图](/images/checkpoint-1.png)
+
+## 配置
+
+在 `~/.hermes/config.yaml` 中配置：
+
+```yaml
+checkpoints:
+  enabled: false              # 总开关（默认：false — 需手动开启）
+  max_snapshots: 20           # 每个项目最大检查点数量（通过引用重写 + gc 强制执行）
+  max_total_size_mb: 500      # 存储总大小硬上限；超出后丢弃最旧的提交
+  max_file_size_mb: 10        # 跳过任何大于此大小的单个文件
+
+  # 自动维护（默认开启）：启动时扫描 ~/.hermes/checkpoints/
+  # 并删除其工作目录已不存在的项目条目（孤立条目）
+  # 或最后访问时间早于 retention_days 的条目。
+  # 运行频率最高为每 min_interval_hours 一次，通过 .last_prune 标记跟踪。
+  auto_prune: true
+  retention_days: 7
+  delete_orphans: true
+  min_interval_hours: 24
+```
+
+若要禁用所有功能：
+
+```yaml
+checkpoints:
+  enabled: false
+  auto_prune: false
+```
+
+当 `enabled: false` 时，检查点管理器不执行任何操作。当 `auto_prune: false` 时，存储会持续增长，直到您手动运行 `hermes checkpoints prune`。
+
+## 列出检查点
+
+在 CLI 会话中输入：
+
+```
+/rollback
+```
+
+Hermes 将返回显示变更统计的格式化列表：
+
+```
+📸 Checkpoints for /path/to/project:
+
+1. 4270a8c  2026-03-16 04:36  before patch  (1 file, +1/-0)
+2. eaf4c1f  2026-03-16 04:35  before write_file
+3. b3f9d2e  2026-03-16 04:34  before terminal: sed -i s/old/new/ config.py  (1 file, +1/-1)
+
+/rollback <N>             恢复到检查点 N
+/rollback diff <N>        预览自检查点 N 以来的变更
+/rollback <N> <file>      从检查点 N 恢复单个文件
+```
+
+## 从终端检查存储
+
+```
+hermes checkpoints
+```
+
+示例输出：
+
+```text
+Checkpoint base: /home/you/.hermes/checkpoints
+Total size:      142.3 MB
+  store/         138.1 MB
+  legacy-*       4.2 MB
+Projects:        12
+
+  WORKDIR                                                       COMMITS    LAST TOUCH  STATE
+  /home/you/code/hermes-agent                                        20       2h ago  live
+  /home/you/code/experiments/rl-runner                                8       1d ago  live
+  /home/you/code/old-prototype                                        3       9d ago  orphan
+  ...
+
+Legacy archives (1):
+  legacy-20260506-050616                           4.2 MB
+
+使用以下命令清除：hermes checkpoints clear-legacy
+```
+
+强制执行完整清理（忽略 24 小时幂等性标记）：
+
+```bash
+hermes checkpoints prune --retention-days 3 --max-size-mb 200
+```
+
+## 使用 `/rollback diff` 预览变更
+
+在执行恢复之前，预览自某个检查点以来发生了哪些变化：
+
+```
+/rollback diff 1
+```
+
+这将显示 Git diff 统计摘要以及实际的代码差异。
+
+## 使用 `/rollback` 进行恢复
+
+`/rollback 1`
+
+在幕后，Hermes 会：
+
+1. 验证目标提交是否存在于影子存储中。
+2. 拍摄当前状态的 **预恢复快照（pre-rollback snapshot）**，以便您稍后可以 “撤销撤销” 操作。
+3. 恢复工作目录中受追踪的文件。
+4. **撤销最后一轮对话**，使代理的上下文与恢复后的文件系统状态相匹配。
+
+## 单文件恢复
+
+仅从检查点恢复一个文件，而不影响目录中的其他部分：
+
+```
+/rollback 1 src/broken_file.py
+```
+
+## 安全与性能防护
+
+* **Git 可用性** —— 如果在 `PATH` 中找不到 `git`，检查点功能将透明地禁用。
+* **目录范围** —— Hermes 会跳过范围过大的目录（根目录 `/`，家目录 `$HOME`）。
+* **仓库大小** —— 文件数量超过 50,000 个的目录将被跳过。
+* **单文件大小上限** —— 大于 `max_file_size_mb`（默认 10 MB）的文件将不包含在快照中。防止意外吞噬数据集、模型权重或生成的媒体。
+* **存储总容量上限** —— 当存储超过 `max_total_size_mb`（默认 500 MB）时，将以轮询方式删除每个项目中最旧的提交，直到容量降至上限以下。
+* **真实修剪** —— `max_snapshots` 通过重写项目引用并在随后运行 `git gc --prune=now` 来强制执行，因此松散对象不会累积。
+* **无变更跳过** —— 如果自上次快照以来没有发生变更，则会跳过该检查点。
+* **非致命错误** —— 检查点管理器内部的所有错误仅以 debug 级别记录；您的工具将继续运行。
+
+## 检查点存储位置
+
+```text
+~/.hermes/checkpoints/
+  ├── store/                 # single shared bare git repo
+  │   ├── HEAD, objects/     # git internals (shared across projects)
+  │   ├── refs/hermes/<hash> # per-project branch tip
+  │   ├── indexes/<hash>     # per-project git index
+  │   ├── projects/<hash>.json  # workdir + created_at + last_touch
+  │   └── info/exclude
+  ├── .last_prune            # auto-prune idempotency marker
+  └── legacy-<ts>/           # archived pre-v2 per-project shadow repos
+```
+
+每个 `<hash>` 都是根据工作目录的绝对路径派生出来的。通常您无需手动处理这些文件 —— 请使用 `hermes checkpoints status` / `prune` / `clear` 命令。
+
+### 从 v1 版本迁移
+
+在 v2 重构之前，每个工作目录都会在 `~/.hermes/checkpoints/<hash>/` 下获得一个完整的独立影子 Git 仓库。那种布局无法在项目间去重对象，且修剪器无效——导致存储空间无限增长。
+
+在 v2 首次运行时，任何 v2 之前的影子仓库都会被移动到 `~/.hermes/checkpoints/legacy-<timestamp>/` 中，以便新的单一存储布局能干净地启动。旧的 `/rollback` 历史记录仍然可以通过手动检查 legacy 归档来访问；一旦您确定不再需要它们，请运行：
+
+```bash
+hermes checkpoints clear-legacy
+```
+
+以回收空间。Legacy 归档在 `retention_days` 天后也会被 `auto_prune` 自动清理。
+
+### 最佳实践
+
+* **仅在需要时启用检查点** —— 使用 `hermes chat --checkpoints` 或在特定 profile 中设置 `enabled: true`。
+* **恢复前使用 `/rollback diff**` —— 预览将要发生的变更，以选择正确的检查点。
+* **优先使用 `/rollback**` —— 当您只想撤销代理驱动的变更时，使用 `/rollback` 而不是 `git reset`。
+* **如果您经常使用检查点，请偶尔检查 `hermes checkpoints status**` —— 了解哪些项目是活跃的，以及存储占用的成本。
+* **结合 Git worktrees 使用以获得最高安全性** —— 将每个 Hermes 会话放在独立的工作树/分支中，并将检查点作为额外的保障层。
+
+关于在同一个仓库中并行运行多个代理，请参阅 [Git worktrees 指南](https://hermes-agent.nousresearch.com/docs/user-guide/git-worktrees)。
+
+

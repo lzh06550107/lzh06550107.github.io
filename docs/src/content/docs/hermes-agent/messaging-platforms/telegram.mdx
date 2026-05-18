@@ -1,0 +1,911 @@
+---
+title: Telegram 设置
+description: hermes agent Telegram 设置
+---
+
+Hermes Agent 作为功能全备的对话机器人与 Telegram 进行集成。连接成功后，您可以通过任何设备与您的智能体进行聊天、发送可自动转文字的语音备忘录、接收定时任务的结果，以及在群聊中使用该智能体。该集成基于 `python-telegram-bot` 构建，并支持文本、语音、图片和文件附件。
+
+## 步骤 1：通过 BotFather 创建机器人
+
+每个 Telegram 机器人均需要由 `@BotFather`（Telegram 官方机器人管理工具）签发的 API 令牌（token）。
+
+1. 打开 Telegram 并搜索 `@BotFather`，或访问 `t.me/BotFather`
+2. 发送 `/newbot`
+3. 选择一个**显示名称**（例如，“Hermes Agent”）—— 这可以是任何名称
+4. 选择一个**用户名** —— 这必须是唯一的，且必须以 `bot` 结尾（例如，`my_hermes_bot`）
+5. BotFather 将回复您的 **API 令牌**。它看起来像这样：
+
+```
+123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
+```
+
+:::caution[警告]
+请对您的机器人令牌严格保密。任何拥有此令牌的人都可以控制您的机器人。如果泄漏，请立即在 BotFather 中通过 `/revoke` 撤销它。
+:::
+
+## 步骤 2：自定义您的机器人（可选）
+
+以下 BotFather 命令可提升用户体验。给 @BotFather 发送消息并使用：
+
+| 命令 (Command) | 用途 (Purpose) |
+| --- | --- |
+| `/setdescription` | 用户开始聊天前显示的“这个机器人能做什么？”文本 |
+| `/setabouttext` | 机器人资料页面上的简介文本 |
+| `/setuserpic` | 为您的机器人上传头像 |
+| `/setcommands` | 自定义命令菜单（聊天框中的 `/` 按钮） |
+| `/setprivacy` | 控制机器人是否能查看所有群组消息（参见步骤 3） |
+
+:::tip[提示]
+
+对于 `/setcommands`，一个非常有用的初始命令集：
+
+```text
+help - 显示帮助信息
+new - 开始一段新对话
+sethome - 将当前聊天设置为原点频道
+```
+
+:::
+
+## 步骤 3：隐私模式（对群组至关重要）
+
+Telegram 机器人拥有一项 **默认启用** 的 **隐私模式（privacy mode）**。这是在群组中使用机器人时最常见的一个让人产生困惑的原因。
+
+**开启隐私模式时（ON）**，您的机器人只能看到：
+
+* 以斜杠 `/` 命令开头的消息
+* 直接回复给机器人自身消息的回复
+* 服务消息（成员加入/离开、置顶消息等）
+* 机器人作为管理员的频道中的消息
+
+**关闭隐私模式时（OFF）**，机器人会接收群组里的每一条消息。
+
+### 如何关闭隐私模式
+
+1. 向 `@BotFather` 发送消息
+2. 发送 `/mybots`
+3. 选择您的机器人
+4. 依次点击 **Bot Settings（机器人设置） → Group Privacy（群组隐私） → Turn off（关闭）**
+
+:::caution[警告]
+**更改隐私设置后，您必须在所有群组中将该机器人移除并重新添加。**当机器人加入群组时，Telegram 会缓存其隐私状态，除非将机器人移除并重新添加，否则该状态不会更新。
+:::
+
+:::tip[提示]
+关闭隐私模式的另一种替代方案：将机器人提升为 **群组管理员**。无论隐私设置如何，管理员机器人始终能接收所有消息，这样可以避免调整全局隐私模式。
+:::
+
+## 步骤 4：获取您的用户 ID（User ID）
+
+Hermes Agent 使用数字形式的 Telegram 用户 ID 来控制访问权限。您的用户 ID **不是** 您的用户名 —— 它是一个类似于 `123456789` 的数字。
+
+* **方法 1（推荐）：** 给 `@userinfobot` 发送消息 —— 它会立即回复您的用户 ID。
+* **方法 2：** 给 `@get_id_bot` 发送消息 —— 这是另一个可靠的选择。
+
+请保存好这个数字；您在下一步中将会用到它。
+
+## 步骤 5：配置 Hermes
+
+### 选项 A：交互式设置（推荐）
+
+```bash
+hermes gateway setup
+```
+
+出现提示时选择 `Telegram`。向导会向您询问机器人令牌（bot token）以及允许的用户 ID，然后为您写入配置。
+
+### 选项 B：手动配置
+
+将以下内容添加至 `~/.hermes/.env` 中：
+
+```env
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
+TELEGRAM_ALLOWED_USERS=123456789    # 多个用户请用逗号分隔
+```
+
+### 启动网关（Start the Gateway）
+
+```bash
+hermes gateway
+```
+
+机器人应该会在几秒钟内上线。在 Telegram 上给它发送一条消息来验证一下。
+
+### 从基于 Docker 的终端发送生成的文件
+
+如果您的终端后端是 `docker`，请记住 Telegram 附件是由网关进程（gateway process）发送的，而不是在容器内部发送的。这意味着最终的 `MEDIA:/...` 路径在运行网关的宿主机上必须是可读的。
+
+**常见陷阱：**
+
+1. 智能体在 Docker 内部将文件写入到 `/workspace/report.txt`
+2. 模型输出了 `MEDIA:/workspace/report.txt`
+3. Telegram 发送失败，因为 `/workspace/report.txt` 仅存在于容器内部，而不在宿主机上
+
+**推荐模式：**
+
+```yaml
+terminal:
+  backend: docker
+  docker_volumes:
+    - "/home/user/.hermes/cache/documents:/output"
+```
+
+然后：
+
+* 在 Docker 内部将文件写入到 `/output/...`
+* 在 `MEDIA:` 中输出**宿主机可见**的路径，例如：`MEDIA:/home/user/.hermes/cache/documents/report.txt`
+
+如果您已经有了 `docker_volumes:` 选项，请将新的挂载添加至同一个列表中。YAML 中的重复键会静默覆盖先前的键。
+
+### 支持的 `MEDIA:` 文件扩展名
+
+网关会从智能体的回复中提取 `MEDIA:/path/to/file` 标签，并将所引用的文件作为平台原生附件发送。所有网关平台支持的扩展名如下：
+
+| 类别 (Category) | 扩展名 (Extensions) |
+| --- | --- |
+| **图片 (Images)** | png, jpg, jpeg, gif, webp, bmp, tiff, svg |
+| **音频 (Audio)** | mp3, wav, ogg, m4a, opus, flac, aac |
+| **视频 (Video)** | mp4, mov, webm, mkv, avi |
+| **文档 (Documents)** | pdf, txt, md, csv, json, xml, html, yaml, yml, log |
+| **办公文档 (Office)** | docx, xlsx, pptx, odt, ods, odp |
+| **压缩包 (Archives)** | zip, rar, 7z, tar, gz, bz2 |
+| **书籍/安装包 (Books / packages)** | epub, apk, ipa |
+
+在支持原生附件的平台（Telegram、Discord、Signal、Slack、WhatsApp、飞书、Matrix 等）上，此列表中的任何内容都将作为原生附件交付；在没有原生支持的平台上，它会降级为链接或纯文本提示。**加粗**的类别是在最近的几个版本中新增的 —— 如果您以前依赖于让模型说 `here is the file: /path/to/report.docx`，现在请换成 `MEDIA:/path/to/report.docx` 以实现原生附件交付。
+
+## Webhook 模式 (Webhook Mode)
+
+默认情况下，Hermes 使用长轮询（long polling）连接到 Telegram —— 网关向 Telegram 服务器发送出站请求以获取新更新。这对于本地和全天候运行的部署方式非常有效。
+
+对于 **云端部署**（如 Fly.io、Railway、Render 等），**Webhook 模式** 更具成本效益。这些平台可以在收到入站 HTTP 流量时自动唤醒暂停的机器，但无法通过出站连接来唤醒。由于轮询属于出站请求，因此轮询模式下的机器人永远无法休眠。Webhook 模式反转了方向 —— 由 Telegram 将更新推送到您机器人的 HTTPS URL，从而实现了“闲置时休眠”的部署方式。
+
+| 特性 | 轮询 (Polling)（默认） | Webhook 模式 |
+| --- | --- | --- |
+| **方向** | 网关 → Telegram（出站） | Telegram → 网关（入站） |
+| **最适合** | 本地、全天候运行的服务器 | 具备自动唤醒功能的云平台 |
+| **设置** | 无需额外配置 | 需设置 `TELEGRAM_WEBHOOK_URL` |
+| **闲置成本** | 机器必须保持运行状态 | 机器可以在消息空闲期休眠 |
+
+### 配置 (Configuration)
+
+将以下内容添加至 `~/.hermes/.env` 中：
+
+```env
+TELEGRAM_WEBHOOK_URL=https://my-app.fly.dev/telegram
+TELEGRAM_WEBHOOK_SECRET="$(openssl rand -hex 32)"  # 必填
+# TELEGRAM_WEBHOOK_PORT=8443        # 选填，默认 8443
+```
+
+| 变量 | 是否必填 | 描述 |
+| --- | --- | --- |
+| **TELEGRAM_WEBHOOK_URL** | 是 | Telegram 发送更新的公网 HTTPS URL。URL 路径会被自动提取（例如上述示例中的 `/telegram`）。 |
+| **TELEGRAM_WEBHOOK_SECRET** | 是（当设置了 `TELEGRAM_WEBHOOK_URL` 时） | Telegram 在每个 Webhook 请求中返回的用于验证的密钥令牌。如果没有该令牌，网关将拒绝启动 —— 参见 GHSA-3vpc-7q5r-276h。可使用 `openssl rand -hex 32` 生成。 |
+| **TELEGRAM_WEBHOOK_PORT** | 否 | Webhook 服务器监听的本地端口（默认值：`8443`）。 |
+
+当设置了 `TELEGRAM_WEBHOOK_URL` 时，网关会启动一个 HTTP Webhook 服务器，而不是使用轮询。未设置时，则使用轮询模式 —— 行为与之前的版本相比没有变化。
+
+### 云端部署示例 (Fly.io)
+
+将环境变量添加至您的 Fly.io 应用机密（secrets）中：
+
+```bash
+fly secrets set TELEGRAM_WEBHOOK_URL=https://my-app.fly.dev/telegram
+fly secrets set TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 32)
+```
+
+在您的 `fly.toml` 中暴露 Webhook 端口：
+
+```toml
+[[services]]
+  internal_port = 8443
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+```
+
+部署：
+
+```bash
+fly deploy
+```
+
+网关日志应显示：`[telegram] Connected to Telegram (webhook mode).`
+
+## 代理支持（Proxy Support）
+
+如果 Telegram 的 API 被封锁，或者您需要通过代理路由流量，可以设置一个 Telegram 专属的代理 URL。这会优先于通用的 `HTTPS_PROXY` / `HTTP_PROXY` 环境变量。
+
+### 选项 1：config.yaml（推荐）
+
+```yaml
+telegram:
+  proxy_url: "socks5://127.0.0.1:1080"
+```
+
+### 选项 2：环境变量
+
+```env
+TELEGRAM_PROXY=socks5://127.0.0.1:1080
+```
+
+支持的协议方案（schemes）：`http://`、`https://`、`socks5://`。
+
+该代理同时适用于 Telegram 主连接以及备用 IP 传输。如果没有设置 Telegram 专属的代理，网关将降级使用 `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY`（或 macOS 系统代理自动检测）。
+
+## 原点频道（Home Channel）
+
+在任何 Telegram 聊天（私聊 DM 或群组）中使用 `/sethome` 命令，可将其指定为 **原点频道（home channel）**。定时任务（cron jobs）会将处理结果交付到该频道。
+
+您也可以在 `~/.hermes/.env` 中手动进行设置：
+
+```env
+TELEGRAM_HOME_CHANNEL=-1001234567890
+TELEGRAM_HOME_CHANNEL_NAME="My Notes"
+```
+
+:::tip[提示]
+群组聊天的 ID 是负数（例如：`-1001234567890`）。您的个人私聊（DM）聊天 ID 与您的用户 ID 相同。
+:::
+
+## 语音消息（Voice Messages）
+
+### 接收语音：语音转文字（Speech-to-Text）
+
+您在 Telegram 上发送的语音消息会被 Hermes 配置的 STT（语音转文字）服务商自动转录，并作为文本注入到对话中。
+
+* **local** —— 在运行 Hermes 的机器上使用 `faster-whisper` —— 无需 API 密钥
+* **groq** —— 使用 Groq Whisper，需要 `GROQ_API_KEY`
+* **openai** —— 使用 OpenAI Whisper，需要 `VOICE_TOOLS_OPENAI_KEY`
+
+### 发送语音：文字转语音（Text-to-Speech）
+
+当智能体通过 TTS（文字转语音）生成音频时，它会作为 Telegram 原生的语音气泡（voice bubbles）进行交付 —— 即那种圆形的、可在聊天流中直接播放的语音消息。
+
+* **OpenAI 和 ElevenLabs** —— 原生输出 Opus 格式 —— 无需额外设置
+* **Edge TTS**（默认的免费服务商）—— 输出 MP3 格式，需要安装 `ffmpeg` 才能转换为 Opus 格式：
+
+```bash
+# Ubuntu/Debian
+sudo apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+```
+
+如果没有安装 `ffmpeg`，Edge TTS 的音频将作为普通的音频文件发送（仍然可以播放，但会使用矩形播放器，而不是语音气泡）。
+
+请在您的 `config.yaml` 中，通过 `tts.provider` 键来配置 TTS 服务商。
+
+## 群聊使用指南（Group Chat Usage）
+
+Hermes Agent 可以在 Telegram 群聊中工作，但需要注意以下几点：
+
+* **隐私模式（Privacy mode）** 决定了机器人能看到哪些消息（参见 [步骤 3](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram#step-3-privacy-mode-critical-for-groups)）。
+* **`TELEGRAM_ALLOWED_USERS` 依然有效** —— 即使在群组中，也只有获得授权的用户才能触发机器人。
+* 您可以通过设置 `telegram.require_mention: true` 来防止机器人对普通的群聊闲聊做出响应。
+* **当启用 `telegram.require_mention: true` 时**，只有当群消息满足以下条件时才会被接受：
+    * 回复了机器人的某条消息
+    * 提及（艾特）了 `@botusername`
+    * 使用了 `/command@botusername`（Telegram 机器人菜单命令格式，包含了机器人名称）
+    * 匹配了您在 `telegram.mention_patterns` 中配置的某个正则表达式唤醒词
+
+
+* 使用 `telegram.ignored_threads` 可以让 Hermes 在特定的 Telegram 论坛话题（Topics）中保持静默，即使该群组原本允许自由响应或支持通过提及触发回复。
+* 如果 `telegram.require_mention` 未设置或为 `false`，Hermes 将保持先前的开放群组行为，并对它能看到的普通群消息做出响应。
+
+### 问题排查：在私聊（DM）中正常工作，但在群组中不响应
+
+如果机器人能在私聊中回复，但在群组中保持沉默，请依次检查以下关卡：
+
+1. **Telegram 消息送达：** 关闭 BotFather 的隐私模式、将机器人提升为管理员，或者直接艾特（mention）机器人。如果 Telegram 压根没有将群消息送达给机器人，Hermes 是无法做出响应的。
+2. **更改隐私模式后重新加入群组：** 在更改 BotFather 隐私设置后，将机器人移出群组并重新添加。对于已存在的成员关系，Telegram 可能会保留旧的消息送达行为。
+3. **Hermes 授权：** 确保发送者已被列入 `TELEGRAM_ALLOWED_USERS` 或 `TELEGRAM_GROUP_ALLOWED_USERS` 中，或者通过 `TELEGRAM_GROUP_ALLOWED_CHATS` 允许了该群组聊天。
+4. **提及过滤器（Mention filters）：** 如果设置了 `telegram.require_mention: true`，普通的群聊闲聊将被忽略，除非消息是斜杠命令、对机器人的回复、`@botusername` 艾特，或者是匹配了配置的 `mention_patterns`。
+
+负数的聊天 ID（chat ID）对于 Telegram 群组和超级群组来说是正常的。如果您使用针对聊天范围的授权，请将这些 ID 放入 `TELEGRAM_GROUP_ALLOWED_CHATS` 中，而不是放入发送者用户白名单中。
+
+### 群组触发配置示例
+
+将以下内容添加至 `~/.hermes/config.yaml`：
+
+```yaml
+telegram:
+  require_mention: true
+  mention_patterns:
+    - "^\\s*chompy\\b"
+  ignored_threads:
+    - 31
+    - "42"
+```
+
+该示例允许所有常规的直接触发方式，外加所有以 `chompy` 开头的消息（即使它们没有使用 `@` 艾特）。而在 Telegram 话题 `31` 和 `42` 中的消息，在进行提及检测和自由响应检查之前就会被直接忽略。
+
+### 关于 `mention_patterns` 的注意事项
+
+* 模式使用 Python 正则表达式。
+* 匹配时不区分大小写。
+* 模式会同时对文本消息和媒体描述（captions）进行检查。
+* 无效的正则表达式模式会被忽略，并在网关日志中记录警告，而不会导致机器人崩溃。
+* 如果您希望模式仅在消息开头处匹配，请使用 `^` 进行锚定。
+
+## 私聊话题（Private Chat Topics - Bot API 9.4）
+
+Telegram Bot API 9.4（2026年2月）引入了私聊话题（Private Chat Topics）功能 —— 机器人可以直接在 1对1 的私聊（DM）中创建论坛式的有轨话题，而无需超级群组。这让您可以在与 Hermes 的现有私聊中运行多个相互隔离的工作区。
+
+### 应用场景
+
+如果您正在处理多个长期运行的项目，话题功能可以保持各自上下文的独立性：
+
+* **“Website” 话题** —— 处理您的生产环境 Web 服务
+* **“Research” 话题** —— 进行文献评述和论文探索
+* **“General” 话题** —— 处理杂项任务和快速提问
+
+每个话题都拥有自己独立的对话会话、历史记录和上下文 —— 与其他话题完全隔离。
+
+### 配置 (Configuration)
+
+:::caution[前提条件]
+在将话题添加到配置之前，用户必须在与机器人的私聊窗口中 **启用话题模式**：
+
+1. 在 Telegram 中打开您与 Hermes 机器人的私聊。
+2. 点击顶部的机器人名称以打开聊天信息页面。
+3. 启用 **Topics**（将聊天转变为论坛的开关）。
+
+如果不进行此操作，Hermes 将在启动时记录 `The chat is not a forum` 日志并跳过话题创建。这是一个 Telegram 客户端侧的设置 —— 机器人无法通过程序自动启用它。
+:::
+
+将话题添加至 `~/.hermes/config.yaml` 中的 `platforms.telegram.extra.dm_topics` 下：
+
+```yaml
+platforms:
+  telegram:
+    extra:
+      dm_topics:
+      - chat_id: 123456789        # 您的 Telegram 用户 ID
+        topics:
+        - name: General
+          icon_color: 7322096
+        - name: Website
+          icon_color: 9367192
+        - name: Research
+          icon_color: 16766590
+          skill: arxiv              # 在该话题中自动加载某项技能
+```
+
+#### 字段说明：
+
+| 字段 (Field) | 是否必填 | 描述 |
+| --- | --- | --- |
+| **name** | 是 | 话题的显示名称 |
+| **icon_color** | 否 | Telegram 图标颜色代码（整数） |
+| **icon_custom_emoji_id** | 否 | 话题图标的自定义表情符号 ID |
+| **skill** | 否 | 在该话题的新会话中自动加载的技能（Skill） |
+| **thread_id** | 否 | 话题创建后自动填充 —— 请勿手动设置 |
+
+#### 工作原理
+
+* 在网关启动时，Hermes 会为每个尚未拥有 `thread_id` 的话题调用 `createForumTopic`。
+* `thread_id` 会自动保存回 `config.yaml` 中 —— 随后的重启将跳过该 API 调用。
+* 每个话题都映射到一个隔离的会话键（session key）：`agent:main:telegram:dm:{chat_id}:{thread_id}`。
+* 每个话题中的消息都拥有自己独立的对话历史、内存刷新和上下文窗口。
+
+#### 技能绑定（Skill binding）
+
+带有 `skill` 字段的话题在每次新会话启动时会自动加载该技能。这与在对话开始时输入 `/skill-name` 的效果完全相同 —— 技能内容会被注入到第一条消息中，随后的消息将会在对话历史中看到它。
+
+例如，一个带有 `skill: arxiv` 的话题，每当其会话重置（由于闲置超时、每日重置或手动执行 `/reset`）时，都会预先加载 arxiv 技能。
+
+:::tip[提示]
+在配置之外创建的话题（例如，通过手动调用 Telegram API 创建）会在收到 `forum_topic_created` 服务消息时被自动发现。您也可以在网关运行时将话题添加到配置中 —— 它们将在下一次缓存未命中时被捕获。
+:::
+
+## 多会话私聊模式（Multi-session DM mode - /topic）
+
+一种 ChatGPT 风格的多会话私聊 —— 一个机器人，多个并行对话。与上方由操作员维护的 `extra.dm_topics` 不同，此模式是 **用户驱动的**：无需配置，无需预先声明话题名称。最终用户只需使用 `/topic` 即可将其开启，然后点击 Telegram 的 `+` 按钮即可根据需要创建任意数量的话题，每一个话题都是一个完全独立的 Hermes 会话。
+
+### `/topic` 子命令
+
+| 格式 (Form) | 上下文 (Context) | 效果 (Effect) |
+| --- | --- | --- |
+| **`/topic`** | 根私聊（Root DM），尚未启用 | 检查 BotFather 功能，启用多会话模式，并创建置顶的系统（System）话题 |
+| **`/topic`** | 根私聊（Root DM），已启用 | 显示状态：可供恢复的未关联会话 |
+| **`/topic`** | 话题内部 | 显示当前话题的会话绑定情况 |
+| **`/topic help`** | 任意位置 | 嵌入式内联帮助说明 |
+| **`/topic off`** | 根私聊（Root DM） | 关闭多会话模式，并清除该聊天的所有话题绑定 |
+| **`/topic <session-id>`** | 话题内部 | 将之前的 Telegram 会话恢复到当前话题中 |
+
+只有获得授权的用户（通过 `TELEGRAM_ALLOWED_USERS` / 平台认证配置加入白名单）才能运行 `/topic`。未获授权的发送者将收到拒绝信息，而不会激活该功能。
+
+### 私聊话题 (DM Topics) vs 多会话私聊模式 (Multi-session DM mode)
+
+| 特性 | extra.dm_topics（配置驱动） | /topic（用户驱动） |
+| --- | --- | --- |
+| **激活者** | 操作员，在 `config.yaml` 中设置 | 最终用户，通过发送 `/topic` 激活 |
+| **话题列表** | 配置中声明的固定集合 | 用户可自由创建/删除话题 |
+| **话题名称** | 由操作员选定 | 由用户选定；会自动重命名以匹配 Hermes 会话标题 |
+| **根私聊行为** | 保持不变 —— 正常聊天 | 变成系统大厅（拒绝非命令消息） |
+| **主要应用场景** | 带有可选技能绑定的永久工作区 | 即时的并行会话 |
+| **持久化方式** | 配置中的 `extra.dm_topics` | `telegram_dm_topic_mode` + `telegram_dm_topic_bindings` SQLite 数据表 |
+
+这两种功能可以在同一个机器人上并存 —— 您可以在某个用户的私聊中运行 `/topic`，而 `extra.dm_topics` 将继续管理其他聊天中由操作员声明的话题。
+
+### 前提条件 (Prerequisites)
+
+在 `@BotFather` 中，打开您的机器人 → **Bot Settings（机器人设置） → Threads Settings（线程设置）**：
+
+1. 开启 **Threaded Mode**（启用 `has_topics_enabled`）
+2. **请勿**禁用用户创建话题的功能（保持 `allows_users_to_create_topics` 为开启状态）
+
+当用户首次运行 `/topic` 时，Hermes 会调用 `getMe` 来验证这两个标志。如果其中任何一个处于关闭状态，Hermes 将发送一张 BotFather 线程设置页面的截图并说明需要切换哪个开关 —— 在满足前提条件之前不会进行激活。
+
+### 激活流程 (Activation flow)
+
+在根私聊（Root DM）中发送：
+
+```text
+/topic
+```
+
+Hermes 将会：
+
+1. 检查 `getMe().has_topics_enabled` 和 `allows_users_to_create_topics`。
+2. 如果两者均为 `true`，则为该私聊启用多会话话题模式。
+3. 创建并置顶一个用于状态/命令的 **System（系统）** 话题（尽力而为）。
+4. 回复一份可供用户恢复的先前未关联的 Telegram 会话列表。
+
+激活后，**根私聊将变成一个大厅**：普通的提示词消息将被拒绝，并会显示指向 “所有消息（All Messages）” 的引导提示。系统命令（如 `/status`、`/sessions`、`/usage`、`/help` 等）在根私聊中仍可正常工作。
+
+### 创建新话题（最终用户流程）
+
+1. 在 Telegram 中打开与机器人的私聊。
+2. 点击机器人界面顶部的 **All Messages（所有消息）**，然后发送任意消息。
+3. Telegram 会为该消息创建一个新话题。
+4. Hermes 会在该话题内部做出响应 —— 该话题现在成为了一个独立的会话。
+
+每个话题都拥有自己独立的对话历史、模型状态、工具执行和会话 ID。其隔离键（isolation key）为 `agent:main:telegram:dm:{chat_id}:{thread_id}` —— 这与配置驱动的私聊话题隔离机制完全相同。
+
+### 话题自动重命名 (Auto-renamed topics)
+
+当 Hermes 为某个话题生成会话标题时（在第一次对话后通过自动标题管道生成），Telegram 话题本身也会被重命名以进行匹配 —— 例如“新话题”会变成“数据库迁移计划”。重命名属于“尽力而为”的操作：失败将被记录在日志中，但不会破坏会话。
+
+### 在话题内部使用 `/new`
+
+重置当前话题的会话（分配新的会话 ID，清空历史记录），而不会影响其他话题。Hermes 会回复一条提示，提醒您如果需要并行处理工作，通常应该（通过“所有消息”）创建另一个新话题。
+
+### 恢复先前的会话 (Restoring a previous session)
+
+在话题内部发送：
+
+```text
+/topic <session-id>
+```
+
+这会将当前话题绑定到一个已有的 Hermes 会话，而不是开启一个全新的会话。这在继续进行启用话题模式之前就已经开始的对话时非常有用。限制条件：
+
+* 目标会话必须属于同一个 Telegram 用户
+* 目标会话不能已经绑定到其他话题
+
+Hermes 会确认会话标题，并重新播放最后一条助手消息以提供上下文。
+
+要查找会话 ID，请在根私聊中发送不带参数的 `/topic` —— Hermes 会列出该用户未关联的 Telegram 会话。
+
+### 在话题内部使用 `/topic`（不带参数）
+
+显示当前话题的绑定信息：会话标题、会话 ID，以及关于使用 `/new` 还是创建另一个新话题的提示。
+
+### 底层原理 (Under the hood)
+
+* **持久化激活状态：** 激活状态会持久化保存到 `state.db` 中的 `telegram_dm_topic_mode(chat_id, user_id, enabled, ...)` 表中。
+* **持久化话题绑定：** 每个话题的绑定关系会持久化保存到 `telegram_dm_topic_bindings(chat_id, thread_id, session_id, ...)` 表中，并在 `session_id` 上设有 `ON DELETE CASCADE`（级联删除）—— 清理会话时会自动清除其对应的话题绑定。
+* **按需迁移：** 话题模式的 SQLite 数据库迁移是“选择性加入（opt-in）”的：它会在首次调用 `/topic` 时运行，绝不会在网关启动时运行。在用户于该配置文件中运行 `/topic` 之前，`state.db` 不会发生任何改变。
+* **消息路由：** 每一条入站的私聊消息都会查找其对应的 `(chat_id, thread_id)` 绑定关系。如果存在，该查找会通过 `SessionStore.switch_session()` 将消息路由到绑定的会话中，从而使磁盘上的会话键到会话 ID 的映射保持一致。
+* **重写绑定：** 在话题内部使用 `/new` 会重写绑定行，使其指向新的会话 ID，从而让接下来的消息保持在全新的会话中。
+* **配置保留：** 在 `extra.dm_topics` 中声明的话题**绝不会被自动重命名** —— 即使启用了多会话模式，操作员选择的名称也会被保留。
+* **大厅处理：** 在启用了论坛功能的私聊中，“常规（General）”（置顶于最上方）话题将被视为根大厅，无论 Telegram 投递该消息时带有的 `message_thread_id=1` 还是不带 `thread_id`。
+* **频率限制（大厅）：** 根大厅的提醒消息被限制为每聊天每 30 秒最多一条 —— 如果用户忘记了开启话题模式并在根大厅中连续输入了 10 条提示词，他们不会收到 10 条回复。
+* **频率限制（截图）：** BotFather 设置截图的发送被限制为每聊天每 5 分钟最多一条 —— 在线程设置仍处于禁用状态时，重复尝试运行 `/topic` 不会重新上传相同的图片。
+* **后台任务投递：** 在话题内部启动的 `/background <prompt>` 会将其结果投递回同一个话题中；后台会话不会触发所属话题的自动重命名。
+* **权限守卫：** `/topic` 命令本身受到机器人用户授权检查的限制 —— 未获授权的私聊会收到拒绝信息，而不会激活该功能。
+
+### 关闭多会话模式 (Disabling multi-session mode)
+
+在根私聊中发送 `/topic off`。Hermes 会将对应的数据行切换为关闭状态，清除该聊天的 `(thread_id → session_id)` 绑定关系，随后根私聊将恢复为普通的 Hermes 聊天。Telegram 中现有的话题并不会被删除 —— 它们只是不再作为独立的会话受到限制。稍后重新运行 `/topic` 可将其再次开启。
+
+如果您需要手动进行清理（例如跨多个聊天进行批量重置），可以直接删除对应的数据行：
+
+```bash
+sqlite3 ~/.hermes/state.db \
+  "UPDATE telegram_dm_topic_mode SET enabled = 0 WHERE chat_id = '<your_chat_id>'; \
+   DELETE FROM telegram_dm_topic_bindings WHERE chat_id = '<your_chat_id>';"
+```
+
+### 降级 Hermes (Downgrading Hermes)
+
+如果您降级到早于 `/topic` 功能的 Hermes 版本，该功能将直接停止工作 —— `telegram_dm_topic_mode` 和 `telegram_dm_topic_bindings` 数据表仍会保留在 `state.db` 中，但会被旧代码忽略。私聊将恢复为原生的按线程隔离机制（每个 `message_thread_id` 仍会通过 `build_session_key` 获得属于自己的会话），因此您现有的 Telegram 话题将继续作为并行会话工作。根私聊也不再是一个大厅 —— 发送至那里的消息将像以前一样进入智能体。重新升级后，多会话模式将重新激活并恢复到原状。
+
+## 群组论坛话题技能绑定（Group Forum Topic Skill Binding）
+
+启用了 **话题模式（Topics mode）** 的超级群组（也称为“论坛话题”）原本就会为每个话题进行会话隔离 —— 每一个 `thread_id` 都会映射到其独立的对话中。但您可能希望在特定的群组话题收到消息时**自动加载某项技能**，就像私聊话题的技能绑定工作方式一样。
+
+### 应用场景
+
+一个团队超级群组为不同的工作流设置了不同的论坛话题：
+
+* **“Engineering” 话题** → 自动加载 `software-development` 技能
+* **“Research” 话题** → 自动加载 `arxiv` 技能
+* **“General” 话题** → 不加载技能，作为通用助手
+
+### 配置 (Configuration)
+
+将话题绑定添加至 `~/.hermes/config.yaml` 中的 `platforms.telegram.extra.group_topics` 下：
+
+```yaml
+platforms:
+  telegram:
+    extra:
+      group_topics:
+      - chat_id: -1001234567890       # 超级群组 ID
+        topics:
+        - name: Engineering
+          thread_id: 5
+          skill: software-development
+        - name: Research
+          thread_id: 12
+          skill: arxiv
+        - name: General
+          thread_id: 1
+          # 无技能 — 通用目的
+```
+
+**字段说明：**
+
+| 字段 (Field) | 是否必填 | 描述 |
+| --- | --- | --- |
+| **chat_id** | 是 | 超级群组的数字 ID（以 `-100` 开头的负数） |
+| **name** | 否 | 话题的人类可读标签（仅用于信息展示） |
+| **thread_id** | 是 | Telegram 论坛话题 ID —— 可在 `t.me/c/<group_id>/<thread_id>` 链接中看到 |
+| **skill** | 否 | 在该话题的新会话中自动加载的技能（Skill） |
+
+### 工作原理
+
+* 当消息到达映射的群组话题时，Hermes 会在 `group_topics` 配置中查找对应的 `chat_id` 和 `thread_id`。
+* 如果匹配的条目包含 `skill` 字段，该技能将自动为该会话加载 —— 这与私聊话题技能绑定完全相同。
+* 未设置 `skill` 键的话题仅进行会话隔离（现有行为，保持不变）。
+* 未映射的 `thread_id` 值或 `chat_id` 值将被静默跳过 —— 无报错，不加载技能。
+
+### 与私聊话题（DM Topics）的区别
+
+| 特性 | 私聊话题 (DM Topics) | 群组话题 (Group Topics) |
+| --- | --- | --- |
+| **配置键** | `extra.dm_topics` | `extra.group_topics` |
+| **话题创建** | 如果缺失 `thread_id`，Hermes 会通过 API 创建话题 | 由管理员在 Telegram UI 中创建话题 |
+| **thread_id** | 创建后自动填充 | 必须手动设置 |
+| **icon_color / icon_custom_emoji_id** | 支持 | 不适用（由管理员控制外观） |
+| **技能绑定** | ✓ | ✓ |
+| **会话隔离** | ✓ | ✓（论坛话题已原生内置） |
+
+:::tip[提示]
+要查找话题的 `thread_id`，请在 Telegram 网页版或桌面版中打开该话题并查看 URL：`https://t.me/c/1234567890/5` —— 最后一个数字（5）就是 `thread_id`。超级群组的 `chat_id` 是在群组 ID 前面加上 `-100`（例如，群组 `1234567890` 变成 `-1001234567890`）。
+:::
+
+## 最近的 Bot API 特性
+
+* **Bot API 9.4（2026年2月）：私聊话题（Private Chat Topics）** —— 机器人可以通过 `createForumTopic` 直接在 1对1 的私聊（DM）中创建论坛式的话题。Hermes 将其用于两项不同的功能：由操作员维护的**私聊话题**（配置驱动，固定话题列表）以及用户驱动的**多会话私聊模式**（通过 `/topic` 激活，用户可自由创建无限数量的话题）。
+* **隐私政策（Privacy policy）：** Telegram 现在要求机器人必须具备隐私政策。可通过 BotFather 使用 `/setprivacy_policy` 进行设置，否则 Telegram 可能会自动生成一个占位文本。如果您的机器人是面向公众的，这一点尤为重要。
+* **Bot API 9.5（2026年3月）：通过 `sendMessageDraft` 实现原生流式传输。** Hermes 使用 Telegram 的原生流式草稿 API，在私聊中随着 Token 的到达来渲染智能体回复的动态预览。这消除了在使用慢速模型时，传统 `editMessageText` 轮询路径上经常看到的逐次编辑带来的抖动感。
+
+### 流式传输通道 (gateway.streaming.transport)
+
+当启用流式传输（`gateway.streaming.enabled: true`）时，Hermes 会在四种传输通道中选择一种：
+
+| 参数值 (Value) | 行为 (Behaviour) |
+| --- | --- |
+| **`auto`**（默认） | 在支持的聊天中（目前为 Telegram 私聊）使用原生草稿流式传输；其他情况则使用传统的基于编辑的路径。如果草稿帧失败，会自动平滑降级。 |
+| **`draft`** | 强制使用原生草稿。如果聊天类型不支持草稿（例如群组/话题），则会记录一条降级日志并回退到编辑路径。 |
+| **`edit`** | 对所有聊天类型使用传统的、渐进式的 `editMessageText` 轮询路径。 |
+| **`off`** | 完全禁用流式传输（仅发送最终回复，没有渐进式更新）。 |
+
+在 `~/.hermes/config.yaml` 中配置：
+
+```yaml
+gateway:
+  streaming:
+    enabled: true
+    transport: auto    # 可选值: auto | draft | edit | off
+```
+
+* **在使用 `auto`（默认）的私聊中您会看到：** 当智能体生成回复时，Telegram 会显示一个动态的草稿预览，该预览会逐个 Token 地进行更新。当回复结束时，它会作为一条正常消息发送，并且客户端上的草稿预览会自然清除。由于草稿没有消息 ID，因此最终留在您聊天记录中的只有最终的答案。
+* **群组、超级群组、论坛话题会怎样？** Telegram 将 `sendMessageDraft` 限制在私聊（DM）中。网关会自动且透明地将其他所有聊天类型回退到基于编辑的路径 —— 用户体验与之前完全一致。
+* **如果草稿帧失败了怎么办？** 任何失败（瞬态网络错误、服务器端拒绝、旧版本的 `python-telegram-bot` 安装等）都会使该次响应在流的剩余部分中切回到基于编辑的路径。下一次响应会重新尝试使用草稿。
+
+## 渲染：表格与链接预览（Rendering: Tables and Link Previews）
+
+Telegram 的 MarkdownV2 没有原生的表格语法 —— 如果直接传递原始的管道符表格（pipe tables），渲染时会变成带有反斜杠转义的噪点。Hermes 会自动对 Markdown 表格进行规范化处理：
+
+* **小型表格** 会被扁平化为**行组项目符号（row-group bullets）** —— 每一行都会变成列标题下清晰易读的列表条目。适用于 2–4 列且单元格内容较短的情况。
+* **较大或较宽的表格** 会降级回退到带有对齐列的**围栏代码块（fenced code block）**，以确保内容不会塌陷。同时会添加一行提示词提示，以便智能体知道在 Telegram 上后续应优先使用正文叙述，而不是生成更多表格。
+
+该功能无需任何配置 —— 适配器会为每条消息自动选择最合适的降级方案。如果您希望保持传统的“总是使用代码块”行为，可以在 `config.yaml` 中设置 `telegram.pretty_tables: false` 来禁用表格规范化（默认值为 `true`）。
+
+**链接预览（Link previews）。** Telegram 会为机器人消息中的 URL 自动生成链接预览。如果您希望阻止这些预览（例如在漫长的 `/tools` 输出中，或者当智能体的回复中提到了十个链接时）：
+
+```yaml
+gateway:
+  platforms:
+    telegram:
+      extra:
+        disable_link_previews: true
+```
+
+当启用该设置时，Hermes 会在每条发出的消息中附加 Telegram 的 `LinkPreviewOptions(is_disabled=True)`，并在旧版本的 `python-telegram-bot` 上降级使用传统的 `disable_web_page_preview` 参数。
+
+## 群组白名单（Group Allowlisting）
+
+Telegram 群组和论坛聊天有两个相互独立的准入关卡供您配置：
+
+* **发送者用户 ID**（`group_allow_from` / `TELEGRAM_GROUP_ALLOWED_USERS`）—— 仅适用于群组/论坛消息的发送者维度白名单。当您希望特定用户能够在群组中调用机器人，但又不希望将他们加入 `TELEGRAM_ALLOWED_USERS`（这会同时赋予他们私聊权限）时，可以使用此设置。
+* **聊天 ID**（`group_allowed_chats` / `TELEGRAM_GROUP_ALLOWED_CHATS`）—— 聊天窗口维度的白名单。这些群组/论坛中的任何成员都可以与机器人互动。适用于群组群员身份本身即代表访问信号的团队/支持机器人。
+
+```yaml
+gateway:
+  platforms:
+    telegram:
+      extra:
+        # 全局访问（私聊 + 群组）。此处的用户始终可以调用机器人。
+        allow_from:
+          - "123456789"
+        # 仅允许在群组/论坛中使用的发送者 ID。并不会授予私聊（DM）访问权限。
+        group_allow_from:
+          - "987654321"
+        # 整个群组/论坛 —— 其中的任何成员均获得授权。
+        group_allowed_chats:
+          - "-1001234567890"
+```
+
+等效的环境变量：
+
+```env
+TELEGRAM_ALLOWED_USERS="123456789"
+TELEGRAM_GROUP_ALLOWED_USERS="987654321"
+TELEGRAM_GROUP_ALLOWED_CHATS="-1001234567890"
+```
+
+**行为表现：**
+
+* `TELEGRAM_ALLOWED_USERS` 覆盖所有聊天类型（私聊、群组、论坛）。
+* `TELEGRAM_GROUP_ALLOWED_USERS` 仅在群组/论坛中对列出的发送者进行授权。除非他们同时被列入 `TELEGRAM_ALLOWED_USERS`，否则他们仍然无法向机器人发送私聊消息。
+* 处于 `TELEGRAM_GROUP_ALLOWED_CHATS` 中的聊天窗口会授权该聊天内的每一位成员，无论发送者是谁。
+* 在这些设置中的任何一个中使用 `*` 都代表允许任何发送者/聊天。
+* 该机制叠加在现有的提及/模式触发器（mention/pattern triggers）以及 `group_topics` + `ignored_threads` 之上。
+
+### PR #17686 之前的迁移说明
+
+在此次分离之前，`TELEGRAM_GROUP_ALLOWED_USERS` 是唯一的调节开关，用户会将**聊天 ID**填入其中。为了保持向后兼容性，在 `TELEGRAM_GROUP_ALLOWED_USERS` 中形如聊天 ID 的值（以 `-` 开头）仍会被视作聊天 ID 处理，并会记录一次弃用警告。迁移示例：
+
+```env
+# 旧版本（仍有效，但已弃用）
+TELEGRAM_GROUP_ALLOWED_USERS="-1001234567890"
+
+# 新版本
+TELEGRAM_GROUP_ALLOWED_CHATS="-1001234567890"
+```
+
+## 斜杠命令访问控制（Slash Command Access Control）
+
+默认情况下，每个获得授权的用户都可以运行所有斜杠命令。要将您的白名单划分为 **管理员**（拥有完整的斜杠命令访问权限）和 **普通用户**（仅能运行您明确启用的命令），请将 `allow_admin_from` 和 `user_allowed_commands` 添加到该平台的 `extra` 块中：
+
+```yaml
+gateway:
+  platforms:
+    telegram:
+      extra:
+        # 现有的白名单（保持不变）
+        allow_from:
+          - "123456789"     # 管理员
+          - "555555555"     # 普通用户
+          - "777777777"     # 普通 user
+
+        # 新增 — 管理员可使用所有斜杠命令（内置命令 + 插件命令）
+        allow_admin_from:
+          - "123456789"
+
+        # 新增 — 非管理员授权用户仅能运行这些斜杠命令。
+        # /help 和 /whoami 始终被允许，以便用户查看其访问权限。
+        user_allowed_commands:
+          - status
+          - model
+          - history
+
+        # 可选：针对群组设置独立的管理员/命令列表
+        group_allow_admin_from:
+          - "123456789"
+        group_user_allowed_commands:
+          - status
+```
+
+**行为表现：**
+
+* 在某一范围（私聊或群组）的 `allow_admin_from` 中列出的用户，可以通过实时注册表运行**每一个**已注册的斜杠命令 —— 包括内置命令和插件注册的命令。
+* 处于 `allow_from` 中但**不在** `allow_admin_from` 中的用户，只能运行 `user_allowed_commands` 中列出的命令，外加始终允许的基础命令：`/help` 和 `/whoami`。
+* 普通聊天（非斜杠消息）不受影响。非管理员用户仍可正常与智能体对话，只是无法触发任意命令。
+* **向后兼容：** 如果未针对某一范围设置 `allow_admin_from`，则该范围内的斜杠命令限制将被禁用。现有的安装实例可以继续运行，无需进行任何更改。
+* 私聊管理员身份并不意味着拥有群组管理员身份。每个范围都有自己独立的管理员列表。
+* 如果仅设置了 `group_allow_admin_from`，则私聊范围仍将保持在不受限制的（向后兼容）模式下。
+
+使用 `/whoami` 可以查看当前生效的范围、您的层级（admin / user / unrestricted）以及您可以运行哪些斜杠命令。
+
+## 交互式模型选择器（Interactive Model Picker）
+
+当您在 Telegram 聊天中发送不带任何参数的 `/model` 时，Hermes 会显示一个用于切换模型的交互式内联键盘：
+
+* **服务商选择** —— 按钮显示每个可用的服务商以及模型数量（例如，当前服务商会显示为 “✓ Anthropic (12)”，其他显示为 “OpenAI (15)”）。
+* **模型选择** —— 带有“上一页/下一页”导航、返回服务商列表的“返回”按钮以及“取消”按钮的分页模型列表。
+
+当前的模型和服务商将显示在顶部。所有的导航操作都是通过就地编辑同一条消息来完成的（不会让聊天显得杂乱）。
+
+:::tip[提示]
+如果您知道确切的模型名称，可以直接输入 `/model <name>` 来跳过选择器。您还可以输入 `/model <name> --global` 来使更改在各个会话之间持久生效。
+:::
+
+## DNS-over-HTTPS 后备 IP 机制（DNS-over-HTTPS Fallback IPs）
+
+在某些受限的网络环境中，`api.telegram.org` 可能会解析为一个无法到达的 IP。Telegram 适配器包含一个后备 IP（fallback IP）机制，可以在保持正确的 TLS 主机名和 SNI 的同时，透明地对备用 IP 重新尝试建立连接。
+
+### 工作原理
+
+1. 如果设置了 `TELEGRAM_FALLBACK_IPS`，则会直接使用这些 IP。
+2. 否则，适配器会自动通过 DNS-over-HTTPS (DoH) 查询 **Google DNS** 和 **Cloudflare DNS**，以发现 `api.telegram.org` 的备用 IP。
+3. 由 DoH 返回且与系统 DNS 结果不同的 IP 将被用作后备 IP。
+4. 如果 DoH 也被屏蔽，将使用硬编码的种子 IP（`149.154.167.220`）作为最后手段。
+5. 一旦某个后备 IP 连接成功，它就会变得具有“粘性（sticky）” —— 后续的请求将直接使用它，而不会先去重新尝试主路径。
+
+### 配置 (Configuration)
+
+```env
+# 显式指定后备 IP（用逗号分隔）
+TELEGRAM_FALLBACK_IPS=149.154.167.220,149.154.167.221
+```
+
+或者在 `~/.hermes/config.yaml` 中配置：
+
+```yaml
+platforms:
+  telegram:
+    extra:
+      fallback_ips:
+        - "149.154.167.220"
+```
+
+:::tip[提示]
+您通常不需要手动配置此项。通过 DoH 的自动发现机制可以处理大多数受限网络场景。只有当您的网络同时也屏蔽了 DoH 时，才需要使用 `TELEGRAM_FALLBACK_IPS` 环境变量。
+:::
+
+## 代理支持（Proxy Support）
+
+如果您的网络需要通过 HTTP 代理才能访问互联网（这在企业环境中很常见），Telegram 适配器会自动读取标准的代理环境变量，并将所有连接通过该代理进行路由。
+
+### 支持的环境变量
+
+适配器会按顺序检查以下环境变量，并使用第一个被设置的变量：
+
+1. `HTTPS_PROXY`
+2. `HTTP_PROXY`
+3. `ALL_PROXY`
+4. `https_proxy` / `http_proxy` / `all_proxy`（小写变体）
+
+### 配置 (Configuration)
+
+在启动网关之前，在您的环境中设置代理：
+
+```bash
+export HTTPS_PROXY=http://proxy.example.com:8080
+hermes gateway
+```
+
+或者将其添加至 `~/.hermes/.env` 中：
+
+```env
+HTTPS_PROXY=http://proxy.example.com:8080
+```
+
+该代理既适用于主传输通道，也适用于所有的后备 IP 传输通道。无需额外的 Hermes 配置 —— 只要设置了该环境变量，它就会被自动使用。
+
+:::note[信息]
+这覆盖了 Hermes 用于 Telegram 连接的自定义后备传输层。在其他地方使用的标准 `httpx` 客户端本身就已经原生支持代理环境变量。
+:::
+
+## 消息回应（Message Reactions）
+
+机器人可以为消息添加 Emoji 回应，以此作为处理进度的视觉反馈：
+
+* 👀 当机器人开始处理您的消息时
+* ✅ 当回复成功投递时
+* ❌ 如果在处理过程中发生错误
+
+回应功能 **默认是禁用的**。可以在 `config.yaml` 中启用：
+
+```yaml
+telegram:
+  reactions: true
+```
+
+或者通过环境变量启用：
+
+```env
+TELEGRAM_REACTIONS=true
+```
+
+:::note[注意]
+与 Discord（其回应是叠加的）不同，Telegram 的 Bot API 在单次调用中会替换掉该机器人的所有回应。从 👀 到 ✅/❌ 的转变是原子化发生的 —— 您不会同时看到两个 Emoji。
+:::
+
+:::tip[提示]
+如果机器人在某个群组中没有添加回应的权限，回应调用将会静默失败，而消息处理仍会正常进行。
+:::
+
+## 按频道提示词 (Per-Channel Prompts)
+
+为特定的 Telegram 群组或论坛话题分配临时的系统提示词。该提示词会在每次对话时在运行时注入 —— 绝不会持久化到会话历史记录中 —— 因此更改会立即生效。
+
+```yaml
+telegram:
+  channel_prompts:
+    "-1001234567890": |
+      You are a research assistant. Focus on academic sources,
+      citations, and concise synthesis.
+    "42":  |
+      This topic is for creative writing feedback. Be warm and
+      constructive.
+```
+
+键名（Keys）可以为聊天 ID（群组/超级群组）或论坛话题 ID。对于论坛群组，话题级别的提示词会覆盖群组级别的提示词：
+
+* 在群组 `-1001234567890` 内的话题 `42` 中发送消息 → 使用话题 `42` 的提示词
+* 在话题 `99`（无显式条目）中发送消息 → 回退到群组 `-1001234567890` 的提示词
+* 在未配置条目的群组中发送消息 → 不应用任何频道提示词
+
+数字类型的 YAML 键名会自动规范化为字符串。
+
+## 故障排除 (Troubleshooting)
+
+| 问题 (Problem) | 解决方案 (Solution) |
+| --- | --- |
+| **机器人完全不回应** | 验证 `TELEGRAM_BOT_TOKEN` 是否正确。检查 `hermes gateway` 日志中的错误信息。 |
+| **机器人回应 "unauthorized"** | 您的用户 ID 不在 `TELEGRAM_ALLOWED_USERS` 中。通过 @userinfobot 重新核对您的 ID。 |
+| **机器人忽略群组消息** | 隐私模式（Privacy mode）可能处于开启状态。禁用它（步骤 3）或将机器人设为群组管理员。**请记得**在更改隐私设置后将机器人移除并重新加入群组。 |
+| **语音消息未被转录** | 验证语音转文字（STT）是否可用：安装 `faster-whisper` 以进行本地转录，或在 `~/.hermes/.env` 中设置 `GROQ_API_KEY` / `VOICE_TOOLS_OPENAI_KEY`。 |
+| **语音回复是文件，而不是语音气泡** | 安装 `ffmpeg`（Edge TTS 进行 Opus 格式转换时需要）。 |
+| **机器人 Token 被撤销/无效** | 在 BotFather 中通过 `/revoke` 然后使用 `/newbot` 或 `/token` 生成新 Token。更新您的 `.env` 文件。 |
+| **Webhook 无法接收更新** | 验证 `TELEGRAM_WEBHOOK_URL` 是否可公开访问（使用 `curl` 测试）。确保您的平台/反向代理将来自 URL 端口的入站 HTTPS 流量路由到由 `TELEGRAM_WEBHOOK_PORT` 配置的本地监听端口（它们不需要是相同的数字）。确保 SSL/TLS 已激活 —— Telegram 仅向 HTTPS URL 发送数据。检查防火墙规则。 |
+
+## 执行审批 (Exec Approval)
+
+当智能体尝试运行可能有危险的命令时，它会在聊天中请求您的审批：
+
+> ⚠️ This command is potentially dangerous (recursive delete). Reply "yes" to approve.
+
+回复 "yes"/"y" 表示批准，回复 "no"/"n" 表示拒绝。
+
+## 交互式提示词 (Interactive Prompts / clarify)
+
+当智能体调用 `clarify` 工具时 —— 用于询问您偏好哪种方法、获取任务后反馈或在做出非平微决定前进行确认 —— Telegram 会使用**内联键盘按钮**来渲染问题：
+
+> ❓ Which framework should I use for the dashboard?
+> `[1. Next.js]` `[2. Remix]` `[3. Astro]` `[✏️ Other (type answer)]`
+
+点击按钮进行回答，或点击 **Other** 来输入自由格式的回复（您发送的下一条消息将成为答案）。开放式 `clarify` 调用（无预设选项）会跳过按钮，直接捕获您的下一条消息。
+
+可通过 `~/.hermes/config.yaml` 中的 `agent.clarify_timeout` 配置响应超时时间（默认 `600` 秒）。如果您未在超时时间内做出响应，智能体将使用一条哨兵消息解锁并进行适应，而不会一直挂起。
+
+## 安全性 (Security)
+
+:::caution[警告]
+请务必设置 `TELEGRAM_ALLOWED_USERS` 来限制谁可以与您的机器人互动。如果没有设置，作为一项安全措施，网关默认会拒绝所有用户。
+:::
+
+切勿公开分享您的机器人 Token。如果泄露，请立即通过 BotFather 的 `/revoke` 命令将其撤销。
+ 
+更多详细信息，请参阅 [安全性文档](https://hermes-agent.nousresearch.com/docs/user-guide/security)。您还可以使用 [私聊配对](https://hermes-agent.nousresearch.com/docs/user-guide/messaging#dm-pairing-alternative-to-allowlists) 来实现更动态的用户授权方式。
+

@@ -1,0 +1,129 @@
+---
+title: 程序化集成
+description: hermes agent 程序化集成
+---
+
+Hermes 提供三种协议，用于从外部程序驱动 agent —— IDE 插件、自定义 UI、CI 流水线、嵌入式子 agent。选择与你的传输方式和消费者匹配的一种。
+
+| 协议          | 传输                              | 最适合                                                          | 定义位置                            |
+| ----------- | ------------------------------- | ------------------------------------------------------------ | ------------------------------- |
+| ACP         | 基于 stdio 的 JSON-RPC             | 已经支持 Agent Client Protocol 的 IDE 客户端（VS Code、Zed、JetBrains）  | `acp_adapter/`                    |
+| TUI gateway | 基于 stdio（或 WebSocket）的 JSON-RPC | 想要对会话、斜杠命令、审批和流式事件进行细粒度控制的自定义宿主                              | `tui_gateway/server.py`           |
+| API server  | HTTP + Server-Sent Events       | OpenAI 兼容前端（Open WebUI、LobeChat、LibreChat……）以及与语言无关的 Web 客户端 | `gateway/platforms/api_server.py` |
+
+这三者都驱动同一个 AIAgent 核心。它们的区别仅在于通信格式以及暴露的功能集合。
+
+## ACP（Agent Client Protocol）
+
+`hermes acp` 会启动一个基于 stdio 的 JSON-RPC 服务器，使用 ACP 协议。它在生产环境中被 VS Code（Zed Industries 的 ACP 扩展）、Zed，以及任何安装了 ACP 插件的 JetBrains IDE 使用。
+
+暴露的能力包括：会话创建、提示提交、流式 agent 消息片段、工具调用事件、权限请求、会话分叉、取消和身份认证。工具输出会被渲染成 IDE 能理解的 ACP Diff/ToolCall 内容块。
+
+完整生命周期、事件桥接和审批流程：ACP Internals。
+
+```bash
+hermes acp                  # 在 stdio 上提供 ACP 服务
+hermes acp --bootstrap      # 为支持 ACP 的 IDE 打印安装片段
+```
+
+## TUI Gateway JSON-RPC
+
+`tui_gateway/server.py` 是 Ink TUI（`hermes --tui`）和嵌入式 dashboard PTY bridge 使用的协议。任何外部宿主都可以通过 stdio（或通过 `tui_gateway/ws.py` 使用 WebSocket）使用同一协议通信。
+
+### 方法目录（节选）
+
+```text
+prompt.submit           prompt.background       session.steer
+session.create          session.list            session.interrupt
+session.history         session.compress        session.branch
+session.title           session.usage           session.status
+clarify.respond         sudo.respond            secret.respond
+approval.respond        config.set / config.get commands.catalog
+command.resolve         command.dispatch        cli.exec
+reload.mcp              reload.env              process.stop
+delegation.status       subagent.interrupt      spawn_tree.save / list / load
+terminal.resize         clipboard.paste         image.attach
+```
+
+### 流式返回的事件
+
+`message.delta`、`message.complete`、`tool.start`、`tool.progress`、`tool.complete`、`approval.request`、`clarify.request`、`sudo.request`、`secret.request`、`gateway.ready`，以及会话生命周期和错误事件。
+
+### Pi 风格 RPC 映射
+
+Pi-mono RPC 规范（issue #360）中的每个命令都有一个 TUI-gateway 等价项：
+
+| Pi 命令                      | Hermes 等价项                                                           |
+| -------------------------- | -------------------------------------------------------------------- |
+| `prompt`                   | `prompt.submit`（或 ACP session/prompt）                                |
+| `steer`                    | `session.steer`                                                      |
+| `follow_up`                | 当前轮次之后排队执行的 `prompt.submit`                                          |
+| `abort`                    | `session.interrupt`                                                  |
+| `set_model`                | 用于 `/model <provider:model>` 的 `command.dispatch`（会话中途切换，持久化）        |
+| `compact`                  | `session.compress`                                                   |
+| `get_state`                | `session.status`                                                     |
+| `get_messages`             | `session.history`                                                    |
+| `switch_session`           | `session.resume`                                                     |
+| `fork`                     | `session.branch`                                                     |
+| `ui_request / ui_response` | `clarify.respond / sudo.respond / secret.respond / approval.respond` |
+
+## OpenAI 兼容 API 服务器
+
+`gateway/platforms/api_server.py` 通过 HTTP 暴露 Hermes，供任何已经使用 OpenAI 格式的客户端使用。当你想要 Web 前端、由 curl 驱动的 CI runner，或非 Python 消费端时，这很有用。
+
+端点：
+
+```text
+POST /v1/chat/completions        OpenAI Chat Completions（通过 SSE 流式传输）
+POST /v1/responses               OpenAI Responses API（有状态）
+POST /v1/runs                    启动一次运行，返回 run_id（202）
+GET  /v1/runs/{id}               运行状态
+GET  /v1/runs/{id}/events        生命周期事件的 SSE 流
+POST /v1/runs/{id}/approval      处理一个待审批请求
+POST /v1/runs/{id}/stop          中断运行
+GET  /v1/capabilities            机器可读的功能标志
+GET  /v1/models                  列出 hermes-agent
+GET  /health, /health/detailed
+```
+
+设置、请求头（`X-Hermes-Session-Id`、`X-Hermes-Session-Key`）以及前端接线：API Server。
+
+## 我应该使用哪一个？
+
+* 你正在编写 IDE 插件，并且该 IDE 已经支持 ACP → 使用 ACP。IDE 侧无需做协议工作。
+* 你正在编写自定义桌面 / Web / TUI 宿主，并且想要 Hermes 的所有功能（斜杠命令、审批、澄清、多 agent、会话分支）→ 使用 TUI gateway JSON-RPC。
+* 你想要任何 OpenAI 兼容前端、与语言无关的 HTTP 客户端，或由 curl 驱动的自动化 → 使用 API server。
+* 你想要不通过子进程，而是在 Python 进程内嵌入 → 直接导入 `run_agent.AIAgent`。参见 Agent Loop。
+
+## 模型热切换
+
+会话中途模型切换在每个入口都有效 —— 底层其实是 `/model` 斜杠命令。
+
+* CLI / TUI：
+
+```text
+/model claude-sonnet-4
+```
+
+或：
+
+```text
+/model openrouter:anthropic/claude-sonnet-4.6
+```
+
+* TUI gateway RPC：
+
+```json
+command.dispatch with {"command": "/model claude-sonnet-4"}
+```
+
+* ACP：IDE 将斜杠命令作为 prompt 发送；agent 会分发它。
+
+* API server：在请求体中包含 `model` 字段，或设置 `X-Hermes-Model`。
+
+Provider-aware resolution（同一个模型名称会根据你所在的 provider 选择正确格式）已经内置。参见 `hermes_cli/model_switch.py`。
+
+## 关于 `--mode rpc` 的说明
+
+Hermes 没有 `--mode rpc` 标志。上面的三种协议已经覆盖了相关使用场景 —— ACP 用于 IDE 协议客户端，TUI gateway 用于 stdio JSON-RPC 宿主，API server 用于 HTTP。如果你发现它们都无法满足的真实缺口，请带上你正在构建的具体消费端开一个 issue。
+

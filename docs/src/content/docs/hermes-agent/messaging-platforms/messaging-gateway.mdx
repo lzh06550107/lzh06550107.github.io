@@ -1,0 +1,411 @@
+---
+title: 消息网关
+description: hermes agent 消息网关
+---
+
+通过 Telegram、Discord、Slack、WhatsApp、Signal、SMS、电子邮件、Home Assistant、Mattermost、Matrix、钉钉（DingTalk）、飞书（Feishu/Lark）、企业微信（WeCom）、微信（Weixin）、BlueBubbles (iMessage)、QQ、元宝（Yuanbao）、Microsoft Teams、LINE 或您的浏览器与 Hermes 进行对话。该网关是一个单一的后台进程，可连接到您配置的所有平台、处理会话、运行定时任务（cron jobs）并传送语音消息。
+
+关于全套语音功能 —— 包括命令行（CLI）麦克风模式、即时通讯中的语音回复以及 Discord 语音频道通话 —— 请参阅 [语音模式](https://hermes-agent.nousresearch.com/docs/user-guide/features/voice-mode) 和 [在 Hermes 中使用语音模式](https://hermes-agent.nousresearch.com/docs/guides/use-voice-mode-with-hermes)。
+
+## 平台对比（Platform Comparison）
+
+| 平台 (Platform) | 语音 (Voice) | 图片 (Images) | 文件 (Files) | 帖子线索 (Threads) | 回应 (Reactions) | 输入中状态 (Typing) | 流式输出 (Streaming) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Telegram | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| Discord | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Slack | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Google Chat | — | ✅ | ✅ | ✅ | — | ✅ | — |
+| WhatsApp | — | ✅ | ✅ | — | — | ✅ | ✅ |
+| Signal | — | ✅ | ✅ | — | — | ✅ | ✅ |
+| SMS | — | — | — | — | — | — | — |
+| Email | — | ✅ | ✅ | ✅ | — | — | — |
+| Home Assistant | — | — | — | — | — | — | — |
+| Mattermost | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| Matrix | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 钉钉 (DingTalk) | — | ✅ | ✅ | — | ✅ | — | ✅ |
+| 飞书/Lark (Feishu/Lark) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 企业微信 (WeCom) | ✅ | ✅ | ✅ | — | — | ✅ | ✅ |
+| 企业微信回调 (WeCom Callback) | — | — | — | — | — | — | — |
+| 微信 (Weixin) | ✅ | ✅ | ✅ | — | — | ✅ | ✅ |
+| BlueBubbles (iMessage) | — | ✅ | ✅ | — | ✅ | ✅ | — |
+| QQ | ✅ | ✅ | ✅ | — | — | ✅ | — |
+| 腾讯元宝 (Yuanbao) | ✅ | ✅ | ✅ | — | — | ✅ | ✅ |
+| Microsoft Teams | — | ✅ | — | ✅ | — | ✅ | — |
+| LINE | — | ✅ | ✅ | — | — | ✅ | — |
+
+**功能说明：**
+
+* **语音（Voice）** = TTS（文本转语音）音频回复和/或语音消息转文字。
+* **图片（Images）** = 发送/接收图片。
+* **文件（Files）** = 发送/接收文件附件。
+* **帖子线索（Threads）** = 盖楼/线索化对话。
+* **回应（Reactions）** = 对消息进行表情符号（emoji）回应。
+* **输入中状态（Typing）** = 智能体处理时显示 “正在输入” 的指示器。
+* **流式输出（Streaming）** = 通过逐步编辑消息实现渐进式消息更新。
+
+## 架构
+
+（图略）
+
+每个平台适配器接收消息，将其路由通过独立于每个聊天对话的会话存储，并分发给 AIAgent 进行处理。网关同时还运行着定时任务（cron）调度器，每 60 秒触发一次以执行任何到期的任务。
+
+## 快速设置（Quick Setup）
+
+配置即时通讯平台最简单的方法是使用交互式向导：
+
+```bash
+hermes gateway setup        # 所有即时通讯平台的交互式设置
+```
+
+这将引导您通过方向键选择来配置每个平台，显示哪些平台已经配置完毕，并在完成后提示是否启动/重启网关。
+
+## 网关命令（Gateway Commands）
+
+```bash
+hermes gateway              # 在前台运行
+hermes gateway setup        # 交互式配置即时通讯平台
+hermes gateway install      # 安装为用户服务（Linux）/ launchd 服务（macOS）
+sudo hermes gateway install --system   # 仅限 Linux：安装为开机自启的系统服务
+hermes gateway start        # 启动默认服务
+hermes gateway stop         # 停止默认服务
+hermes gateway status       # 检查默认服务状态
+hermes gateway status --system         # 仅限 Linux：显式检查系统服务状态
+```
+
+## 聊天命令（即时通讯内部）
+
+| 命令 (Command) | 描述 (Description) |
+| --- | --- |
+| `/new` 或 `/reset` | 开启一段全新的对话 |
+| `/model [provider:model]` | 显示或更改模型（支持 `provider:model` 语法） |
+| `/personality [name]` | 设置一个人设 |
+| `/retry` | 重试最后一条消息 |
+| `/undo` | 撤销最后一次对话往来 |
+| `/status` | 显示会话信息 |
+| `/whoami` | 显示您在此范围内的斜杠命令访问权限（admin / user / unrestricted） |
+| `/stop` | 停止正在运行的智能体 |
+| `/approve` | 批准处于挂起状态的高危命令 |
+| `/deny` | 拒绝处于挂起状态的高危命令 |
+| `/sethome` | 将当前聊天设置为原点频道（home channel） |
+| `/compress` | 手动压缩对话上下文 |
+| `/title [name]` | 设置或显示会话标题 |
+| `/resume [name]` | 恢复之前命名过的会话 |
+| `/usage` | 显示此会话的 Token 使用量 |
+| `/insights [days]` | 显示使用情况洞察与分析数据 |
+| `/reasoning [level|show|hide]` | 更改推理 effort（深度）或切换推理过程的显示状态 |
+| `/voice [on|off|tts|join|leave|status]` | 控制消息中的语音回复以及 Discord 语音频道的行为 |
+| `/rollback [number]` | 列出或恢复文件系统检查点（checkpoints） |
+| `/background <prompt>` | 在独立的后台会话中运行提示词 |
+| `/reload-mcp` | 从配置文件中重新加载 MCP 服务器 |
+| `/update` | 将 Hermes Agent 更新至最新版本 |
+| `/help` | 显示可用命令 |
+| `/<skill-name>` | 调用任何已安装的技能 |
+
+## 会话管理（Session Management）
+
+### 会话持久化（Session Persistence）
+
+会话在不同消息之间保持持久化，直到它们被重置。智能体会记住您的对话上下文。
+
+### 重置策略（Reset Policies）
+
+会话会根据可配置的策略进行重置：
+
+| 策略 (Policy) | 默认值 (Default) | 描述 (Description) |
+| --- | --- | --- |
+| **Daily** | 4:00 AM | 每天在特定的小时进行重置 |
+| **Idle** | 1440 min | 在闲置 N 分钟后进行重置 |
+| **Both** | （组合使用） | 以最先触发的策略为准 |
+
+在 `~/.hermes/gateway.json` 中配置针对各平台的覆盖设置：
+
+```json
+{
+  "reset_by_platform": {
+    "telegram": { "mode": "idle", "idle_minutes": 240 },
+    "discord": { "mode": "idle", "idle_minutes": 60 }
+  }
+}
+```
+
+## 安全性（Security）
+
+默认情况下，网关会拒绝所有不在白名单中或未通过私聊（DM）配对的用户。对于一个拥有终端访问权限的机器人来说，这是安全的默认设置。
+
+```bash
+# 限制特定用户（推荐）：
+TELEGRAM_ALLOWED_USERS=123456789,987654321
+DISCORD_ALLOWED_USERS=123456789012345678
+SIGNAL_ALLOWED_USERS=+155****4567,+155****6543
+SMS_ALLOWED_USERS=+155****4567,+155****6543
+EMAIL_ALLOWED_USERS=trusted@example.com,colleague@work.com
+MATTERMOST_ALLOWED_USERS=3uo8dkh1p7g1mfk49ear5fzs5c
+MATRIX_ALLOWED_USERS=@alice:matrix.org
+DINGTALK_ALLOWED_USERS=user-id-1
+FEISHU_ALLOWED_USERS=ou_xxxxxxxx,ou_yyyyyyyy
+WECOM_ALLOWED_USERS=user-id-1,user-id-2
+WECOM_CALLBACK_ALLOWED_USERS=user-id-1,user-id-2
+TEAMS_ALLOWED_USERS=aad-object-id-1,aad-object-id-2
+
+# 或者全局允许
+GATEWAY_ALLOWED_USERS=123456789,987654321
+
+# 或者显式允许所有用户（对于拥有终端访问权限的机器人，强烈不推荐）：
+GATEWAY_ALLOW_ALL_USERS=true
+```
+
+### 私聊配对（DM Pairing，白名单的替代方案）
+
+除了手动配置用户 ID 外，未知用户在向机器人发送私聊消息时会收到一个一次性配对码：
+
+```bash
+# 用户会看到：“Pairing code: XKGH5N7P”
+# 您可以使用以下命令批准他们：
+hermes pairing approve telegram XKGH5N7P
+
+# 其他配对命令：
+hermes pairing list          # 查看待处理和已批准的用户
+hermes pairing revoke telegram 123456789  # 移除访问权限
+```
+
+配对码在 1 小时后过期，受速率限制（rate-limited），并使用密码学随机性。
+
+### 斜杠命令访问控制（Slash Command Access Control）
+
+用户被允许进入后，您可以将其划分为 **管理员（admins）**（拥有完整的斜杠命令访问权限）和 **普通用户（regular users）**（仅能使用您显式启用的斜杠命令）。这适用于每个平台和每个范围（私聊 DM 与群组/频道），并通过实时命令注册表工作，因此它涵盖了内置命令以及通过插件注册的斜杠命令，无需针对每项功能单独接线。
+
+```yaml
+gateway:
+  platforms:
+    discord:
+      extra:
+        allow_from: ["111", "222", "333"]
+        allow_admin_from: ["111"]                    # 管理员 → 所有斜杠命令
+        user_allowed_commands: [status, model]       # 非管理员可以运行的命令
+        # 可选：独立的群组/频道范围
+        group_allow_admin_from: ["111"]
+        group_user_allowed_commands: [status]
+
+```
+
+**行为表现：**
+
+* 处于某个范围的 `allow_admin_from` 中的用户可以运行 **每一个** 已注册的斜杠命令。
+* 处于 `allow_from` 但不在 `allow_admin_from` 中的用户，只能运行 `user_allowed_commands` 中的命令，以及始终允许的基础命令：`/help` 和 `/whoami`。
+* 普通聊天不受影响。非管理员仍可正常与智能体交谈，他们只是无法触发任意命令。
+* 向后兼容：如果某个范围未设置 `allow_admin_from`，则该范围的斜杠网闸（slash gating）将被禁用。现有安装将继续保持运行，无需任何改动。
+* 私聊（DM）管理员身份并不意味着拥有群组/频道的管理员身份。每个范围都有自己的管理员列表。
+
+在任何平台上使用 `/whoami` 可以查看当前处于激活状态的范围、您的层级（admin / user / unrestricted）以及您可以运行哪些斜杠命令。请参阅 [Telegram](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram#slash-command-access-control) 和 [Discord](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/discord#slash-command-access-control) 页面了解特定平台的示例。
+
+## 中断智能体（Interrupting the Agent）
+
+在智能体工作时发送任何消息均可中断它。核心行为包括：
+
+* **正在运行的终端命令会被立即终止**（先发送 SIGTERM，1 秒后发送 SIGKILL）
+* **工具调用会被取消** —— 仅当前正在执行的工具会运行完毕，其余的将被跳过
+* **多条消息会被合并** —— 在中断期间发送的消息会被合并为一个提示词
+* **`/stop` 命令** —— 仅执行中断操作，而不排队触发后续消息
+
+### 队列 vs 中断 vs 引导（忙碌输入模式）
+
+默认情况下，向处于忙碌状态的智能体发送消息会中断它。此外还有另外两种模式可用：
+
+* **queue（队列）** —— 后续消息会进行等待，并在当前任务完成后作为下一轮对话运行。
+* **steer（引导）** —— 后续消息会通过 `/steer` 注入到当前运行中，并在下一次工具调用后送达智能体。此模式不会触发中断，也不开启新一轮对话。如果智能体尚未开始运行，则会降级为 `queue` 行为。
+
+```yaml
+display:
+  busy_input_mode: steer   # 可选值为 steer、queue 或 interrupt（默认）
+  busy_ack_enabled: true   # 设置为 false 可完全抑制 ⚡/⏳/⏩ 聊天回复
+```
+
+当您在任何平台上首次向处于忙碌状态的智能体发送消息时，Hermes 会在忙碌确认（busy-ack）中附加一行提醒，以解释该控制旋钮（“💡 首次使用提示 ——……”）。该提醒在每次安装中仅触发一次 —— 触发状态通过 `onboarding.seen.busy_input_prompt` 下的标志进行锁定。删除该键值可再次看到该提示。
+
+如果您觉得忙碌确认很吵 —— 尤其是在进行语音输入或连珠炮式发送消息时 —— 请设置 `display.busy_ack_enabled: false`。您的输入仍会正常进行排队/引导/中断，只是聊天回复会被静音。
+
+### 工具进度通知（Tool Progress Notifications）
+
+在 `~/.hermes/config.yaml` 中控制显示多少工具活动：
+
+```yaml
+display:
+  tool_progress: all    # off | new | all | verbose
+  tool_progress_command: false  # 设置为 true 以在即时通讯中启用 /verbose
+```
+
+启用后，机器人在工作时会发送状态消息：
+
+```text
+💻 `ls -la`...
+🔍 web_search...
+📄 web_extract...
+🐍 execute_code...
+```
+
+## 后台会话（Background Sessions）
+
+在一个独立的后台会话中运行提示词，这样智能体就能独立处理它，而您的主聊天窗口仍能保持响应：
+
+```text
+/background Check all servers in the cluster and report any that are down
+```
+
+Hermes 会立即进行确认：
+
+```text
+🔄 Background task started: "Check all servers in the cluster..."
+   Task ID: bg_143022_a1b2c3
+```
+
+### 工作原理
+
+每个 `/background` 提示词都会派生出一个 **独立的智能体实例**，并以异步方式运行：
+
+* **隔离的会话** —— 后台智能体拥有自己的会话和独立的对话历史记录。它完全不了解您当前的主聊天上下文，只接收您提供的提示词。
+* **相同的配置** —— 继承您当前网关设置中的模型、服务商、工具集、推理设置以及服务商路由。
+* **非阻塞** —— 您的主聊天保持完全交互。在其工作期间，您可以发送消息、运行其他命令或启动更多的后台任务。
+* **结果交付** —— 当任务完成时，结果将被发送回您发出该命令的 **同一个聊天或频道** 中，并带有 “✅ Background task complete” 的前缀。如果任务失败，您将看到 “❌ Background task failed” 以及相应的错误信息。
+
+### 后台进程通知（Background Process Notifications）
+
+当运行后台会话的智能体使用 `terminal(background=true)` 启动长期运行的进程（服务器、构建任务等）时，网关可以将状态更新推送至您的聊天中。在 `~/.hermes/config.yaml` 中通过 `display.background_process_notifications` 进行控制：
+
+```yaml
+display:
+  background_process_notifications: all    # all | result | error | off
+```
+
+| 模式 (Mode) | 您接收到的内容 (What you receive) |
+| --- | --- |
+| **all** | 运行输出更新 **以及** 最终的完成消息（默认） |
+| **result** | 仅接收最终的完成消息（无论退出码为何） |
+| **error** | 仅在退出码为非零时接收最终消息 |
+| **off** | 完全不接收任何进程监视器消息 |
+
+您也可以通过环境变量来设置此项：
+
+```bash
+HERMES_BACKGROUND_NOTIFICATIONS=result
+```
+
+### 应用场景
+
+* **服务器监控** —— “`/background Check the health of all services and alert me if anything is down`”
+* **长期构建** —— 在您继续聊天的同时执行 “`/background Build and deploy the staging environment`”
+* **研究任务** —— “`/background Research competitor pricing and summarize in a table`”
+* **文件操作** —— “`/background Organize the photos in ~/Downloads by date into folders`”
+
+:::tip[提示：]
+即时通讯平台上的后台任务属于 “发完即忘（fire-and-forget）” 模式 —— 您无需等待或检查它们。当任务结束时，结果会自动送达同一个聊天中。
+:::
+
+## 服务管理（Service Management）
+
+### Linux (systemd)
+
+```bash
+hermes gateway install               # 安装为用户服务
+hermes gateway start                 # 启动服务
+hermes gateway stop                  # 停止服务
+hermes gateway status                # 检查状态
+journalctl --user -u hermes-gateway -f  # 查看日志
+
+# 启用用户驻留（注销后保持运行）
+sudo loginctl enable-linger $USER
+
+# 或者安装一个在开机时启动、但仍以您用户身份运行的系统服务
+sudo hermes gateway install --system
+sudo hermes gateway start --system
+sudo hermes gateway status --system
+journalctl -u hermes-gateway -f
+```
+
+在笔记本电脑和开发机上使用 **用户服务**。在需要开机自启且不依赖 `systemd linger` 的 VPS 或无头（headless）主机上使用 **系统服务**。
+
+除非您确实有此打算，否则请避免同时安装用户网关单元和系统网关单元。如果 Hermes 检测到两者共存，将会发出警告，因为这会导致 start/stop/status 的行为变得模糊不清。
+
+:::note[多实例安装]
+如果您在同一台机器上运行多个 Hermes 实例（使用不同的 `HERMES_HOME` 目录），每个实例都会获得自己专属的 systemd 服务名称。默认的 `~/.hermes` 使用 `hermes-gateway`；其他安装则使用 `hermes-gateway-<hash>`。`hermes gateway` 命令会自动针对您当前 `HERMES_HOME` 对应的正确服务进行操作。
+:::
+
+### macOS (launchd)
+
+```bash
+hermes gateway install               # 安装为 launchd 代理（agent）
+hermes gateway start                 # 启动服务
+hermes gateway stop                  # 停止服务
+hermes gateway status                # 检查状态
+tail -f ~/.hermes/logs/gateway.log   # 查看日志
+```
+
+生成的 plist 文件位于 `~/Library/LaunchAgents/ai.hermes.gateway.plist`。它包含三个环境变量：
+
+* `PATH` —— 您在安装时完整的 shell `PATH`，并在最前端附加了虚拟环境的 `bin/` 以及 `node_modules/.bin`。这确保了用户安装的工具（Node.js、ffmpeg 等）对网关子进程（如 WhatsApp 桥接器）可用。
+* `VIRTUAL_ENV` —— 指向 Python 虚拟环境，以便工具能够正确解析包。
+* `HERMES_HOME` —— 将网关的范围限制在您的 Hermes 安装目录。
+
+:::tip[安装后 PATH 发生变化]
+launchd 的 plist 文件是静态的 —— 如果您在设置网关之后安装了新工具（例如通过 nvm 安装了新的 Node.js 版本，或通过 Homebrew 安装了 ffmpeg），请重新运行 `hermes gateway install` 以捕获更新后的 `PATH`。网关会检测到过期的 plist 并自动重新加载。
+:::
+
+:::note[多实例安装]
+与 Linux 的 systemd 服务类似，每个 `HERMES_HOME` 目录都会获得自己专属的 launchd 标签（label）。默认的 `~/.hermes` 使用 `ai.hermes.gateway`；其他安装则使用 `ai.hermes.gateway-<suffix>`。
+:::
+
+## 平台专属工具集（Platform-Specific Toolsets）
+
+每个平台都拥有其专属的工具集：
+
+| 平台 (Platform) | 工具集 (Toolset) | 功能能力 (Capabilities) |
+| --- | --- | --- |
+| **CLI** | `hermes-cli` | 完整访问权限 |
+| **Telegram** | `hermes-telegram` | 完整工具，包含终端（terminal） |
+| **Discord** | `hermes-discord` | 完整工具，包含终端（terminal） |
+| **WhatsApp** | `hermes-whatsapp` | 完整工具，包含终端（terminal） |
+| **Slack** | `hermes-slack` | 完整工具，包含终端（terminal） |
+| **Google Chat** | `hermes-google_chat` | 完整工具，包含终端（terminal） |
+| **Signal** | `hermes-signal` | 完整工具，包含终端（terminal） |
+| **SMS** | `hermes-sms` | 完整工具，包含终端（terminal） |
+| **Email** | `hermes-email` | 完整工具，包含终端（terminal） |
+| **Home Assistant** | `hermes-homeassistant` | 完整工具 + HA 设备控制（`ha_list_entities`、`ha_get_state`、`ha_call_service`、`ha_list_services`） |
+| **Mattermost** | `hermes-mattermost` | 完整工具，包含终端（terminal） |
+| **Matrix** | `hermes-matrix` | 完整工具，包含终端（terminal） |
+| **钉钉 (DingTalk)** | `hermes-dingtalk` | 完整工具，包含终端（terminal） |
+| **飞书/Lark (Feishu/Lark)** | `hermes-feishu` | 完整工具，包含终端（terminal） |
+| **企业微信 (WeCom)** | `hermes-wecom` | 完整工具，包含终端（terminal） |
+| **企业微信回调 (WeCom Callback)** | `hermes-wecom-callback` | 完整工具，包含终端（terminal） |
+| **微信 (Weixin)** | `hermes-weixin` | 完整工具，包含终端（terminal） |
+| **BlueBubbles** | `hermes-bluebubbles` | 完整工具，包含终端（terminal） |
+| **QQ 机器人 (QQBot)** | `hermes-qqbot` | 完整工具，包含终端（terminal） |
+| **腾讯元宝 (Yuanbao)** | `hermes-yuanbao` | 完整工具，包含终端（terminal） |
+| **Microsoft Teams** | `hermes-teams` | 完整工具，包含终端（terminal） |
+| **API 服务器 (API Server)** | `hermes-api-server` | 完整工具（移除了 `clarify`、`send_message`、`text_to_speech` —— 编程方式访问不具备交互式用户） |
+| **Webhooks** | `hermes-webhook` | 完整工具，包含终端（terminal） |
+
+## 后续步骤（Next Steps）
+
+* [Telegram 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/telegram)
+* [Discord 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/discord)
+* [Slack 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/slack)
+* [Google Chat 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/google_chat)
+* [WhatsApp 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/whatsapp)
+* [Signal 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/signal)
+* [SMS 设置 (Twilio)](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/sms)
+* [Email 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/email)
+* [Home Assistant 集成](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/homeassistant)
+* [Mattermost 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/mattermost)
+* [Matrix 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/matrix)
+* [钉钉 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/dingtalk)
+* [飞书/Lark 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/feishu)
+* [企业微信 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/wecom)
+* [企业微信回调 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/wecom-callback)
+* [微信 设置 (WeChat)](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/weixin)
+* [BlueBubbles 设置 (iMessage)](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/bluebubbles)
+* [QQ 机器人 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/qqbot)
+* [腾讯元宝 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/yuanbao)
+* [Microsoft Teams 设置](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams)
+* [Teams 会议流水线](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams-meetings)
+* [Open WebUI + API 服务器](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui)
+* [Webhooks](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/webhooks)
+

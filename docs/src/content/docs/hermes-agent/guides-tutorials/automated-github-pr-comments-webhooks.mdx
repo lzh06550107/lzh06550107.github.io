@@ -1,0 +1,304 @@
+---
+title: 使用 Webhooks 自动发布 GitHub PR 评论
+description: hermes agent 使用 Webhooks 自动发布 GitHub PR 评论
+---
+
+本指南将带你把 Hermes Agent 连接到 GitHub，使其自动获取 pull request 的 diff、分析代码变更，并发布评论 —— 由 webhook 事件触发，无需手动提示。
+
+当 PR 被打开或更新时，GitHub 会向你的 Hermes 实例发送一个 webhook POST。Hermes 会使用一个 prompt 运行 agent，该 prompt 指示它通过 `gh` CLI 获取 diff，然后响应会被发布回 PR thread。
+
+:::tip[想要不需要公开 endpoint 的更简单设置？]
+如果你没有公开 URL，或者只是想快速开始，请查看 [Build a GitHub PR Review Agent](https://hermes-agent.nousresearch.com/docs/guides/github-pr-review-agent) —— 它使用 cron jobs 按计划轮询 PR，可以在 NAT 和防火墙后面工作。
+:::
+
+:::note[参考文档]
+完整的 webhook platform 参考（所有配置选项、投递类型、动态订阅、安全模型）请参见 Webhooks。
+:::
+
+:::caution[Prompt injection 风险]
+Webhook payloads 包含攻击者可控的数据 —— PR 标题、commit messages 和描述都可能包含恶意指令。当你的 webhook endpoint 暴露到互联网时，请在沙盒环境中运行 gateway（Docker、SSH backend）。请参见下面的 [安全章节](https://hermes-agent.nousresearch.com/docs/guides/webhook-github-pr-review#security-notes)。
+:::
+
+## 前置条件
+
+* 已安装并运行 Hermes Agent（`hermes gateway`）
+* 已在 gateway 主机上安装并认证 `gh` CLI（`gh auth login`）
+* 你的 Hermes 实例有一个公网可访问的 URL（如果在本地运行，请参见“使用 ngrok 进行本地测试”）
+* 拥有 GitHub 仓库的管理员权限（管理 webhooks 需要）
+
+## 步骤 1 —— 启用 webhook platform
+
+将以下内容添加到你的 `~/.hermes/config.yaml`：
+
+```yaml
+platforms:
+  webhook:
+    enabled: true
+    extra:
+      port: 8644          # default; change if another service occupies this port
+      rate_limit: 30      # max requests per minute per route (not a global cap)
+
+      routes:
+        github-pr-review:
+          secret: "your-webhook-secret-here"   # must match the GitHub webhook secret exactly
+          events:
+            - pull_request
+
+          # The agent is instructed to fetch the actual diff before reviewing.
+          # {number} and {repository.full_name} are resolved from the GitHub payload.
+          prompt: |
+            A pull request event was received (action: {action}).
+
+            PR #{number}: {pull_request.title}
+            Author: {pull_request.user.login}
+            Branch: {pull_request.head.ref} → {pull_request.base.ref}
+            Description: {pull_request.body}
+            URL: {pull_request.html_url}
+
+            If the action is "closed" or "labeled", stop here and do not post a comment.
+
+            Otherwise:
+            1. Run: gh pr diff {number} --repo {repository.full_name}
+            2. Review the code changes for correctness, security issues, and clarity.
+            3. Write a concise, actionable review comment and post it.
+
+          deliver: github_comment
+          deliver_extra:
+            repo: "{repository.full_name}"
+            pr_number: "{number}"
+```
+
+**关键字段：**
+
+| 字段                        | 描述                                                             |
+| ------------------------- | -------------------------------------------------------------- |
+| `secret`（route-level）     | 此 route 的 HMAC secret。如果省略，则回退到 `extra.secret` 全局配置。           |
+| `events`                  | 要接受的 `X-GitHub-Event` header 值列表。空列表 = 接受全部。                   |
+| `prompt`                  | 模板；`{field}` 和 `{nested.field}` 会从 GitHub payload 中解析。         |
+| `deliver`                 | `github_comment` 会通过 `gh pr comment` 发布。`log` 只会写入 gateway 日志。 |
+| `deliver_extra.repo`      | 从 payload 中解析为例如 `org/repo`。                                   |
+| `deliver_extra.pr_number` | 从 payload 中解析为 PR 编号。                                          |
+
+:::note[payload 不包含代码]
+GitHub webhook payload 包含 PR 元数据（标题、描述、分支名称、URLs），但不包含 diff。上面的 prompt 指示 agent 运行 `gh pr diff` 来获取实际变更。`terminal` 工具包含在默认的 `hermes-webhook` toolset 中，因此不需要额外配置。
+:::
+
+## 步骤 2 —— 启动 gateway
+
+```bash
+hermes gateway
+```
+
+你应该会看到：
+
+```text
+[webhook] Listening on 0.0.0.0:8644 — routes: github-pr-review
+```
+
+验证它正在运行：
+
+```bash
+curl http://localhost:8644/health
+# {"status": "ok", "platform": "webhook"}
+```
+
+## 步骤 3 —— 在 GitHub 上注册 webhook
+
+1. 进入你的仓库 → Settings → Webhooks → Add webhook
+
+2. 填写：
+
+* Payload URL：`https://your-public-url.example.com/webhooks/github-pr-review`
+* Content type：`application/json`
+* Secret：与你在 route config 中设置的 `secret` 相同
+* Which events? → Select individual events → 勾选 Pull requests
+
+3. 点击 Add webhook
+
+GitHub 会立即发送一个 ping event 来确认连接。它会被安全忽略 —— 因为 `ping` 不在你的 `events` 列表中 —— 并返回 `{"status": "ignored", "event": "ping"}`。它只会以 DEBUG 级别记录，因此在默认日志级别下不会出现在控制台中。
+
+## 步骤 4 —— 打开一个测试 PR
+
+创建一个分支，推送一个变更，然后打开 PR。在 30–90 秒内（取决于 PR 大小和模型），Hermes 应该会发布一条 review comment。
+
+实时跟踪 agent 进度：
+
+```bash
+tail -f "${HERMES_HOME:-$HOME/.hermes}/logs/gateway.log"
+```
+
+## 使用 ngrok 进行本地测试
+
+如果 Hermes 正在你的笔记本电脑上运行，可以使用 ngrok 将它暴露出去：
+
+```bash
+ngrok http 8644
+```
+
+复制 `https://...ngrok-free.app` URL，并将其用作你的 GitHub Payload URL。在免费 ngrok 套餐中，每次 ngrok 重启时 URL 都会变化 —— 每个 session 都需要更新你的 GitHub webhook。付费 ngrok 账号可以获得静态域名。
+
+你可以直接用 `curl` 对静态 route 进行 smoke-test —— 不需要 GitHub 账号或真实 PR。
+
+:::tip[本地测试时使用 `deliver: log`]
+测试时，将配置中的 `deliver: github_comment` 改为 `deliver: log`。否则 agent 会尝试向测试 payload 中的假 `org/repo#99` repo 发布评论，这会失败。等你对 prompt 输出满意后，再切换回 `deliver: github_comment`。
+:::
+
+```bash
+SECRET="your-webhook-secret-here"
+BODY='{"action":"opened","number":99,"pull_request":{"title":"Test PR","body":"Adds a feature.","user":{"login":"testuser"},"head":{"ref":"feat/x"},"base":{"ref":"main"},"html_url":"https://github.com/org/repo/pull/99"},"repository":{"full_name":"org/repo"}}'
+SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print "sha256="$2}')
+
+curl -s -X POST http://localhost:8644/webhooks/github-pr-review \
+  -H "Content-Type: application/json" \
+  -H "X-GitHub-Event: pull_request" \
+  -H "X-Hub-Signature-256: $SIG" \
+  -d "$BODY"
+# Expected: {"status":"accepted","route":"github-pr-review","event":"pull_request","delivery_id":"..."}
+```
+
+然后观察 agent 运行：
+
+```bash
+tail -f "${HERMES_HOME:-$HOME/.hermes}/logs/gateway.log"
+```
+
+:::note[注意]
+`hermes webhook test <name>` 只适用于通过 `hermes webhook subscribe` 创建的 **动态 subscriptions**。它不会读取 `config.yaml` 中的 routes。
+:::
+
+## 过滤到特定 actions
+
+GitHub 会为许多 actions 发送 `pull_request` events：`opened`、`synchronize`、`reopened`、`closed`、`labeled` 等。`events` 列表只会根据 `X-GitHub-Event` header 值进行过滤 —— 它不能在 routing 层面按 action 子类型过滤。
+
+步骤 1 中的 prompt 已经通过指示 agent 对 `closed` 和 `labeled` events 提前停止来处理这一点。
+
+:::caution[agent 仍然会运行并消耗 tokens]
+“stop here” 指令可以防止进行有意义的 review，但无论 action 是什么，agent 仍然会针对每个 `pull_request` event 完整运行。GitHub webhooks 只能按 event type（`pull_request`、`push`、`issues` 等）过滤 —— 不能按 action 子类型（`opened`、`closed`、`labeled`）过滤。没有 routing-level 的子 action 过滤。对于高流量 repos，要么接受这个成本，要么使用 GitHub Actions workflow 在上游进行过滤，并有条件地调用你的 webhook URL。
+:::
+
+没有 Jinja2 或条件模板语法。只支持 `{field}` 和 `{nested.field}` 替换。其他任何内容都会原样传递给 agent。
+
+## 使用 skill 来保持一致的 review 风格
+
+加载一个 Hermes skill，让 agent 拥有一致的 review persona。在 `config.yaml` 中的 `platforms.webhook.extra.routes` 内为你的 route 添加 skills：
+
+```yaml
+platforms:
+  webhook:
+    enabled: true
+    extra:
+      routes:
+        github-pr-review:
+          secret: "your-webhook-secret-here"
+          events: [pull_request]
+          prompt: |
+            A pull request event was received (action: {action}).
+            PR #{number}: {pull_request.title} by {pull_request.user.login}
+            URL: {pull_request.html_url}
+
+            If the action is "closed" or "labeled", stop here and do not post a comment.
+
+            Otherwise:
+            1. Run: gh pr diff {number} --repo {repository.full_name}
+            2. Review the diff using your review guidelines.
+            3. Write a concise, actionable review comment and post it.
+          skills:
+            - review
+          deliver: github_comment
+          deliver_extra:
+            repo: "{repository.full_name}"
+            pr_number: "{number}"
+```
+
+注意：列表中只有第一个被找到的 skill 会被加载。Hermes 不会叠加多个 skills —— 后续条目会被忽略。
+
+## 改为将响应发送到 Slack 或 Discord
+
+将你的 route 内的 `deliver` 和 `deliver_extra` 字段替换为目标平台：
+
+```yaml
+# Inside platforms.webhook.extra.routes.<route-name>:
+
+# Slack
+deliver: slack
+deliver_extra:
+  chat_id: "C0123456789"   # Slack channel ID (omit to use the configured home channel)
+
+# Discord
+deliver: discord
+deliver_extra:
+  chat_id: "987654321012345678"  # Discord channel ID (omit to use home channel)
+```
+
+目标平台也必须在 gateway 中启用并连接。如果省略 `chat_id`，响应会发送到该平台配置的 home channel。
+
+有效的 `deliver` 值：`log` · `github_comment` · `telegram` · `discord` · `slack` · `signal` · `sms`
+
+## GitLab 支持
+
+同一个 adapter 也适用于 GitLab。GitLab 使用 `X-Gitlab-Token` 进行认证（普通字符串匹配，不是 HMAC）—— Hermes 会自动处理两者。
+
+对于事件过滤，GitLab 会将 `X-GitLab-Event` 设置为类似 `Merge Request Hook`、`Push Hook`、`Pipeline Hook` 的值。请在 `events` 中使用精确的 header 值：
+
+```yaml
+events:
+  - Merge Request Hook
+```
+
+GitLab payload 字段不同于 GitHub —— 例如 MR 标题是 `{object_attributes.title}`，MR 编号是 `{object_attributes.iid}`。发现完整 payload 结构的最简单方法，是结合 GitLab webhook 设置中的 Test 按钮和 Recent Deliveries 日志。或者，在你的 route config 中省略 `prompt` —— Hermes 会将完整 payload 作为格式化 JSON 直接传给 agent，而 agent 的响应（使用 `deliver: log` 时可在 gateway log 中看到）会描述其结构。
+
+## 安全说明
+
+* 永远不要在生产环境中使用 `INSECURE_NO_AUTH` —— 它会完全禁用签名验证。它只适用于本地开发。
+* 定期轮换你的 webhook secret，并同时在 GitHub（webhook settings）和你的 `config.yaml` 中更新它。
+* 默认每个 route 的 rate limiting 是 30 req/min（可通过 `extra.rate_limit` 配置）。超过限制会返回 429。
+* 重复投递（webhook retries）会通过 1 小时的 idempotency cache 去重。cache key 优先使用 `X-GitHub-Delivery`，如果存在的话；然后是 `X-Request-ID`；最后是毫秒级 timestamp。当没有设置任何 delivery ID header 时，重试不会被去重。
+* Prompt injection：PR 标题、描述和 commit messages 都是攻击者可控的。恶意 PR 可能试图操纵 agent 的行为。当 gateway 暴露到公网时，请在沙盒环境（Docker、VM）中运行它。
+
+## 故障排查
+
+| 症状                                | 检查                                                                                                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 401 Invalid signature             | `config.yaml` 中的 Secret 与 GitHub webhook secret 不匹配                                                                                                                  |
+| 404 Unknown route                 | URL 中的 route name 与 `routes:` 中的 key 不匹配                                                                                                                             |
+| 429 Rate limit exceeded           | 超过每 route 30 req/min —— 在 GitHub UI 中重复投递测试事件时很常见；等待一分钟或提高 `extra.rate_limit`                                                                                        |
+| 没有发布 comment                      | `gh` 未安装、不在 PATH 中，或未认证（`gh auth login`）                                                                                                                             |
+| Agent 运行了但没有 comment              | 检查 gateway log —— 如果 agent 输出为空或只是 `"SKIP"`，delivery 仍会被尝试                                                                                                           |
+| Port already in use               | 修改 `config.yaml` 中的 `extra.port`                                                                                                                                     |
+| Agent 运行了但只 review PR description | prompt 没有包含 `gh pr diff` 指令 —— diff 不在 webhook payload 中                                                                                                             |
+| 看不到 ping event                    | 被忽略的 events 只会在 DEBUG log level 下返回 `{"status":"ignored","event":"ping"}` —— 检查 GitHub 的 delivery log（repo → Settings → Webhooks → your webhook → Recent Deliveries） |
+
+GitHub 的 Recent Deliveries 标签页（repo → Settings → Webhooks → your webhook）会显示每次投递的精确 request headers、payload、HTTP status 和 response body。它是无需查看服务器日志即可诊断故障的最快方式。
+
+## 完整配置参考
+
+```yaml
+platforms:
+  webhook:
+    enabled: true
+    extra:
+      host: "0.0.0.0"         # bind address (default: 0.0.0.0)
+      port: 8644               # listen port (default: 8644)
+      secret: ""               # optional global fallback secret
+      rate_limit: 30           # requests per minute per route
+      max_body_bytes: 1048576  # payload size limit in bytes (default: 1 MB)
+
+      routes:
+        <route-name>:
+          secret: "required-per-route"
+          events: []            # [] = accept all; otherwise list X-GitHub-Event values
+          prompt: ""            # {field} / {nested.field} resolved from payload
+          skills: []            # first matching skill is loaded (only one)
+          deliver: "log"        # log | github_comment | telegram | discord | slack | signal | sms
+          deliver_extra: {}     # repo + pr_number for github_comment; chat_id for others
+```
+
+## 接下来做什么？
+
+[Cron-Based PR Reviews](https://hermes-agent.nousresearch.com/docs/guides/github-pr-review-agent) —— 按计划轮询 PR，不需要公开 endpoint
+[Webhook Reference](https://hermes-agent.nousresearch.com/docs/guides/github-pr-review-agent) —— webhook platform 的完整配置参考
+[Build a Plugin](https://hermes-agent.nousresearch.com/docs/guides/build-a-hermes-plugin) —— 将 review 逻辑打包成可分享的插件
+[Profiles](https://hermes-agent.nousresearch.com/docs/user-guide/profiles) —— 使用拥有独立 memory 和 config 的专用 reviewer profile 
+
+
+

@@ -1,0 +1,265 @@
+---
+title: 构建 Model Provider Plugin
+description: hermes agent 构建 Model Provider Plugin
+---
+
+Model provider plugins 声明一个 inference backend —— OpenAI 兼容端点、Anthropic Messages server、Codex-style Responses API，或 Bedrock-native surface —— Hermes 可以通过它路由 AIAgent 调用。每个内置 provider（OpenRouter、Anthropic、GMI、DeepSeek、Nvidia，……）都是以这些 plugins 之一的形式发布的。第三方可以通过在 `$HERMES_HOME/plugins/model-providers/` 下放置一个目录来添加自己的 provider，而无需对仓库进行任何修改。
+
+:::tip[提示]
+Model provider plugins 是第三种 provider plugin。其他两种是 Memory Provider Plugins（跨会话知识）和 Context Engine Plugins（上下文压缩策略）。这三者都遵循相同的“放置一个目录，声明一个 profile，不需要编辑仓库”的模式。
+:::
+
+## 发现机制如何工作
+
+`providers/__init__.py._discover_providers()` 会在任何代码首次调用 `get_provider_profile()` 或 `list_providers()` 时惰性运行。发现顺序：
+
+1. Bundled plugins —— `<repo>/plugins/model-providers/<name>/` —— 随 Hermes 一起发布
+2. User plugins —— `$HERMES_HOME/plugins/model-providers/<name>/` —— 放入任意目录；后续会话无需重启
+3. Legacy single-file —— `<repo>/providers/<name>.py` —— 为仓库外 editable installs 提供向后兼容
+
+同名的 User plugins 会覆盖 bundled plugins，因为 `register_provider()` 是 last-writer-wins。放入一个 `$HERMES_HOME/plugins/model-providers/gmi/` 目录，就可以替换内置 GMI profile，而无需修改仓库。
+
+## 目录结构
+
+```text
+plugins/model-providers/my-provider/
+├── __init__.py       # 在模块级调用 register_provider(profile)
+├── plugin.yaml       # kind: model-provider + metadata（可选但推荐）
+└── README.md         # 设置说明（可选）
+```
+
+唯一必需的文件是 `__init__.py`。`plugin.yaml` 会被 `hermes plugins` 用于 introspection，也会被通用 `PluginManager` 用于将 plugin 路由到正确 loader；如果没有它，通用 loader 会退回到 source-text heuristic。
+
+## 最小示例 —— 一个简单的 API-key provider
+
+```python
+# plugins/model-providers/acme-inference/__init__.py
+from providers import register_provider
+from providers.base import ProviderProfile
+
+acme = ProviderProfile(
+    name="acme-inference",
+    aliases=("acme",),
+    display_name="Acme Inference",
+    description="Acme — OpenAI-compatible direct API",
+    signup_url="https://acme.example.com/keys",
+    env_vars=("ACME_API_KEY", "ACME_BASE_URL"),
+    base_url="https://api.acme.example.com/v1",
+    auth_type="api_key",
+    default_aux_model="acme-small-fast",
+    fallback_models=(
+        "acme-large-v3",
+        "acme-medium-v3",
+        "acme-small-fast",
+    ),
+)
+
+register_provider(acme)
+```
+
+```yaml
+# plugins/model-providers/acme-inference/plugin.yaml
+name: acme-inference
+kind: model-provider
+version: 1.0.0
+description: Acme Inference — OpenAI-compatible direct API
+author: Your Name
+```
+
+就这样。放入这两个文件后，以下内容会自动接线，无需其他编辑：
+
+| 集成                    | 位置                                     | 获得的内容                                                                                         |
+| --------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Credential resolution | `hermes_cli/auth.py`                   | 从 profile 填充 `PROVIDER_REGISTRY["acme-inference"]`                                            |
+| `--provider` CLI flag | `hermes_cli/main.py`                   | 接受 `acme-inference`                                                                           |
+| `hermes model` picker | `hermes_cli/models.py`                 | 出现在 `CANONICAL_PROVIDERS` 中，model list 从 `{base_url}/models` 获取                               |
+| `hermes doctor`       | `hermes_cli/doctor.py`                 | 对 `ACME_API_KEY` 和 `{base_url}/models` probe 进行 health check                                  |
+| `hermes setup`        | `hermes_cli/config.py`                 | `ACME_API_KEY` 出现在 `OPTIONAL_ENV_VARS` 和 setup wizard 中                                       |
+| URL reverse-mapping   | `agent/model_metadata.py`              | Hostname → provider name，用于 auto-detection                                                    |
+| Auxiliary model       | `agent/auxiliary_client.py`            | 使用 `default_aux_model` 进行 compression / summarization                                         |
+| Runtime resolution    | `hermes_cli/runtime_provider.py`       | 返回正确的 `base_url`、`api_key`、`api_mode`                                                         |
+| Transport             | `agent/transports/chat_completions.py` | Profile path 通过 `prepare_messages` / `build_extra_body` / `build_api_kwargs_extras` 生成 kwargs |
+
+## ProviderProfile 字段
+
+完整定义在 `providers/base.py` 中。最常用的字段如下：
+
+| 字段                   | 类型                | 用途                                                                                              |
+| -------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
+| `name`               | `str`             | 规范 id —— 匹配 `--provider` choices 和 `HERMES_INFERENCE_PROVIDER`                                  |
+| `aliases`            | `tuple[str, ...]` | 由 `get_provider_profile()` 解析的替代名称（例如 `grok → xai`）                                             |
+| `api_mode`           | `str`             | `chat_completions` | `codex_responses` | `anthropic_messages` | `bedrock_converse`              |
+| `display_name`       | `str`             | 在 `hermes model` picker 中显示的人类可读标签                                                              |
+| `description`        | `str`             | Picker subtitle                                                                                 |
+| `signup_url`         | `str`             | 首次运行 setup 时显示（“get an API key here”）                                                           |
+| `env_vars`           | `tuple[str, ...]` | 按优先级排列的 API-key env vars；最后一个 `*_BASE_URL` 条目会用作用户 base-URL override                            |
+| `base_url`           | `str`             | 默认 inference endpoint                                                                           |
+| `models_url`         | `str`             | 显式 catalog URL（fallback 到 `{base_url}/models`）                                                  |
+| `auth_type`          | `str`             | `api_key` | `oauth_device_code` | `oauth_external` | `copilot` | `aws_sdk` | `external_process` |
+| `fallback_models`    | `tuple[str, ...]` | live catalog fetch 失败时显示的精选列表                                                                   |
+| `default_headers`    | `dict[str, str]`  | 每次请求都会发送（例如 Copilot 的 `Editor-Version`）                                                         |
+| `fixed_temperature`  | `Any`             | `None` = 使用 caller 的值；`OMIT_TEMPERATURE` sentinel = 完全不发送 temperature（Kimi）                     |
+| `default_max_tokens` | `int \| None`     | Provider-level `max_tokens` 上限（Nvidia：16384）                                                    |
+| `default_aux_model`  | `str`             | 用于辅助任务的低成本模型（compression、vision、summarization）                                                  |
+
+## 可重写 hooks
+
+对于非平凡的特殊行为，请子类化 `ProviderProfile`：
+
+```python
+from typing import Any
+from providers.base import ProviderProfile
+
+class AcmeProfile(ProviderProfile):
+    def prepare_messages(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Provider-specific message preprocessing. Runs after codex
+        sanitization, before developer-role swap. Default: pass-through."""
+        # 示例：Qwen 会将 plain-text content 规范化为 list-of-parts
+        # array，并注入 cache_control；Kimi 会重写 tool-call JSON
+        return messages
+
+    def build_extra_body(self, *, session_id=None, **context) -> dict:
+        """Provider-specific extra_body fields merged into the API call.
+        Context includes: session_id, provider_preferences, model, base_url,
+        reasoning_config. Default: empty dict."""
+        # 示例：OpenRouter 的 provider-preferences block，
+        # Gemini 的 thinking_config translation。
+        return {}
+
+    def build_api_kwargs_extras(self, *, reasoning_config=None, **context):
+        """Returns (extra_body_additions, top_level_kwargs). Needed when some
+        fields go top-level (Kimi's reasoning_effort) and some go in extra_body
+        (OpenRouter's reasoning dict). Default: ({}, {})."""
+        return {}, {}
+
+    def fetch_models(self, *, api_key=None, timeout=8.0) -> list[str] | None:
+        """Live catalog fetch. Default hits {models_url or base_url}/models with
+        Bearer auth. Override for: custom auth (Anthropic), no REST endpoint
+        (Bedrock → None), or public/unauthenticated catalogs (OpenRouter)."""
+        return super().fetch_models(api_key=api_key, timeout=timeout)
+```
+
+## Hook reference examples
+
+查看这些 bundled plugins 以了解惯用法：
+
+| Plugin                                 | 为什么查看                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------- |
+| `plugins/model-providers/openrouter/`  | 带 provider preferences、public model catalog 的 aggregator              |
+| `plugins/model-providers/gemini/`      | `thinking_config` translation（native + OpenAI-compat nested forms）    |
+| `plugins/model-providers/kimi-coding/` | `OMIT_TEMPERATURE`、`extra_body.thinking`、top-level `reasoning_effort` |
+| `plugins/model-providers/qwen-oauth/`  | Message normalization、`cache_control` injection、VL high-res           |
+| `plugins/model-providers/nous/`        | Attribution tags、“omit reasoning when disabled”                       |
+| `plugins/model-providers/custom/`      | Ollama `num_ctx` + `think: false` 特殊行为                                |
+| `plugins/model-providers/bedrock/`     | `api_mode="bedrock_converse"`，`fetch_models` 返回 None（无 REST endpoint） |
+
+## User overrides —— 不编辑 repo 即可替换 built-in
+
+假设你想将 `gmi` 指向你的 private staging endpoint 进行测试。创建 `~/.hermes/plugins/model-providers/gmi/__init__.py`：
+
+```python
+from providers import register_provider
+from providers.base import ProviderProfile
+
+register_provider(ProviderProfile(
+    name="gmi",
+    aliases=("gmi-cloud", "gmicloud"),
+    env_vars=("GMI_API_KEY",),
+    base_url="https://gmi-staging.internal.example.com/v1",
+    auth_type="api_key",
+    default_aux_model="google/gemini-3.1-flash-lite-preview",
+))
+```
+
+下一个 session 中，`get_provider_profile("gmi").base_url` 会返回 staging URL。无需 repo patch，无需 rebuild。因为 user plugins 会在 bundled plugins 之后被发现，所以 user 的 `register_provider()` 调用会获胜。
+
+## `api_mode` selection
+
+识别四种值。Hermes 基于以下内容选择：
+
+1. User explicit override（设置了 `config.yaml model.api_mode` 时）
+2. OpenCode 的 per-model dispatch（Zen 和 Go 的 `opencode_model_api_mode`）
+3. URL auto-detection —— `/anthropic` 后缀 → `anthropic_messages`，`api.openai.com` → `codex_responses`，`api.x.ai` → `codex_responses`，Kimi domains 上的 `/coding` → `chat_completions`
+4. Profile `api_mode`，作为 URL detection 没有发现内容时的 fallback
+5. 默认 `chat_completions`
+
+将 `profile.api_mode` 设置为你的 provider 发布时的默认值 —— 它起到 hint 的作用。User URL overrides 仍然优先。
+
+## Auth types
+
+| `auth_type`         | 含义                                             | 谁使用                                                                     |
+| ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| `api_key`           | 单个 env var 携带静态 API key                        | 大多数 providers                                                           |
+| `oauth_device_code` | Device-code OAuth flow                         | —                                                                       |
+| `oauth_external`    | 用户在其他地方登录，tokens 落入 `auth.json`                | Anthropic OAuth、MiniMax OAuth、Gemini Cloud Code、Qwen Portal、Nous Portal |
+| `copilot`           | GitHub Copilot token refresh cycle             | 仅 copilot plugin                                                        |
+| `aws_sdk`           | AWS SDK credential chain（IAM role、profile、env） | 仅 bedrock plugin                                                        |
+| `external_process`  | Auth 由 agent 启动的 subprocess 处理                 | 仅 copilot-acp plugin                                                    |
+
+`auth_type` 控制哪些 codepaths 会把你的 provider 视为 “simple api-key provider” —— 如果它不是 `api_key`，`PluginManager` 仍然会记录 manifest，但 Hermes 的 CLI-level automation（doctor checks、`--provider` flag、setup wizard delegation）可能会跳过它。
+
+## Discovery timing
+
+Provider discovery 是惰性的 —— 由进程中首次调用 `get_provider_profile()` 或 `list_providers()` 触发。实际中，这通常会在启动早期发生（`auth.py` module load 会 eager 地扩展 `PROVIDER_REGISTRY`）。如果你需要验证 plugin 是否已加载，请运行：
+
+```bash
+hermes doctor
+```
+
+—— 一个成功的 `auth_type="api_key"` profile 会出现在 Provider Connectivity section 中，并带有 `/models` probe。
+
+用于程序化检查：
+
+```python
+from providers import list_providers
+for p in list_providers():
+    print(p.name, p.base_url, p.api_mode)
+```
+
+## 测试你的 plugin
+
+将 `HERMES_HOME` 指向一个临时目录，这样不会污染你的真实 config：
+
+```bash
+export HERMES_HOME=/tmp/hermes-plugin-test
+mkdir -p $HERMES_HOME/plugins/model-providers/my-provider
+cat > $HERMES_HOME/plugins/model-providers/my-provider/__init__.py <<'EOF'
+from providers import register_provider
+from providers.base import ProviderProfile
+register_provider(ProviderProfile(
+    name="my-provider",
+    env_vars=("MY_API_KEY",),
+    base_url="https://api.my-provider.example.com/v1",
+    auth_type="api_key",
+))
+EOF
+
+export MY_API_KEY=your-test-key
+hermes -z "hello" --provider my-provider -m some-model
+```
+
+## General PluginManager integration
+
+通用 `PluginManager`（也就是 `hermes plugins` 操作的东西）可以看到 model-provider plugins，但不会 import 它们 —— `providers/__init__.py` 拥有它们的 lifecycle。manager 会记录 manifest 用于 introspection，并按 `kind: model-provider` 分类。当你将一个未标注的 user plugin 放入 `$HERMES_HOME/plugins/`，而它刚好使用 `ProviderProfile` 调用了 `register_provider` 时，manager 会通过 source-text heuristic 自动将其强制转换为 `kind: model-provider` —— 因此即使没有 `plugin.yaml`，plugin 仍然会被正确路由。
+
+## 通过 pip 分发
+
+像任何 Hermes plugin 一样，model providers 可以作为 pip package 发布。向你的 `pyproject.toml` 添加 entry point：
+
+```toml
+[project.entry-points."hermes.plugins"]
+acme-inference = "acme_hermes_plugin:register"
+```
+
+……其中 `acme_hermes_plugin:register` 是一个调用 `register_provider(profile)` 的函数。通用 `PluginManager` 会在 `discover_and_load()` 期间拾取 entry-point plugins。对于 `kind: model-provider` 的 pip plugins，你仍然需要在 manifest 中声明 kind（或依赖 source-text heuristic）。
+
+完整 entry-points setup 请参见 Building a Hermes Plugin。
+
+## 相关页面
+
+* Provider Runtime —— resolution precedence + 每一层从哪里读取 profile
+* Adding Providers —— 新 inference backends 的端到端检查清单（涵盖快速 plugin path 和完整 CLI/auth integration）
+* Memory Provider Plugins
+* Context Engine Plugins
+* Building a Hermes Plugin —— 通用 plugin authoring
+

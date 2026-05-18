@@ -1,0 +1,199 @@
+---
+title: 打包技能目录
+description: hermes agent 打包技能目录
+---
+
+Hermes 附带了一个庞大的内置技能库，在安装时会被复制到 `~/.hermes/skills/` 中。下面列出的每个技能都链接到一个专有页面，其中包含其完整的定义、设置和用法。
+
+Hermes 也会在运行 `hermes update` 时同步捆绑的技能，但同步清单（manifest）会尊重本地的删除和用户进行的编辑。如果这里列出的某个技能在您配置文件的 `~/.hermes/skills/` 树中缺失，它依然随 Hermes 一起附带；您可以通过 `hermes skills reset <name> --restore` 来恢复它。
+
+如果某个技能在此列表中缺失但存在于仓库中，则该目录会由 `website/scripts/generate-skill-docs.py` 重新生成。
+
+## 苹果生态
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `apple-notes` | 通过 `memo` 命令行界面（CLI）管理苹果备忘录（Apple Notes）：包括创建、搜索和编辑。 | `apple/apple-notes` |
+| `apple-reminders` | 通过 `remindctl` 管理苹果提醒事项（Apple Reminders）：包括添加、列出和标记完成。 | `apple/apple-reminders` |
+| `findmy` | 通过 macOS 上的“查找”应用（FindMy.app）追踪苹果设备或 AirTags。 | `apple/findmy` |
+| `imessage` | 通过 macOS 上的 `imsg` 命令行界面（CLI）发送和接收 iMessage 或短信（SMS）。 | `apple/imessage` |
+| `macos-computer-use` | 在后台操控 macOS 桌面 —— 包括截屏、鼠标点击、键盘输入、滚动和拖拽 —— 且不会抢占用户的光标、键盘焦点或屏幕空间（Space）。可与任何具备工具调用能力的模型配合使用。每当 `computer_use` 工具被……时加载此技能。 | `apple/macos-computer-use` |
+
+## 自主 AI 智能体（autonomous-ai-agents）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `claude-code` | 将编程任务委托给 Claude Code 命令行界面（CLI）（包括开发功能、处理 PR 等）。 | `autonomous-ai-agents/claude-code` |
+| `codex` | 将编程任务委托给 OpenAI Codex 命令行界面（CLI）（包括开发功能、处理 PR 等）。 | `autonomous-ai-agents/codex` |
+| `hermes-agent` | 配置、扩展或为 Hermes Agent 贡献代码。 | `autonomous-ai-agents/hermes-agent` |
+| `opencode` | 将编程任务委托给 OpenCode 命令行界面（CLI）（包括开发功能、评审 PR 等）。 | `autonomous-ai-agents/opencode` |
+
+### 创意设计（creative）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `architecture-diagram` | 以 HTML 形式生成暗黑主题的 SVG 架构图/云架构图/基础设施图。 | `creative/architecture-diagram` |
+| `ascii-art` | ASCII 艺术字画：使用 pyfiglet、cowsay、boxes、图片转 ASCII。 | `creative/ascii-art` |
+| `ascii-video` | ASCII 视频：将视频/音频转换为彩色的 ASCII 字符 MP4 视频或 GIF 动图。 | `creative/ascii-video` |
+| `baoyu-comic` | 知识漫画：用于教育、人物传记、教程类内容的创作。 | `creative/baoyu-comic` |
+| `baoyu-infographic` | 信息图表：包含 21 种布局 x 21 种风格（信息图、数据可视化）。 | `creative/baoyu-infographic` |
+| `claude-design` | 设计独立的 HTML 产物（落地页、幻灯片、原型）。 | `creative/claude-design` |
+| `comfyui` | 通过 ComfyUI 生成图像、视频和音频 —— 支持安装、启动、管理节点/模型，以及通过参数注入运行工作流。使用官方的 comfy-cli 管理生命周期，并通过直接的 REST/WebSocket API 执行。 | `creative/comfyui` |
+| `ideation` | 通过创意约束生成项目创意（头脑风暴）。 | `creative/creative-ideation` |
+| `design-md` | 编写/验证/导出谷歌的 DESIGN.md 样式令牌（token）规范文件。 | `creative/design-md` |
+| `excalidraw` | 手绘风格的 Excalidraw JSON 图表（架构图、流程图、时序图）。 | `creative/excalidraw` |
+| `humanizer` | 文本去 AI 化：消除 AI 腔调并注入真实的真人表达。 | `creative/humanizer` |
+| `manim-video` | Manim 社区版（CE）动画：制作类似 3Blue1Brown 的数学/算法动画视频。 | `creative/manim-video` |
+| `p5js` | p5.js 画布：用于生成艺术、着色器（shaders）、交互式设计及 3D 创作。 | `creative/p5js` |
+| `pixel-art` | 带有特定时代调色板（NES、Game Boy、PICO-8）的像素艺术。 | `creative/pixel-art` |
+| `popular-web-designs` | 将 54 种真实的流行设计系统（如 Stripe、Linear、Vercel）转换为 HTML/CSS 页面。 | `creative/popular-web-designs` |
+| `pretext` | 适用于使用 @chenglou/pretext 构建创意的浏览器演示 —— 包含免 DOM 的 ASCII 艺术文本布局、绕开障碍物的排版流、以文本为几何体的游戏、动态排版以及文本驱动的生成艺术。生成单文件 HT…… | `creative/pretext` |
+| `sketch` | 即用即弃的 HTML 原型草图：生成 2-3 种设计变体以供对比。 | `creative/sketch` |
+| `songwriting-and-ai-music` | 歌曲创作技巧与 Suno AI 音乐提示词。 | `creative/songwriting-and-ai-music` |
+| `touchdesigner-mcp` | 通过 twozero MCP 控制正在运行的 TouchDesigner 实例 —— 创建算子（operators）、设置参数、连线、执行 Python 脚本、构建实时视觉效果。包含 36 个原生工具。 | `creative/touchdesigner-mcp` |
+
+
+### 数据科学（data-science）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `jupyter-live-kernel` | 通过实时 Jupyter 内核进行交互式 Python 编程（基于 hamelnb）。 | `data-science/jupyter-live-kernel` |
+
+### 开发运维（devops）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `kanban-orchestrator` | 针对通过看板（Kanban）路由工作的编排器（orchestrator）配置文件的分解剧本（playbook）+ 防诱惑规则。“不要自己做工作”的规则和基本生命周期会自动注入到每个看板工人的系统提示词中；本技能…… | `devops/kanban-orchestrator` |
+| `kanban-worker` | Hermes 看板（Kanban）工人的陷阱、示例和边缘情况。生命周期本身作为 KANBAN_GUIDANCE（来自 agent/prompt_builder.py）自动注入到每个工人的系统提示词中；当您需要更深入的详……时加载此技能。 | `devops/kanban-worker` |
+| `webhook-subscriptions` | Webhook 订阅：事件驱动型的智能体运行。 | `devops/webhook-subscriptions` |
+
+### 吃自家狗粮/内部测试（dogfood）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `dogfood` | Web 应用的探索性测试（QA）：寻找漏洞（bugs）、留存证据、输出报告。 | `dogfood` |
+
+### 电子邮件（email）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `himalaya` | Himalaya 命令行界面（CLI）：在终端中处理 IMAP/SMTP 电子邮件。 | `email/himalaya` |
+
+### 游戏（gaming）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `minecraft-modpack-server` | 托管模组版（modded）我的世界（Minecraft）服务器（支持 CurseForge、Modrinth）。 | `gaming/minecraft-modpack-server` |
+| `pokemon-player` | 通过无头（headless）模拟器 + 读取内存（RAM）来玩宝可梦。 | `gaming/pokemon-player` |
+
+### GitHub 生态（github）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `codebase-inspection` | 使用 pygount 检查代码库：统计代码行数（LOC）、编程语言及比例。 | `github/codebase-inspection` |
+| `github-auth` | GitHub 认证设置：配置 HTTPS 令牌、SSH 密钥、登录 gh 命令行工具。 | `github/github-auth` |
+| `github-code-review` | 评审拉取请求（PR）：通过 gh 命令行工具或 REST API 查看差异（diffs）并进行行内评论。 | `github/github-code-review` |
+| `github-issues` | 通过 gh 命令行工具或 REST API 创建、分拣、标记标签以及分配 GitHub Issue。 | `github/github-issues` |
+| `github-pr-workflow` | GitHub PR 生命周期管理：包含建分支、提交（commit）、开启 PR、持续集成（CI）及合并。 | `github/github-pr-workflow` |
+| `github-repo-management` | 克隆/创建/派生（fork）仓库；管理远程仓库和版本发布（releases）。 | `github/github-repo-management` |
+
+### 模型上下文协议（mcp）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `native-mcp` | MCP 客户端：连接服务器、注册工具（支持 stdio/HTTP）。 | `mcp/native-mcp` |
+
+### 媒体娱乐（media）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `gif-search` | 通过 `curl` + `jq` 从 Tenor 搜索/下载 GIF 动图。 | `media/gif-search` |
+| `heartmula` | HeartMuLa：根据歌词 + 标签生成类似 Suno 的歌曲。 | `media/heartmula` |
+| `songsee` | 通过命令行界面（CLI）查看音频声谱图/特征（梅尔倒谱、色度特征、MFCC）。 | `media/songsee` |
+| `spotify` | Spotify：播放、搜索、排队、管理歌单和设备。 | `media/spotify` |
+| `youtube-content` | 将 YouTube 字幕转换为摘要、帖子线索（threads）、博客文章。 | `media/youtube-content` |
+
+### 机器学习运维（mlops）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `audiocraft-audio-generation` | AudioCraft：MusicGen 文本转音乐、AudioGen 文本转音效。 | `mlops/models/audiocraft` |
+| `dspy` | DSPy：声明式语言模型程序，自动优化提示词，检索增强生成（RAG）。 | `mlops/research/dspy` |
+| `huggingface-hub` | HuggingFace `hf` 命令行工具：搜索/下载/上传模型、数据集。 | `mlops/huggingface-hub` |
+| `llama-cpp` | `llama.cpp` 本地 GGUF 推理 + HF Hub 模型发现。 | `mlops/inference/llama-cpp` |
+| `evaluating-llms-harness` | `lm-eval-harness`：评测语言模型（MMLU、GSM8K 等基准测试）。 | `mlops/evaluation/lm-evaluation-harness` |
+| `obliteratus` | OBLITERATUS：消除语言模型的拒绝回答倾向（均值差异法）。 | `mlops/inference/obliteratus` |
+| `segment-anything-model` | SAM：通过点、框、掩码进行零样本（zero-shot）图像分割。 | `mlops/models/segment-anything` |
+| `serving-llms-vllm` | vLLM：高吞吐量语言模型服务、OpenAI 兼容 API、量化。 | `mlops/inference/vllm` |
+| `weights-and-biases` | W&B：记录机器学习实验、超参搜索（sweeps）、模型注册中心、仪表盘。 | `mlops/evaluation/weights-and-biases` |
+
+### 笔记记录（note-taking）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `obsidian` | 在 Obsidian 库（vault）中阅读、搜索、创建和编辑笔记。 | `note-taking/obsidian` |
+
+### 效率办公（productivity）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `airtable` | 通过 `curl` 调用 Airtable REST API：记录的增删改查（CRUD）、过滤、更新或插入（upserts）。 | `productivity/airtable` |
+| `google-workspace` | 通过 `gws` 命令行工具或 Python 管理 Gmail、日历（Calendar）、云端硬盘（Drive）、文档（Docs）、表格（Sheets）。 | `productivity/google-workspace` |
+| `linear` | Linear：通过 GraphQL + `curl` 管理 Issue、项目、团队。 | `productivity/linear` |
+| `maps` | 地理编码、兴趣点（POIs）、路线规划、时序检测（通过 OpenStreetMap/OSRM）。 | `productivity/maps` |
+| `nano-pdf` | 通过 `nano-pdf` 命令行工具（支持自然语言提示词）修改 PDF 文本/错别字/标题。 | `productivity/nano-pdf` |
+| `notion` | 通过 `curl` 调用 Notion API：管理页面、数据库、区块、搜索。 | `productivity/notion` |
+| `ocr-and-documents` | 从 PDF/扫描件中提取文本（使用 pymupdf、marker-pdf）。 | `productivity/ocr-and-documents` |
+| `powerpoint` | 创建、读取、编辑 `.pptx` 演示文稿、幻灯片、备注、模板。 | `productivity/powerpoint` |
+| `teams-meeting-pipeline` | 通过 Hermes 命令行工具运行 Teams 会议摘要流水线 —— 总结会议、检查流水线状态、重放任务、管理 Microsoft Graph 订阅。 | `productivity/teams-meeting-pipeline` |
+
+### 红队对抗/安全测试（red-teaming）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `godmode` | 越狱大语言模型（LLMs）：Parseltongue、GODMODE、ULTRAPLINIAN。 | `red-teaming/godmode` |
+
+### 学术研究（research）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `arxiv` | 通过关键词、作者、分类或 ID 搜索 arXiv 论文。 | `research/arxiv` |
+| `blogwatcher` | 通过 `blogwatcher-cli` 工具监控博客以及 RSS/Atom 订阅源。 | `research/blogwatcher` |
+| `llm-wiki` | 帕帕西（Karpathy）的大语言模型维基：构建/查询相互链接的 Markdown 知识库。 | `research/llm-wiki` |
+| `polymarket` | 查询 Polymarket 预测市场：包含市场分类、价格、订单簿及历史记录。 | `research/polymarket` |
+| `research-paper-writing` | 撰写面向 NeurIPS/ICML/ICLR 的机器学习论文：涵盖从设计到提交的全流程。 | `research/research-paper-writing` |
+
+### 智能家居（smart-home）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `openhue` | 通过 OpenHue 命令行界面（CLI）控制飞利浦秀（Philips Hue）灯光、场景和房间。 | `smart-home/openhue` |
+
+### 社交媒体（social-media）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `xurl` | 通过 `xurl` 命令行界面（CLI）使用 X/Twitter：包含发帖、搜索、私信（DM）、媒体上传及 v2 版本 API。 | `social-media/xurl` |
+
+### 软件开发（software-development）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `debugging-hermes-tui-commands` | 调试 Hermes 终端用户界面（TUI）的斜杠（/）命令：涉及 Python、网关及 Ink UI。 | `software-development/debugging-hermes-tui-commands` |
+| `hermes-agent-skill-authoring` | 编写仓库内的 `SKILL.md` 文档：包含前置元数据（frontmatter）、验证器和结构规范。 | `software-development/hermes-agent-skill-authoring` |
+| `node-inspect-debugger` | 通过 `--inspect` + Chrome 开发者工具协议（DevTools Protocol）命令行界面（CLI）调试 Node.js。 | `software-development/node-inspect-debugger` |
+| `plan` | 计划模式：将 Markdown 格式的计划写入 `.hermes/plans/`，不直接执行代码。 | `software-development/plan` |
+| `python-debugpy` | 调试 Python 编程：结合使用 pdb 交互式环境（REPL）与 debugpy 远程调试（基于 DAP 协议）。 | `software-development/python-debugpy` |
+| `requesting-code-review` | 提交前代码评审：包含安全扫描、质量把关及自动修复。 | `software-development/requesting-code-review` |
+| `spike` | 即用即弃的技术探针实验：在正式构建前验证某种想法的可行性。 | `software-development/spike` |
+| `subagent-driven-development` | 通过 `delegate_task` 子智能体执行计划（采用两阶段审查机制）。 | `software-development/subagent-driven-development` |
+| `systematic-debugging` | 四阶段系统化排错法：在着手修复漏洞之前，彻底理清漏洞的底层根本原因。 | `software-development/systematic-debugging` |
+| `test-driven-development` | 测试驱动开发（TDD）：强制执行“红灯-绿灯-重构”（RED-GREEN-REFACTOR）流程，测试用例先于代码编写。 | `software-development/test-driven-development` |
+| `writing-plans` | 编写实现计划：将其拆解为小颗粒度的任务、路径规划以及具体代码。 | `software-development/writing-plans` |
+
+### 腾讯元宝（yuanbao）
+
+| 技能（Skill） | 描述（Description） | 路径（Path） |
+| --- | --- | --- |
+| `yuanbao` | 元宝群组管理：支持 @提及用户、查询信息及查询群成员。 | `yuanbao` |
+

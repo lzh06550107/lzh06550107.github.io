@@ -1,0 +1,369 @@
+---
+title: 语音与 TTS
+description: hermes agent 语音与 TTS
+---
+
+Hermes Agent 在所有消息平台上均支持语音合成（TTS）输出和语音消息转录。
+
+:::tip[Nous 订阅用户]
+如果你拥有 **Nous Portal** 付费订阅，可以通过工具网关（Tool Gateway）使用 OpenAI TTS 功能，无需额外的 OpenAI API 密钥。运行 `hermes model` 或 `hermes tools` 即可启用该功能。
+:::
+
+## 文本转语音 (TTS)
+
+支持通过十个供应商将文本转换为语音：
+
+| 供应商 | 质量 | 成本 | 所需 API 密钥 |
+| --- | --- | --- | --- |
+| **Edge TTS** (默认) | 良好 | 免费 | 无需 |
+| **ElevenLabs** | 极佳 | 付费 | `ELEVENLABS_API_KEY` |
+| **OpenAI TTS** | 良好 | 付费 | `VOICE_TOOLS_OPENAI_KEY` |
+| **MiniMax TTS** | 极佳 | 付费 | `MINIMAX_API_KEY` |
+| **Mistral (Voxtral TTS)** | 极佳 | 付费 | `MISTRAL_API_KEY` |
+| **Google Gemini TTS** | 极佳 | 免费层级 | `GEMINI_API_KEY` |
+| **xAI TTS** | 极佳 | 付费 | `XAI_API_KEY` |
+| **NeuTTS** | 良好 | 免费 (本地) | 无需 |
+| **KittenTTS** | 良好 | 免费 (本地) | 无需 |
+| **Piper** | 良好 | 免费 (本地) | 无需 |
+
+### 平台交付方式
+
+| 平台 | 交付方式 | 格式 |
+| --- | --- | --- |
+| **Telegram** | 语音气泡 (内联播放) | Opus `.ogg` |
+| **Discord** | 语音气泡 (Opus/OGG)，回退为文件附件 | Opus/MP3 |
+| **WhatsApp** | 音频文件附件 | MP3 |
+| **CLI** | 保存至 `~/.hermes/audio_cache/` | MP3 |
+
+### 配置说明
+
+```yaml
+# 位于 ~/.hermes/config.yaml
+tts:
+  provider: "edge"              # 可选: "edge" | "elevenlabs" | "openai" | "minimax" | "mistral" | "gemini" | "xai" | "neutts" | "kittentts" | "piper"
+  speed: 1.0                    # 全局语速倍率 (供应商特定设置会覆盖此项)
+  edge:
+    voice: "en-US-AriaNeural"   # 322 种声音，74 种语言
+    speed: 1.0                  # 转换为速率百分比 (+/-%)
+  elevenlabs:
+    voice_id: "pNInz6obpgDQGcFmaJgB"  # Adam
+    model_id: "eleven_multilingual_v2"
+  openai:
+    model: "gpt-4o-mini-tts"
+    voice: "alloy"              # alloy, echo, fable, onyx, nova, shimmer
+    base_url: "https://api.openai.com/v1"  # 用于覆盖 OpenAI 兼容的 TTS 端点
+    speed: 1.0                  # 范围 0.25 - 4.0
+  minimax:
+    model: "speech-2.8-hd"     # speech-2.8-hd (默认), speech-2.8-turbo
+    voice_id: "English_Graceful_Lady"  # 参见官方系统角色 ID 文档
+    speed: 1                    # 0.5 - 2.0
+    vol: 1                      # 0 - 10
+    pitch: 0                    # -12 - 12
+  mistral:
+    model: "voxtral-mini-tts-2603"
+    voice_id: "c69964a6-ab8b-4f8a-9465-ec0925096ec8"  # Paul - 中性 (默认)
+  gemini:
+    model: "gemini-2.5-flash-preview-tts"  # 或 gemini-2.5-pro-preview-tts
+    voice: "Kore"               # 30 种预设声音: Zephyr, Puck, Kore, Enceladus, Gacrux 等
+  xai:
+    voice_id: "eve"             # 或自定义声音 ID —— 详见下文文档
+    language: "en"              # ISO 639-1 代码
+    sample_rate: 24000          # 22050 / 24000 (默认) / 44100 / 48000
+    bit_rate: 128000            # MP3 比特率；仅在 codec=mp3 时生效
+    # base_url: "https://api.x.ai/v1"   # 可通过 XAI_BASE_URL 环境变量覆盖
+  neutts:
+    ref_audio: ''
+    ref_text: ''
+    model: neuphonic/neutts-air-q4-gguf
+    device: cpu
+  kittentts:
+    model: KittenML/kitten-tts-nano-0.8-int8   # 25MB int8; 还有: micro (41MB), mini (80MB)
+    voice: Jasper                               # Jasper, Bella, Luna, Bruno, Rosie, Hugo, Kiki, Leo
+    speed: 1.0                                  # 0.5 - 2.0
+    clean_text: true                            # 展开数字、货币、单位
+  piper:
+    voice: en_US-lessac-medium                  # 声音名称 (自动下载) 或 .onnx 绝对路径
+    # voices_dir: ''                            # 默认: ~/.hermes/cache/piper-voices/
+    # use_cuda: false                           # 需要 onnxruntime-gpu
+    # length_scale: 1.0                         # 2.0 = 慢一倍
+    # noise_scale: 0.667
+    # noise_w_scale: 0.8
+    # volume: 1.0                               # 0.5 = 音量减半
+    # normalize_audio: true
+```
+
+**语速控制：** 全局 `tts.speed` 值默认应用于所有供应商。每个供应商都可以通过其自身的 `speed` 设置（例如 `tts.openai.speed: 1.5`）进行覆盖。供应商特定的语速设置优先级高于全局值。默认值为 `1.0`（正常语速）。
+
+### 输入长度限制
+
+每个供应商都有记录在案的单次请求输入字符限制。Hermes 会在调用供应商之前截断文本，因此请求永远不会因长度错误而失败：
+
+| 供应商 | 默认上限 (字符) |
+| --- | --- |
+| **Edge TTS** | 5000 |
+| **OpenAI** | 4096 |
+| **xAI** | 15000 |
+| **MiniMax** | 10000 |
+| **Mistral** | 4000 |
+| **Google Gemini** | 5000 |
+| **ElevenLabs** | 取决于模型（见下文） |
+| **NeuTTS** | 2000 |
+| **KittenTTS** | 2000 |
+
+**ElevenLabs** 会根据配置的 `model_id` 选择上限：
+
+| model_id | 上限 (字符) |
+| --- | --- |
+| **eleven_flash_v2_5** | 40000 |
+| **eleven_flash_v2** | 30000 |
+| **eleven_multilingual_v2** (默认), **eleven_multilingual_v1**, **eleven_english_sts_v2**, **eleven_english_sts_v1** | 10000 |
+| **eleven_v3**, **eleven_ttv_v3** | 5000 |
+| **未知模型** | 回退至供应商默认值 (10000) |
+
+在 TTS 配置的供应商部分下使用 `max_text_length` **覆盖每个供应商的限制**：
+
+```yaml
+tts:
+  openai:
+    max_text_length: 8192   # 提高或降低供应商上限
+```
+
+仅认可正整数。零、负数、非数字或布尔值将回退至供应商默认值，因此错误的配置不会意外禁用截断功能。
+
+### Telegram 语音气泡与 ffmpeg
+
+Telegram 语音气泡需要 Opus/OGG 音频格式：
+
+* **OpenAI, ElevenLabs, 和 Mistral** 原生生成 Opus —— 无需额外设置。
+* **Edge TTS** (默认) 输出 MP3，需要 `ffmpeg` 进行转换。
+* **MiniMax TTS** 输出 MP3，需要 `ffmpeg` 转换为 Telegram 语音气泡。
+* **Google Gemini TTS** 输出原始 PCM，并使用 `ffmpeg` 直接编码为 Opus 以用于 Telegram 语音气泡。
+* **xAI TTS** 输出 MP3，需要 `ffmpeg` 进行转换。
+* **NeuTTS, KittenTTS, 和 Piper** 输出 WAV，同样需要 `ffmpeg` 进行转换。
+
+```bash
+# Ubuntu/Debian
+sudo apt install ffmpeg
+
+# macOS
+brew install ffmpeg
+
+# Fedora
+sudo dnf install ffmpeg
+```
+
+如果没有 `ffmpeg`，Edge TTS、MiniMax TTS、NeuTTS、KittenTTS 和 Piper 的音频将作为普通的音频文件发送（可以播放，但显示为矩形播放器而非语音气泡）。
+
+:::tip[提示]
+如果你想在不安装 `ffmpeg` 的情况下使用语音气泡，请切换到 OpenAI、ElevenLabs 或 Mistral 供应商。
+:::
+
+### xAI 自定义声音 (声音克隆)
+
+xAI 支持克隆你的声音并将其用于 TTS。在 [xAI 控制台](https://console.x.ai/team/default/voice/voice-library) 中创建一个自定义声音，然后在配置中设置生成的 `voice_id`：
+
+```yaml
+tts:
+  provider: xai
+  xai:
+    voice_id: "nlbqfwie"   # 你的自定义声音 ID
+```
+
+有关录制、支持格式和限制的详细信息，请参阅 [xAI 自定义声音文档](https://docs.x.ai/developers/model-capabilities/audio/custom-voices)。
+
+### Piper (本地，44 种语言)
+
+Piper 是来自 Open Home Foundation（Home Assistant 维护者）的快速、本地神经 TTS 引擎。它完全在 CPU 上运行，支持包含预训练声音的 **44 种语言**，且不需要 API 密钥。
+
+通过 `hermes tools` → Voice & TTS → Piper 安装 —— Hermes 会为你运行 `pip install piper-tts`。或者手动安装：`pip install piper-tts`。
+
+切换到 Piper：
+
+```yaml
+tts:
+  provider: piper
+  piper:
+    voice: en_US-lessac-medium
+```
+
+在第一次为未在本地缓存的声音调用 TTS 时，Hermes 会运行 `python -m piper.download_voices <name>` 并将模型（根据质量层级约为 20-90MB）下载到 `~/.hermes/cache/piper-voices/` 中。后续调用将重用缓存的模型。
+
+**选择声音**：[完整声音目录](https://www.google.com/search?q=https://rhasspy.github.io/piper-samples)涵盖英语、西班牙语、法语、德语、意大利语、荷兰语、葡萄牙语、俄语、波兰语、土耳其语、中文、阿拉伯语、印地语等——每种语言都有 `x_low` / `low` / `medium` / `high` 质量层级。
+
+**使用预先下载的声音**：将 `tts.piper.voice` 设置为以 `.onnx` 结尾的绝对路径：
+
+```yaml
+tts:
+  piper:
+    voice: /path/to/my-custom-voice.onnx
+```
+
+**高级调节选项** (`length_scale` / `noise_scale` / `noise_w_scale` / `volume` / `normalize_audio`, `use_cuda`) 与 Piper 的 `SynthesisConfig` 一一对应。在旧版本的 `piper-tts` 上它们会被忽略。
+
+### 自定义命令供应商
+
+如果你想要的 TTS 引擎不被原生支持（例如 VoxCPM, MLX-Kokoro, XTTS CLI, 某个声音克隆脚本, 或任何其他提供 CLI 的工具），你可以将其接入为**命令型供应商**而无需编写任何 Python 代码。Hermes 将输入文本写入临时 UTF-8 文件，运行你的 Shell 命令，并读取该命令生成的音频文件。
+
+在 `tts.providers.<name>` 下声明一个或多个供应商，并使用 `tts.provider: <name>` 在它们之间切换——方式与在 `edge` 和 `openai` 等内置供应商之间切换相同。
+
+```yaml
+tts:
+  provider: voxcpm                 # 选择 tts.providers 下的任何名称
+  providers:
+    voxcpm:
+      type: command
+      command: "voxcpm --ref ~/voice.wav --text-file `{input_path}` --out `{output_path}`"
+      output_format: mp3
+      timeout: 180
+      voice_compatible: true       # 尝试作为 Telegram 语音气泡发送
+
+    mlx-kokoro:
+      type: command
+      command: "python -m mlx_kokoro --in `{input_path}` --out `{output_path}` --voice `{voice}`"
+      voice: af_sky
+      output_format: wav
+
+    piper-custom:                  # 原生 Piper 也支持通过 tts.piper.voice 使用自定义 .onnx
+      type: command
+      command: "piper -m /path/to/custom.onnx -f `{output_path}` < `{input_path}`"
+      output_format: wav
+```
+
+#### 示例：豆包 (中文 seed-tts-2.0)
+
+如需通过字节跳动的 `seed-tts-2.0` 双向流式 API 获取高质量中文 TTS，请安装 `doubao-speech` PyPI 包并将其接入为命令供应商：
+
+```bash
+pip install doubao-speech
+export VOLCENGINE_APP_ID="your-app-id"
+export VOLCENGINE_ACCESS_TOKEN="your-access-token"
+```
+
+```yaml
+tts:
+  provider: doubao
+  providers:
+    doubao:
+      type: command
+      command: "doubao-speech say --text-file `{input_path}` --out `{output_path}`"
+      output_format: mp3
+      max_text_length: 1024
+      timeout: 30
+```
+
+凭据来自你的 Shell 环境或 `~/.doubao-speech/config.yaml`。通过在命令中添加 `--voice zh-female-warm`（或来自 `doubao-speech list-voices` 的任何其他别名）来选择声音。
+
+#### 占位符
+
+你的命令模板可以引用这些占位符。Hermes 在渲染时会替换它们，并对每个值进行 Shell 转义引用，因此包含空格和其他 Shell 敏感字符的路径是安全的。
+
+| 占位符 | 含义 |
+| --- | --- |
+| **{input_path}** | Hermes 写入的临时 UTF-8 文本文件的路径 |
+| **{text_path}** | `{input_path}` 的别名 |
+| **{output_path}** | 命令必须写入音频的路径 |
+| **{format}** | mp3 / wav / ogg / flac |
+| **{voice}** | `tts.providers.<name>.voice` 的值，未设置时为空 |
+| **{model}** | `tts.providers.<name>.model` 的值 |
+| **{speed}** | 解析后的语速倍率（供应商或全局） |
+
+使用 `{{` 和 `}}` 表示字面意义的大括号。
+
+#### 可选键值
+
+* **timeout** (默认 120): 秒；进程树在超时后会被杀死。
+* **output_format** (默认 mp3): mp3 / wav / ogg / flac 之一。
+* **voice_compatible** (默认 false): 为 `true` 时，Hermes 会通过 ffmpeg 将 MP3/WAV 输出转换为 Opus/OGG，以便 Telegram 渲染为语音气泡。
+* **max_text_length** (默认 5000): 输入在渲染命令前会被截断至此长度。
+* **voice / model**: 仅作为占位符值传递给命令。
+
+#### 行为说明
+
+* **内置名称始终优先**：`tts.providers.openai` 条目永远不会覆盖原生的 OpenAI 供应商。
+* **默认交付方式为文档**：命令供应商在所有平台上默认作为常规音频附件交付。使用 `voice_compatible: true` 按供应商开启语音气泡交付。
+* **命令失败会反馈给智能体**：非零退出、空输出或超时都会返回错误，并包含命令的 stderr/stdout，以便你在对话中调试。
+* **安全**：命令型供应商以你用户的权限运行你配置的任何 Shell 命令。请像对待脚本一样对待命令模板。
+* 当设置了 `command:` 时，默认 `type` 即为 `command`。明确写出 `type: command` 是良好的实践，但并非强制要求；任何包含非空 `command` 字符串的条目都会被视为命令供应商。
+* `{input_path}` 与 `{text_path}` 是可以互换的。请根据你的命令语境选择可读性更好的一个。
+
+#### 安全性
+
+命令型供应商会以你当前用户的权限运行你配置的任何 Shell 命令。Hermes 会对占位符数值进行转义引用并执行配置的超时限制，但命令模板本身被视为受信任的本地输入——请像对待系统 `PATH` 路径下的 Shell 脚本一样谨慎对待它。
+
+## 语音消息转录 (STT)
+
+在 Telegram、Discord、WhatsApp、Slack 或 Signal 上发送的语音消息会被自动转录，并作为文本注入对话中。智能体会将转录内容视为普通文本。
+
+| 供应商 | 质量 | 成本 | 所需 API 密钥 |
+| --- | --- | --- | --- |
+| **本地 Whisper** (默认) | 良好 | 免费 | 无需 |
+| **Groq Whisper API** | 良好至极佳 | 免费层级 | `GROQ_API_KEY` |
+| **OpenAI Whisper API** | 良好至极佳 | 付费 | `VOICE_TOOLS_OPENAI_KEY` 或 `OPENAI_API_KEY` |
+
+:::note[零配置]
+当安装了 `faster-whisper` 时，本地转录功能开箱即用。如果该库不可用，Hermes 还可以使用常见安装位置（如 `/opt/homebrew/bin`）的本地 `whisper` CLI，或通过 `HERMES_LOCAL_STT_COMMAND` 使用自定义命令。
+:::
+
+### 配置说明
+
+```yaml
+# 位于 ~/.hermes/config.yaml
+stt:
+  provider: "local"           # 可选: "local" | "groq" | "openai" | "mistral" | "xai"
+  local:
+    model: "base"             # tiny, base, small, medium, large-v3
+  openai:
+    model: "whisper-1"        # whisper-1, gpt-4o-mini-transcribe, gpt-4o-transcribe
+  mistral:
+    model: "voxtral-mini-latest"  # voxtral-mini-latest, voxtral-mini-2602
+  xai:
+    model: "grok-stt"         # xAI Grok STT
+```
+
+### 供应商详情
+
+* **本地 (faster-whisper)** —— 通过 `faster-whisper` 在本地运行 Whisper。默认使用 CPU，如果 GPU 可用则使用 GPU。模型尺寸如下：
+
+| 模型 | 尺寸 | 速度 | 质量 |
+| --- | --- | --- | --- |
+| **tiny** | ~75 MB | 最快 | 基础 |
+| **base** | ~150 MB | 快 | 良好 (默认) |
+| **small** | ~500 MB | 中等 | 更好 |
+| **medium** | ~1.5 GB | 较慢 | 优秀 |
+| **large-v3** | ~3 GB | 最慢 | 最佳 |
+
+* **Groq API** —— 需要 `GROQ_API_KEY`。当你想要一个免费的托管 STT 方案时，这是一个很好的云端备选。
+* **OpenAI API** —— 优先接受 `VOICE_TOOLS_OPENAI_KEY`，其次回退至 `OPENAI_API_KEY`。支持 `whisper-1`、`gpt-4o-mini-transcribe` 和 `gpt-4o-transcribe`。
+* **Mistral API (Voxtral Transcribe)** —— 需要 `MISTRAL_API_KEY`。使用 Mistral 的 **Voxtral Transcribe** 模型。支持 13 种语言、说话人日志（diarization）和词级时间戳。通过 `pip install hermes-agent[mistral]` 安装。
+* **xAI Grok STT** —— 需要 `XAI_API_KEY`。以 `multipart/form-data` 形式发送请求至 `[https://api.x.ai/v1/stt](https://api.x.ai/v1/stt)`。如果你已经将 xAI 用于聊天或 TTS 且希望共用一个 API 密钥，这是个不错的选择。自动检测顺序将其排在 Groq 之后——需显式设置 `stt.provider: xai` 来强制使用它。
+* **自定义本地 CLI 回退** —— 如果你想让 Hermes 直接调用本地转录命令，请设置 `HERMES_LOCAL_STT_COMMAND`。命令模板支持 `{input_path}`、`{output_dir}`、`{language}` 和 `{model}` 占位符。你的命令必须在 `{output_dir}` 下的某处写入一个 `.txt` 转录文件。
+
+#### 示例：豆包 / 火山引擎 ASR
+
+如果你使用 `doubao-speech` 进行豆包 TTS（见上文），同一个包也可以通过本地命令 STT 接口处理语音转文本：
+
+```bash
+pip install doubao-speech
+export VOLCENGINE_APP_ID="your-app-id"
+export VOLCENGINE_ACCESS_TOKEN="your-access-token"
+export HERMES_LOCAL_STT_COMMAND='doubao-speech transcribe `{input_path}` --out {output_dir}/transcript.txt'
+```
+
+```yaml
+stt:
+  provider: local_command
+```
+
+Hermes 会将输入的语音消息写入 `{input_path}`，运行该命令，并读取在 `{output_dir}` 下生成的 `.txt` 文件。语言由火山引擎大模型端点自动检测。
+
+#### 回退行为
+
+如果你配置的供应商不可用，Hermes 会自动进行回退：
+
+1. **本地 faster-whisper 不可用** → 在尝试云端供应商之前，先尝试本地 `whisper` CLI 或 `HERMES_LOCAL_STT_COMMAND`。
+2. **未设置 Groq 密钥** → 回退至本地转录，然后是 OpenAI。
+3. **未设置 OpenAI 密钥** → 回退至本地转录，然后是 Groq。
+4. **未设置 Mistral 密钥/SDK** → 在自动检测中跳过；回退至下一个可用供应商。
+5. **无可用方案** → 语音消息将直接通过，并向用户发送一条准确的备注。
+
+

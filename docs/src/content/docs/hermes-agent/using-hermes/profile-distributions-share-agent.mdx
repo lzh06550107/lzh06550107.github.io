@@ -1,0 +1,560 @@
+---
+title: 配置文件分发：共享整个代理
+description: hermes 共享整个代理指南
+---
+
+配置文件分发（Profile Distribution）将一个完整的 Hermes 代理 —— 包括其性格（SOUL）、技能、定时任务（cron jobs）、MCP 连接和配置 —— 封装为一个 Git 仓库。任何拥有该仓库访问权限的人都可以通过一条命令安装整个代理，并进行就地更新，同时保持其个人的记忆、会话和 API 密钥不受影响。
+
+如果说配置文件（profile）**是一个本地代理，那么** 分发（distribution）就是该代理的可共享版本。
+
+## 这一切意味着什么
+
+在分发功能出现之前，共享一个 Hermes 代理意味着你需要发送给对方：
+
+1. 你的 `SOUL.md`
+2. 一份待安装的技能清单
+3. 你的 `config.yaml`（且需手动剔除敏感信息）
+4. 你所接入的 MCP 服务器描述
+5. 你安排的所有定时任务（cron jobs）
+6. 需要设置的环境变量说明
+
+……然后祈祷对方能够正确地完成组装。每当版本升级或修复漏洞时，都要重复一遍这个交接过程。
+
+而有了分发功能，所有这些内容都整合在一个 Git 仓库中：
+
+```text
+my-research-agent/
+├── distribution.yaml    # 清单文件：名称、版本、环境变量要求
+├── SOUL.md              # 代理的性格 / 系统提示词
+├── config.yaml          # 模型、温度、推理、工具默认值
+├── skills/              # 随代理提供的内置技能
+├── cron/                # 代理运行的定时任务
+└── mcp.json             # 代理连接的 MCP 服务器
+```
+
+接收者只需运行：
+
+```bash
+hermes profile install github.com/you/my-research-agent --alias
+```
+
+……随后他们就拥有了整个代理。他们只需填入自己的 API 密钥（从 `.env.EXAMPLE` 复制为 `.env`），就可以运行 `my-research-agent chat` 或通过 Telegram / Discord / Slack / 任何网关平台与其对话。当你发布新版本时，他们运行 `hermes profile update my-research-agent` 即可拉取你的更改 —— 而他们的记忆和会话将保持原样。
+
+## 为什么选择 Git？
+
+我们考虑过 tar 包、HTTP 归档、自定义格式。但没有一个能超越 Git：
+
+* **作者零构建步骤**：推送到 GitHub，用户即可安装。没有“打包、上传、更新索引”的繁琐循环。
+* **标签（Tags）、分支和提交（Commits）本身就是版本系统**：推送一个标签对我们来说，就像其他工具的“打包并发布一个版本”。
+* **更新是增量抓取**：无需重新下载整个归档包。
+* **透明化**：用户可以浏览仓库、查看版本间的差异、提交 issue、甚至 fork 出来进行自定义。
+* **天然支持私有仓库**：SSH 密钥、Git 凭据助手、GitHub CLI 存储的凭据 —— 只要你的终端已经配置好的认证方式，都能透明地应用。
+* **可复现性由提交 SHA 保证**：这与 pip 和 npm 记录的方式一致。
+
+**权衡**：接收者需要安装 Git。但在 2026 年，任何运行 Hermes 的机器上，Git 几乎都是标配。
+
+## 什么时候应该使用分发？
+
+**适合的场景：**
+
+* **共享专业代理**：如合规性监控、代码审查、研究助手、客户支持机器人，面向团队或社区共享。
+* **多机部署**：在多台机器上部署同一个代理，且不想每次都手动复制文件。
+* **快速迭代**：你正在改进代理，并希望接收者通过一条命令就能获取新版本。
+* **将代理作为产品构建**：包含特定默认设置、精选技能和调优提示词，供他人作为起点使用。
+
+**不适合的场景：**
+
+* **备份本地配置文件**：仅备份本地 profile，请使用 `hermes profile export / import`。
+* **共享 API 密钥**：`auth.json` 和 `.env` 被刻意排除在分发之外。每个安装者需自带凭据。
+* **共享记忆/会话/对话历史**：这些属于用户数据，而非分发内容，永不发送。
+
+## 生命周期：从作者到安装者再到更新
+
+以下是完整的端到端流程。请选择你关注的一侧。
+
+### 针对作者：发布分发包
+
+**第 1 步 —— 从一个可运行的 Profile 开始**
+
+像构建其他 profile 一样构建并完善代理：
+
+```bash
+hermes profile create research-bot
+research-bot setup                    # 配置模型、API 密钥
+# 编辑 ~/.hermes/profiles/research-bot/SOUL.md
+# 安装技能、接入 MCP 服务器、安排定时任务等
+research-bot chat                     # 亲自试用直到满意
+```
+
+**第 2 步 —— 添加 `distribution.yaml**`
+
+创建 `~/.hermes/profiles/research-bot/distribution.yaml`：
+
+```yaml
+name: research-bot
+version: 1.0.0
+description: "具有 arXiv 和 Web 工具的自主研究助手"
+hermes_requires: ">=0.12.0"
+author: "您的名字"
+license: "MIT"
+
+# 告知安装者该代理需要的环境变量。这些会根据安装者的 shell
+# 和现有的 .env 文件进行检查，因此他们不会被已经配置过的密钥打扰。
+env_requires:
+  - name: OPENAI_API_KEY
+    description: "OpenAI API 密钥 (用于模型访问)"
+    required: true
+  - name: SERPAPI_KEY
+    description: "用于网页搜索的 SerpAPI 密钥"
+    required: false
+    default: ""
+```
+
+这就是完整的清单文件。除了 `name` 之外，每个字段都有合理的默认值。
+
+**第 3 步 —— 推送到 Git 仓库**
+
+```bash
+cd ~/.hermes/profiles/research-bot
+git init
+git add .
+git commit -m "v1.0.0"
+git remote add origin git@github.com:you/research-bot.git
+git tag v1.0.0
+git push -u origin main --tags
+```
+
+该仓库现在就是一个分发包。任何有访问权限的人都可以安装它。
+
+:::note[信息]
+Git 仓库包含 profile 目录中 **除了** 已排除项以外的所有内容。排除项包括：`auth.json`、`.env`、`memories/`、`sessions/`、`state.db*`、`logs/`、`workspace/`、`*_cache/`、`local/`。这些内容保留在你的本地。你也可以添加 `.gitignore` 来排除其他路径。
+:::
+
+**第 4 步 —— 发布版本化更新**
+
+每当代理达到稳定状态，请增加版本号并打上标签：
+
+```bash
+# 编辑 distribution.yaml: version: 1.1.0
+git add distribution.yaml SOUL.md skills/
+git commit -m "v1.1.0: 更严谨的研究 SOUL，增加 arXiv 技能"
+git tag v1.1.0
+git push --tags
+```
+
+运行 `hermes profile update research-bot` 的接收者将拉取最新版本。
+
+### 仓库结构示例
+
+一个完整的作者分发包结构：
+
+```text
+research-bot/
+├── distribution.yaml            # 必须
+├── SOUL.md                      # 强烈推荐
+├── config.yaml                  # 模型、供应商、工具默认值
+├── mcp.json                     # MCP 服务器连接
+├── skills/
+│   ├── arxiv-search/SKILL.md
+│   ├── paper-summarization/SKILL.md
+│   └── citation-lookup/SKILL.md
+├── cron/
+│   └── weekly-digest.json       # 定时任务
+└── README.md                    # 面向人类的描述 (可选)
+```
+
+### 分发者所有 vs 用户所有
+
+当安装者更新到新版本时，某些内容会被替换（作者领域），而某些内容会保持原样（安装者领域）。默认规则如下：
+
+| 类别 | 路径 | 更新时 |
+| --- | --- | --- |
+| **分发者所有** | `SOUL.md`, `config.yaml`, `mcp.json`, `skills/`, `cron/`, `distribution.yaml` | **从新克隆中替换** |
+| **配置覆盖** | `config.yaml` | 默认会**保留** —— 因为安装者可能微调了模型或供应商。更新时使用 `--force-config` 可强制重置。 |
+| **用户所有** | `memories/`, `sessions/`, `state.db*`, `auth.json`, `.env`, `logs/`, `workspace/`, `plans/`, `home/`, `*_cache/`, `local/` | **永不触碰** |
+
+你可以在清单文件中覆盖 “分发者所有” 的列表：
+
+```yaml
+distribution_owned:
+  - SOUL.md
+  - skills/research/            # 仅更新研究技能；其他已安装技能保留
+  - cron/digest.json
+```
+
+如果省略该项，则应用上述默认规则 —— 这也是大多数分发包的需求。
+
+### 针对安装者：使用分发包
+
+#### 安装
+
+```bash
+hermes profile install github.com/you/research-bot --alias
+```
+
+**执行过程：**
+
+1. 将仓库克隆到临时目录。
+2. 读取 `distribution.yaml`，向您展示清单信息（名称、版本、描述、作者、所需环境变量）。
+3. 根据您的 Shell 环境和目标配置文件的现有 `.env` 检查每个所需的环境变量。将其标记为 `✓ set`（已设置）或 `needs setting`（需要设置），以便您准确了解需要配置的内容。
+4. 请求确认。使用 `-y` / `--yes` 可跳过此步骤。
+5. 将分发者拥有的文件复制到 `~/.hermes/profiles/research-bot/`（或清单中 `name` 所解析的路径）。
+6. 编写 `.env.EXAMPLE`，并注释掉所需的密钥 —— 复制为 `.env` 并填入值。
+7. 配合 `--alias` 标志，创建封装脚本，以便您可以直接运行 `research-bot chat`。
+
+#### 源类型
+
+支持任何 Git URL：
+
+```bash
+# GitHub 简写
+hermes profile install github.com/you/research-bot
+
+# 完整 HTTPS
+hermes profile install https://github.com/you/research-bot.git
+
+# SSH
+hermes profile install git@github.com:you/research-bot.git
+
+# 自托管、GitLab、Gitea、Forgejo —— 任何 Git 托管平台
+hermes profile install https://git.example.com/team/research-bot.git
+
+# 使用您配置的 Git 认证访问私有仓库
+hermes profile install git@github.com:your-org/internal-bot.git
+
+# 开发期间使用本地目录（无需 git push）
+hermes profile install ~/my-profile-in-progress/
+```
+
+#### 覆盖配置文件名称
+
+两个用户希望以不同的配置文件名称使用同一个分发包：
+
+```bash
+# Alice
+hermes profile install github.com/acme/support-bot --name support-us --alias
+# Bob (相同的分发包，不同的本地名称)
+hermes profile install github.com/acme/support-bot --name support-eu --alias
+```
+
+#### 填写环境变量
+
+安装后，代理的配置文件中包含一个 `.env.EXAMPLE`：
+
+```text
+# 此 Hermes 分发包需要的环境变量。
+# 运行前请复制到 `.env` 并填入您自己的值。
+
+# OpenAI API 密钥 (用于模型访问)
+# (必填)
+OPENAI_API_KEY=
+
+# 用于网页搜索的 SerpAPI 密钥
+# (选填)
+# SERPAPI_KEY=
+```
+
+复制它：
+
+```bash
+cp ~/.hermes/profiles/research-bot/.env.EXAMPLE ~/.hermes/profiles/research-bot/.env
+# 编辑 .env，粘贴您的真实密钥
+```
+
+安装过程中，若所需的密钥已存在于您的 Shell 环境中（例如在 `~/.zshrc` 中导出了 `OPENAI_API_KEY`），将被标记为 `✓ set` —— 您无需在 `.env` 中重复填写。
+
+#### 检查安装内容
+
+```bash
+hermes profile info research-bot
+```
+
+显示内容：
+
+```text
+Distribution: research-bot
+Version:      1.0.0
+Description:  Autonomous research assistant with arXiv and web tools
+Author:       Your Name
+Requires:     Hermes >=0.12.0
+Source:       https://github.com/you/research-bot
+Installed:    2026-05-08T17:04:32+00:00
+
+Environment variables:
+  OPENAI_API_KEY (required) — OpenAI API key (for model access)
+  SERPAPI_KEY (optional) — SerpAPI key for web search
+```
+
+`hermes profile list` 也会显示 `Distribution` 列，以便您一眼看出哪些配置文件来自仓库，哪些是手动构建的：
+
+| Profile | Model | Gateway | Alias | Distribution |
+| --- | --- | --- | --- | --- |
+| **◆default** | claude-sonnet-4 | stopped | — | — |
+| **coder** | gpt-5 | stopped | coder | — |
+| **research-bot** | claude-opus-4 | stopped | research-bot | research-bot@1.0.0 |
+| **telemetry** | claude-sonnet-4 | running | telemetry | telemetry@2.3.1 |
+
+#### 更新
+
+```bash
+hermes profile update research-bot
+```
+
+**执行过程：**
+
+1. 从记录的源 URL 重新克隆仓库。
+2. 替换分发者拥有的文件（SOUL、技能、定时任务、mcp.json）。
+3. **保留**您的 `config.yaml` —— 您可能已经调整了模型、温度或其他设置。使用 `--force-config` 可强制覆盖。
+4. **绝不触碰用户数据**：记忆、会话、认证信息、`.env`、日志、状态。
+
+无需重新下载整个归档包。不会抹掉您对配置的本地修改。不会删除您的对话历史。
+
+#### 移除
+
+```bash
+hermes profile delete research-bot
+```
+
+删除提示会在要求您确认之前显示分发信息：
+
+```text
+Profile: research-bot
+Path:    ~/.hermes/profiles/research-bot
+Model:   claude-opus-4 (anthropic)
+Skills:  12
+Distribution: research-bot@1.0.0
+Installed from: https://github.com/you/research-bot
+
+This will permanently delete:
+  • All config, API keys, memories, sessions, skills, cron jobs
+  • Command alias (~/.local/bin/research-bot)
+
+Type 'research-bot' to confirm:
+```
+
+这样，您永远不会在不知道代理来源或无法重新安装的情况下意外删除它。
+
+## 使用场景与模式
+
+### 个人：在多台机器间同步代理
+
+您在笔记本电脑上构建了一个研究助手。现在您希望在工作站上拥有同样的代理。
+
+```bash
+# 笔记本电脑
+cd ~/.hermes/profiles/research-bot
+git init && git add . && git commit -m "initial"
+git remote add origin git@github.com:you/research-bot.git
+git push -u origin main
+
+# 工作站
+hermes profile install github.com/you/research-bot --alias
+# 填写 .env，完成。
+```
+
+笔记本电脑上的任何迭代（git commit && push）都可以通过 `hermes profile update research-bot` 拉取到工作站。记忆保持在单机层面 —— 笔记本电脑记得自己的对话，工作站记得自己的对话，它们互不干扰。
+
+### 团队：发布经过审查的内部代理
+
+您的工程团队希望拥有一个共享的 PR 审查机器人，它带有特定的 SOUL、特定的技能，以及一个让每个 PR 都经过它处理的定时任务。
+
+```bash
+# 工程负责人
+cd ~/.hermes/profiles/pr-reviewer
+# ... 构建并调优 ...
+git init && git add . && git commit -m "v1.0 PR reviewer"
+git tag v1.0.0
+git push -u origin main --tags    # 推送到公司的内部 Git 托管平台
+
+# 每位工程师
+hermes profile install git@github.com:your-org/pr-reviewer.git --alias
+# 用他们自己的 API 密钥（由他们计费）填充 .env，.env.EXAMPLE 会指出所需内容
+pr-reviewer chat
+```
+
+当负责人发布 v1.1（更好的 SOUL、新技能）时，工程师们运行 `hermes profile update pr-reviewer`，几分钟内所有人都会切换到新版本。
+
+### 社区：发布公开代理
+
+您构建了一些新颖的东西 —— 也许是一个 “Polymarket 交易员”，或者一个 “学术论文摘要生成器”，亦或是一个 “Minecraft 服务器运维助手”。您想分享它。
+
+```bash
+# 您
+cd ~/.hermes/profiles/polymarket-trader
+# 在仓库根目录写一份详尽的 README.md —— GitHub 会在仓库主页显示它
+git init && git add . && git commit -m "v1.0"
+git tag v1.0.0
+# 发布到公开的 GitHub 仓库
+git remote add origin https://github.com/you/hermes-polymarket-trader.git
+git push -u origin main --tags
+
+# 任何人
+hermes profile install github.com/you/hermes-polymarket-trader --alias
+```
+
+发条推特公布安装命令。尝试它的人会给您提交 issue 和 PR。如果有人想进行自定义，他们可以 fork —— 还是每个人都熟悉的 Git 工作流。
+
+### 产品：发布具有特定倾向的代理
+
+您构建了一个基于 Hermes 的产品 —— 也许是一个合规性监控框架、一个客户支持技术栈，或者一个特定领域的研究平台。您希望将其作为产品进行分发。
+
+```yaml
+# distribution.yaml
+name: telemetry-harness
+version: 2.3.1
+description: "合规遥测框架 —— 监控并审查受监管的工作流"
+hermes_requires: ">=0.13.0"
+author: "Acme Compliance Inc."
+license: "Commercial"
+
+env_requires:
+  - name: ACME_API_KEY
+    description: "您的 Acme Compliance 许可密钥 (请联系 support@acme.com)"
+    required: true
+  - name: OPENAI_API_KEY
+    description: "用于模型访问的 OpenAI API 密钥"
+    required: true
+  - name: GRAPHITI_MCP_URL
+    description: "您的 Graphiti 知识图谱实例 URL"
+    required: false
+    default: "http://127.0.0.1:8000/sse"
+```
+
+您的客户通过单条命令安装；安装预览会准确告诉他们需要准备哪些密钥；更新在您打上新版本标签的那一刻起即可推送到位；他们的合规数据（`memories/`, `sessions/`）永远不会离开他们的机器。
+
+### 临时性：在共享基础设施上的单次脚本
+
+您是运维主管。您需要一个临时代理来诊断生产事故 —— 这是一个预设了 SOUL、正确工具和 MCP 连接的代理 —— 并将在接下来的三周内在三名值班工程师的笔记本电脑上运行。
+
+```bash
+# 您
+# 构建配置文件，提交，推送到私有仓库
+git push -u origin main
+
+# 每位值班人员
+hermes profile install git@github.com:your-org/incident-2026-q2.git --alias
+
+# 事故解决 —— 拆除它
+hermes profile delete incident-2026-q2
+```
+
+这种 “安装-删除” 的循环成本极低，完全可以即用即弃。
+
+## 方案技巧 (Recipes)
+
+### 固定到特定版本
+
+:::note[信息]
+Git 引用固定（例如 `#v1.2.0`）已在计划中，但未包含在初始版本中 —— 目前安装会跟踪默认分支。 请通过 `hermes profile info <name>` 跟踪您已安装的版本，并在准备就绪后再进行更新。
+:::
+
+### 检查当前版本 vs 最新版本
+
+```bash
+# 您已安装的版本
+hermes profile info research-bot | grep Version
+
+# 上游最新版本（无需安装即可查看）
+git ls-remote --tags https://github.com/you/research-bot | tail -5
+```
+
+### 在更新过程中保留本地配置自定义
+
+默认的更新行为已经实现了这一点：`config.yaml` 会被保留。为了保险起见，您可以将本地微调写入分发包不拥有的文件中：
+
+```text
+# ~/.hermes/profiles/research-bot/local/my-overrides.yaml
+#（分发包永远不会触碰 `local/` 目录）
+```
+
+……并根据需要在 `config.yaml` 或您的 SOUL 中引用它。
+
+### 强制进行干净的重新安装
+
+```bash
+# 彻底删除并从头开始重新安装（也会丢失记忆/会话）
+hermes profile delete research-bot --yes
+hermes profile install github.com/you/research-bot --alias
+
+# 更新到当前 main 分支，但将 config.yaml 重置为分发包的默认值
+hermes profile update research-bot --force-config --yes
+```
+
+### Fork 并自定义
+
+标准 Git 工作流 —— 分发包本质上就是仓库：
+
+```bash
+# 在 GitHub 上 fork 仓库，然后安装您自己的 fork
+hermes profile install github.com/yourname/forked-research-bot --alias
+
+# 在 ~/.hermes/profiles/forked-research-bot/ 进行本地迭代
+# 编辑 SOUL.md，提交并推送到您的 fork
+# 获取上游更改：按常规方式合并到您的 fork 中
+```
+
+### 在推送前测试分发包
+
+在作者的机器上：
+
+```bash
+# 从本地目录安装（无需执行 git push）
+hermes profile install ~/.hermes/profiles/research-bot --name research-bot-test --alias
+
+# 微调、删除、重新安装，直到满意为止
+hermes profile delete research-bot-test --yes
+hermes profile install ~/.hermes/profiles/research-bot --name research-bot-test
+```
+
+## 分发包中永远不会包含的内容 (What's NOT in a distribution)
+
+即使作者不小心包含了以下路径，安装程序也会强制将其排除。没有任何配置选项可以覆盖此设置 —— 这种安全防护是经过回归测试的不变量：
+
+* **auth.json** —— OAuth 令牌、平台凭据
+* **.env** —— API 密钥、机密信息
+* **memories/** —— 对话记忆
+* **sessions/** —— 对话历史
+* **state.db, state.db-shm, state.db-wal** —— 会话元数据
+* **logs/** —— 代理和错误日志
+* **workspace/** —— 生成的工作文件
+* **plans/** —— 草稿方案
+* **home/** —— Docker 后端中的用户家目录挂载
+* ***_cache/** —— 图像/音频/文档缓存
+* **local/** —— 用户预留的自定义命名空间
+
+当您克隆一个分发包时，这些文件根本不会存在。当您更新时，它们会保持原样。如果您在五台机器上安装同一个分发包，您将拥有五套相互隔离的数据 —— 每台机器一套。
+
+## 安全与信任
+
+配置文件分发默认是未签名的。您的信任基于：
+
+1. **Git 托管方**（GitHub / GitLab / 其他）提供的字节确实是作者推送的内容。
+2. **作者**没有提供恶意的 SOUL、技能或定时任务。
+
+来自分发包的 **定时任务（Cron jobs）不会自动调度** —— 安装程序会打印 `hermes -p <name> cron list`，您需要显式启用它们。**SOUL.md 和技能会在您开始与配置文件聊天时立即激活**，因此如果您是从陌生人那里安装，请在首次运行前阅读这些内容。
+
+**类比**：安装分发包就像安装浏览器扩展或 VS Code 扩展。低摩擦、高权限、信任来源。对于公司内部的分发包，请使用私有仓库和您正常的 Git 认证方式 —— 无需配置新内容。
+
+未来的版本可能会增加签名功能、带有已解析提交 SHA 的锁定文件（`.distribution-lock.yaml`），以及在应用更新前打印差异的 `--dry-run` 标志。目前这些功能尚未发布。
+
+## 底层原理
+
+有关实现细节、准确的 CLI 行为以及所有标志，请参阅 [Profile Commands 参考](https://hermes-agent.nousresearch.com/docs/reference/profile-commands#distribution-commands)。
+
+**简短版本：**
+
+* `install`、`update`、`info` 位于 `hermes profile` 内部 —— 而不是平行的命令树。
+* 清单格式为 YAML，且仅有一个极小的必需架构（仅 `name`）。
+* 安装程序使用您本地的 `git` 二进制文件进行克隆，因此您的 Shell 已经处理的任何认证（SSH 密钥、凭据助手）都能透明运行。
+* 克隆后，`.git/` 会被剥离 —— 安装好的配置文件本身不是一个 Git 检出，从而避免了 “天哪，我不小心把 `.env` 提交到了分发包的 Git 历史中” 这种陷阱。
+* 保留的配置文件名称（`hermes`, `test`, `tmp`, `root`, `sudo`）在安装时会被拒绝，以避免与常见的二进制文件冲突。
+
+## 另请参阅
+
+* [Profiles: Running Multiple Agents](https://hermes-agent.nousresearch.com/docs/using-hermes/profiles) —— 基本概念
+* [Profile Commands reference](https://hermes-agent.nousresearch.com/docs/reference/profile-commands) —— 每一个标志，每一个选项
+* [hermes profile export / import](https://hermes-agent.nousresearch.com/docs/reference/profile-commands#hermes-profile-export) —— 本地备份 / 恢复（非分发）
+* [Using SOUL with Hermes](https://hermes-agent.nousresearch.com/docs/guides/use-soul-with-hermes) —— 创作个性
+* [Personality & SOUL](https://hermes-agent.nousresearch.com/docs/user-guide/features/personality) —— SOUL 如何融入代理
+* [Skills catalog](https://hermes-agent.nousresearch.com/docs/reference/skills-catalog) —— 您可以打包的技能库
+
