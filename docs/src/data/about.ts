@@ -1,6 +1,6 @@
 export const aboutData = {
-    name: 'Alex Mercer',
-    fullTitle: 'Alex Mercer - Software Engineer',
+    name: 'Lzh Mercer',
+    fullTitle: 'Lzh Mercer - Software Engineer',
     initials: 'AM',
     location: 'Austin, TX',
     locationHref: 'https://www.google.com/maps/place/austin+tx',

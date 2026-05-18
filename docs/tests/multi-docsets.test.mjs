@@ -59,6 +59,14 @@ const footerPath = path.join(
     'overrides',
     'Footer.astro'
 );
+const pageFramePath = path.join(
+    process.cwd(),
+    'packages',
+    'lucode-starlight',
+    'components',
+    'overrides',
+    'PageFrame.astro'
+);
 
 test('multi-docset registry defines product docsets for the docs portal', () => {
     assert.equal(fs.existsSync(registryPath), true, 'expected docset registry to exist');
@@ -176,6 +184,13 @@ test('footer respects per-page editUrl frontmatter when rendering edit links', (
 
     assert.match(footerSource, /data:\s*\{\s*template,\s*editUrl\s*\}/);
     assert.match(footerSource, /const showEditLink = editUrl !== false && editLink\?\.baseUrl \? true : false;/);
+});
+
+test('page frame only makes the top-level site header sticky', () => {
+    const pageFrameSource = fs.readFileSync(pageFramePath, 'utf8');
+
+    assert.match(pageFrameSource, /> header \{/);
+    assert.doesNotMatch(pageFrameSource, /\n\s*header \{/);
 });
 
 test('docs portal cards use fixed grid tracks so card content aligns vertically', () => {
