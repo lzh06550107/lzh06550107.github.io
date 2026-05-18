@@ -25,7 +25,7 @@ export default defineConfig({
                 lucode({
                     navLinks: [
                         { label: 'Blog', link: '/blog/' },
-                        { label: 'Docs', link: '/hermes-agent/getting-started/' },
+                        { label: 'Docs', link: '/hermes-agent/getting-started/quickstart' },
                         { label: 'Books', link: 'https://notes-docs.github.io/docs-site/home/' },
                         { label: 'About', link: '/about/' },
                     ],
