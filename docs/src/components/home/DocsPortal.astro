@@ -95,6 +95,8 @@ import { docsets } from '../../data/docsets.mjs';
 
     .docs-portal__hero {
         display: grid;
+        position: static;
+        top: auto;
         gap: 1.5rem;
         grid-template-columns: minmax(0, 1.75fr) minmax(280px, 0.95fr);
         padding: 2.1rem;
@@ -180,6 +182,10 @@ import { docsets } from '../../data/docsets.mjs';
         align-items: stretch;
         grid-auto-rows: 1fr;
         grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    }
+
+    .docs-portal__grid > * {
+        margin: 0 !important;
     }
 
     .docs-portal__card {

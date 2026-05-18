@@ -183,6 +183,9 @@ test('docs portal cards use fixed grid tracks so card content aligns vertically'
 
     assert.match(portalSource, /\.docs-portal__grid\s*\{[\s\S]*align-items:\s*stretch;/);
     assert.match(portalSource, /\.docs-portal__grid\s*\{[\s\S]*grid-auto-rows:\s*1fr;/);
+    assert.match(portalSource, /\.docs-portal__grid > \*\s*\{[\s\S]*margin:\s*0 !important;/);
+    assert.match(portalSource, /\.docs-portal__hero\s*\{[\s\S]*position:\s*static;/);
+    assert.match(portalSource, /\.docs-portal__hero\s*\{[\s\S]*top:\s*auto;/);
     assert.match(portalSource, /\.docs-portal__card\s*\{[\s\S]*grid-template-rows:\s*min-content 1fr;/);
     assert.match(portalSource, /\.docs-portal__card-copy\s*\{[\s\S]*grid-template-rows:\s*min-content min-content 1fr;/);
     assert.match(portalSource, /\.docs-portal__card-copy\s*\{[\s\S]*min-height:\s*12rem;/);
