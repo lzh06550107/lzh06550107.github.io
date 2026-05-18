@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import lucode from 'lucode-starlight';
+import { buildDocsetSidebar } from './src/data/docsets.mjs';
 
 // https://astro.build/config
 export default defineConfig({
@@ -25,7 +26,7 @@ export default defineConfig({
                 lucode({
                     navLinks: [
                         { label: 'Blog', link: '/blog/' },
-                        { label: 'Docs', link: '/hermes-agent/getting-started/quickstart' },
+                        { label: 'Docs', link: '/docs/' },
                         { label: 'Books', link: 'https://notes-docs.github.io/docs-site/home/' },
                         { label: 'About', link: '/about/' },
                     ],
@@ -50,36 +51,7 @@ export default defineConfig({
                     href: 'https://github.com/lucas-labs/lucode-starlight-theme',
                 },
             ],
-            sidebar: [
-                {
-                    label: 'Getting Started',
-                    autogenerate: { directory: 'hermes-agent/getting-started',},   
-                },
-                {
-                    label: 'Using Hermes',
-                    autogenerate: { directory: 'hermes-agent/using-hermes',},   
-                },
-                {
-                    label: 'Features',
-                    autogenerate: { directory: 'hermes-agent/features',},  
-                },
-                {
-                    label: 'Messaging Platforms',
-                    autogenerate: { directory: 'hermes-agent/messaging-platforms',},  
-                },
-                {
-                    label: 'Integrations',
-                    autogenerate: { directory: 'hermes-agent/integrations',},  
-                },
-                {
-                    label: 'Guides & Tutorials',
-                    autogenerate: { directory: 'hermes-agent/guides-tutorials',},  
-                },
-                {
-                    label: 'Developer Guide',
-                    autogenerate: { directory: 'hermes-agent/developer-guide',},  
-                }
-            ],
+            sidebar: buildDocsetSidebar(),
         }),
     ],
 

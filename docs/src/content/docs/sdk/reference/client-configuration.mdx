@@ -1,0 +1,21 @@
+---
+title: Client Configuration
+description: Configure a runtime client for the sample SDK docset.
+---
+
+# Client Configuration
+
+Create a single shared client instance close to your app entrypoint so retries, telemetry, and
+auth headers are configured consistently.
+
+```ts
+import { createClient } from '@acme/sdk';
+
+export const client = createClient({
+  baseUrl: 'https://api.example.com',
+  apiKey: process.env.ACME_API_KEY,
+});
+```
+
+Pointing the sample SDK reference at a separate path gives the second docset a realistic sidebar
+shape for testing.

@@ -1,7 +1,10 @@
 ---
 import SidebarSublist from './parts/SidebarSublist.astro';
+import { filterSidebarEntriesForPath } from './lib/sidebar';
 
 const { sidebar } = Astro.locals.starlightRoute;
+const currentPath = Astro.url.pathname;
+const filteredSidebar = filterSidebarEntriesForPath(sidebar, currentPath);
 ---
 
 <div class="sidebar">
@@ -10,7 +13,7 @@ const { sidebar } = Astro.locals.starlightRoute;
     <div class="sidebar-fade-top"></div>
     <div class="container-sidebar">
         <div class="sidebar-entries">
-            <SidebarSublist sublist={sidebar} />
+            <SidebarSublist sublist={filteredSidebar} />
         </div>
         <div class="sidebar-fade-bottom"></div>
     </div>

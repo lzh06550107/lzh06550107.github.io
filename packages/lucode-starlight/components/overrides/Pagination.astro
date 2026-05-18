@@ -1,6 +1,8 @@
 ---
+import { filterPaginationForPath } from './lib/sidebar';
+
 const { pagination } = Astro.locals.starlightRoute;
-const { prev, next } = pagination;
+const { prev, next } = filterPaginationForPath(pagination, Astro.url.pathname);
 ---
 
 <div class="pagination-links print:hidden">

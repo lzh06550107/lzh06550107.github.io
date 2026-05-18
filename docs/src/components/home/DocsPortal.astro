@@ -1,0 +1,260 @@
+---
+import { docsets } from '../../data/docsets.mjs';
+---
+
+<section class="docs-portal">
+    <div class="docs-portal__shell">
+        <header class="docs-portal__hero">
+            <div class="docs-portal__hero-copy">
+                <p class="docs-portal__eyebrow">文档中心</p>
+                <h1>选择你要查看的产品文档</h1>
+                <p class="docs-portal__lede">
+                    在同一个 Starlight 站点中承载多个产品文档，并在进入具体产品后保持独立导航。
+                </p>
+            </div>
+
+            <div class="docs-portal__hero-meta" aria-label="文档中心摘要">
+                <div>
+                    <span>文档集数量</span>
+                    <strong>{docsets.length}</strong>
+                </div>
+                <div>
+                    <span>导航方式</span>
+                    <strong>按产品独立导航</strong>
+                </div>
+                <div>
+                    <span>适用场景</span>
+                    <strong>产品使用文档</strong>
+                </div>
+            </div>
+        </header>
+
+        <div class="docs-portal__grid">
+            {
+                docsets.map((docset) => (
+                    <article class="docs-portal__card">
+                        <div class="docs-portal__card-copy">
+                            <p class="docs-portal__card-label">{docset.cardLabel ?? docset.id}</p>
+                            <h2>{docset.title}</h2>
+                            <p>{docset.description}</p>
+                        </div>
+
+                        <div class="docs-portal__actions">
+                            <a class="docs-portal__primary" href={docset.landing}>
+                                {docset.ctaLabel}
+                            </a>
+
+                            <ul class="docs-portal__featured">
+                                {
+                                    docset.featuredLinks.map((link) => (
+                                        <li>
+                                            <a href={link.href}>{link.label}</a>
+                                        </li>
+                                    ))
+                                }
+                            </ul>
+                        </div>
+                    </article>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<style is:global>
+    body:has(.docs-portal) [data-slot='doc-title'],
+    body:has(.docs-portal) [slot='doc-title-description'] {
+        display: none;
+    }
+
+    body:has(.docs-portal) main[data-slot='docs'] {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    body:has(.docs-portal) main[data-slot='docs'] > .main {
+        max-width: none;
+    }
+
+    body:has(.docs-portal) .pagination-links,
+    body:has(.docs-portal) a[aria-label='Edit page'] {
+        display: none;
+    }
+</style>
+
+<style>
+    .docs-portal {
+        width: min(1180px, calc(100vw - 2rem));
+        margin: 0 auto;
+        padding: 2rem 0 4rem;
+    }
+
+    .docs-portal__shell {
+        display: grid;
+        gap: 1.5rem;
+    }
+
+    .docs-portal__hero {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: minmax(0, 1.75fr) minmax(280px, 0.95fr);
+        padding: 2.1rem;
+        border: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
+        border-radius: 1.5rem;
+        background:
+            radial-gradient(circle at top left, color-mix(in oklab, var(--accent) 18%, white) 0%, transparent 28%),
+            linear-gradient(140deg, color-mix(in oklab, white 55%, var(--background)) 0%, var(--background) 100%);
+        box-shadow: 0 24px 80px color-mix(in oklab, var(--foreground) 8%, transparent);
+    }
+
+    .docs-portal__hero-copy,
+    .docs-portal__hero-meta {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .docs-portal__hero-meta {
+        align-content: start;
+        padding: 1.25rem;
+        border-radius: 1.1rem;
+        background: color-mix(in oklab, white 65%, transparent);
+        border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    }
+
+    .docs-portal__hero-meta div {
+        display: grid;
+        gap: 0.35rem;
+        padding-bottom: 0.9rem;
+        border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    }
+
+    .docs-portal__hero-meta div:last-child {
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+
+    .docs-portal__hero-meta span {
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted-foreground);
+    }
+
+    .docs-portal__hero-meta strong {
+        font-size: 1.1rem;
+        line-height: 1.35;
+    }
+
+    .docs-portal__eyebrow,
+    .docs-portal__card-label {
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.78rem;
+        color: var(--muted-foreground);
+    }
+
+    .docs-portal__hero h1,
+    .docs-portal__card h2 {
+        margin: 0;
+        line-height: 1.05;
+        letter-spacing: -0.04em;
+    }
+
+    .docs-portal__hero h1 {
+        font-size: clamp(2.6rem, 5vw, 4.9rem);
+        max-width: 11ch;
+    }
+
+    .docs-portal__lede,
+    .docs-portal__card p {
+        margin: 0;
+        color: var(--muted-foreground);
+        font-size: 1rem;
+        line-height: 1.7;
+        max-width: 65ch;
+    }
+
+    .docs-portal__grid {
+        display: grid;
+        gap: 1.25rem;
+        align-items: stretch;
+        grid-auto-rows: 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    }
+
+    .docs-portal__card {
+        display: grid;
+        height: 100%;
+        gap: 1.5rem;
+        grid-template-rows: min-content 1fr;
+        padding: 1.7rem;
+        border: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
+        border-radius: 1.25rem;
+        background:
+            linear-gradient(180deg, color-mix(in oklab, white 40%, transparent) 0%, transparent 100%),
+            color-mix(in oklab, var(--card, var(--background)) 94%, white);
+        box-shadow: 0 18px 50px color-mix(in oklab, var(--foreground) 5%, transparent);
+    }
+
+    .docs-portal__card-copy,
+    .docs-portal__actions,
+    .docs-portal__featured {
+        display: grid;
+        gap: 0.85rem;
+    }
+
+    .docs-portal__card-copy {
+        align-content: start;
+        grid-template-rows: min-content min-content 1fr;
+        min-height: 12rem;
+    }
+
+    .docs-portal__actions {
+        align-content: end;
+        grid-template-rows: min-content min-content;
+    }
+
+    .docs-portal__primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 3rem;
+        padding: 0 1.15rem;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 600;
+        background: var(--foreground);
+        color: var(--background);
+    }
+
+    .docs-portal__featured {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .docs-portal__featured a {
+        color: var(--foreground);
+        text-decoration: none;
+    }
+
+    .docs-portal__featured a:hover {
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+    }
+
+    @media (max-width: 60rem) {
+        .docs-portal {
+            padding-top: 1rem;
+        }
+
+        .docs-portal__hero {
+            grid-template-columns: 1fr;
+            padding: 1.5rem;
+        }
+
+        .docs-portal__hero h1 {
+            max-width: none;
+        }
+    }
+</style>

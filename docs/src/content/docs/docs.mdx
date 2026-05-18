@@ -1,0 +1,19 @@
+---
+title: 文档中心
+description: 当前站点内各个产品文档集的统一入口页。
+template: splash
+editUrl: false
+sidebar:
+  hidden: true
+---
+
+import DocsPortal from '../../components/home/DocsPortal.astro';
+
+<DocsPortal />
+
+<style is:global>{`
+  div[data-slot='doc-title'],
+  [slot='doc-title-description'] {
+    display: none !important;
+  }
+`}</style>

@@ -1,0 +1,24 @@
+---
+title: SDK 概览
+description: SDK 文档入口页，用于展示当前站点的多文档集能力与独立导航体验。
+editUrl: false
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+这个 SDK 文档集用于演示当前站点可以承载第二套产品文档，并保持与 Hermes 文档独立的侧边栏和分页行为。
+
+## 从这里开始
+
+<CardGrid>
+  <Card title="安装" icon="box">
+    完成包安装，并验证第二套文档已作为独立产品空间正确路由。
+
+    [查看 SDK 安装说明](/sdk/getting-started/installation/)
+  </Card>
+  <Card title="客户端配置" icon="seti:config">
+    创建可复用的运行时客户端，统一处理鉴权、基础地址和默认请求行为。
+
+    [查看客户端配置](/sdk/reference/client-configuration/)
+  </Card>
+</CardGrid>

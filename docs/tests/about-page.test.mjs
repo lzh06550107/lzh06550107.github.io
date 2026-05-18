@@ -21,7 +21,7 @@ test('About page source exists and is wired into docs navigation', () => {
     assert.match(navLinksBlock, /label:\s+'Blog'/);
     assert.match(navLinksBlock, /link:\s+'\/blog\/'/);
     assert.match(navLinksBlock, /label:\s+'Docs'/);
-    assert.match(navLinksBlock, /link:\s+'\/guides\/getting-started\/'/);
+    assert.match(navLinksBlock, /link:\s+'\/docs\/'/);
     assert.match(navLinksBlock, /label:\s+'Books'/);
     assert.match(navLinksBlock, /link:\s+'https:\/\/notes-docs\.github\.io\/docs-site\/home\/'/);
     assert.match(navLinksBlock, /label:\s+'About'/);

@@ -6,12 +6,12 @@ import config from 'virtual:starlight/user-config';
 
 const {
     entry: {
-        data: { template },
+        data: { template, editUrl },
     },
 } = Astro.locals.starlightRoute;
 
 const { lastUpdated: showLastUpdated, editLink } = config;
-const showEditLink = editLink?.baseUrl ? true : false;
+const showEditLink = editUrl !== false && editLink?.baseUrl ? true : false;
 ---
 
 <!-- footer -->{

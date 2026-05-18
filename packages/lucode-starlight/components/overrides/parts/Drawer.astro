@@ -2,9 +2,11 @@
 import userConfig from 'virtual:lucode-starlight-config';
 import { getTranslation } from './NavBar.astro';
 import { getRelativeLocaleUrl } from 'astro:i18n';
-const { sidebar } = Astro.locals.starlightRoute;
+import { filterSidebarEntriesForPath } from '../lib/sidebar';
+const { sidebar, hasSidebar } = Astro.locals.starlightRoute;
 
 const currentPath = Astro.url.pathname;
+const filteredSidebar = filterSidebarEntriesForPath(sidebar, currentPath);
 ---
 
 <div popover="auto" id="drawer">
@@ -40,31 +42,44 @@ const currentPath = Astro.url.pathname;
                 }
             </div>
 
-            <div class="links-docs">
-                {
-                    sidebar.map(
-                        (entry) =>
-                            entry.type !== 'link' && (
-                                <div class="container-sidebar-entry">
-                                    <h4 class="entry-title">{entry.label}</h4>
+            {
+                hasSidebar && (
+                    <div class="links-docs">
+                        {
+                            filteredSidebar.map(
+                                (entry) =>
+                                    entry.type === 'link' ? (
+                                        <a
+                                            class="docset-overview-link"
+                                            href={entry.href}
+                                            {...entry.attrs}
+                                            data-active={currentPath === entry.href}
+                                        >
+                                            {entry.label}
+                                        </a>
+                                    ) : (
+                                        <div class="container-sidebar-entry">
+                                            <h4 class="entry-title">{entry.label}</h4>
 
-                                    {entry.entries.map(
-                                        (link) =>
-                                            link.type === 'link' && (
-                                                <a
-                                                    href={link.href}
-                                                    {...link.attrs}
-                                                    data-active={currentPath === link.href}
-                                                >
-                                                    {link.label}
-                                                </a>
-                                            )
-                                    )}
-                                </div>
+                                            {entry.entries.map(
+                                                (link) =>
+                                                    link.type === 'link' && (
+                                                        <a
+                                                            href={link.href}
+                                                            {...link.attrs}
+                                                            data-active={currentPath === link.href}
+                                                        >
+                                                            {link.label}
+                                                        </a>
+                                                    )
+                                            )}
+                                        </div>
+                                    )
                             )
-                    )
-                }
-            </div>
+                        }
+                    </div>
+                )
+            }
         </div>
     </div>
 </div>
@@ -174,6 +189,19 @@ const currentPath = Astro.url.pathname;
         display: flex;
         flex-direction: column;
         gap: calc(var(--spacing) * 2);
+    }
+
+    .docset-overview-link {
+        font-size: 1rem;
+        line-height: 1.2rem;
+        color: var(--foreground);
+        text-decoration: inherit;
+        font-weight: 600;
+
+        &[data-active='true'] {
+            text-decoration: underline;
+            text-underline-offset: 0.2em;
+        }
     }
 
     .container-sidebar-entry {
