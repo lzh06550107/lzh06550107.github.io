@@ -48,7 +48,7 @@ export default defineConfig({
                 {
                     icon: 'github',
                     label: 'GitHub',
-                    href: 'https://github.com/lucas-labs/lucode-starlight-theme',
+                    href: 'https://github.com/lzh06550107',
                 },
             ],
             sidebar: buildDocsetSidebar(),
