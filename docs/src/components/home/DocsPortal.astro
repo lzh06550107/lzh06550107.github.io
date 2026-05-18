@@ -224,13 +224,25 @@ import { docsets } from '../../data/docsets.mjs';
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        width: 100%;
         min-height: 3rem;
         padding: 0 1.15rem;
+        border: 1px solid #262626;
         border-radius: 999px;
         text-decoration: none;
         font-weight: 600;
-        background: var(--foreground);
-        color: var(--background);
+        background-color: #262626;
+        color: #ffffff;
+        -webkit-text-fill-color: #ffffff;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    }
+
+    .docs-portal__primary:visited,
+    .docs-portal__primary:hover,
+    .docs-portal__primary:active {
+        color: #ffffff;
+        -webkit-text-fill-color: #ffffff;
+        background-color: #262626;
     }
 
     .docs-portal__featured {

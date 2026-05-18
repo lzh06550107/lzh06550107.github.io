@@ -205,6 +205,9 @@ test('docs portal cards use fixed grid tracks so card content aligns vertically'
     assert.match(portalSource, /\.docs-portal__card-copy\s*\{[\s\S]*grid-template-rows:\s*min-content min-content 1fr;/);
     assert.match(portalSource, /\.docs-portal__card-copy\s*\{[\s\S]*min-height:\s*12rem;/);
     assert.match(portalSource, /\.docs-portal__actions\s*\{[\s\S]*align-content:\s*end;/);
+    assert.match(portalSource, /\.docs-portal__primary\s*\{[\s\S]*width:\s*100%;/);
+    assert.match(portalSource, /\.docs-portal__primary\s*\{[\s\S]*background-color:\s*#262626;/);
+    assert.match(portalSource, /\.docs-portal__primary\s*\{[\s\S]*-webkit-text-fill-color:\s*#ffffff;/);
     assert.match(portalSource, /@media \(max-width:\s*60rem\)\s*\{[\s\S]*\.docs-portal__card-copy\s*\{[\s\S]*min-height:\s*auto;/);
     assert.match(portalSource, /@media \(max-width:\s*60rem\)\s*\{[\s\S]*\.docs-portal__hero h1\s*\{[\s\S]*font-size:\s*clamp\(1\.85rem,\s*10\.5vw,\s*3rem\);/);
     assert.match(portalSource, /@media \(max-width:\s*60rem\)\s*\{[\s\S]*\.docs-portal__hero-meta\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/);
