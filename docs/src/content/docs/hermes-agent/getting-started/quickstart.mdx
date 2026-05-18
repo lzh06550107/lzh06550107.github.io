@@ -33,7 +33,16 @@ Onchain AI Garage 整理了一份关于安装、配置及基础命令的大师�
 
 ## 1. 安装 Hermes Agent
 
-运行单行安装命令：
+**选项 A — pip (最简单):**
+
+```bash
+pip install hermes-agent
+hermes postinstall     # 可选：安装 Node.js、浏览器、ripgrep、ffmpeg 并运行设置
+```
+
+PyPI 版本追踪的是带标签的版本（主版本/次版本发布），而不是 `main` 分支上的每一次提交。如果需要最前沿的版本，请使用选项 B。
+
+**选项 B — git 安装程序 (追踪 main 分支):**
 
 ```bash
 # Linux / macOS / WSL2 / Android (Termux)
@@ -41,7 +50,7 @@ curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scri
 ```
 
 :::tip[Android / Termux]
-如果你是在手机上安装，请参阅专门的 **Termux 指南**，以了解经过测试的手动路径、支持的扩展功能以及当前 Android 平台的特定限制。
+如果你是在手机上安装，请参阅专门的 [Termux 指南](https://hermes-agent.nousresearch.com/docs/getting-started/termux)，以了解经过测试的手动路径、支持的扩展功能以及当前 Android 平台的特定限制。
 :::
 
 :::tip[Windows 用户]
@@ -127,7 +136,7 @@ hermes            # 经典 CLI 模式
 hermes --tui      # 现代 TUI 模式（推荐）
 ```
 
-你会看到一个欢迎横幅，显示当前模型、可用工具和技能。请使用一个具体且易于验证的提示词：
+你会看到一个欢迎横幅，显示当前模型、可用工具(tools)和技能(skills)。请使用一个具体且易于验证的提示词：
 
 :::tip[选择你的界面]
 Hermes 附带两种终端界面：经典的 `prompt_toolkit` CLI，以及支持模态叠加层、鼠标选择和非阻塞输入的现代 [TUI](https://hermes-agent.nousresearch.com/docs/zh-Hans/getting-started/tui)。两者共享相同的会话、斜杠命令和配置 —— 你可以通过 `hermes` 和 `hermes --tui` 分别尝试。
@@ -159,13 +168,15 @@ hermes -c            # 简写形式
 
 ## 5. 尝试核心功能
 
-**使用终端**
+### 使用终端
 
+```text
 > 我的磁盘占用情况如何？显示前 5 个最大的目录。
+```
 
 智能体将代表你运行终端命令并显示结果。
 
-**斜杠命令**
+### 斜杠命令
 
 输入 `/` 即可查看所有命令的自动补全下拉列表：
 
@@ -177,11 +188,11 @@ hermes -c            # 简写形式
 | `/personality pirate` | 尝试有趣的 “海盗” 人格 |
 | `/save` | 保存对话 |
 
-**多行输入**
+### 多行输入
 
 按 `Alt+Enter`、`Ctrl+J` 或 `Shift+Enter` 可添加新行。`Shift+Enter` 需要终端支持将其作为独立序列发送（Kitty / foot / WezTerm / Ghostty 默认支持；iTerm2 / Alacritty / VS Code 终端需开启 Kitty 键盘协议后支持）。`Alt+Enter` 和 `Ctrl+J` 在所有终端中均可使用。
 
-**中断智能体**
+### 中断智能体
 
 如果智能体执行时间过长，直接输入新消息并按回车即可 —— 这会中断当前任务并切换到你的新指令。`Ctrl+C` 同样有效。
 
@@ -189,7 +200,7 @@ hermes -c            # 简写形式
 
 仅在基础聊天功能正常后进行。根据你的需求选择：
 
-**机器人或共享助手**
+### 机器人或共享助手
 
 ```bash
 hermes gateway setup    # 交互式平台配置
@@ -197,13 +208,13 @@ hermes gateway setup    # 交互式平台配置
 
 连接 [Telegram](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/messaging/telegram)、[Discord](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/messaging/discord)、[Slack](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/messaging/slack)、[WhatsApp](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/messaging/whatsapp)、[Signal](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/messaging/signal)、[Email](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/messaging/email)、[Home Assistant](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/messaging/home-assistant) 或 [Microsoft Teams](https://hermes-agent.nousresearch.com/docs/zh-Hans/docs/user-guide/messaging/microsoft-teams)。
 
-**自动化与工具**
+### 自动化与工具
 
 * `hermes tools` —— 为不同平台调整工具访问权限。
 * `hermes skills` —— 浏览并安装可重用的工作流。
 * **Cron** —— 仅在你的机器人或 CLI 设置稳定后使用。
 
-**沙箱终端**
+### 沙箱终端
 
 为了安全起见，可以在 Docker 容器或远程服务器上运行智能体：
 
@@ -212,7 +223,7 @@ hermes config set terminal.backend docker    # Docker 隔离
 hermes config set terminal.backend ssh       # 远程服务器
 ```
 
-**语音模式**
+### 语音模式
 
 ```bash
 # 进入 Hermes 安装目录（curl 安装程序将其放置在：
@@ -224,17 +235,16 @@ uv pip install -e ".[voice]"
 
 然后在 CLI 中输入：`/voice on`。按 `Ctrl+B` 开始录音。详见 [语音模式](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/voice-mode)。
 
-**技能 (Skills)**
+### 技能 (Skills)
 
 ```bash
 hermes skills search kubernetes
 hermes skills install openai/skills/k8s
-
 ```
 
 或在聊天会话中使用 `/skills`。
 
-**MCP 服务器**
+### MCP 服务器
 
 ```yaml
 # 添加到 ~/.hermes/config.yaml
@@ -246,7 +256,7 @@ mcp_servers:
       GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_xxx"
 ```
 
-**编辑器集成 (ACP)**
+### 编辑器集成 (ACP)
 
 ACP 支持随标准的 `[all]` 扩展包一同提供，因此 curl 安装程序已包含该功能。只需运行：
 
