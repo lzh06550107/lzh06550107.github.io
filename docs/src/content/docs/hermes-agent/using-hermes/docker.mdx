@@ -1,12 +1,14 @@
 ---
 title: hermes agent —— Docker
 description: hermes agent Docker 使用指南
+sidebar:
+  order: 11
 ---
 
 Docker 与 Hermes 代理有两种截然不同的交集方式：
 
 1. **在 Docker 中运行 Hermes** —— 代理本身在容器内运行（本页面的主要焦点）。
-2. **以 Docker 作为终端后端** —— 代理在您的宿主机上运行，但在一个单一的、持久的 Docker 沙箱容器中执行每一条命令。该沙箱在工具调用、`/new` 以及子代理的整个 Hermes 进程生命周期中始终存在（参见 **配置 → Docker 后端**）。
+2. **以 Docker 作为终端后端** —— 代理在您的宿主机上运行，但在一个单一的、持久的 Docker 沙箱容器中执行每一条命令。该沙箱在工具调用、`/new` 以及子代理的整个 Hermes 进程生命周期中始终存在（参见 [配置 → Docker 后端](https://hermes-agent.nousresearch.com/docs/user-guide/configuration#docker-backend)）。
 
 本页面涵盖选项 1。容器将所有用户数据（配置、API 密钥、会话、技能、记忆）存储在从宿主机挂载到 `/opt/data` 的单一目录中。镜像本身是无状态的，可以通过拉取新版本进行升级，而不会丢失任何配置。
 
@@ -74,10 +76,10 @@ docker run -d \
 
 | 环境变量 | 描述 | 默认值 |
 | --- | --- | --- |
-| **HERMES_DASHBOARD** | 设置为 `1`（或 `true` / `yes`）以随主命令启动控制面板 | (未设置 — 不启动控制面板) |
-| **HERMES_DASHBOARD_HOST** | 控制面板 HTTP 服务器的绑定地址 | `0.0.0.0` |
-| **HERMES_DASHBOARD_PORT** | 控制面板 HTTP 服务器的端口 | `9119` |
-| **HERMES_DASHBOARD_TUI** | 设置为 `1` 以在浏览器中显示 Chat 选项卡（通过 PTY/WebSocket 嵌入 `hermes --tui`） | (未设置) |
+| `HERMES_DASHBOARD` | 设置为 `1`（或 `true` / `yes`）以随主命令启动控制面板 | (未设置 — 不启动控制面板) |
+| `HERMES_DASHBOARD_HOST` | 控制面板 HTTP 服务器的绑定地址 | `0.0.0.0` |
+| `HERMES_DASHBOARD_PORT` | 控制面板 HTTP 服务器的端口 | `9119` |
+| `HERMES_DASHBOARD_TUI` | 设置为 `1` 以在浏览器中显示 Chat 选项卡（通过 PTY/WebSocket 嵌入 `hermes --tui`） | (未设置) |
 
 为了让宿主机能够通过发布的端口访问控制面板，必需使用默认值 `HERMES_DASHBOARD_HOST=0.0.0.0`；在这种情况下，入口脚本会自动向 `hermes dashboard` 传递 `--insecure` 参数。如果您希望将控制面板限制为仅限容器内访问（例如位于边车容器的反向代理之后），请将其覆盖为 `127.0.0.1`。
 
@@ -124,7 +126,7 @@ docker run -it --rm \
 
 ## 多配置文件支持 (Multi-profile support)
 
-Hermes 支持 **多配置文件 (multiple profiles)** —— 即独立的 `~/.hermes/` 目录，允许您在单次安装下运行彼此独立的代理（拥有不同的 SOUL、技能、记忆、会话和凭据）。**在 Docker 下运行时，不建议使用 Hermes 内置的多配置文件功能。**
+Hermes 支持 **多配置文件 ([multiple profiles](https://hermes-agent.nousresearch.com/docs/reference/profile-commands))** —— 即独立的 `~/.hermes/` 目录，允许您在单次安装下运行彼此独立的代理（拥有不同的 SOUL、技能、记忆、会话和凭据）。**在 Docker 下运行时，不建议使用 Hermes 内置的多配置文件功能。**
 
 相反，推荐的模式是 **一个配置文件对应一个容器**，每个容器将各自的主机目录绑定挂载为 `/opt/data`：
 
@@ -152,7 +154,7 @@ docker run -d \
 * **独立的生命周期** —— 可以分别对每个代理进行升级、重启、暂停或回滚（执行 `docker restart hermes-work` 不会触碰 `hermes-personal`）。
 * **清晰的端口和网络分离** —— 每个网关绑定各自的主机端口，不存在聊天平台或 API 服务器之间串扰的风险。
 * **更简单的心理模型** —— 容器即配置文件。备份、迁移和权限管理都遵循绑定挂载的目录，无需额外记忆 `--profile` 标志。
-* **规避并发写入风险** —— 前文关于“切勿针对同一个数据目录运行两个网关”的警告，同样适用于单个容器内的多个配置文件。
+* **规避并发写入风险** —— 前文关于 “切勿针对同一个数据目录运行两个网关” 的警告，同样适用于单个容器内的多个配置文件。
 
 在 Docker Compose 中，这只需为每个配置文件声明一个服务，并区分 `container_name`、`volumes` 和 `ports`：
 
@@ -255,8 +257,8 @@ docker run -d \
 * **Node.js + npm**（用于浏览器自动化和 WhatsApp 桥接）
 * **Playwright 与 Chromium** (`npx playwright install --with-deps chromium --only-shell`)
 * **ripgrep, ffmpeg, git, 和 tini** 作为系统工具
-* **docker-cli** —— 以便容器内运行的代理可以驱动宿主机的 Docker 守护进程（需绑定挂载 `/var/run/docker.sock` 以开启此功能），用于 `docker build`、`docker run`、容器检查等。
-* **openssh-client** —— 允许在容器内使用 **SSH 终端后端**。SSH 后端会调用系统的 `ssh` 二进制文件；如果没有此组件，容器化安装中的该功能会静默失败。
+* `docker-cli` —— 以便容器内运行的代理可以驱动宿主机的 Docker 守护进程（需绑定挂载 `/var/run/docker.sock` 以开启此功能），用于 `docker build`、`docker run`、容器检查等。
+* `openssh-client` —— 允许在容器内使用 [SSH 终端后端](https://hermes-agent.nousresearch.com/docs/user-guide/configuration#ssh-backend)。SSH 后端会调用系统的 `ssh` 二进制文件；如果没有此组件，容器化安装中的该功能会静默失败。
 * **WhatsApp 桥接器** (`scripts/whatsapp-bridge/`)
 
 **入口脚本** (`docker/entrypoint.sh`) 在首次运行时引导数据卷：
@@ -359,7 +361,7 @@ model:
 * 使用**容器名称** (`vllm`) 作为主机名 —— 不要使用 `localhost` 或 `127.0.0.1`，因为它们在容器环境中指向的是 Hermes 容器自身。
 * `model` 的值必须与传递给 vLLM 的 `--served-model-name` 一致。
 * 将 `api_key` 设置为任何非空字符串（vLLM 要求有该请求头，但默认不验证其内容）。
-* `base_url` 结尾**不要**包含斜杠。
+* `base_url` 结尾 **不要** 包含斜杠。
 :::
 
 ### 独立 Docker 运行 (非 Compose)
@@ -461,7 +463,8 @@ docker run -d \
   nousresearch/hermes-agent gateway run
 ```
 
-**网络问题后网关无法重新连接 (Gateway not reconnecting after network issues)**
+### 网络问题后网关无法重新连接 (Gateway not reconnecting after network issues)
+
 `--restart unless-stopped` 标志可以处理大多数瞬时故障。如果网关卡死，请重启容器：
 
 ```bash

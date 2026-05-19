@@ -1,6 +1,8 @@
 ---
 title: CLI 界面
 description: Hermes Agent 的命令行界面 (CLI) 使用指南
+sidebar:
+  order: 1
 ---
 
 Hermes Agent 的 CLI 是一个完整的终端用户界面 (TUI) —— 而非 Web UI。它具有多行编辑、斜杠命令自动补全、会话历史、中断与重定向以及流式工具输出等功能。专为常驻终端的用户而打造。
@@ -93,7 +95,7 @@ Hermes CLI 的横幅、对话流和固定输入提示符均以稳定的文档图
 | **Ctrl+V** | 粘贴文本并择机附加剪贴板中的图像 |
 | **Ctrl+B** | 启用语音模式时开始/停止录音（`voice.record_key`，默认：`ctrl+b`） |
 | **Ctrl+G** | 在 `$EDITOR`（如 vim/nvim/nano/VS Code 等）中打开当前输入缓冲区。保存并退出后，编辑的文本将作为下一条提示词发送 —— 非常适合长篇、多段落的提示词。 |
-| **Ctrl+X Ctrl+E** | 外部编辑器的 Emacs 风格备用绑定（行为与 **Ctrl+G** 相同）。 |
+| **Ctrl+X Ctrl+E** | 外部编辑器的 Emacs 风格备用绑定（行为与 `Ctrl+G` 相同）。 |
 | **Ctrl+C** | 中断 Agent（2 秒内双击可强制退出） |
 | **Ctrl+D** | 退出 |
 | **Ctrl+Z** | 将 Hermes 挂起到后台（仅限 Unix）。在 Shell 中运行 `fg` 可恢复。 |
@@ -199,8 +201,8 @@ personalities:
 
 输入多行消息有两种方式：
 
-* **Alt+Enter**、**Ctrl+J** 或 **Shift+Enter** —— 插入新行
-* **反斜杠续行** —— 在行尾使用 `\` 以继续输入：
+1. `Alt+Enter`、`Ctrl+J` 或 `Shift+Enter` —— 插入新行
+2. **反斜杠续行** —— 在行尾使用 `\` 以继续输入：
 
 ```text
 ❯ 编写一个函数：\
@@ -240,9 +242,9 @@ personalities:
 
 | 模式 | 行为 |
 | --- | --- |
-| **"interrupt"** (默认) | 你的消息会中断当前操作并立即被处理 |
-| **"queue"** | 你的消息会静默排队，并在 Agent 完成当前轮次后作为下一轮发送 |
-| **"steer"** | 你的消息通过 `/steer` 注入当前运行，在下一次工具调用后送达 Agent —— 不中断，不开启新轮次 |
+| `"interrupt"` (默认) | 你的消息会中断当前操作并立即被处理 |
+| `"queue"` | 你的消息会静默排队，并在 Agent 完成当前轮次后作为下一轮发送 |
+| `"steer"` | 你的消息通过 `/steer` 注入当前运行，在下一次工具调用后送达 Agent —— 不中断，不开启新轮次 |
 
 ```yaml
 # ~/.hermes/config.yaml
@@ -250,9 +252,9 @@ display:
   busy_input_mode: "steer"   # 或 "queue" 或 "interrupt" (默认)
 ```
 
-**"queue"** 模式在你想要准备后续消息而不想意外取消正在进行的工作时非常有用。**"steer"** 模式在你想要在不中断任务的情况下重定向 Agent 时非常有用 —— 例如在它还在编辑代码时说 “事实上，也检查一下测试”。未知值将回退到 **"interrupt"**。
+`"queue"` 模式在你想要准备后续消息而不想意外取消正在进行的工作时非常有用。`"steer"` 模式在你想要在不中断任务的情况下重定向 Agent 时非常有用 —— 例如在它还在编辑代码时说 “事实上，也检查一下测试”。未知值将回退到 `"interrupt"`。
 
-**"steer"** 有两个自动回退机制：如果 Agent 尚未开始工作，或者附带有图像，消息将回退到 **"queue"** 行为，以确保不会丢失任何内容。
+`"steer"` 有两个自动回退机制：如果 Agent 尚未开始工作，或者附带有图像，消息将回退到 `"queue"` 行为，以确保不会丢失任何内容。
 
 你也可以在 CLI 内部更改它：
 
@@ -272,7 +274,7 @@ display:
 在 Unix 系统上，按 `Ctrl+Z` 可以像处理任何终端进程一样将 Hermes 挂起到后台。Shell 会打印一条确认信息：
 
 ```
-Hermes Agent has been suspended. Run fg to bring Hermes Agent back.
+Hermes Agent has been suspended. Run `fg` to bring Hermes Agent back.
 ```
 
 在 Shell 中输入 `fg` 即可从你离开的地方恢复会话。Windows 不支持此功能。
@@ -292,7 +294,7 @@ Hermes Agent has been suspended. Run fg to bring Hermes Agent back.
 **工具执行流**：
 
 ```text
-┊ 💻 terminal ls -la (0.3s)
+┊ 💻 terminal `ls -la` (0.3s)
 ┊ 🔍 web_search (1.2s)
 ┊ 📄 web_extract (2.1s)
 ```

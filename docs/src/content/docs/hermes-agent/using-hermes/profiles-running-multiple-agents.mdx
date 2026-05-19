@@ -1,6 +1,8 @@
 ---
 title: 配置文件：运行多个代理
 description: hermes 运行多个代理指南
+sidebar:
+  order: 8
 ---
 
 在同一台机器上运行多个相互独立的 Hermes 代理 —— 每个代理都拥有自己独立的配置、API 密钥、记忆、会话、技能以及网关状态。
@@ -30,6 +32,14 @@ hermes profile create mybot
 ```
 
 创建一个全新的配置文件，并植入内置技能。运行 `mybot setup` 来配置 API 密钥、模型和网关令牌。
+
+如果你计划将此配置集（profile）用作看板工人（或者希望看板编排器将工作路由给它），请在创建时传入 `--description "<role>"`，以便编排器了解它擅长什么：
+
+```text
+hermes profile create researcher --description "Reads source code and external docs, writes findings."
+```
+
+你也可以在稍后使用 `hermes profile describe` 来设置或自动生成描述 —— 完整的路由模型请参阅 [看板指南](https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban#auto-vs-manual-orchestration)。
 
 ### 仅克隆配置 (--clone)
 
@@ -184,7 +194,7 @@ coder config set terminal.cwd /absolute/path/to/project
 
 ## 更新（Updating）
 
-`hermes update` 会执行一次代码拉取（共享），并自动将新的内置技能同步到**所有**配置文件中：
+`hermes update` 会执行一次代码拉取（共享），并自动将新的内置技能同步到 **所有** 配置文件中：
 
 ```bash
 hermes update

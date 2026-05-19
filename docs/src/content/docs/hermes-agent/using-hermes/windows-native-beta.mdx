@@ -1,6 +1,8 @@
 ---
 title: Windows (原生) 指南 —— 早期 Beta 版
 description: Windows (原生) 使用指南
+sidebar:
+  order: 3
 ---
 
 :::warning[早期 Beta 阶段]
@@ -15,7 +17,7 @@ Hermes 可以原生运行在 Windows 10 和 Windows 11 上 —— 无需 WSL，�
 
 :::tip[想要使用 WSL？]
 如果你更倾向于真实的 POSIX 环境（为了使用仪表盘的嵌入式终端、`fork` 语义、Linux 风格的文件监听器等），请参阅 [Windows (WSL2) 指南](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/windows-wsl-quickstart.md)。两者可以完美共存：原生数据存储在 `%LOCALAPPDATA%\hermes` 下，而 WSL 数据存储在 `~/.hermes` 中。
-::::
+:::
 
 ## 快速安装
 
@@ -45,16 +47,16 @@ irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/ins
 
 按先后顺序如下：
 
-1. **引导安装 uv** —— Astral 开发的高速 Python 管理器。安装至 `%USERPROFILE%\.local\bin`。
-2. **通过 uv 安装 Python 3.11**。无需预装 Python。
+1. **引导安装 `uv`** —— Astral 开发的高速 Python 管理器。安装至 `%USERPROFILE%\.local\bin`。
+2. **通过 `uv` 安装 Python 3.11**。无需预装 Python。
 3. **安装 Node.js 22**（如果可用则通过 winget 安装，否则将便携版 Node 压缩包解压至 `%LOCALAPPDATA%\hermes\node`）。用于浏览器工具和 WhatsApp 桥接。
-4. **安装便携版 Git** —— 如果 PATH 中已有 `git`，安装程序将直接使用；否则它会下载一个精简、自包含的 `PortableGit`（约 45 MB，来自官方 git-for-windows 发行版）至 `%LOCALAPPDATA%\hermes\git`。无需管理员权限，不涉及 Windows 安装程序注册表，不干扰系统中任何其他内容。
+4. **安装便携版 Git** —— 如果 PATH 中已有 `git`，安装程序将直接使用；否则它会下载一个精简、自包含的 `PortableGit`（约 45 MB，来自官方 `git-for-windows` 发行版）至 `%LOCALAPPDATA%\hermes\git`。无需管理员权限，不涉及 Windows 安装程序注册表，不干扰系统中任何其他内容。
 5. **克隆仓库**至 `%LOCALAPPDATA%\hermes\hermes-agent` 并在其内部创建虚拟环境（virtualenv）。
-6. **分级 uv pip install** —— 首先尝试 `.[all]`，如果因 GitHub 速率限制导致 `git+https` 依赖安装失败，则退而求其次尝试较小的集合（`[messaging,dashboard,ext]` → `[messaging]` → `.`）。防止“单点故障导致安装完全失败”。
-7. **根据 .env 自动安装消息 SDK** —— 如果存在 `TELEGRAM_BOT_TOKEN` / `DISCORD_BOT_TOKEN` / `SLACK_BOT_TOKEN` / `SLACK_APP_TOKEN` / `WHATSAPP_ENABLED`，则运行 `python -m ensurepip --upgrade` 并执行针对性的 `pip install` 调用，确保各平台的 SDK 均可被正常导入。
-8. **设置 HERMES_GIT_BASH_PATH** 指向确定的 `bash.exe` 路径，以便 Hermes 在新 Shell 中能准确找到它。
-9. **将 %LOCALAPPDATA%\hermes\bin 添加到用户 PATH** —— 在你打开新终端后即可使用 `hermes` 命令。
-10. **运行 hermes setup** —— 标准的首次运行向导（配置模型、供应商、工具集）。使用 `-SkipSetup` 可跳过此步骤。
+6. **分级 `uv pip install`** —— 首先尝试 `.[all]`，如果因 GitHub 速率限制导致 `git+https` 依赖安装失败，则退而求其次尝试较小的集合（`[messaging,dashboard,ext]` → `[messaging]` → `.`）。防止 “单点故障导致安装完全失败”。
+7. **根据 `.env` 自动安装消息 SDK** —— 如果存在 `TELEGRAM_BOT_TOKEN` / `DISCORD_BOT_TOKEN` / `SLACK_BOT_TOKEN` / `SLACK_APP_TOKEN` / `WHATSAPP_ENABLED`，则运行 `python -m ensurepip --upgrade` 并执行针对性的 `pip install` 调用，确保各平台的 SDK 均可被正常导入。
+8. **设置 `HERMES_GIT_BASH_PATH`** 指向确定的 `bash.exe` 路径，以便 Hermes 在新 Shell 中能准确找到它。
+9. **将 `%LOCALAPPDATA%\hermes\bin` 添加到用户 PATH** —— 在你打开新终端后即可使用 `hermes` 命令。
+10. **运行 `hermes setup`** —— 标准的首次运行向导（配置模型、供应商、工具集）。使用 `-SkipSetup` 可跳过此步骤。
 
 ## 功能矩阵
 

@@ -1,11 +1,13 @@
 ---
 title: 配置文件分发：共享整个代理
 description: hermes 共享整个代理指南
+sidebar:
+  order: 9
 ---
 
 配置文件分发（Profile Distribution）将一个完整的 Hermes 代理 —— 包括其性格（SOUL）、技能、定时任务（cron jobs）、MCP 连接和配置 —— 封装为一个 Git 仓库。任何拥有该仓库访问权限的人都可以通过一条命令安装整个代理，并进行就地更新，同时保持其个人的记忆、会话和 API 密钥不受影响。
 
-如果说配置文件（profile）**是一个本地代理，那么** 分发（distribution）就是该代理的可共享版本。
+如果说 [配置文件](https://hermes-agent.nousresearch.com/docs/user-guide/profiles) 是一个本地代理，那么分发（distribution）就是该代理的可共享版本。
 
 ## 这一切意味着什么
 
@@ -72,9 +74,9 @@ hermes profile install github.com/you/my-research-agent --alias
 
 以下是完整的端到端流程。请选择你关注的一侧。
 
-### 针对作者：发布分发包
+## 针对作者：发布分发包
 
-**第 1 步 —— 从一个可运行的 Profile 开始**
+### 第 1 步 —— 从一个可运行的 Profile 开始
 
 像构建其他 profile 一样构建并完善代理：
 
@@ -86,7 +88,7 @@ research-bot setup                    # 配置模型、API 密钥
 research-bot chat                     # 亲自试用直到满意
 ```
 
-**第 2 步 —— 添加 `distribution.yaml**`
+### 第 2 步 —— 添加 `distribution.yaml`
 
 创建 `~/.hermes/profiles/research-bot/distribution.yaml`：
 
@@ -112,7 +114,7 @@ env_requires:
 
 这就是完整的清单文件。除了 `name` 之外，每个字段都有合理的默认值。
 
-**第 3 步 —— 推送到 Git 仓库**
+### 第 3 步 —— 推送到 Git 仓库
 
 ```bash
 cd ~/.hermes/profiles/research-bot
@@ -130,7 +132,7 @@ git push -u origin main --tags
 Git 仓库包含 profile 目录中 **除了** 已排除项以外的所有内容。排除项包括：`auth.json`、`.env`、`memories/`、`sessions/`、`state.db*`、`logs/`、`workspace/`、`*_cache/`、`local/`。这些内容保留在你的本地。你也可以添加 `.gitignore` 来排除其他路径。
 :::
 
-**第 4 步 —— 发布版本化更新**
+### 第 4 步 —— 发布版本化更新
 
 每当代理达到稳定状态，请增加版本号并打上标签：
 
@@ -184,9 +186,9 @@ distribution_owned:
 
 如果省略该项，则应用上述默认规则 —— 这也是大多数分发包的需求。
 
-### 针对安装者：使用分发包
+## 针对安装者：使用分发包
 
-#### 安装
+### 安装
 
 ```bash
 hermes profile install github.com/you/research-bot --alias
@@ -202,7 +204,7 @@ hermes profile install github.com/you/research-bot --alias
 6. 编写 `.env.EXAMPLE`，并注释掉所需的密钥 —— 复制为 `.env` 并填入值。
 7. 配合 `--alias` 标志，创建封装脚本，以便您可以直接运行 `research-bot chat`。
 
-#### 源类型
+### 源类型
 
 支持任何 Git URL：
 
@@ -226,7 +228,7 @@ hermes profile install git@github.com:your-org/internal-bot.git
 hermes profile install ~/my-profile-in-progress/
 ```
 
-#### 覆盖配置文件名称
+### 覆盖配置文件名称
 
 两个用户希望以不同的配置文件名称使用同一个分发包：
 
@@ -237,7 +239,7 @@ hermes profile install github.com/acme/support-bot --name support-us --alias
 hermes profile install github.com/acme/support-bot --name support-eu --alias
 ```
 
-#### 填写环境变量
+### 填写环境变量
 
 安装后，代理的配置文件中包含一个 `.env.EXAMPLE`：
 
@@ -263,7 +265,7 @@ cp ~/.hermes/profiles/research-bot/.env.EXAMPLE ~/.hermes/profiles/research-bot/
 
 安装过程中，若所需的密钥已存在于您的 Shell 环境中（例如在 `~/.zshrc` 中导出了 `OPENAI_API_KEY`），将被标记为 `✓ set` —— 您无需在 `.env` 中重复填写。
 
-#### 检查安装内容
+### 检查安装内容
 
 ```bash
 hermes profile info research-bot
@@ -289,12 +291,12 @@ Environment variables:
 
 | Profile | Model | Gateway | Alias | Distribution |
 | --- | --- | --- | --- | --- |
-| **◆default** | claude-sonnet-4 | stopped | — | — |
-| **coder** | gpt-5 | stopped | coder | — |
-| **research-bot** | claude-opus-4 | stopped | research-bot | research-bot@1.0.0 |
-| **telemetry** | claude-sonnet-4 | running | telemetry | telemetry@2.3.1 |
+| ◆default | claude-sonnet-4 | stopped | — | — |
+| coder | gpt-5 | stopped | coder | — |
+| research-bot | claude-opus-4 | stopped | research-bot | research-bot@1.0.0 |
+| telemetry | claude-sonnet-4 | running | telemetry | telemetry@2.3.1 |
 
-#### 更新
+### 更新
 
 ```bash
 hermes profile update research-bot
@@ -309,7 +311,7 @@ hermes profile update research-bot
 
 无需重新下载整个归档包。不会抹掉您对配置的本地修改。不会删除您的对话历史。
 
-#### 移除
+### 移除
 
 ```bash
 hermes profile delete research-bot
@@ -352,7 +354,7 @@ hermes profile install github.com/you/research-bot --alias
 # 填写 .env，完成。
 ```
 
-笔记本电脑上的任何迭代（git commit && push）都可以通过 `hermes profile update research-bot` 拉取到工作站。记忆保持在单机层面 —— 笔记本电脑记得自己的对话，工作站记得自己的对话，它们互不干扰。
+笔记本电脑上的任何迭代（`git commit && push`）都可以通过 `hermes profile update research-bot` 拉取到工作站。记忆保持在单机层面 —— 笔记本电脑记得自己的对话，工作站记得自己的对话，它们互不干扰。
 
 ### 团队：发布经过审查的内部代理
 
@@ -506,21 +508,21 @@ hermes profile delete research-bot-test --yes
 hermes profile install ~/.hermes/profiles/research-bot --name research-bot-test
 ```
 
-## 分发包中永远不会包含的内容 (What's NOT in a distribution)
+## 分发包中永远不会包含的内容
 
 即使作者不小心包含了以下路径，安装程序也会强制将其排除。没有任何配置选项可以覆盖此设置 —— 这种安全防护是经过回归测试的不变量：
 
-* **auth.json** —— OAuth 令牌、平台凭据
-* **.env** —— API 密钥、机密信息
-* **memories/** —— 对话记忆
-* **sessions/** —— 对话历史
-* **state.db, state.db-shm, state.db-wal** —— 会话元数据
-* **logs/** —— 代理和错误日志
-* **workspace/** —— 生成的工作文件
-* **plans/** —— 草稿方案
-* **home/** —— Docker 后端中的用户家目录挂载
-* ***_cache/** —— 图像/音频/文档缓存
-* **local/** —— 用户预留的自定义命名空间
+* `auth.json` —— OAuth 令牌、平台凭据
+* `.env` —— API 密钥、机密信息
+* `memories/` —— 对话记忆
+* `sessions/` —— 对话历史
+* `state.db`, `state.db-shm`, `state.db-wal` —— 会话元数据
+* `logs/` —— 代理和错误日志
+* `workspace/` —— 生成的工作文件
+* `plans/` —— 草稿方案
+* `home/` —— Docker 后端中的用户家目录挂载
+* `*_cache/` —— 图像/音频/文档缓存
+* `local/` —— 用户预留的自定义命名空间
 
 当您克隆一个分发包时，这些文件根本不会存在。当您更新时，它们会保持原样。如果您在五台机器上安装同一个分发包，您将拥有五套相互隔离的数据 —— 每台机器一套。
 

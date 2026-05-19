@@ -1,6 +1,8 @@
 ---
 title: 配置模型
 description: hermes 配置模型指南
+sidebar:
+  order: 6
 ---
 
 Hermes 使用两种模型插槽（model slots）：
@@ -12,6 +14,12 @@ Hermes 使用两种模型插槽（model slots）：
 本页面介绍了如何通过仪表板配置这两类模型。如果您更倾向于使用配置文件或 CLI，请跳转到底部的 [其他方法](https://hermes-agent.nousresearch.com/docs/user-guide/configuring-models#alternative-methods)。
 
 ## The Models page
+
+通过如下命令启动 UI web 服务：
+
+```bash
+hermes dashboard
+```
 
 打开仪表板并点击侧边栏中的 **Models**。你会看到两个部分：
 
@@ -43,7 +51,7 @@ Hermes 使用两种模型插槽（model slots）：
 
 ![图片描述](/images/configuration-models-3.png)
 
-所有辅助任务默认设置为 **auto** —— 这意味着 Hermes 也会使用您的主模型来处理这些工作。如果您希望为某项副业任务使用更便宜或更快的模型，请覆盖特定任务的设置。
+所有辅助任务默认设置为 **auto** —— 这意味着 Hermes 也会使用您的 **主模型** 来处理这些工作。如果您希望为某项副业任务使用更便宜或更快的模型，请覆盖特定任务的设置。
 
 ### 常见的覆盖模式（Common override patterns）
 

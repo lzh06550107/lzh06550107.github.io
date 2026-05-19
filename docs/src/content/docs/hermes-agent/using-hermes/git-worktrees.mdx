@@ -1,6 +1,8 @@
 ---
 title: git worktrees
 description: hermes git worktrees 使用指南
+sidebar:
+  order: 10
 ---
 
 Hermes 代理经常在大型且长期的仓库中使用。当您希望：
@@ -48,7 +50,7 @@ git worktree add ../repo-feature feature/hermes-experiment
 1. 一个新目录：`../repo-feature`
 2. 一个在该目录下检出的新分支：`feature/hermes-experiment`
 
-现在您可以进入新的工作树并运行 Hermes：
+现在您可以进入(cd)新的工作树并运行 Hermes：
 
 ```bash
 cd ../repo-feature
@@ -61,7 +63,7 @@ Hermes 将：
 
 * 将 `../repo-feature` 视为项目根目录。
 * 使用该目录进行上下文文件读取、代码编辑和工具调用。
-* 使用 **独立的检查点历史记录**，回滚操作(/rollback)仅限于此工作树范围内。
+* 使用 **独立的检查点历史记录**，回滚操作(`/rollback`)仅限于此工作树范围内。
 
 ## 并行运行多个代理
 
@@ -137,7 +139,7 @@ git worktree remove ../repo-feature
 
 ## 使用 `hermes -w`（自动工作树模式）
 
-Hermes 内置了一个 `-w` 标志，可以**自动创建一个随用随弃的 Git 工作树**及其专属分支。您不需要手动设置工作树 —— 只需进入仓库并运行：
+Hermes 内置了一个 `-w` 标志，可以 **自动创建一个随用随弃的 Git 工作树** 及其专属分支。您不需要手动设置工作树 —— 只需进入仓库并运行：
 
 ```bash
 cd /path/to/your/repo

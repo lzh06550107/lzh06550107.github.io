@@ -7,6 +7,8 @@ sidebar:
 
 ## 更新
 
+### Git 安装
+
 使用单行命令即可更新至最新版本：
 
 ```bash
@@ -15,25 +17,40 @@ hermes update
 
 该命令会拉取最新代码、更新依赖项，并提示你配置自上次更新以来新增的任何选项。
 
+### pip 安装
+
+PyPI 发布版本会跟踪带标签的版本（主版本和次版本发布），而不是 main 分支上的每一次提交。检查更新并升级：
+
+```bash
+hermes update --check    # 查看 PyPI 上是否有更新版本
+hermes update            # 运行 pip install --upgrade hermes-agent
+```
+
+或者手动执行：
+
+```bash
+pip install --upgrade hermes-agent    # 或者：uv pip install --upgrade hermes-agent
+```
+
 :::tip[提示]
 `hermes update` 会自动检测新的配置选项并提示你添加。如果你跳过了该提示，可以手动运行 `hermes config check` 查看缺失的选项，然后运行 `hermes config migrate` 进行交互式添加。
 :::
 
-### **更新期间会发生什么**
+### 更新期间会发生什么（git installs）
 
 运行 `hermes update` 时，将执行以下步骤：
 
-1. **配对数据快照 (Pairing-data snapshot)** —— 保存一个轻量级的更新前状态快照（涵盖 `~/.hermes/pairing/`、飞书评论规则以及其他在运行时修改的状态文件）。可以通过 **快照与回滚** 中描述的流进行恢复，或者解压 Hermes 在 `~/.hermes/` 目录旁生成的最新快速快照 zip 文件。
+1. **配对数据快照 (Pairing-data snapshot)** —— 保存一个轻量级的更新前状态快照（涵盖 `~/.hermes/pairing/`、飞书评论规则以及其他在运行时修改的状态文件）。可以通过 [快照与回滚](https://hermes-agent.nousresearch.com/docs/user-guide/checkpoints-and-rollback) 中描述的流进行恢复，或者解压 Hermes 在 `~/.hermes/` 目录旁生成的最新快速快照 zip 文件。
 2. **Git 拉取 (Git pull)** —— 从 `main` 分支拉取最新代码并更新子模块。
 3. **安装依赖 (Dependency install)** —— 运行 `uv pip install -e ".[all]"` 以获取新增或变更的依赖项。
 4. **配置迁移 (Config migration)** —— 检测自当前版本以来新增的配置选项，并提示你进行设置。
 5. **网关自动重启 (Gateway auto-restart)** —— 更新完成后会刷新正在运行的网关，使新代码立即生效。通过服务管理器管理的网关（Linux 上的 systemd，macOS 上的 launchd）将通过服务管理器重启。手动启动的网关在 Hermes 能够将运行中的 PID 映射回配置文件时会自动重新启动。
 
-### **仅预览：`hermes update --check**`
+### 仅预览：`hermes update --check`
 
 想在实际拉取前知道自己是否落后于 `origin/main`？运行 `hermes update --check` —— 它会获取更新，并排对比本地提交和最新的远程提交；如果已同步则退出码为 `0`，如果落后则为 `1`。此操作不会修改文件，也不会重启网关。适用于需要判断“是否有更新”的脚本和 cron 任务。
 
-### **更新前完整备份：`--backup**`
+### 更新前完整备份：`--backup`
 
 对于高价值的配置文件（生产网关、团队共享安装），你可以选择在拉取前对 `HERMES_HOME`（配置、认证、会话、技能、配对信息）进行完整备份：
 
@@ -71,23 +88,22 @@ Already up to date.  (或: Updating abc1234..def5678)
 
 `hermes update` 处理了主要的更新路径，但进行快速验证可以确保一切正常：
 
-* `git status --short` —— 如果工作树意外变动，请在继续前检查。
-* `hermes doctor` —— 检查配置、依赖项和服务健康状况。
-* `hermes --version` —— 确认版本已按预期升级。
-* 如果你使用了网关：`hermes gateway status`
-* 如果 `doctor` 报告 npm 审计问题：在标记的目录中运行 `npm audit fix`。
+1. `git status --short` —— 如果工作树意外变动，请在继续前检查。
+2. `hermes doctor` —— 检查配置、依赖项和服务健康状况。
+3. `hermes --version` —— 确认版本已按预期升级。
+4. 如果你使用了网关：`hermes gateway status`
+5. 如果 `doctor` 报告 npm 审计问题：在标记的目录中运行 `npm audit fix`。
 
 :::caution[更新后工作树不干净 (Dirty working tree)]
 如果运行 `hermes update` 后 `git status --short` 显示了意外更改，请停止操作并在继续前进行检查。这通常意味着本地修改被重新应用到了更新后的代码之上，或者依赖项安装步骤刷新了 lock 文件。
 :::
 
-### **如果终端在更新途中断开连接**
+### 如果终端在更新途中断开连接
 
 `hermes update` 具备防止意外丢失终端的保护机制：
 
 * 更新过程会忽略 `SIGHUP` 信号，因此关闭 SSH 会话或终端窗口不再会导致安装中途夭折。`pip` 和 `git` 子进程也会继承此保护，因此 Python 环境不会因连接掉线而处于半安装状态。
-* 更新运行期间，所有输出都会同步记录到 `~/.hermes/logs/update.log`。如果终端消失，请重新连接并检查日志，查看更新是否完成以及网关重启是否成功：
-`tail -f ~/.hermes/logs/update.log`
+* 更新运行期间，所有输出都会同步记录到 `~/.hermes/logs/update.log`。如果终端消失，请重新连接并检查日志，查看更新是否完成以及网关重启是否成功： `tail -f ~/.hermes/logs/update.log`
 * `Ctrl-C` (SIGINT) 和系统关机 (SIGTERM) 信号仍会被响应 —— 这些属于刻意的取消操作，而非意外。
 
 你不再需要将 `hermes update` 放在 `screen` 或 `tmux` 中来防止终端掉线。
@@ -104,7 +120,9 @@ hermes version
 
 你也可以直接从 Telegram、Discord、Slack、WhatsApp 或 Teams 发送以下指令进行更新：
 
-`/update`
+```
+/update
+```
 
 这将拉取最新代码、更新依赖项并重启运行中的网关。机器人会在重启期间短暂下线（通常为 5–15 秒），随后恢复运行。
 
@@ -116,17 +134,15 @@ hermes version
 cd /path/to/hermes-agent
 export VIRTUAL_ENV="$(pwd)/venv"
 
-# 拉取最新代码和子模块
+# Pull latest code
 git pull origin main
-git submodule update --init --recursive
 
-# 重新安装（获取新依赖）
+# Reinstall (picks up new dependencies)
 uv pip install -e ".[all]"
-uv pip install -e "./tinker-atropos"
 
-# 检查新配置选项
+# Check for new config options
 hermes config check
-hermes config migrate   # 交互式添加任何缺失的选项
+hermes config migrate   # Interactively add any missing options
 ```
 
 ### 回滚指令
@@ -174,11 +190,15 @@ nix profile upgrade hermes-agent
 
 Nix 安装是不可变的 —— 回滚通过 Nix 的世代 (generation) 系统处理：
 
-`nix profile rollback`
+```
+nix profile rollback
+```
 
 详见 [Nix 设置](https://nixos.org/manual/nix/stable/command-ref/nix-profile.html#cmd-nix-profile-rollback)。
 
-### 卸载
+## 卸载
+
+### Git 安装的卸载
 
 ```bash
 hermes uninstall
@@ -186,7 +206,14 @@ hermes uninstall
 
 卸载程序会询问你是否保留配置文件（`~/.hermes/`）以便将来重新安装。
 
-**手动卸载**
+### pip 安装的卸载
+
+```bash
+pip uninstall hermes-agent
+rm -rf ~/.hermes            # Optional — keep if you plan to reinstall
+```
+
+### 手动卸载
 
 ```bash
 rm -f ~/.local/bin/hermes

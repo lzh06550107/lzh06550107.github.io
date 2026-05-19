@@ -1,6 +1,8 @@
 ---
 title: Windows 用户快速上手（WSL2）
 description: Windows (WSL2) 使用指南
+sidebar:
+  order: 4
 ---
 
 上游开发与 CI 以 **Linux / macOS** 为主；在 Windows 上，**官方推荐路径是 WSL2**，而不是在 [旧版原生 CMD/PowerShell](https://hermes-agent.nousresearch.com/docs/user-guide/windows-native) 里直接跑完整 Hermes 栈。本页给出从 0 到可跑 `hermes` + Tool Gateway 的最短闭环。
@@ -116,7 +118,7 @@ hermes
 | **Windows 磁盘（从 WSL 查看）** | `C:\Users\you\Documents` | `/mnt/c/Users/you/Documents` |
 | **WSL 磁盘（从 Windows 查看）** | `/home/you/code` | `\\wsl$\Ubuntu\home\you\code` (较新版本为 `\\wsl.localhost\Ubuntu\...`) |
 
-两者都是真实存在的且都可以工作，但它们 **不是同一个文件系统** —— 它们在底层通过 9P 网络协议桥接。这在性能和语义上有着实际的影响。
+两者都是真实存在的且都可以工作，但它们 **不是同一个文件系统** —— 它们在底层通过 `9P` 网络协议桥接。这在性能和语义上有着实际的影响。
 
 ### 应该把 Hermes 和你的项目放在哪里
 

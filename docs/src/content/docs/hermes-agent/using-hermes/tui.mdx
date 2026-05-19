@@ -1,6 +1,8 @@
 ---
 title: TUI
 description: TUI 使用指南
+sidebar:
+  order: 2
 ---
 
 
@@ -71,11 +73,11 @@ hermes --tui
 按键绑定与 [经典 CLI](https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/cli#keybindings) 完全一致。唯一的行为差异如下：
 
 * **鼠标拖动**：以统一的选择背景高亮文本。
-* **Cmd+V / Ctrl+V**：首先尝试普通文本粘贴，若失败则尝试 OSC52/原生剪贴板读取，最后如果剪贴板或粘贴内容解析为图像，则进行图像附件。
-* **`/terminal-setup`**：安装本地 VS Code / Cursor / Windsurf 终端绑定，以在 macOS 上获得更好的 `Cmd+Enter` 以及撤销/重做对等体验。
+* `Cmd+V` / `Ctrl+V`：首先尝试普通文本粘贴，若失败则尝试 OSC52/原生剪贴板读取，最后如果剪贴板或粘贴内容解析为图像，则进行图像附件。
+* `/terminal-setup`：安装本地 VS Code / Cursor / Windsurf 终端绑定，以在 macOS 上获得更好的 `Cmd+Enter` 以及撤销/重做对等体验。
 * **斜杠命令自动补全**：以带描述的浮动面板形式打开，而非行内下拉列表。
-* **Ctrl+X**：当高亮显示排队中的消息（在 Agent 运行时发送的消息）时，将其从队列中删除。`Esc` 取消编辑并取消高亮，但不删除。
-* **Ctrl+G / Ctrl+X Ctrl+E**：在 `$EDITOR` 中打开当前输入缓冲区进行多行/长提示词创作；保存并退出后内容将作为提示词发送。
+* `Ctrl+X`：当高亮显示排队中的消息（在 Agent 运行时发送的消息）时，将其从队列中删除。`Esc` 取消编辑并取消高亮，但不删除。
+* `Ctrl+G` / `Ctrl+X Ctrl+E`：在 `$EDITOR` 中打开当前输入缓冲区进行多行/长提示词创作；保存并退出后内容将作为提示词发送。
 
 ## 斜杠命令
 
@@ -105,8 +107,8 @@ TUI 的 Markdown 渲染管线支持行内渲染 LaTeX 数学公式：`$E = mc^2$
 
 TUI 会自动检测浅色终端并相应切换到浅色主题。检测分为三个层级：
 
-1. **`HERMES_TUI_THEME` 环境变量** —— 最高优先级。取值：`light`、`dark` 或 6 位背景十六进制色值（如 `ffffff`）。
-2. **`COLORFGBG` 环境变量** —— 由类 xterm 终端使用的经典 “背景色是什么？” 提示。
+1. `HERMES_TUI_THEME` 环境变量 —— 最高优先级。取值：`light`、`dark` 或 6 位背景十六进制色值（如 `ffffff`）。
+2. `COLORFGBG` 环境变量 —— 由类 xterm 终端使用的经典 “背景色是什么？” 提示。
 3. **通过 OSC 11 进行终端背景探测** —— 适用于不设置 `COLORFGBG` 的现代终端（如 Ghostty, Warp, iTerm2, WezTerm, Kitty）。
 
 如果你希望无论终端如何都永久使用浅色主题：
@@ -138,7 +140,7 @@ export HERMES_TUI_RESUME=<session-id>   # 指定会话
 
 取消设置该变量，或在启动时显式传递 `--resume <id>` 即可覆盖此行为。
 
-### 状态行
+## 状态行
 
 TUI 的状态行实时跟踪 Agent 状态：
 
@@ -195,6 +197,8 @@ TUI 默认配置了针对各部分的优化设置，将轮次呈现为实时转�
 * `display.sections.tools: collapsed` —— 将工具调用重新收纳到符号下。
 * `display.sections.activity: collapsed` —— 重新选择开启活动面板。
 * 运行时执行 `/details <section> <mode>`。
+
+凡是在 `display.sections` 中显式设置的内容，都会优先于默认值，因此现有配置可以保持不变并继续正常工作。
 
 ## 会话
 

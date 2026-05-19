@@ -1,6 +1,8 @@
 ---
 title: 配置
 description: hermes 配置指南
+sidebar:
+  order: 5
 ---
 
 所有设置均存储在 `~/.hermes/` 目录中，方便访问。
@@ -9,15 +11,15 @@ description: hermes 配置指南
 
 ```
 ~/.hermes/
-├── **config.yaml**     # 设置（模型、终端、TTS、压缩等）
-├── **.env**            # API 密钥和机密信息
-├── **auth.json**       # OAuth 提供者凭据（Nous Portal 等）
-├── **SOUL.md**         # 智能体核心身份（系统提示词中的 #1 插槽）
-├── **memories/**       # 持久化记忆 (MEMORY.md, USER.md)
-├── **skills/**         # 智能体创建的技能（通过 skill_manage 工具管理）
-├── **cron/**           # 计划任务
-├── **sessions/**       # 网关会话
-└── **logs/**           # 日志（errors.log, gateway.log —— 机密信息自动脱敏）
+├── config.yaml     # 设置（模型、终端、TTS、压缩等）
+├── .env            # API 密钥和机密信息
+├── auth.json       # OAuth 提供者凭据（Nous Portal 等）
+├── SOUL.md         # 智能体核心身份（系统提示词中的 #1 插槽）
+├── memories/       # 持久化记忆 (MEMORY.md, USER.md)
+├── skills/         # 智能体创建的技能（通过 skill_manage 工具管理）
+├── cron/           # 计划任务
+├── sessions/       # 网关会话
+└── logs/           # 日志（errors.log, gateway.log —— 机密信息自动脱敏）
 ```
 
 ## 管理配置
@@ -44,8 +46,8 @@ hermes config set OPENROUTER_API_KEY sk-or-...  # 保存至 .env
 设置按以下顺序解析（优先级从高到低）：
 
 1. **CLI 参数** —— 例如 `hermes chat --model anthropic/claude-sonnet-4`（单次调用覆盖）
-2. **~/.hermes/config.yaml** —— 所有非机密设置的主要配置文件
-3. **~/.hermes/.env** —— 环境变量的备选方案；机密信息（API 密钥、令牌、密码）**必需**放在此处
+2. **`~/.hermes/config.yaml`** —— 所有非机密设置的主要配置文件
+3. **`~/.hermes/.env`** —— 环境变量的备选方案；机密信息（API 密钥、令牌、密码）**必需** 放在此处
 4. **内置默认值** —— 未设置任何内容时硬编码的安全默认值
 
 :::note[经验法则]
@@ -462,7 +464,7 @@ skills:
 **技能设置的工作原理：**
 
 * `hermes config migrate` 会扫描所有已启用的技能，查找未配置的设置，并提供输入提示。
-* `hermes config show` 会在“Skill Settings”下显示所有技能设置，并标明它们所属的技能。
+* `hermes config show` 会在 “Skill Settings” 下显示所有技能设置，并标明它们所属的技能。
 * 当技能加载时，其解析后的配置值会自动注入到技能上下文中。
 
 **手动设置值：**
@@ -525,9 +527,9 @@ tool_output:
   max_line_length: 2000   # read_file 行号视图中的单行上限
 ```
 
-* **max_bytes** —— 当 `terminal` 命令生成的 stdout/stderr 合计超过此字符数时，Hermes 会保留前 40% 和后 60%，并在中间插入 `[OUTPUT TRUNCATED]` 提示。默认值 `50000`（在典型分词器中约合 1.2-1.5 万 tokens）。
-* **max_lines** —— 单次 `read_file` 调用中 `limit` 参数的上限。超过此值的请求会被强制削减，以确保单次读取不会冲垮上下文窗口。默认值 `2000`。
-* **max_line_length** —— 当 `read_file` 输出带行号的视图时应用的单行上限。长于此值的行将被截断，并以 `... [truncated]` 结尾。默认值 `2000`。
+* **`max_bytes`** —— 当 `terminal` 命令生成的 stdout/stderr 合计超过此字符数时，Hermes 会保留前 40% 和后 60%，并在中间插入 `[OUTPUT TRUNCATED]` 提示。默认值 `50000`（在典型分词器中约合 1.2-1.5 万 tokens）。
+* **`max_lines`** —— 单次 `read_file` 调用中 `limit` 参数的上限。超过此值的请求会被强制削减，以确保单次读取不会冲垮上下文窗口。默认值 `2000`。
+* **`max_line_length`** —— 当 `read_file` 输出带行号的视图时应用的单行上限。长于此值的行将被截断，并以 `... [truncated]` 结尾。默认值 `2000`。
 
 对于能够承载更多单次调用输出的大型上下文模型，可以调高这些限制。对于小上下文模型，应调低这些值以保持工具结果精简：
 
@@ -580,7 +582,7 @@ node_modules/
 
 ## 上下文压缩 (Context Compression)
 
-Hermes 会自动压缩长对话，以保持在模型的上下文窗口限制内。压缩总结器是一个独立的 LLM 调用 —— 你可以将其指向任何提供商或端点。
+Hermes 会自动压缩长对话，以保持在模型的上下文窗口限制内。压缩摘要器是一个独立的 LLM 调用 —— 你可以将其指向任何提供商或端点。
 
 所有压缩设置均存在于 `config.yaml` 中（无环境变量）。
 
@@ -594,7 +596,7 @@ compression:
   protect_last_n: 20                                # 至少保留多少条近期消息不被压缩
   hygiene_hard_message_limit: 400                   # 网关安全阀 —— 见下文
 
-# 总结模型/提供商在 auxiliary 下配置：
+# 摘要模型/提供商在 auxiliary 下配置：
 auxiliary:
   compression:
     model: ""                                       # 为空 = 使用主聊天模型。可覆盖，例如 "google/gemini-3-flash-preview" 以获得更便宜/更快的压缩。
@@ -1061,7 +1063,7 @@ auxiliary:
 :::
 
 :::caution[警告]
-视觉任务需要多模态模型。如果你设置了 `provider: "main"`，请确保你的端点支持多模态/视觉能力 —— 否则图像分析将失败。
+**视觉任务需要多模态模型。** 如果你设置了 `provider: "main"`，请确保你的端点支持多模态/视觉能力 —— 否则图像分析将失败。
 :::
 
 ### 环境变量 (旧版)
@@ -1128,7 +1130,7 @@ agent:
 
 1. **通用工具使用强制执行**（适用于所有匹配的模型）—— 指示模型立即进行工具调用而非描述意图，持续工作直至任务完成，且永远不要以 “承诺未来操作” 来结束当前轮次。
 2. **OpenAI 执行规范**（仅限 GPT 和 Codex 模型）—— 针对 GPT 特有的失败模式提供额外引导：如因部分结果而放弃后续工作、跳过先决条件查找、凭空幻觉而非使用工具，以及在未验证的情况下宣告 “完成”。
-3. **Google 操作指南**（仅限 Gemini 和 Gemma 模型）—— 强调简洁性、使用绝对路径、并行工具调用以及“先验证后编辑”模式。
+3. **Google 操作指南**（仅限 Gemini 和 Gemma 模型）—— 强调简洁性、使用绝对路径、并行工具调用以及 “先验证后编辑” 模式。
 
 这些引导对用户是透明的，仅影响系统提示词。对于已经能够可靠使用工具的模型（如 Claude），则不需要这些引导，这也是为什么 `"auto"` 模式会将它们排除在外。
 
@@ -1209,6 +1211,21 @@ display:
   language: en            # 静态消息的 UI 语言（审批提示、部分网关回复）。en | zh | ja | de | es | fr | tr | uk
 ```
 
+### 文件变更校验器 (File-mutation verifier)
+
+当 `display.file_mutation_verifier` 为 `true`（默认值）时，如果在一轮对话中 `write_file` 或 `patch` 调用失败，且随后没有被针对同一路径的成功写入所替代，Hermes 就会在助手的最终回复中追加一行提示信息。这可以捕获 “批量并行补丁中有一半默默失败，但模型却总结说全部成功” 这类过度承诺的问题，而无需你在每次修改后都手动运行 `git status`。
+
+示例页脚：
+
+```text
+⚠️ 文件变更校验器：尽管上文可能有言辞表明已修改，但本轮对话中仍有 3 个文件未被修改。请运行 `git status` 或 `read_file` 进行确认。
+• concepts/automatic-organization.md — [patch] 找不到匹配的 old_string
+• concepts/lora.md — [patch] 找不到匹配的 old_string
+• concepts/rag-pipeline.md — [patch] 找不到匹配的 old_string
+```
+
+设置 `file_mutation_verifier: false`（或 `HERMES_FILE_MUTATION_VERIFIER=0`）可以隐藏该页脚。该校验器仅在当前轮对话结束时仍存在未解决的实际失败时才会触发 —— 如果模型重试了失败的补丁并在同一轮对话中取得了成功，则不会针对该文件触发提示。
+
 ### 静态消息的 UI 语言
 
 `display.language` 设置翻译了一小部分面向用户的静态消息 —— 包括 CLI 审批提示、少数网关斜杠命令回复（例如重启排空通知、“审批已过期”、“目标已清除”）。它 **不会** 翻译智能体的回答、日志行、工具输出、错误追溯或斜杠命令说明 —— 这些内容保持为英文。如果你希望智能体本身以另一种语言回答，只需在提示词或系统消息中告知它即可。
@@ -1224,10 +1241,10 @@ display:
 
 | 模式 | 你看到的内容 |
 | --- | --- |
-| **off** | 静默 —— 仅显示最终回答 |
-| **new** | 仅在工具切换时显示工具指示器 |
-| **all** | 带有简短预览的每个工具调用（默认） |
-| **verbose** | 完整的参数、结果和调试日志 |
+| `off` | 静默 —— 仅显示最终回答 |
+| `new` | 仅在工具切换时显示工具指示器 |
+| `all` | 带有简短预览的每个工具调用（默认） |
+| `verbose` | 完整的参数、结果和调试日志 |
 
 在 CLI 中，可以通过 `/verbose` 循环切换这些模式。若要在消息平台（Telegram、Discord、Slack 等）中使用 `/verbose`，请在上述 `display` 部分设置 `tool_progress_command: true`。该命令届时将循环切换模式并保存到配置中。
 
@@ -1307,11 +1324,11 @@ stt:
 
 **提供商行为：**
 
-* **local**：使用在你机器上运行的 `faster-whisper`。需通过 `pip install faster-whisper` 单独安装。
-* **groq**：使用 Groq 的 Whisper 兼容端点，读取 `GROQ_API_KEY`。
-* **openai**：使用 OpenAI 语音 API，读取 `VOICE_TOOLS_OPENAI_KEY`。
+* `local`：使用在你机器上运行的 `faster-whisper`。需通过 `pip install faster-whisper` 单独安装。
+* `groq`：使用 Groq 的 Whisper 兼容端点，读取 `GROQ_API_KEY`。
+* `openai`：使用 OpenAI 语音 API，读取 `VOICE_TOOLS_OPENAI_KEY`。
 
-如果请求的提供商不可用，Hermes 会按此顺序自动回退：**local → groq → openai**。
+如果请求的提供商不可用，Hermes 会按此顺序自动回退：`local` → `groq` → `openai`。
 
 Groq 和 OpenAI 的模型覆盖通过环境变量驱动：
 
@@ -1366,8 +1383,9 @@ streaming:
 
 如果你需要独立、自然的回复中期助手更新，而非渐进式的 token 编辑，请设置 `display.interim_assistant_messages: true`。
 
-* **溢出处理：** 如果流式传输的文本超过了平台的消息长度限制（约 4096 字符），当前消息将自动完成并开始一条新消息。
-* **全新最终消息 (Telegram)：** Telegram 的 `editMessageText` 会保留原始消息的时间戳，因此长时间运行的流式回复即使在完成后仍会保留第一个 token 产生时的时间戳。当 `fresh_final_after_seconds > 0`（默认 60）时，完成的回复将作为一条全新的消息投递（并尽力删除陈旧的预览），从而使 Telegram 显示的时间戳反映完成时间。短时间的预览仍会就地完成。设置为 `0` 则始终就地编辑。
+**溢出处理：** 如果流式传输的文本超过了平台的消息长度限制（约 4096 字符），当前消息将自动完成并开始一条新消息。
+
+**全新最终消息 (Telegram)：** Telegram 的 `editMessageText` 会保留原始消息的时间戳，因此长时间运行的流式回复即使在完成后仍会保留第一个 token 产生时的时间戳。当 `fresh_final_after_seconds > 0`（默认 60）时，完成的回复将作为一条全新的消息投递（并尽力删除陈旧的预览），从而使 Telegram 显示的时间戳反映完成时间。短时间的预览仍会就地完成。设置为 `0` 则始终就地编辑。
 
 :::note[信息]
 流式传输默认处于禁用状态。请在 `~/.hermes/config.yaml` 中启用它以尝试流式传输体验。
@@ -1486,11 +1504,15 @@ web:
 | **Tavily** | `TAVILY_API_KEY` | ✔ | ✔ | ✔ |
 | **Exa** | `EXA_API_KEY` | ✔ | ✔ | — |
 
-* **后端选择**：如果未设置 `web.backend`，则会根据可用的 API 密钥自动检测后端。如果仅设置了 `SEARXNG_URL`，则使用 SearXNG。如果仅设置了 `EXA_API_KEY`，则使用 Exa。如果仅设置了 `TAVILY_API_KEY`，则使用 Tavily。如果仅设置了 `PARALLEL_API_KEY`，则使用 Parallel。否则，Firecrawl 为默认选项。
-* **SearXNG** 是一个免费、自托管且尊重隐私的元搜索引擎，可查询 70 多个搜索引擎。无需 API 密钥 —— 只需将 `SEARXNG_URL` 设置为你的实例地址（例如 `http://localhost:8080`）。SearXNG 仅支持搜索；`web_extract` 和 `web_crawl` 需要单独的提取提供商（请设置 `web.extract_backend`）。Docker 安装说明请参阅 **网页搜索设置指南**。
-* **自托管 Firecrawl**：设置 `FIRECRAWL_API_URL` 指向你自己的实例。设置自定义 URL 后，API 密钥变为可选（在服务器上设置 `USE_DB_AUTHENTICATION=***` 可禁用身份验证）。
-* **Parallel 搜索模式**：设置 `PARALLEL_SEARCH_MODE` 以控制搜索行为 —— `fast`（快速）、`one-shot`（单次）或 `agentic`（智能体模式，默认值）。
-* **Exa**：在 `~/.hermes/.env` 中设置 `EXA_API_KEY`。支持 `category` 分类过滤（公司、研究论文、新闻、人物、个人网站、pdf）以及域名/日期过滤。
+**后端选择**：如果未设置 `web.backend`，则会根据可用的 API 密钥自动检测后端。如果仅设置了 `SEARXNG_URL`，则使用 SearXNG。如果仅设置了 `EXA_API_KEY`，则使用 Exa。如果仅设置了 `TAVILY_API_KEY`，则使用 Tavily。如果仅设置了 `PARALLEL_API_KEY`，则使用 Parallel。否则，Firecrawl 为默认选项。
+
+**SearXNG** 是一个免费、自托管且尊重隐私的元搜索引擎，可查询 70 多个搜索引擎。无需 API 密钥 —— 只需将 `SEARXNG_URL` 设置为你的实例地址（例如 `http://localhost:8080`）。SearXNG 仅支持搜索；`web_extract` 和 `web_crawl` 需要单独的提取提供商（请设置 `web.extract_backend`）。Docker 安装说明请参阅 [网页搜索设置指南](https://hermes-agent.nousresearch.com/docs/user-guide/features/web-search)。
+
+**自托管 Firecrawl**：设置 `FIRECRAWL_API_URL` 指向你自己的实例。设置自定义 URL 后，API 密钥变为可选（在服务器上设置 `USE_DB_AUTHENTICATION=***` 可禁用身份验证）。
+
+**Parallel 搜索模式**：设置 `PARALLEL_SEARCH_MODE` 以控制搜索行为 —— `fast`（快速）、`one-shot`（单次）或 `agentic`（智能体模式，默认值）。
+
+**Exa**：在 `~/.hermes/.env` 中设置 `EXA_API_KEY`。支持 `category` 分类过滤 公司(`company`)、研究论文(`research paper`)、新闻(`news`)、人物(`people`)、个人网站(`personal site`)、`pdf` 以及域名/日期过滤。
 
 ## 浏览器 (Browser)
 
@@ -1511,6 +1533,9 @@ browser:
   dialog_timeout_s: 300          # must_respond 模式下的安全自动关闭时间（秒）
   camofox:
     managed_persistence: false   # 为 true 时，Camofox 会在重启后保留 Cookie/登录状态
+    user_id: ""                  # Optional externally managed Camofox userId
+    session_key: ""              # Optional session key sent when Hermes creates a tab
+    adopt_existing_tab: false    # Reuse an existing tab for this identity before creating one
 ```
 
 **对话框策略：**
@@ -1519,7 +1544,7 @@ browser:
 * **auto_dismiss** —— 捕获并立即关闭。智能体随后仍能在 `browser_snapshot.recent_dialogs` 中看到该对话框记录，其 `closed_by` 值为 `"auto_policy"`。
 * **auto_accept** —— 捕获并立即接受。对于带有强制性 `beforeunload` 提示的页面非常有用。
 
-有关完整的对话框工作流，请参阅 [浏览器功能页面](https://hermes-agent.nousresearch.com/docs/user-guide/features/browser#browser_dialog)。该工具集支持多个提供商（如 Browserbase、Browser Use 等），详见相关文档。
+有关完整的对话框工作流，请参阅 [浏览器功能页面](https://hermes-agent.nousresearch.com/docs/user-guide/features/browser#browser_dialog)。该工具集支持多个提供商（如 Browserbase、Browser Use 和 本地 Chrome CDP 配置等），详见相关文档。
 
 ## 时区 (Timezone)
 
@@ -1618,7 +1643,7 @@ approvals:
 
 ## Checkpoints
 
-在破坏性文件操作之前自动执行文件系统快照。详见“检查点与回滚（Checkpoints & Rollback）”。
+在破坏性文件操作之前自动执行文件系统快照。详见 “检查点与回滚（Checkpoints & Rollback）”。
 
 ```yaml
 checkpoints:
@@ -1644,6 +1669,8 @@ delegation:
 **子代理供应商:模型覆盖：** 默认情况下，子代理继承父代理的供应商和模型。设置 `delegation.provider` 和 `delegation.model` 可以将子代理路由到不同的 供应商:模型 组合 —— 例如，在主代理运行昂贵的推理模型时，使用廉价/快速的模型处理范围较窄的子任务。
 
 **直接端点覆盖：** 如果你想使用自定义端点路径，请设置 `delegation.base_url`、`delegation.api_key` 和 `delegation.model`。这会将子代理直接发送到该 OpenAI 兼容端点，且优先级高于 `delegation.provider`。如果省略 `delegation.api_key`，Hermes 仅会回退到 `OPENAI_API_KEY`。
+
+**传输协议 (api_mode)**：Hermes 会通过 `delegation.base_url` 自动检测传输协议（例如以 `/anthropic` 结尾的路径 → `anthropic_messages`；Codex / 原生 Anthropic / Kimi-coding 的主机名则保留其现有的检测机制）。对于启发式算法无法分类的端点 —— 例如 Azure AI Foundry、MiniMax、智谱 GLM，或者代理了 Anthropic 格式后端的 LiteLLM 代理 —— 请将 `delegation.api_mode` 明确设置为 `chat_completions`、`codex_responses` 或 `anthropic_messages` 之一。保持为空（默认值）则继续使用自动检测。
 
 授权供应商使用与 CLI/网关启动相同的凭据解析方式。支持所有已配置的供应商：`openrouter`、`nous`、`copilot`、`zai`、`kimi-coding`、`minimax`、`minimax-cn`。当设置了供应商时，系统会自动解析正确的基准 URL、API 密钥和 API 模式 —— 无需手动配置凭据。
 
@@ -1673,18 +1700,17 @@ Hermes 使用两种不同的上下文范围：
 | **.cursorrules** | Cursor IDE 规则（亦可识别）。 | 仅限当前工作目录 |
 | **.cursor/rules/*.mdc** | Cursor 规则文件（亦可识别）。 | 仅限当前工作目录 |
 
-**SOUL.md** 是代理的核心身份。它占据系统提示词的第 1 栏，完全取代内置的默认身份。通过编辑它来全面自定义代理的人设。
-如果 SOUL.md 缺失、为空或无法加载，Hermes 将回退到内置的默认身份。
-
-**项目上下文文件**采用优先级系统 —— 仅加载其中一种类型（首个匹配项胜出）：`.hermes.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules`。SOUL.md 始终独立加载。
-**AGENTS.md** 具有层级性：如果子目录也包含 AGENTS.md，则所有内容都会被合并。
-如果尚不存在 **SOUL.md**，Hermes 会自动生成一个默认文件。
-所有加载的上下文文件上限为 20,000 个字符，并带有智能截断。
+* **SOUL.md** 是代理的核心身份。它占据系统提示词的第 1 栏，完全取代内置的默认身份。通过编辑它来全面自定义代理的人设。
+* 如果 SOUL.md 缺失、为空或无法加载，Hermes 将回退到内置的默认身份。
+* **项目上下文文件** 采用优先级系统 —— 仅加载其中一种类型（首个匹配项胜出）：`.hermes.md` → `AGENTS.md` → `CLAUDE.md` → `.cursorrules`。SOUL.md 始终独立加载。
+* **AGENTS.md** 具有层级性：如果子目录也包含 AGENTS.md，则所有内容都会被合并。
+* 如果尚不存在 **SOUL.md**，Hermes 会自动生成一个默认文件。
+* 所有加载的上下文文件上限为 20,000 个字符，并带有智能截断。
 
 另请参阅：
 
-* Personality & SOUL.md
-* Context Files
+* [Personality & SOUL.md](https://hermes-agent.nousresearch.com/docs/user-guide/features/personality)
+* [Context Files](https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files)
 
 ## Working Directory
 

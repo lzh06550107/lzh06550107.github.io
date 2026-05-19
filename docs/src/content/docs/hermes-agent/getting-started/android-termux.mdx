@@ -21,22 +21,23 @@ sidebar:
 
 具体而言，它对应以下安装命令：
 
-`python -m pip install -e '.[termux]' -c constraints-termux.txt`
-
+```
+python -m pip install -e '.[termux]' -c constraints-termux.txt
+```
 
 ## 哪些功能尚不在测试路径内？
 
 由于部分功能仍需要尚未发布 Android 版本或尚未在手机端验证的桌面/服务器级依赖项，因此：
 
-* 目前 Android 不支持 **`.[all]`** 全量安装。
-* **`voice`** 扩展被 `faster-whisper -> ctranslate2` 阻断，因为 `ctranslate2` 不提供 Android 的 wheel 包。
-* Termux 安装程序会跳过**自动浏览器 / Playwright 引导程序**。
-* Termux 内部无法使用**基于 Docker 的终端隔离**。
-* Android 系统仍可能会挂起 Termux 后台任务，因此网关的持续运行属于“尽力而为”，而非标准的受管服务。
+* 目前 Android 不支持 `.[all]` 全量安装。
+* `voice` 扩展被 `faster-whisper -> ctranslate2` 阻断，因为 `ctranslate2` 不提供 Android 的 wheel 包。
+* Termux 安装程序会跳过 **自动浏览器 / Playwright 引导程序**。
+* Termux 内部无法使用 **基于 Docker 的终端隔离**。
+* Android 系统仍可能会挂起 Termux 后台任务，因此网关的持续运行属于 “尽力而为”，而非标准的受管服务。
 
 这并不妨碍 Hermes 作为一个优秀的手机原生 CLI 智能体运行 —— 这仅意味着推荐的移动端安装包在设计上比桌面/服务器版更为精简。
 
-### 选项 1：单行安装程序
+## 选项 1：单行安装程序
 
 Hermes 现在提供支持 Termux 的安装路径：
 
@@ -54,9 +55,9 @@ curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scri
 
 如果你需要明确的命令或需要排查安装失败的问题，请使用下方的手动路径。
 
-### 选项 2：手动安装（完全明确）
+## 选项 2：手动安装（完全明确）
 
-**1. 更新 Termux 并安装系统软件包**
+### 1. 更新 Termux 并安装系统软件包
 
 ```bash
 pkg update
@@ -72,7 +73,7 @@ pkg install -y git python clang rust make pkg-config libffi openssl nodejs ripgr
 * `ripgrep` —— 极速文件搜索。
 * `ffmpeg` —— 媒体 / TTS 转换。
 
-**2. 克隆 Hermes**
+### 2. 克隆 Hermes
 
 ```bash
 git clone --recurse-submodules https://github.com/NousResearch/hermes-agent.git
@@ -81,9 +82,11 @@ cd hermes-agent
 
 如果你之前克隆时未包含子模块，请运行：
 
-`git submodule update --init --recursive`
+```
+git submodule update --init --recursive
+```
 
-**3. 创建虚拟环境**
+### 3. 创建虚拟环境
 
 ```bash
 python -m venv venv
@@ -94,7 +97,7 @@ python -m pip install --upgrade pip setuptools wheel
 
 `ANDROID_API_LEVEL` 对于构建基于 Rust / maturin 的包（如 `jiter`）至关重要。
 
-**4. 安装经过测试的 Termux 软件包**
+### 4. 安装经过测试的 Termux 软件包
 
 ```bash
 python -m pip install -e '.[termux]' -c constraints-termux.txt
@@ -102,9 +105,11 @@ python -m pip install -e '.[termux]' -c constraints-termux.txt
 
 如果你只需要最小化的核心智能体，以下命令也有效：
 
-`python -m pip install -e '.' -c constraints-termux.txt`
+```
+python -m pip install -e '.' -c constraints-termux.txt
+```
 
-**5. 将 `hermes` 添加到你的 Termux PATH**
+### 5. 将 `hermes` 添加到你的 Termux PATH
 
 ```bash
 ln -sf "$PWD/venv/bin/hermes" "$PREFIX/bin/hermes"
@@ -112,14 +117,14 @@ ln -sf "$PWD/venv/bin/hermes" "$PREFIX/bin/hermes"
 
 `$PREFIX/bin` 已在 Termux 的 PATH 中，因此这可以使 `hermes` 命令在新的 Shell 中持续有效，而无需每次都手动激活 venv。
 
-**6. 验证安装**
+### 6. 验证安装
 
 ```bash
 hermes version
 hermes doctor
 ```
 
-**7. 启动 Hermes**
+### 7. 启动 Hermes
 
 ```bash
 hermes
@@ -160,7 +165,9 @@ npm install
 
 请改用经过测试的 Termux 软件包：
 
-`python -m pip install -e '.[termux]' -c constraints-termux.txt`
+```
+python -m pip install -e '.[termux]' -c constraints-termux.txt
+```
 
 目前的阻碍在于 `voice` 扩展包：
 
@@ -193,24 +200,30 @@ python -m pip install -e '.[termux]' -c constraints-termux.txt
 
 使用 Termux 软件包安装它们：
 
-`pkg install ripgrep nodejs`
+```
+pkg install ripgrep nodejs
+```
 
 ### 安装 Python 包时出现构建失败
 
 确保已安装构建工具链：
 
-`pkg install clang rust make pkg-config libffi openssl`
+```
+pkg install clang rust make pkg-config libffi openssl
+```
 
 然后重试：
 
-`python -m pip install -e '.[termux]' -c constraints-termux.txt`
+```
+python -m pip install -e '.[termux]' -c constraints-termux.txt
+```
 
 ### 手机端的已知局限
 
 * **Docker 后端** 不可用。
 * 在测试路径中，通过 `faster-whisper` 实现的 **本地语音转写** 不可用。
 * 安装程序有意跳过了 **浏览器自动化** 的设置。
-* 虽然某些可选扩展可能有效，但目前仅 **`.[termux]`** 和 **`.[termux-all]`** 被记录为经过测试的 Android 软件包。
+* 虽然某些可选扩展可能有效，但目前仅 `.[termux]` 和 `.[termux-all]` 被记录为经过测试的 Android 软件包。
 
 如果你遇到了新的 Android 特定问题，请在 GitHub 上提交 Issue 并包含以下信息：
 
@@ -219,4 +232,5 @@ python -m pip install -e '.[termux]' -c constraints-termux.txt
 * `python --version`
 * `hermes doctor` 的输出
 * 具体的安装命令及完整的错误输出内容
+
 
