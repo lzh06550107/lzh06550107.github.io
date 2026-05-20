@@ -1,0 +1,116 @@
+---
+title: X（Twitter）搜索
+description: hermes agent X（Twitter）搜索
+sidebar:
+  order: 3
+---
+
+`x_search` 工具允许 agent 直接搜索 X（Twitter）帖子、个人资料和线程。它由 xAI 在 Responses API 上的内置 `x_search` 工具提供支持，地址为 `https://api.x.ai/v1/responses` —— Grok 本身会在服务端运行搜索，并返回带有来源帖子引用的综合结果。
+
+当你特别想要 X 上的当前讨论、反应或声明时，请使用它，而不是 `web_search`。对于普通网页，请继续使用 `web_search` / `web_extract`。
+
+## 认证
+
+当任一 xAI 凭据路径可用时，`x_search` 会注册：
+
+| 凭据                               | 来源                            | 设置                                                                       |
+| -------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
+| SuperGrok / X Premium+ OAuth（首选） | 在 `accounts.x.ai` 的浏览器登录，自动刷新 | `hermes auth add xai-oauth` —— 参见 xAI Grok OAuth（SuperGrok / X Premium+） |
+| `XAI_API_KEY`                    | 付费 xAI API key                | 设置在 `~/.hermes/.env` 中                                                   |
+
+两者都会使用相同的 payload 调用同一个 endpoint —— 唯一区别是 bearer token。当两者都配置时，SuperGrok OAuth 优先，因此 `x_search` 会使用你的订阅额度，而不是消耗付费 API 开销。
+
+该工具的 `check_fn` 会在每次重建模型工具列表时运行 xAI 凭据解析器。返回 `True` 表示 bearer 可以获取、非空，并且（如果已经过期）已成功刷新。被撤销且刷新失败的 token 会使该工具从 schema 中隐藏；模型将完全看不到它。
+
+## 启用工具
+
+当存在 xAI 凭据（OAuth token 或 `XAI_API_KEY`）时会自动启用。如果你不想使用它，可以通过 `hermes tools → Search → x_search` 显式禁用。
+
+```bash
+hermes tools
+# → 🐦 X (Twitter) Search   （按空格切换开启/关闭）
+```
+
+选择器提供两种凭据选择：
+
+1. `xAI Grok OAuth (SuperGrok Subscription)` —— 如果你尚未登录，会打开浏览器到 `accounts.x.ai`
+2. `xAI API key` —— 提示输入 `XAI_API_KEY`
+
+任一选择都满足门控要求。你可以选择你已经拥有的任意凭据；该工具使用两者时工作方式完全相同。如果两者最终都配置了，调用时会优先使用 OAuth。
+
+## 配置
+
+```yaml
+# ~/.hermes/config.yaml
+x_search:
+  # 用于 Responses 调用的 xAI 模型。
+  # grok-4.20-reasoning 是推荐默认值；任何具备
+  # x_search 工具访问权限的 Grok 模型都可以使用。
+  model: grok-4.20-reasoning
+
+  # 请求超时时间，单位为秒。对于复杂查询，x_search 可能需要 60–120 秒
+  # 默认值较宽松。最小值：30。
+  timeout_seconds: 180
+
+  # 在 5xx / ReadTimeout / ConnectionError 上的自动重试次数。
+  # 每次重试都会退避（1.5x attempt 秒，最高 5 秒）。
+  retries: 2
+```
+
+## 工具参数
+
+agent 使用以下参数调用 `x_search`：
+
+| 参数                           | 类型           | 描述                                                               |
+| ---------------------------- | ------------ | ---------------------------------------------------------------- |
+| `query`                      | string（必填）   | 要在 X 上查找的内容。                                                     |
+| `allowed_x_handles`          | string array | 可选的 handles 列表，仅包含这些 handles（最多 10 个）。开头的 `@` 会被移除。              |
+| `excluded_x_handles`         | string array | 可选的 handles 列表，用于排除这些 handles（最多 10 个）。与 `allowed_x_handles` 互斥。 |
+| `from_date`                  | string       | 可选的开始日期，格式为 `YYYY-MM-DD`。                                        |
+| `to_date`                    | string       | 可选的结束日期，格式为 `YYYY-MM-DD`。                                        |
+| `enable_image_understanding` | boolean      | 要求 xAI 分析匹配帖子附带的图片。                                              |
+| `enable_video_understanding` | boolean      | 要求 xAI 分析匹配帖子附带的视频。                                              |
+
+该工具返回 JSON，其中包括：
+
+*  `answer` —— Grok 合成的文本响应
+* `citations` —— Responses API 顶层字段返回的引用
+* `inline_citations` —— 从消息正文中提取的 `url_citation` 注释（每个都包含 `url`、`title`、`start_index`、`end_index`）
+* `credential_source` —— 如果解析到 OAuth，则为 `"xai-oauth"`；如果解析到 API key，则为 `"xai"`
+* `model`、`query`、`provider`、`tool`、`success`
+
+## 示例
+
+和 agent 对话：
+
+> What are people on X saying about the new Grok image features? Focus on responses from @xai.
+
+agent 将会：
+
+1. 使用 `query="reactions to new Grok image features"`、`allowed_x_handles=["xai"]` 调用 `x_search`
+2. 获得一个合成答案，以及一个链接到具体帖子的引用列表
+3. 回复答案和参考来源
+
+## 故障排查
+
+### "No xAI credentials available"
+
+当两条认证路径都失败时，工具会显示这个错误。请在 `~/.hermes/.env` 中设置 `XAI_API_KEY`，或者运行 `hermes auth add xai-oauth` 并完成浏览器登录。然后重启你的 session，让 agent 重新读取工具注册表。
+
+### "x_search is not enabled for this model"
+
+配置的 `x_search.model` 无权访问服务端的 `x_search` 工具。请切换到 `grok-4.20-reasoning`（默认值），或另一个支持该工具的 Grok 模型。请查看 xAI 文档获取当前列表。
+
+### 工具没有出现在 schema 中
+
+可能有两个原因：
+
+1. 工具集未启用。运行 `hermes tools`，确认 🐦 X（Twitter）Search 已被勾选。
+2. 没有 xAI 凭据。`check_fn` 返回 `False`，因此 schema 会保持隐藏。运行 `hermes auth status` 确认 `xai-oauth` 登录状态，并检查是否已设置 `XAI_API_KEY`（如果你使用的是 API key 路径）。
+
+## 另请参见
+
+* xAI Grok OAuth（SuperGrok Subscription）—— OAuth 设置指南
+* Web Search & Extract —— 用于通用的非 X 网页搜索
+* Tools Reference —— 完整工具目录
+

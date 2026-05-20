@@ -1,6 +1,8 @@
 ---
 title: 订阅代理
 description: hermes agent 订阅代理
+sidebar:
+  order: 3
 ---
 
 订阅代理是一个本地 HTTP 服务器，它允许外部应用程序 —— 如 OpenViking、Karakeep、Open WebUI，以及任何支持 OpenAI 兼容的聊天补全（chat completions）协议的程序 —— 将你通过 Hermes 管理的供应商订阅作为其 LLM 端点。该代理会自动附加正确的凭证（并自动刷新它们），因此外部应用程序永远不需要静态的 API 密钥。

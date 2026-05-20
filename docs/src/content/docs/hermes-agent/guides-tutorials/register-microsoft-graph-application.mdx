@@ -1,6 +1,8 @@
 ---
 title: 注册 Microsoft Graph 应用程序
 description: hermes agent 注册 Microsoft Graph 应用程序
+sidebar:
+  order: 22
 ---
 
 Teams 会议流水线会使用 Microsoft Graph 读取会议转录、录制文件和相关 artifacts，并采用 app-only（daemon）认证 —— 不需要用户登录，也不需要每次会议进行交互式授权。这需要一个 Azure AD 应用注册，并授予已由管理员同意的 application permissions。

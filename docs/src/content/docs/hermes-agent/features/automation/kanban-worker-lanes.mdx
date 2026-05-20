@@ -1,6 +1,8 @@
 ---
 title: 看板工人泳道 (Kanban worker lanes)
 description: hermes agent 看板教程
+sidebar:
+  order: 6
 ---
 
 **工人泳道** 是看板调度器可以路由任务的一类进程。每个泳道都有一个身份标识（受理人字符串）、一种启动机制，以及一份关于启动后必须如何处理任务的协议。
@@ -10,7 +12,7 @@ description: hermes agent 看板教程
 * **操作人员（Operators）**：负责挑选哪些泳道接入看板（创建哪些配置文件、使用哪些受理人）。
 * **插件/集成作者**：希望添加新的泳道形式（例如封装了 Codex / Claude Code / OpenCode 的 CLI 工人、容器化的审查工人，或通过 API 拉取任务的非 Hermes 服务）。
 
-如果你正在编写工人代码本身——即在泳道 **内部** 运行的智能体——那么 **kanban-worker** 技能（skill）提供了更深层次的程序细节。
+如果你正在编写工人代码本身——即在泳道 **内部** 运行的智能体——那么 `kanban-worker` 技能（skill）提供了更深层次的程序细节。
 
 ### 层级结构
 

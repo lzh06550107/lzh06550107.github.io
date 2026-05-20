@@ -1,6 +1,8 @@
 ---
 title: 皮肤与主题
 description: hermes agent 皮肤与主题
+sidebar:
+  order: 10
 ---
 
 **皮肤（Skins）** 控制 Hermes CLI 的 **视觉呈现方式**：包括横幅颜色、加载动画（spinner）的样式与动词、回复框标签、品牌文本以及工具活动的前缀。
@@ -29,15 +31,15 @@ display:
 
 | 皮肤名称 | 描述 | 代理品牌 | 视觉特性 |
 | --- | --- | --- | --- |
-| **default** | 经典 Hermes —— 金色与可爱风 | Hermes Agent | 暖金色边框，玉米丝色文本，加载动画中带有可爱表情。熟悉的双蛇杖横幅。整洁且平易近人。 |
-| **ares** | 战神主题 —— 深红与青铜 | Ares Agent | 深红色边框带有青铜色装饰。激进的加载动词（“铸造”、“行军”、“淬炼钢铁”）。自定义剑盾 ASCII 艺术横幅。 |
-| **mono** | 单色 —— 纯净灰阶 | Hermes Agent | 全灰色 —— 无彩色。边框为 `#555555`，文本为 `#c9d1d9`。非常适合极简终端设置或屏幕录制。 |
-| **slate** | 冷蓝色 —— 专注于开发者 | Hermes Agent | 皇室蓝边框（`#4169e1`），淡蓝色文本。冷静且专业。不含自定义加载动画 —— 使用默认表情。 |
-| **daylight** | 适用于亮色终端的浅色主题，带深色文本和冷蓝装饰 | Hermes Agent | 专为白色或明亮终端设计。深石板色文本搭配蓝色边框，浅色状态栏表面，以及在浅色终端配置下依然清晰易读的补全菜单。 |
-| **warm-lightmode** | 适用于浅色终端背景的暖棕/金色文本 | Hermes Agent | 适用于浅色终端的暖羊皮纸色调。深棕色文本搭配马鞍棕装饰，奶油色状态栏表面。冷色调 daylight 主题的土色系替代方案。 |
-| **poseidon** | 海神主题 —— 深蓝与海泡石色 | Poseidon Agent | 深蓝色至海泡石色渐变。海洋主题加载动画（“绘制海流”、“探测深度”）。三叉戟 ASCII 艺术横幅。 |
-| **sisyphus** | 西绪福斯主题 —— 朴素灰阶与坚持 | Sisyphus Agent | 强对比的浅灰色。巨石主题加载动画（“推向山顶”、“重置巨石”、“忍受循环”）。巨石与山丘 ASCII 艺术横幅。 |
-| **charizard** | 火山主题 —— 焦橙与灰烬色 | Charizard Agent | 温暖的焦橙色至灰烬色渐变。火系主题加载动画（“切入气流”、“测量燃烧”）。巨龙剪影 ASCII 艺术横幅。 |
+| **default** | 经典 Hermes —— 金色与可爱风 | `Hermes Agent` | 暖金色边框，玉米丝色文本，加载动画中带有可爱表情。熟悉的双蛇杖横幅。整洁且平易近人。 |
+| **ares** | 战神主题 —— 深红与青铜 | `Ares Agent` | 深红色边框带有青铜色装饰。激进的加载动词（“铸造”、“行军”、“淬炼钢铁”）。自定义剑盾 ASCII 艺术横幅。 |
+| **mono** | 单色 —— 纯净灰阶 | `Hermes Agent` | 全灰色 —— 无彩色。边框为 `#555555`，文本为 `#c9d1d9`。非常适合极简终端设置或屏幕录制。 |
+| **slate** | 冷蓝色 —— 专注于开发者 | `Hermes Agent` | 皇室蓝边框（`#4169e1`），淡蓝色文本。冷静且专业。不含自定义加载动画 —— 使用默认表情。 |
+| **daylight** | 适用于亮色终端的浅色主题，带深色文本和冷蓝装饰 | `Hermes Agent` | 专为白色或明亮终端设计。深石板色文本搭配蓝色边框，浅色状态栏表面，以及在浅色终端配置下依然清晰易读的补全菜单。 |
+| **warm-lightmode** | 适用于浅色终端背景的暖棕/金色文本 | `Hermes Agent` | 适用于浅色终端的暖羊皮纸色调。深棕色文本搭配马鞍棕装饰，奶油色状态栏表面。冷色调 daylight 主题的土色系替代方案。 |
+| **poseidon** | 海神主题 —— 深蓝与海泡石色 | `Poseidon Agent` | 深蓝色至海泡石色渐变。海洋主题加载动画（“绘制海流”、“探测深度”）。三叉戟 ASCII 艺术横幅。 |
+| **sisyphus** | 西绪福斯主题 —— 朴素灰阶与坚持 | `Sisyphus Agent` | 强对比的浅灰色。巨石主题加载动画（“推向山顶”、“重置巨石”、“忍受循环”）。巨石与山丘 ASCII 艺术横幅。 |
+| **charizard** | 火山主题 —— 焦橙与灰烬色 | `Charizard Agent` | 温暖的焦橙色至灰烬色渐变。火系主题加载动画（“切入气流”、“测量燃烧”）。巨龙剪影 ASCII 艺术横幅。 |
 
 ## 可配置项完整列表
 
@@ -47,28 +49,28 @@ display:
 
 | 键名 | 描述 | 默认值 (default 皮肤) |
 | --- | --- | --- |
-| **banner_border** | 启动横幅周围的面板边框 | `#CD7F32` (青铜色) |
-| **banner_title** | 横幅中的标题文本颜色 | `#FFD700` (金色) |
-| **banner_accent** | 横幅中的小节标题（如可用工具等） | `#FFBF00` (琥珀色) |
-| **banner_dim** | 横幅中的暗色文本（分隔符、次要标签） | `#B8860B` (暗金菊黄) |
-| **banner_text** | 横幅中的正文文本（工具名称、技能名称） | `#FFF8DC` (玉米丝色) |
-| **ui_accent** | 通用 UI 强调色（高亮显示、活动元素） | `#FFBF00` |
-| **ui_label** | UI 标签与标记 | `#4dd0e1` (青色) |
-| **ui_ok** | 成功状态指示器（对勾、完成） | `#4caf50` (绿色) |
-| **ui_error** | 错误状态指示器（失败、被阻止） | `#ef5350` (红色) |
-| **ui_warn** | 警告状态指示器（警示、审批提示） | `#ffa726` (橙色) |
-| **prompt** | 交互式提示符文本颜色 | `#FFF8DC` |
-| **input_rule** | 输入区域上方的水平分割线 | `#CD7F32` |
-| **response_border** | 代理回复框周围的边框 (ANSI 转义) | `#FFD700` |
-| **session_label** | 会话标签颜色 | `#DAA520` |
-| **session_border** | 会话 ID 的暗色边框颜色 | `#8B8682` |
-| **status_bar_bg** | TUI 状态栏 / 资源使用栏的背景颜色 | `#1a1a2e` |
-| **voice_status_bg** | 语音模式状态徽章的背景颜色 | `#1a1a2e` |
-| **selection_bg** | TUI 鼠标选择高亮器的背景颜色。未设置时回退至 `completion_menu_current_bg`。 | `#333355` |
-| **completion_menu_bg** | 补全菜单列表的背景颜色 | `#1a1a2e` |
-| **completion_menu_current_bg** | 激活的补全行背景颜色 | `#333355` |
-| **completion_menu_meta_bg** | 补全元数据列的背景颜色 | `#1a1a2e` |
-| **completion_menu_meta_current_bg** | 激活的补全元数据列背景颜色 | `#333355` |
+| `banner_border` | 启动横幅周围的面板边框 | `#CD7F32` (青铜色) |
+| `banner_title` | 横幅中的标题文本颜色 | `#FFD700` (金色) |
+| `banner_accent` | 横幅中的小节标题（如可用工具等） | `#FFBF00` (琥珀色) |
+| `banner_dim` | 横幅中的暗色文本（分隔符、次要标签） | `#B8860B` (暗金菊黄) |
+| `banner_text` | 横幅中的正文文本（工具名称、技能名称） | `#FFF8DC` (玉米丝色) |
+| `ui_accent` | 通用 UI 强调色（高亮显示、活动元素） | `#FFBF00` |
+| `ui_label` | UI 标签与标记 | `#4dd0e1` (青色) |
+| `ui_ok` | 成功状态指示器（对勾、完成） | `#4caf50` (绿色) |
+| `ui_error` | 错误状态指示器（失败、被阻止） | `#ef5350` (红色) |
+| `ui_warn` | 警告状态指示器（警示、审批提示） | `#ffa726` (橙色) |
+| `prompt` | 交互式提示符文本颜色 | `#FFF8DC` |
+| `input_rule` | 输入区域上方的水平分割线 | `#CD7F32` |
+| `response_border` | 代理回复框周围的边框 (ANSI 转义) | `#FFD700` |
+| `session_label` | 会话标签颜色 | `#DAA520` |
+| `session_border` | 会话 ID 的暗色边框颜色 | `#8B8682` |
+| `status_bar_bg` | TUI 状态栏 / 资源使用栏的背景颜色 | `#1a1a2e` |
+| `voice_status_bg` | 语音模式状态徽章的背景颜色 | `#1a1a2e` |
+| `selection_bg` | TUI 鼠标选择高亮器的背景颜色。未设置时回退至 `completion_menu_current_bg`。 | `#333355` |
+| `completion_menu_bg` | 补全菜单列表的背景颜色 | `#1a1a2e` |
+| `completion_menu_current_bg` | 激活的补全行背景颜色 | `#333355` |
+| `completion_menu_meta_bg` | 补全元数据列的背景颜色 | `#1a1a2e` |
+| `completion_menu_meta_current_bg` | 激活的补全元数据列背景颜色 | `#333355` |
 
 ### 加载动画 (`spinner:`)
 
@@ -76,10 +78,10 @@ display:
 
 | 键名 | 类型 | 描述 | 示例 |
 | --- | --- | --- | --- |
-| **waiting_faces** | 字符串列表 | 等待 API 响应时循环显示的图标 | `["(⚔)", "(⛨)", "(▲)"]` |
-| **thinking_faces** | 字符串列表 | 模型进行推理时循环显示的图标 | `["(⚔)", "(⌁)", "(<>)"]` |
-| **thinking_verbs** | 字符串列表 | 加载状态消息中显示的动词 | `["forging", "plotting", "hammering plans"]` |
-| **wings** | [左, 右] 对列表 | 加载动画两侧的装饰性括号对 | `[["⟪⚔", "⚔⟫"], ["⟪▲", "▲⟫"]]` |
+| `waiting_faces` | 字符串列表 | 等待 API 响应时循环显示的图标 | `["(⚔)", "(⛨)", "(▲)"]` |
+| `thinking_faces` | 字符串列表 | 模型进行推理时循环显示的图标 | `["(⚔)", "(⌁)", "(<>)"]` |
+| `thinking_verbs` | 字符串列表 | 加载状态消息中显示的动词 | `["forging", "plotting", "hammering plans"]` |
+| `wings` | [左, 右] 对列表 | 加载动画两侧的装饰性括号对 | `[["⟪⚔", "⚔⟫"], ["⟪▲", "▲⟫"]]` |
 
 当加载动画的相关数值为空（如在 `default` 和 `mono` 皮肤中）时，将使用 `display.py` 中硬编码的默认值。
 
@@ -89,25 +91,25 @@ display:
 
 | 键名 | 描述 | 默认值 |
 | --- | --- | --- |
-| **agent_name** | 在横幅标题和状态显示中显示的名称 | Hermes Agent |
-| **welcome** | CLI 启动时显示的欢迎词 | Welcome to Hermes Agent! Type your message or /help for commands. |
-| **goodbye** | 退出时显示的消息 | Goodbye! ⚕ |
-| **response_label** | 回复框顶部的标签 | ⚕ Hermes |
-| **prompt_symbol** | 用户输入提示符前的符号（原始标记，渲染器会自动添加尾随空格） | ❯ |
-| **help_header** | `/help` 命令输出的标题文本 | (^_^)? Available Commands |
+| `agent_name` | 在横幅标题和状态显示中显示的名称 | `Hermes Agent` |
+| `welcome` | CLI 启动时显示的欢迎词 | `Welcome to Hermes Agent! Type your message or /help for commands.` |
+| `goodbye` | 退出时显示的消息 | `Goodbye! ⚕` |
+| `response_label` | 回复框顶部的标签 | `⚕ Hermes` |
+| `prompt_symbol` | 用户输入提示符前的符号（原始标记，渲染器会自动添加尾随空格） | `❯` |
+| `help_header` | `/help` 命令输出的标题文本 | `(^_^)? Available Commands` |
 
 ### 其他顶级键名
 
 | 键名 | 类型 | 描述 | 默认值 |
 | --- | --- | --- | --- |
-| **tool_prefix** | 字符串 | 在 CLI 中工具输出行前加上的字符 | ┊ |
-| **tool_emojis** | 字典 | 针对特定工具的加载动画或进度图标覆盖 (`{工具名: 表情符号}`) | `{}` |
-| **banner_logo** | 字符串 | 使用 Rich 标记语法的 ASCII 艺术 Logo（取代默认的 HERMES_AGENT 横幅） | `""` |
-| **banner_hero** | 字符串 | 使用 Rich 标记语法的英雄画作（取代默认的双蛇杖艺术图） | `""` |
+| `tool_prefix` | 字符串 | 在 CLI 中工具输出行前加上的字符 | `┊` |
+| `tool_emojis` | 字典 | 针对特定工具的加载动画或进度图标覆盖 (`{工具名: 表情符号}`) | `{}` |
+| `banner_logo` | 字符串 | 使用 Rich 标记语法的 ASCII 艺术 Logo（取代默认的 HERMES_AGENT 横幅） | `""` |
+| `banner_hero` | 字符串 | 使用 Rich 标记语法的英雄画作（取代默认的双蛇杖艺术图） | `""` |
 
 ## 自定义皮肤
 
-在 `~/.hermes/skins/` 目录下创建 YAML 文件即可。用户自定义皮肤会继承内置 **default** 皮肤中缺失的数值，因此你只需要指定想要修改的键值对。
+在 `~/.hermes/skins/` 目录下创建 YAML 文件即可。用户自定义皮肤会继承内置 `default` 皮肤中缺失的数值，因此你只需要指定想要修改的键值对。
 
 ### 全量自定义皮肤 YAML 模板
 

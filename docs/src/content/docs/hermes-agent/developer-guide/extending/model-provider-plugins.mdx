@@ -1,6 +1,8 @@
 ---
 title: 构建 Model Provider Plugin
 description: hermes agent 构建 Model Provider Plugin
+sidebar:
+  order: 6
 ---
 
 Model provider plugins 声明一个 inference backend —— OpenAI 兼容端点、Anthropic Messages server、Codex-style Responses API，或 Bedrock-native surface —— Hermes 可以通过它路由 AIAgent 调用。每个内置 provider（OpenRouter、Anthropic、GMI、DeepSeek、Nvidia，……）都是以这些 plugins 之一的形式发布的。第三方可以通过在 `$HERMES_HOME/plugins/model-providers/` 下放置一个目录来添加自己的 provider，而无需对仓库进行任何修改。

@@ -1,6 +1,8 @@
 ---
 title: 子代理委派 (Subagent Delegation)
 description: hermes agent 子代理委派 (Subagent Delegation)
+sidebar:
+  order: 2
 ---
 
 `delegate_task` 工具可以生成子级 `AIAgent` 实例。这些子代理拥有隔离的上下文、受限的工具集以及独立的终端会话。每个子代理都会获得一个全新的对话环境并独立开展工作 —— 只有其最终的总结报告会被纳入父级代理的上下文中。
@@ -145,19 +147,19 @@ delegation:
 
 | 工具集组合 | 适用场景 |
 | --- | --- |
-| **["terminal", "file"]** | 代码编写、调试、文件编辑、构建任务 |
-| **["web"]** | 研究、事实核查、查阅文档 |
-| **["terminal", "file", "web"]** | 全栈任务（默认配置） |
-| **["file"]** | 只读分析、无需执行的代码审查 |
-| **["terminal"]** | 系统管理、进程管理 |
+| `["terminal", "file"]` | 代码编写、调试、文件编辑、构建任务 |
+| `["web"]` | 研究、事实核查、查阅文档 |
+| `["terminal", "file", "web"]` | 全栈任务（默认配置） |
+| `["file"]` | 只读分析、无需执行的代码审查 |
+| `["terminal"]` | 系统管理、进程管理 |
 
 无论你如何指定，某些工具集对子代理是 **禁用** 的：
 
-* **delegation** —— 对叶子节点子代理禁用（默认）。对于 `role="orchestrator"` 的子代理保留，但受限于 `max_spawn_depth`（参见下文的“深度限制与嵌套编排”）。
-* **clarify** —— 子代理无法与用户进行交互。
-* **memory** —— 无法向共享的持久化记忆中写入数据。
-* **code_execution** —— 鼓励子代理按步骤进行推理。
-* **send_message** —— 禁止产生跨平台的副作用（例如发送 Telegram 消息）。
+* `delegation` —— 对叶子节点子代理禁用（默认）。对于 `role="orchestrator"` 的子代理保留，但受限于 `max_spawn_depth`（参见下文的 “深度限制与嵌套编排”）。
+* `clarify` —— 子代理无法与用户进行交互。
+* `memory` —— 无法向共享的持久化记忆中写入数据。
+* `code_execution` —— 鼓励子代理按步骤进行推理。
+* `send_message` —— 禁止产生跨平台的副作用（例如发送 Telegram 消息）。
 
 ## 最大迭代次数
 
@@ -236,13 +238,13 @@ delegate_task(
 
 ## 核心属性
 
-* **独立会话**：每个子代理都会获得其**专有的终端会话**（与父代理隔离）。
+* **独立会话**：每个子代理都会获得其 **专有的终端会话**（与父代理隔离）。
 * **嵌套委派（需手动启用）**：默认情况下，委派是扁平的（`max_spawn_depth` 默认为 1）。只有角色设为 `"orchestrator"` 的子代理可以进一步委派，且必须先调高深度限制。可以通过 `orchestrator_enabled: false` 进行全局禁用。
 * **工具限制**：
-* **叶子子代理（Leaf）**：**无法**调用 `delegate_task`、`clarify`、`memory`、`send_message` 和 `execute_code`。
+* **叶子子代理（Leaf）**：**无法** 调用 `delegate_task`、`clarify`、`memory`、`send_message` 和 `execute_code`。
 * **编排者子代理（Orchestrator）**：保留 `delegate_task` 的使用权限，但仍无法使用上述其他四个工具。
 * **中断传播**：中断父代理的操作会自动中断所有活跃的子代理（包括编排者下属的孙代理）。
-* **上下文效率**：只有子代理的**最终总结**会被纳入父代理的上下文，从而保持 Token 使用的高效性。
+* **上下文效率**：只有子代理的 **最终总结** 会被纳入父代理的上下文，从而保持 Token 使用的高效性。
 * **配置继承**：子代理继承父代理的 **API 密钥、供应商配置及凭证池**（支持在触发速率限制时自动轮换密钥）。
 
 ## 委派 (Delegation) 与 代码执行 (execute_code) 的对比
@@ -280,6 +282,8 @@ delegation:
   base_url: "http://localhost:1234/v1"
   api_key: "local-key"
 ```
+
+当 `base_url` 指向一个兼容 Anthropic 的端点时（例如路径以 `/anthropic` 结尾、Azure Foundry 的 Claude 路由，或是 MiniMax 的 `/anthropic` 代理），`api_mode` 会被自动检测为 `anthropic_messages`，因此子智能体无需你进行任何设置即可使用正确的传输格式。当自动检测猜测有误时（这种情况很少见），请显式设置 `api_mode`。
 
 :::tip[模型覆盖]
 代理会根据任务的复杂程度自动处理委派。你不需要显式要求它进行委派 —— 当任务有必要时，它会自动执行。

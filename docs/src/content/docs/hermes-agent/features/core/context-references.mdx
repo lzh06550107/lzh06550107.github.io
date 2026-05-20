@@ -1,21 +1,23 @@
 ---
-title: 上下文参考
-description: hermes agent 上下文参考
+title: 上下文引用
+description: hermes agent 上下文引用
+sidebar:
+  order: 8
 ---
 
-键入 **@** 符号后跟引用标识符，可将内容直接注入到您的消息中。Hermes 会在行内展开该引用，并将具体内容附加在 **--- Attached Context ---** 章节下。
+键入 `@` 符号后跟引用标识符，可将内容直接注入到您的消息中。Hermes 会在行内展开该引用，并将具体内容附加在 `--- Attached Context ---` 章节下。
 
 ## 支持的引用类型
 
 | 语法 | 描述 |
 | --- | --- |
-| **@file:path/to/file.py** | 注入文件内容 |
-| **@file:path/to/file.py:10-25** | 注入特定的行范围（从 1 开始计数，闭区间） |
-| **@folder:path/to/dir** | 注入包含文件元数据的目录树列表 |
-| **@diff** | 注入 `git diff`（未暂存的工作区更改） |
-| **@staged** | 注入 `git diff --staged`（已暂存的更改） |
-| **@git:5** | 注入最近 N 个提交及其补丁（最多 10 个） |
-| **@url:https://example.com** | 获取并注入网页内容 |
+| `@file:path/to/file.py` | 注入文件内容 |
+| `@file:path/to/file.py:10-25` | 注入特定的行范围（从 1 开始计数，闭区间） |
+| `@folder:path/to/dir` | 注入包含文件元数据的目录树列表 |
+| `@diff` | 注入 `git diff`（未暂存的工作区更改） |
+| `@staged` | 注入 `git diff --staged`（已暂存的更改） |
+| `@git:5` | 注入最近 N 个提交及其补丁（最多 10 个） |
+| `@url:https://example.com` | 获取并注入网页内容 |
 
 ## 使用示例
 

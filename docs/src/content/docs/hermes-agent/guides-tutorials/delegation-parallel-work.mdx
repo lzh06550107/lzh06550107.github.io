@@ -1,6 +1,8 @@
 ---
 title: 委派与并行工作
 description: hermes agent 委派与并行工作
+sidebar:
+  order: 14
 ---
 
 Hermes 可以生成隔离的子 agent，并行处理任务。每个子 agent 都有自己的 conversation、terminal session 和 toolset。只有最终摘要会返回 —— 中间的工具调用永远不会进入你的 context window。

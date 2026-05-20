@@ -1,6 +1,8 @@
 ---
 title: 构建 Video Generation Provider Plugin
 description: hermes agent 构建 Video Generation Provider Plugin
+sidebar:
+  order: 8
 ---
 
 Video-gen provider plugins 注册一个 backend，用于处理每一次 `video_generate` tool call。内置 providers（xAI、FAL）以 plugins 形式发布。你可以通过将目录放入 `plugins/video_gen/<name>/` 来添加新的 provider，或覆盖 bundled provider。

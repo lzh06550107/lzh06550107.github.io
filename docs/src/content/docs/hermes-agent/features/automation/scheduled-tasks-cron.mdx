@@ -1,6 +1,8 @@
 ---
 title: 计划任务 (Cron)
 description: hermes agent 计划任务 (Cron)
+sidebar:
+  order: 1
 ---
 
 通过自然语言或 Cron 表达式安排任务自动运行。Hermes 将 Cron 管理功能集成到了单一的 `cronjob` 工具中，采用操作指令式（action-style）逻辑，而非将其拆分为独立的调度、列表和删除工具。
@@ -116,9 +118,43 @@ cronjob(
 带有 `workdir` 的任务在调度周期内会 **顺序运行**，而不会进入并行池。这是刻意为之的 —— 因为 `TERMINAL_CWD` 是进程全局的，同时运行两个带有工作目录的任务会导致彼此的工作目录发生冲突。不带工作目录的任务仍像以前一样并行运行。
 :::
 
+## 在特定配置文件（Profile）中运行 Cron 任务
+
+默认情况下，Cron 任务会继承创建它的网关或 CLI 所属的 Hermes 配置文件。你可以传递 `--profile <name>`（CLI 模式）或 `profile=`（cronjob 工具）将任务重新指向另一个配置文件 —— 调度器会解析该配置文件的 `HERMES_HOME`，在任务执行期间临时切换至该环境，加载其 `.env` 和 `config.yaml`，并在其中执行任务：
+
+```bash
+# 将任务锁定在 `night-ops` 配置文件，无论它从何处被调度
+hermes cron create "every 1d at 03:00" \
+  "Tail the security log and flag anomalies" \
+  --profile night-ops
+```
+
+```python
+# 在聊天会话中，通过 cronjob 工具
+cronjob(
+    action="create",
+    schedule="every 1d at 03:00",
+    prompt="Tail the security log and flag anomalies",
+    profile="night-ops",
+)
+```
+
+使用 `--profile default` 可显式锁定到根 Hermes 配置文件。指定的配置文件必须已经存在；调度器不会动态创建配置文件。若要在编辑 Cron 任务时清除配置文件锁定，请传入空字符串（`--profile ""` 或 `profile=""`）—— 任务将回退到在调度器自身所属的配置文件中运行。
+
+如果锁定的配置文件随后被删除，调度器会记录一条警告并回退到当前配置文件中运行该任务，而不会导致崩溃 —— 因此，陈旧的配置文件引用绝不会卡死任务。
+
+:::note[序列化]
+设置了配置文件的任务也会按顺序执行，原因与工作目录（`workdir`）锁定的任务相同：切换 `HERMES_HOME` 属于进程全局的变更，因此如果两个配置文件锁定的任务并行运行，它们之间会产生竞争条件。未锁定的任务仍会在正常的并行池中运行。
+:::
+
 ## 编辑任务
 
 您无需通过删除并重新创建的方式来修改任务。
+
+:::tip[任务引用]
+
+下文（以及生命周期操作中）出现的 `<job_id>` 占位符也接受任务名称（不区分大小写）—— 当你记得 `morning-digest` 但不记得十六进制 ID 时，这非常方便。精确的任务 ID 优先级高于名称匹配；如果引用不是 ID，且名称匹配到了多个任务，命令会拒绝执行并打印出候选 ID，以便你进行区分。
+:::
 
 ### 聊天界面
 
@@ -150,7 +186,7 @@ hermes cron edit <job_id> --clear-skills
 
 ## 生命周期操作
 
-Cron 任务现在拥有比单纯的“创建/移除”更完整的生命周期。
+Cron 任务现在拥有比单纯的 “创建/移除” 更完整的生命周期。
 
 ### 聊天界面
 
@@ -248,6 +284,17 @@ hermes cron status
 * **语义**：**all** 会扩展到每一个配置了主频道（Home channel）的平台。如果没有配置任何平台也可以正常运行；任务只是不会产生任何交付目标，并会在上游记录为交付失败。
 * **组合性**：**all** 可以与显式目标组合使用。**origin,all** 会将内容交付给原始聊天窗口**以及**每一个其他已连接的主频道，并根据 `(platform, chat_id, thread_id)` 进行去重。
 
+### Telegram Cron 主题 (TELEGRAM_CRON_THREAD_ID)
+
+当启用 Telegram 主题（Topic）模式时，根 DM（私聊）被保留为系统大厅 —— 发送到那里的回复会被驳回并显示大厅提醒，且 `reply_to_message_id` 会被丢弃，因此你无法回复发送到主聊天的 Cron 消息。
+
+请将 Cron 指向一个专门的论坛主题：
+
+1. 在 Telegram 中，打开机器人 DM 并创建一个名为（例如） “Cron” 的主题。长按该主题标题 → 复制链接；链接末尾的整数即为该主题的 `message_thread_id`。
+2. 在你的 `.env` 文件中设置 `TELEGRAM_CRON_THREAD_ID=<该ID>`。
+
+此设置仅适用于 Cron 投递。`TELEGRAM_HOME_CHANNEL_THREAD_ID`（用于其他地方，如重启通知）不受影响。显式的 `deliver="telegram:chat_id:thread_id"` 目标优先级仍然高于此环境变量。现在，对 Cron 消息的回复会送达至现有的主题会话中，因此你可以直接对其进行操作。
+
 ### 响应包装
 
 默认情况下，交付的 Cron 输出会被头部和底部信息包装，以便接收者知道它来自计划任务：
@@ -313,7 +360,8 @@ hermes cron create "every 5m" \
 * **非零退出状态或超时** → 交付错误警报，确保损坏的看门狗不会在无声无息中失效。
 * **最后一行包含 `{"wakeAgent": false}**` → 静默运行（与 LLM 任务使用的判定逻辑一致）。
 * **无 Token 消耗、无模型、无供应商备选** —— 任务永远不会触及推理层。
-* `.sh` / `.bash` 文件在 `/bin/bash` 下运行；其他文件在当前 Python 解释器 (`sys.executable`) 下运行。脚本必须存放在 `~/.hermes/scripts/` 目录中（遵循与预运行脚本相同的沙箱规则）。
+
+`.sh` / `.bash` 文件在 `/bin/bash` 下运行；其他文件在当前 Python 解释器 (`sys.executable`) 下运行。脚本必须存放在 `~/.hermes/scripts/` 目录中（遵循与预运行脚本相同的沙箱规则）。
 
 ### 代理会为您完成设置
 
@@ -365,7 +413,6 @@ cronjob(
     context_from="<job2_id>",
     name="AI 新闻简报",
 )
-
 ```
 
 **工作原理：**
@@ -489,7 +536,7 @@ cronjob(action="create", name="weekly-news-summary",
         prompt="总结本周 AI 新闻：...")
 ```
 
-当任务设置了 `enabled_toolsets` 时，该设置优先；否则以 `hermes tools` 的 cron 平台配置为准；若均未设置，则回退至 Hermes 的内置默认值。这对于**成本控制**至关重要：如果为每一个细小的“获取新闻”任务都加载 `moa`、`browser`、`delegation`，会导致每次 LLM 调用时的工具定义（Tool-schema）提示词过于臃肿。
+当任务设置了 `enabled_toolsets` 时，该设置优先；否则以 `hermes tools` 的 cron 平台配置为准；若均未设置，则回退至 Hermes 的内置默认值。这对于 **成本控制** 至关重要：如果为每一个细小的“获取新闻”任务都加载 `moa`、`browser`、`delegation`，会导致每次 LLM 调用时的工具定义（Tool-schema）提示词过于臃肿。
 
 ### 完全跳过代理：`wakeAgent`
 
@@ -516,6 +563,92 @@ print(json.dumps({"wakeAgent": True, "context": {"new_issues": latest - prev}}))
 ```
 
 当省略 `wakeAgent` 时，默认值为 `true`（像往常一样唤醒代理）。
+
+**配方：低成本预运行门控 (Cheap Pre-run Gates)**
+
+`wakeAgent` 门控为你提供了一种零成本（$0）的方式，用于决定计划任务是否需要消耗任何 LLM Token。以下三种模式涵盖了大多数使用场景。
+
+**文件变更门控 (File-change gate)**
+
+仅在被监控文件自上次成功运行以来内容有更新时才运行。调度器会记录每个任务的 `last_run_at`；你可以将其与文件的修改时间（mtime）进行比较。
+
+```bash
+#!/bin/bash
+# ~/.hermes/scripts/feed-changed.sh
+FEED="$HOME/data/feed.json"
+STATE="$HOME/.hermes/scripts/.feed-changed.last"
+test -f "$FEED" || { echo '{"wakeAgent": false}'; exit 0; }
+mtime=$(stat -c %Y "$FEED")
+last=$(cat "$STATE" 2>/dev/null || echo 0)
+if [ "$mtime" -le "$last" ]; then
+  echo '{"wakeAgent": false}'
+else
+  echo "$mtime" > "$STATE"
+  echo '{"wakeAgent": true}'
+fi
+```
+
+```python
+cronjob(action="create", name="process-feed",
+        schedule="every 30m",
+        script="feed-changed.sh",
+        prompt="A new ~/data/feed.json has landed. Summarize what changed.")
+```
+
+**外部标志门控 (External-flag gate)**
+
+仅当其他某个进程发出了准备就绪的信号时才运行（例如部署钩子放置了一个文件，或者 CI 任务在你的状态存储中设置了一个值）。
+
+```bash
+#!/bin/bash
+# ~/.hermes/scripts/flag-ready.sh
+if test -f /tmp/new-data-ready; then
+  rm -f /tmp/new-data-ready
+  echo '{"wakeAgent": true}'
+else
+  echo '{"wakeAgent": false}'
+fi
+```
+
+```python
+cronjob(action="create", name="nightly-analysis",
+        schedule="0 9 * * *",
+        script="flag-ready.sh",
+        prompt="Run the nightly analysis over today's batch.")
+```
+
+**SQL 计数门控 (SQL-count gate)**
+
+仅当你的数据库中有新行需要处理时才运行。脚本还可以通过 `context` 将计数值传递给智能体，这样智能体在无需重新查询的情况下就能知道需要处理的工作量。
+
+```python
+#!/usr/bin/env python
+# ~/.hermes/scripts/new-rows.py
+import json, sqlite3
+conn = sqlite3.connect("/home/me/data/app.db")
+n = conn.execute(
+    "SELECT COUNT(*) FROM messages WHERE ts > strftime('%s','now','-2 hours')"
+).fetchone()[0]
+if n < 1:
+    print(json.dumps({"wakeAgent": False}))
+else:
+    print(json.dumps({"wakeAgent": True, "context": {"new_rows": n}}))
+```
+
+```python
+cronjob(action="create", name="summarize-new-msgs",
+        schedule="every 2h",
+        script="new-rows.py",
+        prompt="Summarize the new messages from the last 2 hours.")
+```
+
+这种模式适用于你可以从脚本查询的任何数据源 —— Postgres、HTTP API 或你自己的状态存储 —— 而无需在 Cron 子系统中内置 SQL 求值器。
+
+:::tip[提示]
+Hermes 自身的 `~/.hermes/state.db` 是一个会在不同版本间变更的内部架构。不要在预运行门控中查询它 —— 请指向你自己的数据库或数据源。
+:::
+
+**致谢**：此配方集由 @iankar8 在 #2654 中的探索启发，该探索提议添加 SQL/文件/命令触发器作为并行机制。`script` + `wakeAgent` 门控已经以零成本涵盖了上述所有情况，因此相关工作最终转化为文档呈现。
 
 ### 链式任务：`context_from`
 

@@ -1,6 +1,8 @@
 ---
 title: 看板教程
 description: hermes agent 看板教程
+sidebar:
+  order: 5
 ---
 
 这是对 Hermes 看板系统所设计的四个用例的演练，假设你已在浏览器中打开了仪表板。如果你还没有阅读过 **Kanban 概览**，请先从那里开始——本篇假设你已经了解什么是任务（task）、运行（run）、受理人（assignee）和调度器（dispatcher）。
@@ -32,7 +34,7 @@ hermes dashboard             # 在浏览器中打开 http://127.0.0.1:9119
 * **Blocked（阻塞）** — 工人请求人工输入，或断路器（circuit breaker）跳闸。
 * **Done（完成）** — 已完成。
 
-顶部栏设有搜索、租户和受理人的过滤器，以及一个 **Lanes by profile** 切换开关和一个 **Nudge dispatcher** 按钮。点击该按钮可立即运行一次调度周期，而无需等待守护进程的下一个间隔。点击任何卡片即可在右侧打开其抽屉详情。
+顶部栏设有搜索、租户和受理人的过滤器，以及一个 `Lanes by profile` 切换开关和一个 `Nudge dispatcher` 按钮。点击该按钮可立即运行一次调度周期，而无需等待守护进程的下一个间隔。点击任何卡片即可在右侧打开其抽屉详情。
 
 ### 扁平视图
 
@@ -188,7 +190,7 @@ hermes kanban unblock $IMPL
 # 或者从聊天窗口：/kanban unblock $IMPL
 ```
 
-调度器将 `$IMPL` 重新提升至 **ready**，并在下一次周期重新启动 `backend-dev` 工人。这次启动是同一个任务下的 **新运行（new run）**：
+调度器将 `$IMPL` 重新提升至 `ready`，并在下一次周期重新启动 `backend-dev` 工人。这次启动是同一个任务下的 **新运行（new run）**：
 
 ```python
 # --- 工程师工人在 $IMPL 任务上启动（第二次尝试） ---
@@ -237,10 +239,11 @@ kanban_complete(
 
 ```bash
 hermes kanban create "Deploy to staging (missing creds)" \
-    --assignee deploy-bot --tenant ops
+    --assignee deploy-bot --tenant ops \
+    --max-retries 3
 ```
 
-调度器尝试启动工人。启动失败（RuntimeError: AWS_ACCESS_KEY_ID not set）。调度器释放占用，增加失败计数器，并在下一个周期重试。在连续三次失败（默认的 `failure_limit`）后，断路器跳闸：任务进入 **blocked** 状态，结果为 `gave_up`。在人工解除阻塞之前，不会再进行重试。
+dispatcher 会尝试启动 worker。启动失败（`RuntimeError: AWS_ACCESS_KEY_ID not set`）。dispatcher 会释放 claim，递增失败计数器，并在下一次 tick 再次尝试。因为这个示例设置了 `--max-retries 3`，所以连续失败三次后熔断器会触发：任务进入 `blocked`，outcome 为 `gave_up`。如果你省略该标志，Hermes 会使用 `kanban.failure_limit`（默认值：2）。在人工解除阻塞之前，不会再重试。
 
 点击该被阻塞的任务：
 
@@ -263,7 +266,7 @@ hermes kanban runs t_ef5d
 
 如果配置了 Telegram / Discord / Slack，网关会在 `gave_up` 事件发生时发出通知，这样你无需查看看板也能获知故障。
 
-### 崩溃恢复 — 工人中途死亡
+### 崩溃恢复 — worker 中途死亡
 
 有时启动成功了，但工人进程随后死亡——段错误（segfault）、OOM、或 `systemctl stop`。调度器会轮询 `kill(pid, 0)` 并检测死亡的 PID；随后释放占用，任务回到 **ready** 状态，并在下一个周期交给一个新的工人。
 
@@ -295,7 +298,7 @@ hermes kanban runs t_ef5d
 
 这取代了困扰扁平看板系统的“翻找评论和工作产出”的繁琐过程。PM 在规范任务的元数据中编写验收标准，工程师工人就能在父级交接中结构化地看到它们。工程师记录他们运行了哪些测试以及通过了多少个，审查者的工人在打开代码差异（diff）之前，手中就已经拿到了这份列表。
 
-批量关闭保护（Bulk-close guard）的存在是因为这些数据是针对每次运行的。如果你在 CLI 中运行 `hermes kanban complete a b c --summary X` 将会被拒绝 —— 将相同的摘要复制粘贴到三个任务中几乎总是错误的。如果不带交接标志的批量关闭对于常见的“我完成了一堆管理杂务”的情况仍然有效。工人工具界面根本没有提供批量操作的变体；出于同样的原因，`kanban_complete` 始终一次只能处理单个任务。
+批量关闭保护（Bulk-close guard）的存在是因为这些数据是针对每次运行的。如果你在 CLI 中运行 `hermes kanban complete a b c --summary X` 将会被拒绝 —— 将相同的摘要复制粘贴到三个任务中几乎总是错误的。如果不带交接标志的批量关闭对于常见的 “我完成了一堆管理杂务” 的情况仍然有效。工人工具界面根本没有提供批量操作的变体；出于同样的原因，`kanban_complete` 始终一次只能处理单个任务。
 
 ## 检查当前运行的任务
 
@@ -311,3 +314,4 @@ hermes kanban runs t_ef5d
 * **hermes kanban --help** — 每个子命令、每个标志位。
 * **hermes kanban watch --kinds completed,gave_up,timed_out** — 实时流式传输整个看板的终端事件。
 * **hermes kanban notify-subscribe  --platform telegram --chat-id ** — 当特定任务完成时，获取网关推送。
+

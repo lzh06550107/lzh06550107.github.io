@@ -1,0 +1,91 @@
+---
+title: Deliverable Mode
+description: hermes agent Deliverable Mode
+sidebar:
+  order: 9
+---
+
+当 Hermes Agent 运行在消息 gateway 中时（Slack、Discord、Telegram、WhatsApp、Signal 等），它可以将生成的文件直接发送到聊天中——不是作为用户必须复制的路径，而是作为原生附件。
+
+图表会以内联图片形式显示。PDF 报告会作为文件下载显示。电子表格会以 `.xlsx` 上传。agent 不需要写 `MEDIA:` 标签，也不需要做任何特殊操作——它只需要生成文件，并在响应中提到它的绝对路径。gateway 会从文本中提取该路径，将其从可见消息中移除，并以原生方式上传该文件。
+
+## 工作原理
+
+三部分组合在一起：
+
+1. agent 拥有可以生成文件的工具。`execute_code` 可以通过 matplotlib 生成图表，`latex-pdf-report` skill 可以生成 PDF，`powerpoint` skill 可以生成演示文稿，`image_generate` 可以生成图片，`text_to_speech` 可以生成音频，等等。
+
+2. gateway 会扫描 agent 响应中的文件路径。任何以受支持扩展名结尾的绝对路径（`/tmp/...`）或 home 相对路径（`~/...`）都会被提取。代码块和行内代码中的路径会被忽略，因此代码示例永远不会被破坏。
+
+3. gateway 会按文件类型进行分发。图片会在平台支持的地方以内联方式嵌入；视频会以内联方式嵌入；音频会路由为语音 / 音频附件；其他所有内容都会作为文件附件上传。
+
+## 支持的文件扩展名
+
+| 类别   | 扩展名                                                        | 交付方式          |
+| ---- | ---------------------------------------------------------- | ------------- |
+| 图片   | `.png` `.jpg` `.jpeg` `.gif` `.webp` `.bmp` `.tiff` `.svg` | 内联嵌入          |
+| 视频   | `.mp4` `.mov` `.avi` `.mkv` `.webm`                        | 内联嵌入（在支持的平台上） |
+| 音频   | `.mp3` `.wav` `.ogg` `.m4a` `.flac`                        | 语音 / 音频附件     |
+| 文档   | `.pdf` `.docx` `.doc` `.odt` `.rtf` `.txt` `.md`           | 文件上传          |
+| 数据   | `.xlsx` `.xls` `.csv` `.tsv` `.json` `.xml` `.yaml` `.yml` | 文件上传          |
+| 演示文稿 | `.pptx` `.ppt` `.odp`                                      | 文件上传          |
+| 压缩包  | `.zip` `.tar` `.gz` `.tgz` `.bz2` `.7z`                    | 文件上传          |
+| Web  | `.html` `.htm`                                             | 文件上传          |
+
+`.py`、`.log` 和其他源文件扩展名被有意排除，因此 agent 不会自动发送任意源文件；如果你想把代码发送给用户，请使用代码块。
+
+## 鼓励 agent 生成 artifacts
+
+agent 默认不会主动使用 artifacts —— 它必须知道需要这样做。有两种方式可以提示它：
+
+按 session：明确要求（“把对比结果作为图表发给我”、“把数据作为 CSV 返回”），或者编写你自己的 custom-instructions / personality 条目，让它在消息平台上更倾向于 artifact 风格的回复。
+
+项目级：将这种倾向添加到 agent 工作项目中的 `AGENTS.md` / `CLAUDE.md` / `.cursorrules`，或者添加到 `~/.hermes/config.yaml` 中 `agent.custom_instructions` 下的全局自定义指令。
+
+agent 需要使用的机制很简单：将文件渲染到一个绝对路径（例如 `/tmp/q3-revenue.png`），并在回复中以纯文本形式提到该路径。gateway 会完成其余工作。位于 fenced code blocks 或反引号中的路径会被忽略，因此代码示例永远不会被破坏。
+
+## Kanban：artifacts 会随完成通知一起发送
+
+如果你使用 Hermes 的 kanban 多 agent 工作流，workers 可以将 deliverable 文件附加到它们的 `kanban_complete` 调用中：
+
+```python
+kanban_complete(
+    summary="rendered Q3 revenue chart and report",
+    artifacts=[
+        "/tmp/q3-revenue.png",
+        "/tmp/q3-report.pdf",
+    ],
+)
+```
+
+当 gateway notifier 将 “task completed” 消息发送给 Slack / Telegram / 等平台中订阅该任务的人时，它也会将每个 artifact 作为原生附件上传到该聊天中。人类会在同一个地方收到 deliverable 和 summary。
+
+当 notifier 运行时，如果文件在磁盘上不存在，则会被静默跳过。
+
+## 通过 MCP 连接更多服务
+
+除了 artifact-delivery pipeline 之外，agent 还可以通过 MCP（Model Context Protocol）访问其他服务。MCP 生态系统为大多数流行工具提供了社区服务器——安装你需要的即可：
+
+| 服务                   | 解锁的能力                                           |
+| -------------------- | ----------------------------------------------- |
+| Notion               | 读写 Notion 页面、数据库、查询 workspace                   |
+| GitHub               | Issues、PRs、comments、超出 `gh` CLI 范围的 repo search |
+| Linear               | Tickets、projects、cycles                         |
+| Slack                | Workspace-wide search、读取其他 channels             |
+| Gmail                | Inbox triage、发送邮件、label management              |
+| Salesforce           | Leads、opportunities、account data                |
+| Snowflake / BigQuery | 对 data warehouses 执行 SQL                        |
+| Google Drive         | File search、contents、share management           |
+
+通过 `~/.hermes/config.yaml` 中的 `mcp_servers` section 安装 MCP servers。完整设置指南请参见 MCP integration。
+
+## 与 Slack 中的 Perplexity Computer 对比
+
+Perplexity Computer 的 Slack integration 围绕相同思路构建：agent 生成 deliverable（chart、PDF、slide deck），并将其作为原生附件发回 thread。Hermes Agent 的 deliverable mode 在本地提供了相同的用户可见模式：
+
+* 生成发生在用户自己的 venv / sandbox 中（没有远程 tenant）。
+* 文件通过相同的 Slack `files.uploadV2` API 进入聊天。
+* Connector 覆盖范围通过 MCP 提供，而不是通过一个包含 400 个托管集成的精选目录——安装你实际使用的那些即可。
+
+OAuth tokens 保留在用户机器上的 `auth.json` / `.env` 中。没有托管 token 存储。没有多租户 microVM。最终结果相同。
+

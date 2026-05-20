@@ -1,6 +1,8 @@
 ---
 title: 扩展 CLI
 description: hermes agent 扩展 CLI
+sidebar:
+  order: 11
 ---
 
 Hermes 在 `HermesCLI` 上暴露了受保护的扩展 hooks，因此 wrapper CLIs 可以添加 widgets、keybindings 和 layout customizations，而无需 override 超过 1000 行的 `run()` 方法。这可以让你的扩展与内部变更保持解耦。

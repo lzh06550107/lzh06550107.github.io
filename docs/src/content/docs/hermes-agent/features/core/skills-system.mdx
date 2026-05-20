@@ -1,11 +1,13 @@
 ---
 title: Skills 系统
 description: hermes agent Skills 系统
+sidebar:
+  order: 2
 ---
 
-技能（Skills）是代理在需要时可以加载的按需知识文档。它们遵循**渐进式披露**（progressive disclosure）模式，以最小化 Token 使用量，并兼容 `agentskills.io` 开放标准。
+技能（Skills）是 agent 在需要时可以加载的按需知识文档。它们遵循 **渐进式披露**（progressive disclosure）模式，以最小化 Token 使用量，并兼容 [agentskills.io](https://agentskills.io/specification) 开放标准。
 
-所有技能都存储在 `~/.hermes/skills/` 中——这是主要目录，也是唯一的真理来源。在全新安装时，内置技能会从仓库中复制到此处。通过 Hub 安装以及代理创建的技能也会存放在这里。代理可以修改或删除任何技能。
+所有技能都存储在 `~/.hermes/skills/` 中——这是主要目录，也是唯一的真实来源。在全新安装时，内置技能会从仓库中复制到此处。通过 Hub 安装以及 agent 创建的技能也会存放在这里。agent 可以修改或删除任何技能。
 
 您也可以让 Hermes 指向 **外部技能目录**（external skill directories）——即除本地目录外同时扫描的附加文件夹。请参阅下文的 [外部技能目录](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills#external-skill-directories) 部分。
 
@@ -46,7 +48,7 @@ hermes chat --toolsets skills -q "向我展示 axolotl 技能"
 * **第 1 级：** `skill_view(name)` → 完整内容 + 元数据 （大小不一）
 * **第 2 级：** `skill_view(name, path)` → 特定的参考文件 （大小不一）
 
-代理仅在真正需要时才会加载完整的技能内容。
+agent 仅在真正需要时才会加载完整的技能内容。
 
 ## SKILL.md 格式
 
@@ -102,6 +104,35 @@ platforms: [macos, linux]     # macOS 和 Linux
 
 设置后，该技能在不兼容的平台上会自动从系统提示词、`skills_list()` 以及斜杠命令中隐藏。如果省略此字段，则该技能在所有平台上都会加载。
 
+## 技能输出与媒体交付 (Skill output and media delivery)
+
+当技能响应（或任何 Agent 响应）包含媒体文件的绝对路径（例如 `/home/user/screenshots/diagram.png`）时，网关会自动检测该路径，将其从可见文本中剥离，并以原生方式将该文件交付至用户的聊天界面（如 Telegram 照片、Discord 附件等），而不是在消息中留下原始路径。
+
+对于音频，`[[audio_as_voice]]` 指令会将音频文件提升为原生语音消息气泡（在支持此功能的平台上，如 Telegram、WhatsApp）。
+
+### 强制以文档格式交付：`[[as_document]]`
+
+有时你需要的恰恰与内联预览 **相反**：你希望文件作为可下载的附件进行交付，而不是被重新压缩的图像气泡。典型的例子是高分辨率的截图或图表 —— Telegram 的 `sendPhoto` 会将其压缩至约 200 KB、1280 像素，从而破坏可读性。而通过 `sendDocument` 发送 1-2 MB 的 PNG 则能保持原始字节完整。
+
+如果响应（或其中包含的任何文本 —— 通常是最后一行）包含字面指令 `[[as_document]]`，则从该响应中提取出的所有媒体路径都将作为文档/文件附件进行交付，而不是作为图像气泡：
+
+```text
+这是为您渲染的图表：
+
+/home/user/.hermes/cache/chart-q4-2025.png
+
+[[as_document]]
+```
+
+该指令在交付前会被剥离，因此用户永远不会看到它。颗粒度设定为每个响应 “全有或全无”：只要发送一次 `[[as_document]]`，同一响应中的所有图像路径都将作为文档交付。这与 `[[audio_as_voice]]` 的作用域一致。
+
+在以下场景下，请在技能中使用该指令：
+
+* 你生成的截图或图表需要作为文件交付给用户（以便在其他工具中编辑、归档或完整分享）。
+* 默认的有损预览会遮挡细节（小字、像素级精确的图表、对色彩敏感的渲染图）。
+
+在没有独立文档传输路径的平台（如 SMS）上，系统会回退至该平台所支持的任何附件传输机制。
+
 ### 条件触发（回退技能）
 
 技能可以根据当前会话中可用工具的情况，自动显示或隐藏自身。这对于回退技能（fallback skills）最为有用 —— 即只有当高级工具不可用时，才会出现的免费或本地替代方案。
@@ -117,9 +148,9 @@ metadata:
 
 | 字段 | 行为 |
 | --- | --- |
-| **fallback_for_toolsets** | 当列出的工具集可用时，技能被**隐藏**。当它们缺失时显示。 |
+| **fallback_for_toolsets** | 当列出的工具集可用时，技能被 **隐藏**。当它们缺失时显示。 |
 | **fallback_for_tools** | 同上，但检查的是单个工具而非工具集。 |
-| **requires_toolsets** | 当列出的工具集不可用时，技能被**隐藏**。当它们存在时显示。 |
+| **requires_toolsets** | 当列出的工具集不可用时，技能被 **隐藏**。当它们存在时显示。 |
 | **requires_tools** | 同上，但检查的是单个工具。 |
 
 **示例：** 内置的 `duckduckgo-search` 技能使用了 `fallback_for_toolsets: [web]`。当您设置了 `FIRECRAWL_API_KEY` 时，网页工具集可用，代理会使用 `web_search` —— 此时 DuckDuckGo 技能保持隐藏。如果缺少 API 密钥，网页工具集不可用，DuckDuckGo 技能会自动出现作为回退方案。
@@ -163,7 +194,7 @@ metadata:
 ## 技能目录结构
 
 ```text
-~/.hermes/skills/                  # 唯一的真理来源
+~/.hermes/skills/                  # 唯一的真实来源
 ├── mlops/                         # 类别目录
 │   ├── axolotl/
 │   │   ├── SKILL.md               # 主要指令（必需）
@@ -225,6 +256,92 @@ skills:
 
 所有这四个技能都会出现在您的技能索引中。如果您在本地创建了一个名为 `my-custom-workflow` 的新技能，它将遮蔽（shadow）外部版本。
 
+## 技能包 (Skill Bundles)
+
+技能包是微小的 YAML 文件，用于将多个技能整合在一个斜杠命令下。当你运行 `/<bundle-name>` 时，包中列出的所有技能会同时加载 —— 这在处理特定任务总是需要同一套技能协作时非常有用。
+
+### 快速示例
+
+```bash
+# 创建一个用于后端功能开发的技能包
+hermes bundles create backend-dev \
+  --skill github-code-review \
+  --skill test-driven-development \
+  --skill github-pr-workflow \
+  -d "后端功能开发 —— 代码审查、测试、PR 工作流"
+```
+
+然后在 CLI 或任何网关平台中：
+
+`/backend-dev 重构身份验证中间件`
+
+智能体会接收到加载了这三个技能的用户消息，斜杠命令之后的所有文本将作为用户指令一并发送。
+
+### YAML 架构
+
+技能包位于 `~/.hermes/skill-bundles/<slug>.yaml`，其内容如下：
+
+```yaml
+name: backend-dev
+description: 后端功能开发 —— 代码审查、测试、PR 工作流。
+skills:
+  - github-code-review
+  - test-driven-development
+  - github-pr-workflow
+instruction: |
+  始终先编写失败的测试，然后再实现功能。
+  通过标准工作流提交 PR，并附带联合作者标签。
+```
+
+字段说明：
+
+* `name` (可选 —— 默认为文件名) —— 技能包的显示名称。会自动标准化为用于斜杠命令的连字符 slug (如 `Backend Dev` → `/backend-dev`)。
+* `description` (可选) —— 在 `/bundles` 和 `hermes bundles list` 中显示的简短描述。
+* `skills` (必需，非空列表) —— 技能名称或相对于你技能目录的路径。使用与 `/<skill-name>` 相同的标识符。
+* `instruction` (可选) —— 在加载的技能内容之前预置的额外引导语。非常适合固化 “我们如何协同使用这些技能”。
+
+### 管理技能包
+
+```bash
+# 列出所有已安装的技能包
+hermes bundles list
+
+# 查看单个技能包详情
+hermes bundles show backend-dev
+
+# 交互式创建技能包（省略 --skill 标志可逐行输入）
+hermes bundles create research
+
+# 覆盖已有的技能包
+hermes bundles create backend-dev --skill ... --force
+
+# 删除技能包
+hermes bundles delete backend-dev
+
+# 重新扫描 ~/.hermes/skill-bundles/ 并报告变更
+hermes bundles reload
+```
+
+在聊天会话中，`/bundles` 会列出所有已安装的技能包及其包含的技能。
+
+### 行为表现
+
+* 当 slug 冲突时，技能包优先于单个技能。如果你命名了一个名为 `research` 的包，且你同时拥有一个名为 `research` 的技能，那么 `/research` 会调用该技能包。这是有意设计的 —— 你通过命名将其选定为技能包。
+
+* 缺失的技能会被跳过，而非导致错误。如果一个技能包列出了 `skill-foo` 但你尚未安装，技能包仍会加载那些已解析的技能，并向智能体发送一条备注，列出被跳过的部分。
+
+* 技能包适用于所有界面 —— 交互式 CLI、TUI、仪表板聊天以及所有网关平台（Telegram、Discord、Slack 等）—— 因为调度机制与单个技能命令集中在同一处。
+
+* 技能包不会导致提示词缓存失效。它们与 `/<skill-name>` 一样，在调用时生成全新的用户消息 —— 不会修改系统提示词。
+
+### 何时使用技能包而非手动安装每个技能？
+
+* 当你总是为重复性任务组合相同的技能时（如 `/backend-dev`、`/release-prep`、`/incident-response`）。
+* 当你希望比连续输入多个 `/skill` 调用更简洁时。
+* 当你希望通过将技能包 YAML 存入共享 dotfiles 仓库并软链接到 `~/.hermes/skill-bundles/` 的方式，向整个团队发布 “任务配置文件” 时。
+
+技能包仅仅是 YAML 别名 —— 它不会为你安装技能。技能本身必须已经存在（在 `~/.hermes/skills/` 或外部技能目录中）。否则，调用技能包时只会跳过那些缺失的技能。
+
 ## 代理托管技能 (skill_manage 工具)
 
 代理可以通过 `skill_manage` 工具创建、更新和删除其自身的技能。这是代理的 **程序性记忆** —— 当它理清了一个非平凡的工作流时，会将该方法保存为一项技能，以便将来复用。
@@ -234,7 +351,7 @@ skills:
 * 成功完成一项复杂任务（调用 5 次以上工具）后
 * 在遇到错误或死胡同并最终找到可行路径后
 * 当用户纠正了其操作方法后
-* 当它发现了一个非平凡的工作流时
+* 当它发现了一个不平凡的工作流时
 
 ### 操作行为
 
@@ -286,12 +403,12 @@ hermes skills tap add myorg/skills-repo           # 添加自定义 GitHub 来�
 
 | 来源 | 示例 | 备注 |
 | --- | --- | --- |
-| **official** | `official/security/1password` | Hermes 随附的可选技能。 |
-| **skills-sh** | `skills-sh/vercel-labs/...` | 通过 `hermes skills search <query> --source skills-sh` 搜索。当 slug 与仓库文件夹不同时，Hermes 会解析别名式技能。 |
-| **well-known** | `well-known:[https://mintlify.com/](https://mintlify.com/)...` | 直接从网站的 `/.well-known/skills/index.json` 提供的技能。使用站点或文档 URL 进行搜索。 |
-| **url** | `[https://sharethis.chat/SKILL.md](https://sharethis.chat/SKILL.md)` | 指向单文件 `SKILL.md` 的直接 HTTP(S) URL。名称解析顺序：Frontmatter → URL 后缀 → 交互式提示 → `--name` 标志。 |
-| **github** | `openai/skills/k8s` | 直接从 GitHub 仓库/路径安装，以及自定义 Tap。 |
-| **clawhub, lobehub, claude-marketplace** | 特定来源标识符 | 社区或市场集成。 |
+| `official` | `official/security/1password` | Hermes 随附的可选技能。 |
+| `skills-sh` | `skills-sh/vercel-labs/agent-skills/vercel-react-best-practices` | 通过 `hermes skills search <query> --source skills-sh` 搜索。当 slug 与仓库文件夹不同时，Hermes 会解析别名式技能。 |
+| `well-known` | `well-known:https://mintlify.com/docs/.well-known/skills/mintlify` | 直接从网站的 `/.well-known/skills/index.json` 提供的技能。使用站点或文档 URL 进行搜索。 |
+| `url` | `https://sharethis.chat/SKILL.md` | 指向单文件 `SKILL.md` 的直接 HTTP(S) URL。名称解析顺序：Frontmatter → URL 后缀 → 交互式提示 → `--name` 标志。 |
+| `github` | `openai/skills/k8s` | 直接从 GitHub 仓库/路径安装，以及自定义 Tap。 |
+| `clawhub`, `lobehub`,`browse-sh`, `claude-marketplace` | 特定来源标识符 | 社区或市场集成。 |
 
 ### 集成的 Hub 与注册表
 
@@ -347,6 +464,7 @@ Hermes 可以直接从 GitHub 仓库和基于 GitHub 的 Tap 安装。当您已�
 
 * [openai/skills](https://github.com/openai/skills)
 * [anthropics/skills](https://github.com/anthropics/skills)
+* [huggingface/skills](https://github.com/huggingface/skills)
 * [VoltAgent/awesome-agent-skills](https://github.com/VoltAgent/awesome-agent-skills)
 * [garrytan/gstack](https://github.com/garrytan/gstack)
 * **示例：**
@@ -389,7 +507,7 @@ Hermes 可以搜索 LobeHub 公共目录中的代理条目，并将其转换为�
 
 * **Hermes 来源 ID：** `url`
 * **标识符：** URL 本身（无需前缀）
-* **范围：** 仅限**单文件** `SKILL.md`。包含 `references/` 或 `scripts/` 的多文件技能需要清单文件，且应通过上述其他来源发布。
+* **范围：** 仅限 **单文件** `SKILL.md`。包含 `references/` 或 `scripts/` 的多文件技能需要清单文件，且应通过上述其他来源发布。
 
 ```bash
 hermes skills install https://sharethis.chat/SKILL.md
@@ -444,8 +562,8 @@ hermes skills install skills-sh/anthropics/skills/pdf --force
 | --- | --- | --- |
 | **builtin** | 随 Hermes 附带 | 始终信任 |
 | **official** | 仓库中的 `optional-skills/` | 内置信任，无第三方警告 |
-| **trusted** | 知名注册表（如 `openai/skills`） | 比社区来源更宽松的策略 |
-| **community** | 其他所有来源（`skills.sh`, URL 等） | 非危险发现可用 `--force` 覆盖；“危险” 判定保持拦截 |
+| **trusted** | 知名注册表（如 `openai/skills`, `anthropics/skills`, `huggingface/skills`） | 比社区来源更宽松的策略 |
+| **community** | 其他所有内容（`skills.sh`、知名端点、自定义 GitHub 仓库、大多数市场） | 非危险发现可用 `--force` 覆盖；“危险” 判定保持拦截 |
 
 ### 更新生命周期
 
@@ -488,7 +606,7 @@ owner/repo
 
 * 每个技能都位于 Tap 根路径（默认为 `skills/`）下的独立目录中。
 * 目录名称即为技能的安装标识（slug）。
-* 每个技能目录必须包含一个 `SKILL.md` 文件，并带有标准的 **SKILL.md frontmatter**（包含 `name`、`description`，以及可选的 `metadata.hermes.tags`、`version`、`author`、`platforms`、`metadata.hermes.config`）。
+* 每个技能目录必须包含一个 `SKILL.md` 文件，并带有标准的 [SKILL.md frontmatter](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills#skillmd-format)（包含 `name`、`description`，以及可选的 `metadata.hermes.tags`、`version`、`author`、`platforms`、`metadata.hermes.config`）。
 * `references/`、`templates/`、`scripts/`、`assets/` 等子目录会在安装时随 `SKILL.md` 一起下载。
 * 目录名称以 `.` 或 `_` 开头的技能将被忽略。
 

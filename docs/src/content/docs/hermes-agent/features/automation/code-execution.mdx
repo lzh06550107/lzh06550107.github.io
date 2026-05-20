@@ -1,6 +1,8 @@
 ---
 title: 代码执行（程序化工具调用）
 description: hermes agent 代码执行（程序化工具调用）
+sidebar:
+  order: 8
 ---
 
 `execute_code` 工具允许智能体编写 Python 脚本来程序化地调用 Hermes 工具，从而将多步骤的工作流压缩到单个 LLM 轮次中。该脚本在智能体宿主机的子进程中运行，通过 Unix 域套接字 RPC 与 Hermes 进行通信。

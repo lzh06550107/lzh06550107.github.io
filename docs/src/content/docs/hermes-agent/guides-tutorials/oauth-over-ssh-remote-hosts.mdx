@@ -1,6 +1,8 @@
 ---
 title: 通过 SSH / 远程主机进行 OAuth
 description: hermes agent 通过 SSH / 远程主机进行 OAuth
+sidebar:
+  order: 21
 ---
 
 某些 Hermes providers —— 当前包括 xAI Grok OAuth 和 Spotify —— 使用 loopback redirect OAuth flow。auth server（xAI、Spotify）会将你的浏览器重定向到 `http://127.0.0.1:<port>/callback`，这样由 `hermes auth ...` 命令启动的一个微型 HTTP listener 就可以获取 authorization code。

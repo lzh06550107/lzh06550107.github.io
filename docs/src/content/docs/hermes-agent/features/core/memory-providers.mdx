@@ -1,9 +1,19 @@
 ---
 title: 记忆供应商 (Memory Providers)
 description: hermes agent 记忆供应商 (Memory Providers)
+sidebar:
+  order: 6
 ---
 
 Hermes Agent 内置了 8 个外部记忆供应商插件，能够为代理提供内置 `MEMORY.md` 和 `USER.md` 之外的持久化、跨会话知识。**一次只能激活一个** 外部供应商 —— 而内置记忆始终与其并行保持激活状态。
+
+```text
+只用 MEMORY.md / USER.md：
+  适合简单、稳定、少量记忆
+
+启用 Memory Provider：
+  适合长期使用 Hermes，希望它记住项目、经验、上下文、知识库和开发习惯
+```
 
 ## 快速入门
 

@@ -1,6 +1,8 @@
 ---
-title: 持久记忆 (Persistent Memory)
-description: hermes agent 持久记忆 (Persistent Memory)
+title: 永久记忆 (Persistent Memory)
+description: hermes agent 永久记忆 (Persistent Memory)
+sidebar:
+  order: 5
 ---
 
 Hermes Agent 拥有受限且经过策划的记忆，可以跨会话持久存在。这使得它能够记住您的偏好、项目、环境以及它所学到的知识。
@@ -165,7 +167,7 @@ located at ~/code/api. I discovered it uses Go version 1.22 and...
 
 ## 重复项预防
 
-内存系统会自动拒绝完全重复的条目。如果您尝试添加已存在的内容，它会返回成功并显示“未添加重复项”的消息。
+内存系统会自动拒绝完全重复的条目。如果您尝试添加已存在的内容，它会返回成功并显示 “未添加重复项” 的消息。
 
 ## 安全扫描
 
@@ -178,22 +180,26 @@ located at ~/code/api. I discovered it uses Go version 1.22 and...
 * 所有 CLI 和消息会话都存储在 SQLite (`~/.hermes/state.db`) 中，支持 FTS5 全文搜索。
 * 搜索查询会返回相关的过往对话，并由 Gemini Flash 进行总结。
 * 代理可以找到数周前讨论过的内容，即使这些内容不在其活跃内存中。
+* 智能体还可以在它发现的任何会话中进行向前/向后滚动。
 
 ```bash
 hermes sessions list    # Browse past sessions
 ```
 
+请参阅 [会话搜索工具](https://hermes-agent.nousresearch.com/docs/user-guide/sessions#session-search-tool) 以了解三种调用形态（发现 discovery / 滚动 scroll / 浏览 browse）以及响应格式。
+
 ### session_search 与 memory 对比
 
-| 特性 | 持久记忆 (Memory) | 会话搜索 (Session Search) |
+| 特性 | 持久化记忆 (Persistent Memory) | 会话搜索 (Session Search) |
 | --- | --- | --- |
-| **容量** | 总计约 1,300 tokens | 无限制（所有会话） |
-| **速度** | 即时（已在系统提示词中） | 需要搜索 + LLM 总结 |
-| **用例** | 始终可用的核心事实 | 寻找特定的过往对话 |
-| **管理** | 由代理手动策划 | 自动 —— 存储所有会话 |
-| **Token 成本** | 每个会话固定（约 1,300 tokens） | 按需消耗（仅在搜索时产生） |
+| **容量** | 总计约 1,300 个 Token | 无限制（涵盖所有会话） |
+| **速度** | 即时（内置于系统提示词中） | ~20ms FTS5 查询，~1ms 滚动 |
+| **成本** | 每次提示词都会产生 Token 费用 | 免费 —— 无需 LLM 调用 |
+| **使用场景** | 需要始终保持在上下文中的关键事实 | 查找 “我们上周是否讨论过 X？” 这类需要回忆过去对话细节的查询 |
+| **管理方式** | 由智能体手动策划 | 自动 —— 存储所有会话 |
+| **Token 成本** | 每个会话固定（约 1,300 个 Token） | 按需（仅在需要时搜索） |
 
-**内存（Memory）** 用于存放那些应始终处于上下文中的关键事实。**会话搜索（Session search）** 则用于诸如 “我们上周讨论过 X 吗？” 之类的查询，即代理需要回忆过去对话中的具体细节时使用。
+持久化 **记忆** 用于应始终处于上下文中的关键事实；**会话搜索** 则用于需要智能体回溯过去对话具体内容的查询。
 
 ## 配置
 

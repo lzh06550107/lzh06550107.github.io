@@ -1,6 +1,8 @@
 ---
 title: 持续性目标 (/goal)
 description: hermes agent 持续性目标 (/goal)
+sidebar:
+  order: 7
 ---
 
 `/goal` 为 Hermes 提供了一个跨轮次存续的长期目标。在每一轮对话结束后，一个轻量级的评审模型（judge model）会检查助手的最新回复是否满足该目标。如果尚未满足，Hermes 会自动将续接提示词（continuation prompt）反馈到同一个会话中并继续工作——直到目标达成、你手动暂停或清除目标，或者轮次预算（turn budget）耗尽。
@@ -26,11 +28,11 @@ description: hermes agent 持续性目标 (/goal)
 
 **你会看到的现象：**
 
-* **目标被接受** — `⊙ Goal set (20-turn budget): <你的目标>`
-* **第 1 轮运行** — Hermes 开始工作，就像你把目标作为普通消息发送一样。
-* **评审运行** — 该轮结束后，评审模型决定是 `done`（完成）还是 `continue`（继续）。
-* **必要时触发循环** — 如果结果为 `continue`，你会看到 `↻ Continuing toward goal (1/20): <评审理由>`，Hermes 会自动执行下一步。
-* **终止** — 最终你会看到 `✓ Goal achieved: <理由>` 或者 `⏸ Goal paused — N/20 turns used`（目标暂停 — 已使用 N/20 轮）。
+1. **目标被接受** — `⊙ Goal set (20-turn budget): <你的目标>`
+2. **第 1 轮运行** — Hermes 开始工作，就像你把目标作为普通消息发送一样。
+3. **评审运行** — 该轮结束后，评审模型决定是 `done`（完成）还是 `continue`（继续）。
+4. **必要时触发循环** — 如果结果为 `continue`，你会看到 `↻ Continuing toward goal (1/20): <评审理由>`，Hermes 会自动执行下一步。
+5. **终止** — 最终你会看到 `✓ Goal achieved: <理由>` 或者 `⏸ Goal paused — N/20 turns used`（目标暂停 — 已使用 N/20 轮）。
 
 ## 命令
 
@@ -43,6 +45,21 @@ description: hermes agent 持续性目标 (/goal)
 | ** /goal clear** | 彻底清除目标。 |
 
 在 CLI 和所有网关平台（Telegram, Discord, Slack, Matrix, Signal, WhatsApp, SMS, iMessage, Webhook, API server 以及 Web 仪表板）上，这些命令的功能完全一致。
+
+## 中途添加标准：`/subgoal`
+
+当一个 goal 处于活跃状态时，你可以使用 `/subgoal <text>` 追加额外的验收标准，而不会重置循环。每次调用都会向 goal 的 subgoal 列表添加一个编号项目；agent 在下一轮看到的 continuation prompt 会包含原始 goal，以及一个 “Additional criteria the user added mid-loop” 区块；judge prompt 也会被重写，因此 verdict 必须考虑每一个 subgoal —— 只有原始目标和每一个 subgoal 都满足后，goal 才会被标记为完成。
+
+| 命令                    | 作用                                |
+| --------------------- | --------------------------------- |
+| `/subgoal <text>`     | 向活跃 goal 追加一个新标准。需要存在活跃的 `/goal`。 |
+| `/subgoal`（无参数）       | 显示当前编号 subgoal 列表。                |
+| `/subgoal remove <N>` | 移除第 N 个 subgoal（从 1 开始计数）。        |
+| `/subgoal clear`      | 删除所有 subgoal，但保留原始 goal 不变。       |
+
+Subgoals 会与 goal 一起持久化到 `SessionDB.state_meta` 中，因此它们可以在 `/resume` 后继续保留。设置新的 `/goal <text>` 会替换 goal，并清空 subgoal 列表；`/goal clear` 也会执行相同操作。
+
+当你启动一个循环（“修复失败的测试”），并且在过程中发现你还希望它 “为刚刚修复的 bug 添加一个回归测试” 时，可以使用这个功能——`/subgoal add a regression test` 会收紧成功标准，而不会中断正在运行的循环。
 
 ## 行为细节
 
@@ -74,7 +91,7 @@ description: hermes agent 持续性目标 (/goal)
 
 ### 运行中安全机制（网关平台）
 
-当智能体已经在运行时，执行 `/goal status`、`/goal pause` 和 `/goal clear` 是安全的 —— 它们只触及控制平面状态，不会中断当前的轮次。在运行中设置**新**目标（`/goal <新文本>`）会被拒绝，并提示你先执行 `/stop`，以防旧的续接任务与新的任务产生竞争。
+当智能体已经在运行时，执行 `/goal status`、`/goal pause` 和 `/goal clear` 是安全的 —— 它们只触及控制平面状态，不会中断当前的轮次。在运行中设置 **新** 目标（`/goal <新文本>`）会被拒绝，并提示你先执行 `/stop`，以防旧的续接任务与新的任务产生竞争。
 
 #### 持久化
 

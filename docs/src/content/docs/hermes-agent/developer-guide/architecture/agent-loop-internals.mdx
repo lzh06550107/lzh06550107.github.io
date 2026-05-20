@@ -1,6 +1,8 @@
 ---
 title: Agent Loop 内部机制
 description: hermes agent Agent Loop 内部机制
+sidebar:
+  order: 2
 ---
 
 核心编排引擎是 `run_agent.py` 中的 `AIAgent` 类 —— 这是一个大型文件（15k+ 行），负责从 prompt assembly 到 tool dispatch，再到 provider failover 的所有事情。
