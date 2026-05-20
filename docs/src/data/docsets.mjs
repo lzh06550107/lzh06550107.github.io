@@ -13,7 +13,19 @@ export const docsets = [
         sections: [
             { label: '快速上手', directory: 'hermes-agent/getting-started' },
             { label: '使用 Hermes', directory: 'hermes-agent/using-hermes' },
-            { label: '功能', directory: 'hermes-agent/features' },
+            {
+                label: '功能',
+                items: [
+                    { label: '功能概览', link: '/hermes-agent/features/overview/' },
+                    { label: 'Nous 工具网关', link: '/hermes-agent/features/tool-gateway/' },
+                    { label: '核心能力', autogenerate: { directory: 'hermes-agent/features/core' } },
+                    { label: '自动化', autogenerate: { directory: 'hermes-agent/features/automation' } },
+                    { label: '媒体与网页', autogenerate: { directory: 'hermes-agent/features/media-web' } },
+                    { label: '管理', autogenerate: { directory: 'hermes-agent/features/management' } },
+                    { label: '技能目录', autogenerate: { directory: 'hermes-agent/features/advanced' } },
+                    { label: '高级', autogenerate: { directory: 'hermes-agent/features/skills' } },
+                ],
+            },
             { label: '消息平台', directory: 'hermes-agent/messaging-platforms' },
             { label: '集成', directory: 'hermes-agent/integrations' },
             { label: '指南与教程', directory: 'hermes-agent/guides-tutorials' },
@@ -41,9 +53,18 @@ export const docsets = [
 export function buildDocsetSidebar() {
     return docsets.flatMap((docset) => [
         { label: '概览', link: docset.landing },
-        ...docset.sections.map((section) => ({
-            label: section.label,
-            autogenerate: { directory: section.directory },
-        })),
+        ...docset.sections.map((section) => {
+            if (section.items) {
+                return {
+                    label: section.label,
+                    items: section.items,
+                };
+            }
+
+            return {
+                label: section.label,
+                autogenerate: { directory: section.directory },
+            };
+        }),
     ]);
 }
