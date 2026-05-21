@@ -26,6 +26,7 @@
         "./styles/layers": "./styles/layers.css",
         "./styles/theme": "./styles/theme.css",
         "./components": "./user-components.ts",
+        "./components/custom/LinkButton.astro": "./components/custom/LinkButton.astro",
         "./components/overrides/ContentPanel.astro": "./components/overrides/ContentPanel.astro",
         "./components/overrides/Footer.astro": "./components/overrides/Footer.astro",
         "./components/overrides/Header.astro": "./components/overrides/Header.astro",

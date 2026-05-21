@@ -256,7 +256,7 @@ Card action events 会以 `MessageType.COMMAND` 分发，因此它们会流经�
 
 ## 必需的 Feishu App 配置
 
-交互式卡片需要在 Feishu Developer Console 中完成**三个**配置步骤。缺少其中任何一个，用户点击卡片按钮时都会导致错误 `200340`。
+交互式卡片需要在 Feishu Developer Console 中完成 **三个** 配置步骤。缺少其中任何一个，用户点击卡片按钮时都会导致错误 `200340`。
 
 1. 订阅 card action event：在 Event Subscriptions 中，添加 `card.action.trigger` 到你的 subscribed events。
 

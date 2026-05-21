@@ -1,0 +1,88 @@
+---
+title: 云端环境
+description: 为 Codex 自定义依赖项和工具
+sidebar:
+  order: 5
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# 云端环境
+
+> 为 Codex 自定义依赖项和工具
+
+使用环境来控制 Codex 在云端任务中安装和运行的内容。例如，你可以添加依赖项、安装 linter 和格式化工具，以及设置环境变量。
+
+在 [Codex 设置](https://chatgpt.com/codex/settings/environments) 中配置环境。
+
+## Codex 云端任务如何运行
+
+当你提交任务时，以下是发生的过程：
+
+1. Codex 创建一个容器，并在你选择的分支或 commit SHA 处检出你的代码仓库。
+2. Codex 运行你的设置脚本，以及在恢复已缓存的容器时运行可选的维护脚本。
+3. Codex 应用你的网络访问设置。设置脚本在有网络访问权限的情况下运行。Agent 的网络访问默认关闭，但你可以在需要时启用受限或不受限的访问。参见 [Agent 网络访问](https://developers.openai.com/codex/cloud/internet-access)。
+4. Agent 循环运行终端命令。它会编辑代码、运行检查，并尝试验证其工作。如果你的仓库包含 `AGENTS.md`，Agent 会使用它来查找项目特定的 lint 和测试命令。
+5. Agent 完成后，会显示其结果以及任何已更改文件的差异。你可以打开 PR 或提出后续问题。
+
+## 默认通用镜像
+
+Codex Agent 在一个名为 `universal` 的默认容器镜像中运行，该镜像预装了常见的语言、包和工具。
+
+在环境设置中，选择 **设置包版本** 来固定 Python、Node.js 及其他运行时的版本。
+
+有关已安装内容的详细信息，请参阅 [openai/codex-universal](https://github.com/openai/codex-universal)，其中包含参考 Dockerfile 以及可在本地拉取和测试的镜像。
+
+虽然 `codex-universal` 为速度和便利性预装了语言，但你也可以使用[设置脚本](#手动设置)向容器安装额外的包。
+
+## 环境变量和密钥
+
+环境变量在任务的整个持续时间（包括设置脚本和 Agent 阶段）内都会设置。
+
+密钥与环境变量类似，但有如下区别：
+
+- 密钥会额外加密存储，仅在任务执行时解密。
+- 密钥仅对设置脚本可用。出于安全原因，密钥会在 Agent 阶段开始之前被移除。
+
+## 自动设置
+
+对于使用常见包管理器的项目（`npm`、`yarn`、`pnpm`、`pip`、`pipenv` 和 `poetry`），Codex 可以自动安装依赖项和工具。
+
+## 手动设置
+
+如果你的开发设置更复杂，你也可以提供自定义设置脚本。例如：
+
+```bash
+# 安装类型检查器
+pip install pyright
+
+# 安装依赖项
+poetry install --with test
+pnpm install
+```
+
+设置脚本在与 Agent 独立的 Bash 会话中运行，因此像 `export` 这样的命令不会持久化到 Agent 阶段。要持久化环境变量，请将它们添加到 `~/.bashrc` 或在环境设置中配置它们。
+
+## 容器缓存
+
+Codex 会将容器状态缓存最多 12 小时，以加速新任务和后续任务。
+
+**当环境被缓存时：**
+
+- Codex 克隆仓库并检出默认分支。
+- Codex 运行设置脚本并缓存生成的容器状态。
+
+**当恢复已缓存的容器时：**
+
+- Codex 检出任务指定的分支。
+- Codex 运行维护脚本（可选）。当设置脚本在较旧的 commit 上运行且依赖项需要更新时，这非常有用。
+
+如果你更改了设置脚本、维护脚本、环境变量或密钥，Codex 会自动使缓存失效。如果仓库的变化导致缓存状态不兼容，请在环境页面上选择 **重置缓存**。
+
+对于 Business 和 Enterprise 用户，缓存在所有有权访问该环境的用户之间共享。使缓存失效将影响工作区中该环境的所有用户。
+
+## 网络访问与网络代理
+
+在设置脚本阶段，网络访问可用于安装依赖项。在 Agent 阶段，网络访问默认关闭，但你可以配置受限或不受限的访问。参见 [Agent 网络访问](https://developers.openai.com/codex/cloud/internet-access)。
+
+环境在 HTTP/HTTPS 网络代理后面运行，以用于安全和防滥用目的。所有出站互联网流量都通过此代理。

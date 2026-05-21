@@ -1,0 +1,40 @@
+---
+title: 记忆
+description: Codex 如何记住先前会话中的有用上下文
+sidebar:
+  order: 4
+---
+
+记忆（Memories）让 Codex 能够将先前会话中的有用上下文带入后续工作中。启用后，Codex 可以记住稳定的偏好设置、重复性工作流、技术栈、项目规范以及已知陷阱。
+
+通过 Codex 设置或 `config.toml` 启用：
+
+```toml
+[features]
+memories = true
+```
+
+## 工作原理
+
+- Codex 可将符合条件的先前会话内容转换为本地记忆文件
+- 跳过正在活跃对话或简短会话
+- 从生成的记忆字段中移除机密信息
+- 在后台异步更新记忆
+
+## 存储位置
+
+记忆文件存储在 `~/.codex/memories/` 目录下。
+
+## 逐会话控制
+
+在 Codex 应用或 TUI 中使用 `/memories` 命令控制每个会话的记忆行为。
+
+## 配置选项
+
+- `memories.generate_memories` — 是否将新会话用作记忆生成的输入
+- `memories.use_memories` — 是否将已有记忆注入到未来的会话中
+- `memories.min_rate_limit_remaining_percent` — 记忆生成所需的最低速率限制阈值
+
+## 注意事项
+
+请将团队必要的指导规范保存在 `AGENTS.md` 中。记忆仅作为辅助性的本地缓存，**不是**规则的唯一来源。

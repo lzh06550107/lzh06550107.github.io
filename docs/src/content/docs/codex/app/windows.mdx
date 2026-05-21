@@ -1,0 +1,150 @@
+---
+title: Windows
+description: 在 Windows 上使用 Codex 应用，支持原生沙盒和 PowerShell
+sidebar:
+  order: 14
+---
+
+Codex Windows 应用为你提供了一个统一的界面，用于跨项目工作、运行并行代理线程以及审查结果。Windows 应用支持核心工作流，包括工作树（worktrees）、自动化（automations）、Git 功能、应用内浏览器、产物预览、插件和技能（skills）。它原生运行在 Windows 上，使用 PowerShell 和 Windows 沙盒，或者你也可以将其配置为在 Windows Subsystem for Linux 2 (WSL2) 中运行。
+
+## 下载和更新 Codex 应用
+
+从 [Microsoft Store](https://apps.microsoft.com/) 下载 Codex 应用。
+
+然后按照[快速入门](/codex/getting-started/quickstart)进行设置。
+
+要更新应用，打开 Microsoft Store，进入「下载」，然后点击「检查更新」。之后 Store 会安装最新版本。
+
+对于企业用户，管理员可以通过企业管理工具使用 Microsoft Store 应用分发来部署该应用。
+
+如果你更喜欢命令行安装方式，或者需要替代打开 Microsoft Store UI 的方式，请运行：
+
+```powershell
+winget install Codex -s msstore
+```
+
+## 原生沙盒
+
+Codex Windows 应用在代理运行于 PowerShell 时支持原生 Windows 沙盒，在代理运行于 Windows Subsystem for Linux 2 (WSL2) 时使用 Linux 沙盒。要在任一模式下应用沙盒保护，请在向 Codex 发送消息之前，在 Composer 中将沙盒权限设置为「默认权限」。
+
+在全访问模式下运行 Codex 意味着 Codex 不再受限于你的项目目录，可能会执行意外的破坏性操作，从而导致数据丢失。请保持沙盒边界，使用[规则](/codex/rules)进行针对性的例外处理，或将你的[审批策略](/codex/permissions)设置为「从不」，让 Codex 根据你的审批和安全设置在无需请求提权的情况下尝试解决问题。
+
+## 自定义你的开发环境
+
+### 首选编辑器
+
+为「打开方式」选择一个默认应用，如 Visual Studio、VS Code 或其他编辑器。你可以针对每个项目覆盖此选择。如果你已经通过「打开」菜单为某个项目选择了其他应用，该项目特定的选择将优先生效。
+
+### 集成终端
+
+你还可以选择默认的集成终端。根据你的安装情况，可选终端包括：
+
+- PowerShell
+- 命令提示符（Command Prompt）
+- Git Bash
+- WSL
+
+此更改仅适用于新的终端会话。如果你已经打开了一个集成终端，请重启应用或启动新线程，新默认终端才会生效。
+
+## Windows Subsystem for Linux (WSL)
+
+默认情况下，Codex 应用使用 Windows 原生代理。这意味着代理在 PowerShell 中运行命令。在需要时，应用仍然可以通过使用 `wsl` CLI 来操作位于 Windows Subsystem for Linux 2 (WSL2) 中的项目。
+
+如果你想从 WSL 文件系统添加项目，点击「添加新项目」或按 `Ctrl+O`，然后在文件资源管理器窗口中输入 `\\wsl$\`。从那里选择你的 Linux 发行版和要打开的文件夹。
+
+如果你计划继续使用 Windows 原生代理，建议将项目存储在 Windows 文件系统上，并通过 `/mnt/<drive>/...` 从 WSL 访问它们。这种设置比直接从 WSL 文件系统打开项目更可靠。
+
+如果你希望代理本身在 WSL2 中运行，打开「设置」，将代理从「Windows 原生」切换到「WSL」，然后重启应用。更改在重启之后才会生效。重启后你的项目应保持在原位。
+
+WSL1 在 Codex 0.114 中受支持。从 Codex 0.115 开始，Linux 沙盒迁移到 `bubblewrap`，因此 WSL1 不再受支持。
+
+你可以独立于代理来配置集成终端。查看[自定义你的开发环境](#自定义你的开发环境)了解终端选项。你可以将代理保留在 WSL 中，而在终端中仍然使用 PowerShell，或者两者都使用 WSL，具体取决于你的工作流程。
+
+## 实用的开发者工具
+
+当已安装以下常用开发者工具时，Codex 的性能最佳：
+
+- **Git**：为 Codex 应用中的审查面板提供支持，让你能够检查或回退更改。
+- **Node.js**：代理用来更高效地执行任务的常用工具。
+- **Python**：代理用来更高效地执行任务的常用工具。
+- **.NET SDK**：在需要构建原生 Windows 应用时非常有用。
+- **GitHub CLI**：为 Codex 应用中的 GitHub 相关功能提供支持。
+
+使用默认的 Windows 包管理器 `winget` 安装它们，将以下命令粘贴到集成终端中，或让 Codex 来安装：
+
+```powershell
+winget install --id Git.Git
+winget install --id OpenJS.NodeJS.LTS
+winget install --id Python.Python.3.14
+winget install --id Microsoft.DotNet.SDK.10
+winget install --id GitHub.cli
+```
+
+安装 GitHub CLI 后，运行 `gh auth login` 以启用应用中的 GitHub 功能。
+
+如果你需要其他版本的 Python 或 .NET，请将包 ID 更改为你所需的版本。
+
+## 故障排除与常见问题
+
+### 以提升的权限运行命令
+
+如果你需要 Codex 以提升的权限运行命令，请以管理员身份启动 Codex 应用本身。安装后，打开「开始」菜单，找到 Codex，然后选择「以管理员身份运行」。Codex 代理将继承该权限级别。
+
+### PowerShell 执行策略阻止命令
+
+如果你之前从未在 PowerShell 中使用过 Node.js 或 `npm` 等工具，Codex 代理或集成终端可能会遇到执行策略错误。
+
+如果 Codex 为你创建了 PowerShell 脚本，也可能发生这种情况。在这种情况下，你可能需要设置更宽松的执行策略，PowerShell 才会运行这些脚本。
+
+错误可能类似于：
+
+```
+npm.ps1 cannot be loaded because running scripts is disabled on this system.
+```
+
+常见的修复方法是将执行策略设置为 `RemoteSigned`：
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+```
+
+有关详细信息和其他选项，请在更改策略之前查阅 Microsoft 的[执行策略指南](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies)。
+
+### Windows 上的本地环境脚本
+
+如果你的本地环境使用 `npm` 脚本等跨平台命令，你可以为每个平台保留一个共享的设置脚本或一组操作。
+
+如果你需要 Windows 特定的行为，请创建 Windows 特定的设置脚本或 Windows 特定的操作。
+
+操作（Actions）在你的集成终端所使用的环境中运行。请参阅[自定义你的开发环境](#自定义你的开发环境)。
+
+本地设置脚本在代理环境中运行：如果代理使用 WSL，则在 WSL 中运行；否则在 PowerShell 中运行。
+
+### 与 WSL 共享配置、认证和会话
+
+Windows 应用使用与 Windows 原生 Codex 相同的 Codex 主目录：`%USERPROFILE%\.codex`。
+
+如果你还在 WSL 中运行 Codex CLI，CLI 默认使用 Linux 主目录，因此它不会自动与 Windows 应用共享配置、缓存的认证或会话历史记录。
+
+要共享它们，请使用以下方法之一：
+
+- 在文件系统上将 WSL 的 `~/.codex` 与 `%USERPROFILE%\.codex` 同步。
+- 通过设置 `CODEX_HOME` 将 WSL 指向 Windows 的 Codex 主目录：
+
+```bash
+export CODEX_HOME=/mnt/c/Users/<windows-user>/.codex
+```
+
+如果你希望该设置在每次打开 shell 时都生效，请将其添加到你的 WSL shell 配置文件中，如 `~/.bashrc` 或 `~/.zshrc`。
+
+### Git 功能不可用
+
+如果你没有在 Windows 上原生安装 Git，应用将无法使用某些功能。请在 PowerShell 或 `cmd.exe` 中运行 `winget install Git.Git` 来安装。
+
+### 无法检测从 \\wsl$ 打开的项目中的 Git
+
+目前，如果你希望将 Windows 原生代理与同样可从 WSL 访问的项目一起使用，最可靠的解决方法是将项目存储在原生 Windows 驱动器上，并通过 `/mnt/<drive>/...` 在 WSL 中访问它。
+
+### Cmder 未在打开对话框中列出
+
+如果 `Cmder` 已安装但未出现在 Codex 的打开对话框中，请将其添加到 Windows「开始」菜单：右键点击 `Cmder` 并选择「添加到开始菜单」，然后重启 Codex 或重新启动计算机。

@@ -1,0 +1,41 @@
+---
+title: Codex Security
+description: 使用 Codex 查找、验证和修复已连接 GitHub 仓库中的安全漏洞。
+sidebar:
+  order: 15
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex Security
+
+> 使用 Codex 查找、验证和修复安全问题
+
+Codex Security 帮助工程和安全团队在已连接的 GitHub 仓库中查找、验证和修复潜在漏洞。
+
+:::note
+本页介绍 Codex Security 产品，它扫描已连接的 GitHub 仓库以查找安全问题。关于 Codex 沙箱、审批、网络控制和管理员设置，请参阅 [智能体审批与安全](/codex/agent-approvals)。
+:::
+
+## 它能帮助团队
+
+- **发现潜在漏洞** — 使用仓库特定的威胁模型和真实代码上下文
+- **减少噪音** — 在审查之前验证发现结果
+- **推动修复** — 通过排序结果、证据和建议的补丁选项
+
+## 工作原理
+
+Codex Security 逐个提交地扫描已连接的仓库。它从你的仓库构建扫描上下文，根据该上下文检查潜在漏洞，并在独立环境中验证高信号问题，然后才呈现给你。
+
+工作流聚焦于：
+- 仓库特定上下文而非通用签名
+- 帮助减少误报的验证证据
+- 可在 GitHub 中审查的建议修复
+
+## 访问和前提条件
+
+Codex Security 通过 Codex Web 与已连接的 GitHub 仓库配合使用。OpenAI 管理访问权限。
+
+<LinkButton href="https://developers.openai.com/codex/security" variant="secondary">
+  查看官方完整文档 →
+</LinkButton>

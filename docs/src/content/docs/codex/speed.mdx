@@ -1,0 +1,31 @@
+---
+title: Speed 速度
+description: 在不牺牲智能的前提下提高 Codex 速度，使用快速模式和 Codex-Spark 模型。
+sidebar:
+  order: 7
+---
+
+# Speed 速度
+
+> 在不牺牲智能的前提下提高速度
+
+## 快速模式 (Fast mode)
+
+Codex 提供了通过增加积分消耗来提高模型速度的能力。
+
+快速模式将受支持模型的速度提高 **1.5 倍**，并以比标准模式更高的速率消耗积分。目前支持 **GPT-5.5** 和 **GPT-5.4**，GPT-5.5 消耗积分为标准速率的 2.5 倍，GPT-5.4 消耗积分为标准速率的 2 倍。
+
+在 CLI 中使用 `/fast on`、`/fast off` 或 `/fast status` 来更改或查看当前设置。你也可以在 `config.toml` 中使用 `service_tier = "fast"` 加上 `[features].fast_mode = true` 来持久化默认设置。
+
+快速模式在使用 **ChatGPT** 登录时可在 **Codex IDE 扩展**、**Codex CLI** 和 **Codex 应用**中使用。如果使用 API 密钥，Codex 将改用标准 API 定价，无法使用快速模式积分。
+
+<video class="w-full rounded-lg border border-default" controls muted playsinline preload="metadata">
+  <source src="/videos/codex/fast-mode-demo.mp4" type="video/mp4" />
+  你的浏览器不支持 video 标签。
+</video>
+
+## Codex-Spark
+
+GPT-5.3-Codex-Spark 是一个独立的快速、功能较少的 Codex 模型，专为**近乎即时的实时编码迭代**而优化。与快速模式（以更高的积分速率加速受支持模型）不同，Codex-Spark 是独立的模型选择，并有自己的使用限制。
+
+在研究预览期间，Codex-Spark 仅供 **ChatGPT Pro** 订阅用户使用。

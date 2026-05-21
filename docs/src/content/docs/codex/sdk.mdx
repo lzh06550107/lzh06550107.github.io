@@ -1,0 +1,111 @@
+---
+title: Codex SDK
+description: 通过 TypeScript 或 Python SDK 以编程方式控制 Codex，集成到你的 CI/CD 和应用中。
+sidebar:
+  order: 15
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex SDK
+
+> 以编程方式控制 Codex
+
+如果你通过 Codex CLI、IDE 扩展或 Codex Web 使用 Codex，也可以通过 SDK 以编程方式控制它。
+
+使用 SDK 的场景：
+- 将 Codex 集成到 CI/CD 流水线中
+- 创建你自己的智能体，与 Codex 协同完成复杂工程任务
+- 将 Codex 构建到内部工具和工作流中
+- 在你的应用中集成 Codex
+
+<Tabs>
+  <TabItem label="TypeScript">
+
+    ### 安装
+
+    ```bash
+    npm install @openai/codex-sdk
+    ```
+
+    需要 Node.js 18 或更高版本。请在服务端使用。
+
+    ### 使用
+
+    启动线程并运行提示：
+
+    ```typescript
+    import { Codex } from "@openai/codex-sdk";
+
+    const codex = new Codex();
+    const thread = codex.startThread();
+    const result = await thread.run(
+      "制定一个诊断和修复 CI 失败的计划"
+    );
+    console.log(result);
+    ```
+
+    继续同一线程：
+
+    ```typescript
+    const result = await thread.run("执行该计划");
+    console.log(result);
+    ```
+
+    恢复过去的线程：
+
+    ```typescript
+    const threadId = "<thread-id>";
+    const thread2 = codex.resumeThread(threadId);
+    const result2 = await thread2.run("从上次中断的地方继续");
+    console.log(result2);
+    ```
+
+    <LinkButton href="https://github.com/openai/codex" variant="secondary">
+      查看 TypeScript 仓库 →
+    </LinkButton>
+  </TabItem>
+
+  <TabItem label="Python">
+
+    Python SDK 是实验性的，通过 JSON-RPC 控制本地 Codex App Server。需要 Python 3.10 或更高版本。
+
+    ### 安装
+
+    ```bash
+    cd sdk/python
+    python -m pip install -e .
+    ```
+
+    ### 使用
+
+    ```python
+    from codex_app_server import Codex
+
+    with Codex() as codex:
+        thread = codex.thread_start(model="gpt-5.4")
+        result = thread.run("制定诊断和修复 CI 失败的计划")
+        print(result.final_response)
+    ```
+
+    异步版本：
+
+    ```python
+    import asyncio
+    from codex_app_server import AsyncCodex
+
+    async def main():
+        async with AsyncCodex() as codex:
+            thread = await codex.thread_start(model="gpt-5.4")
+            result = await thread.run("执行该计划")
+            print(result.final_response)
+
+    asyncio.run(main())
+    ```
+
+    <LinkButton href="https://github.com/openai/codex" variant="secondary">
+      查看 Python 仓库 →
+    </LinkButton>
+  </TabItem>
+</Tabs>

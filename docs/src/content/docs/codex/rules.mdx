@@ -1,0 +1,102 @@
+---
+title: Rules 规则
+description: 控制 Codex 在沙箱外可以运行哪些命令，使用 rules 文件精细管理权限。
+sidebar:
+  order: 10
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Rules 规则
+
+> 控制 Codex 在沙箱外可以运行哪些命令
+
+:::caution[实验性功能]
+Rules 是实验性功能，可能发生变化。
+:::
+
+使用规则来控制 Codex 在沙箱外可以运行哪些命令。
+
+## 创建规则文件
+
+### 第 1 步：创建文件
+
+在 `rules/` 文件夹下创建一个 `.rules` 文件，放在活动的配置层旁边（例如 `~/.codex/rules/default.rules`）。
+
+### 第 2 步：添加规则
+
+以下示例在允许 `gh pr view` 在沙箱外运行之前提示确认：
+
+```python
+# 在沙箱外运行以 `gh pr view` 为前缀的命令前弹出提示。
+prefix_rule(
+    # 要匹配的前缀
+    pattern = ["gh", "pr", "view"],
+
+    # Codex 请求运行匹配命令时的处理方式
+    decision = "prompt",
+
+    # 可选：该规则存在的理由
+    justification = "查看 PR 在审批后可允许",
+
+    # `match` 和 `not_match` 是可选的内联测试用例
+    match = [
+        "gh pr view 7888",
+        "gh pr view --repo openai/codex",
+        "gh pr view 7888 --json title,body,comments",
+    ],
+    not_match = [
+        # 不匹配，因为 `pattern` 必须是精确前缀
+        "gh pr --repo openai/codex view 7888",
+    ],
+)
+```
+
+### 第 3 步：重启 Codex
+
+Codex 在启动时会扫描每个活动配置层下的 `rules/` 目录。
+
+:::tip
+在 TUI 中将命令添加到允许列表时，Codex 会写入 `~/.codex/rules/default.rules`，以便将来跳过提示。
+:::
+
+## 理解规则字段
+
+`prefix_rule()` 支持以下字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| **`pattern`**（必填） | 定义要匹配的命令前缀。每个元素可以是文字字符串，也可以是文字联合（如 `["view", "list"]`） |
+| **`decision`**（默认 `"allow"`） | 匹配时的处理方式。最严格的决策胜出：`forbidden > prompt > allow` |
+| **`justification`**（可选） | 规则的可读理由。使用 `forbidden` 时，应包含替代建议 |
+| **`match` / `not_match`**（默认 `[]`） | Codex 加载规则时验证的示例，用于在规则生效前捕获错误 |
+
+## Shell 包装器和复合命令
+
+有些工具将多个命令包装到一次调用中，例如 `bash -lc "git add . && rm -rf /"`。
+
+### Codex 能安全拆分脚本时
+
+如果脚本仅由纯文本命令和安全操作符（`&&`、`||`、`;`、`|`）组成，Codex 会将其拆分为单独的命令再应用规则。上述脚本会被拆分为：
+- `["git", "add", "."]`
+- `["rm", "-rf", "/"]`
+
+即使你允许了 `pattern=["git", "add"]`，Codex 也不会自动允许 `git add . && rm -rf /`，因为 `rm -rf /` 部分会被独立评估。
+
+### Codex 不拆分脚本时
+
+如果脚本使用了重定向、替换、环境变量、通配符或控制流，则整个调用被视为 `["bash", "-lc", "<完整脚本>"]`。
+
+## 测试规则文件
+
+使用 `codex execpolicy check` 测试规则如何应用于命令：
+
+```bash
+codex execpolicy check --pretty \
+  --rules ~/.codex/rules/default.rules \
+  -- gh pr view 7888 --json title,body,comments
+```
+
+## 规则语言
+
+`.rules` 文件格式使用 **Starlark**（语法类似 Python，但设计为安全运行，没有副作用）。

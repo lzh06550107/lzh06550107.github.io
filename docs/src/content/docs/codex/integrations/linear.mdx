@@ -1,0 +1,109 @@
+---
+title: 在 Linear 中使用 Codex
+description: 从 Linear 议题委派任务给 Codex，自动运行云端任务并获取进度更新。
+sidebar:
+  order: 8
+---
+
+# 在 Linear 中使用 Codex
+
+> 从 Linear 议题运行 Codex 任务
+
+在 Linear 中使用 Codex 来委派议题中的工作。将议题分配给 Codex，或在评论中提及 `@Codex`，Codex 就会创建一个云端任务并回复进度和结果。
+
+Codex for Linear 适用于付费计划（请参阅[定价](/codex/getting-started/pricing)）。
+
+如果你使用的是企业版计划，请让你的 ChatGPT 工作区管理员在[工作区设置](https://chatgpt.com/admin/settings)中开启 Codex 云端任务，并在[连接器设置](https://chatgpt.com/admin/ca)中启用 **Codex for Linear**。
+
+## 设置 Linear 集成
+
+1. 在 [Codex](https://chatgpt.com/codex) 中连接 GitHub 并为 Codex 要工作的仓库创建[环境](/codex/cloud/environments)，以设置 [Codex 云端任务](/codex/cloud)。
+2. 前往 [Codex 设置](https://chatgpt.com/codex/settings/connectors)，为你的工作区安装 **Codex for Linear**。
+3. 在 Linear 议题的评论线程中提及 `@Codex` 来关联你的 Linear 账户。
+
+## 向 Codex 委派工作
+
+你可以通过两种方式委派工作：
+
+### 将议题分配给 Codex
+
+安装集成后，你可以像分配队友一样将议题分配给 Codex。Codex 开始工作并将更新发布回议题。
+
+![将 Codex 分配给 Linear 议题](/images/codex/integrations/linear-assign-codex-light.webp)
+
+### 在评论中提及 @Codex
+
+你也可以在评论线程中提及 `@Codex` 来委派工作或提问。Codex 回复后，在线程中继续跟进以保持同一会话。
+
+![在 Linear 议题评论中提及 Codex](/images/codex/integrations/linear-comment-light.webp)
+
+Codex 开始处理议题后，会[选择一个环境和工作仓库](#codex-如何选择环境和仓库)。要指定特定仓库，请在评论中注明，例如：`@Codex 请在 openai/codex 中修复此问题`。
+
+**跟踪进度：**
+
+- 在议题中打开 **Activity** 查看进度更新。
+- 打开任务链接以更详细地跟踪。
+
+任务完成后，Codex 会发布摘要和已完成任务的链接，方便你创建 Pull Request。
+
+### Codex 如何选择环境和仓库
+
+- Linear 根据议题上下文建议一个仓库。Codex 选择最匹配该建议的环境。如果请求不明确，则回退到你最近使用的环境。
+- 任务在该环境仓库映射中第一个仓库的默认分支上运行。如果需要不同的默认仓库或更多仓库，请在 Codex 中更新仓库映射。
+- 如果没有可用的环境或仓库，Codex 将在 Linear 中回复说明如何修复问题，然后重试。
+
+## 自动将议题分配给 Codex
+
+你可以使用分类（Triage）规则自动将议题分配给 Codex：
+
+1. 在 Linear 中，前往 **Settings**。
+2. 在 **Your teams** 下，选择你的团队。
+3. 在工作流设置中，打开 **Triage** 并启用。
+4. 在 **Triage rules** 中，创建一条规则，选择 **Delegate** > **Codex**（以及任何其他你想设置的属性）。
+
+Linear 会自动将进入分类的新议题分配给 Codex。使用分类规则时，Codex 以议题创建者的账户运行任务。
+
+![分类规则示例——将所有内容分配给 Codex 并标记为"Triage"状态](/images/codex/integrations/linear-triage-rule-light.webp)
+
+## 数据使用、隐私和安全
+
+当你提及 `@Codex` 或将议题分配给它时，Codex 会接收你的议题内容以理解你的请求并创建任务。数据处理遵循 OpenAI 的[隐私政策](https://openai.com/privacy)、[使用条款](https://openai.com/terms/)以及其他适用[政策](https://openai.com/policies)。有关安全的更多信息，请参阅 [Codex 安全文档](/codex/agent-approvals-security)。
+
+> Codex 使用大型语言模型，可能会出错。请始终审查答案和代码变更。
+
+## 提示与故障排除
+
+- **连接丢失**：如果 Codex 无法确认你的 Linear 连接，它会在议题中回复一个链接来关联你的账户。
+- **意外的环境选择**：在线程中回复你想要的环境（例如，`@Codex 请在 openai/codex 中运行此任务`）。
+- **代码定位错误**：在议题中添加更多上下文，或在 `@Codex` 评论中给出明确指示。
+- **更多帮助**：请参阅 [OpenAI 帮助中心](https://help.openai.com)。
+
+## 为本地任务连接 Linear（MCP）
+
+如果你正在使用 Codex 应用、CLI 或 IDE 扩展，并希望 Codex 在本地访问 Linear 议题，可以将 Codex 配置为使用 Linear 的模型上下文协议（MCP）服务器。
+
+更多信息请参阅 [Linear MCP 文档](https://linear.app/integrations/codex-mcp)。
+
+MCP 服务器的设置步骤对于 IDE 扩展和 CLI 是相同的，因为它们共享相同的配置。
+
+### 使用 CLI（推荐）
+
+如果已安装 CLI，运行：
+
+```bash
+codex mcp add linear --url https://mcp.linear.app/mcp
+```
+
+这将提示你使用 Linear 账户登录并将其连接到 Codex。
+
+### 手动配置
+
+1. 在编辑器中打开 `~/.codex/config.toml`。
+2. 添加以下内容：
+
+```toml
+[mcp_servers.linear]
+url = "https://mcp.linear.app/mcp"
+```
+
+3. 运行 `codex mcp login linear` 登录。

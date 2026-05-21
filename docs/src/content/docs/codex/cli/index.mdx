@@ -1,0 +1,139 @@
+---
+title: CLI
+description: 在终端中使用 Codex CLI，一个基于 Rust 构建的开源编程智能体。
+sidebar:
+  order: 5
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex CLI
+
+> 在终端中与 Codex 结对编程
+
+Codex CLI 是 OpenAI 的编程智能体，你可以从终端本地运行。它能读取、更改和运行你机器上选定目录中的代码。它是 [开源](https://github.com/openai/codex) 的，基于 Rust 构建，兼具速度和效率。
+
+ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
+
+## CLI 安装
+
+<Tabs>
+  <TabItem label="npm">
+    ### 1. 安装
+
+    使用 npm 安装 Codex CLI：
+
+    ```bash
+    npm i -g @openai/codex
+    ```
+
+    ### 2. 运行
+
+    在终端中运行 `codex`。它会检查你的仓库、编辑文件和运行命令。
+
+    ```bash
+    codex
+    ```
+
+    首次运行时会提示你登录。使用 ChatGPT 账户或 API 密钥进行身份验证。
+
+    ### 3. 升级
+
+    Codex CLI 会定期发布新版本。使用以下命令升级：
+
+    ```bash
+    npm i -g @openai/codex@latest
+    ```
+
+    Codex CLI 适用于 macOS、Windows 和 Linux。在 Windows 上，可以使用 PowerShell 原生运行 Codex（使用 Windows 沙箱），或使用 WSL2 获取 Linux 原生环境。
+  </TabItem>
+
+  <TabItem label="Homebrew">
+    ### 1. 安装
+
+    使用 Homebrew 安装 Codex CLI：
+
+    ```bash
+    brew install codex
+    ```
+
+    ### 2. 运行
+
+    在终端中运行 `codex`：
+
+    ```bash
+    codex
+    ```
+
+    首次运行时会提示你登录。使用 ChatGPT 账户或 API 密钥进行身份验证。
+
+    ### 3. 升级
+
+    使用 Homebrew 升级：
+
+    ```bash
+    brew upgrade codex
+    ```
+  </TabItem>
+</Tabs>
+
+:::tip[新手提示]
+如果你是 Codex 新手，建议先阅读 [最佳实践指南](/codex/learn/best-practices)。
+:::
+
+## 使用 Codex CLI
+
+### 交互式运行
+
+运行 `codex` 启动交互式终端 UI（TUI）会话。
+
+### 控制模型和推理
+
+使用 `/model` 在 GPT-5.4、GPT-5.3-Codex 和其他可用模型之间切换，或调整推理级别。
+
+### 图像输入
+
+附加截图或设计规范，让 Codex 在提示中同时读取它们。
+
+### 图像生成
+
+直接在 CLI 中生成或编辑图像，在需要迭代已有资源时附加参考。
+
+### 本地代码审查
+
+在提交或推送之前，让独立的 Codex 智能体审查你的代码。
+
+### 使用子智能体
+
+使用子智能体并行化复杂任务。
+
+### 网络搜索
+
+让 Codex 搜索网络，获取任务所需的最新信息。
+
+### Codex 云端任务
+
+启动 Codex Cloud 任务、选择环境，并将生成的差异结果应用到本地，无需离开终端。
+
+### 脚本化 Codex
+
+使用 `exec` 命令脚本化 Codex，自动化重复工作流程：
+
+```bash
+codex exec "为这个项目添加深色模式支持"
+```
+
+### 模型上下文协议（MCP）
+
+通过 MCP 协议让 Codex 访问额外的第三方工具和上下文。
+
+### 审批模式
+
+选择适合你舒适度的审批模式，控制 Codex 在编辑或运行命令前的行为。
+
+---
+
+<LinkButton href="https://developers.openai.com/codex/cli" variant="secondary">
+  查看官方完整文档 →
+</LinkButton>

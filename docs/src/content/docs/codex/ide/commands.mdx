@@ -1,0 +1,44 @@
+---
+title: IDE 命令
+description: Codex IDE 扩展命令参考，包含所有可用命令及其键盘快捷键。
+sidebar:
+  order: 7
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex IDE 扩展命令
+
+> Codex IDE 扩展命令与键盘快捷键参考
+
+你可以通过 VS Code 的命令面板使用这些命令来控制 Codex，也可以将它们绑定为键盘快捷键。
+
+## 绑定快捷键
+
+要为 Codex 命令分配或更改键盘快捷键：
+
+1. 打开命令面板（macOS 上按 **Cmd+Shift+P**，Windows/Linux 上按 **Ctrl+Shift+P**）。
+2. 运行 **Preferences: Open Keyboard Shortcuts**（首选项：打开键盘快捷键）。
+3. 搜索 `Codex` 或命令 ID（例如 `chatgpt.newChat`）。
+4. 点击铅笔图标，然后输入你想要的快捷键。
+
+## 扩展命令
+
+<div class="md:max-w-5xl mx-auto overflow-x-auto">
+
+| 命令 | 默认键绑定 | 描述 |
+|---|---|---|
+| `chatgpt.addToThread` | - | 将选中的文本范围添加为当前线程的上下文 |
+| `chatgpt.addFileToThread` | - | 将整个文件添加为当前线程的上下文 |
+| `chatgpt.newChat` | macOS: `Cmd+N`<br/>Windows/Linux: `Ctrl+N` | 创建新线程 |
+| `chatgpt.implementTodo` | - | 让 Codex 处理选中的 TODO 注释 |
+| `chatgpt.newCodexPanel` | - | 创建新的 Codex 面板 |
+| `chatgpt.openSidebar` | - | 打开 Codex 侧边栏面板 |
+
+</div>
+
+---
+
+<LinkButton href="https://developers.openai.com/codex/ide/commands" variant="secondary">
+  查看官方完整文档 →
+</LinkButton>

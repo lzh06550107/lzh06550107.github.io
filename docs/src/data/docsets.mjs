@@ -41,6 +41,127 @@ export const docsets = [
         ],
     },
     {
+        id: 'codex',
+        title: 'Codex',
+        cardLabel: 'Codex 文档集',
+        description: 'OpenAI Codex 编程智能体的产品文档——涵盖概览、使用、配置、自动化与学习资源。',
+        landing: '/codex/',
+        ctaLabel: '进入 Codex 文档',
+        featuredLinks: [
+            { label: '概览', href: '/codex/getting-started/overview/' },
+            { label: '快速开始', href: 'https://developers.openai.com/codex/quickstart' },
+        ],
+        sections: [
+            {
+                label: '开始入门',
+                items: [
+                    { label: '概览', link: '/codex/getting-started/overview/' },
+                    { label: '快速开始', link: '/codex/getting-started/quickstart/' },
+                    { label: '使用场景', link: '/codex/getting-started/use-cases/' },
+                    { label: '迁移到 Codex', link: '/codex/getting-started/migrate/' },
+                    { label: '价格方案', link: '/codex/getting-started/pricing/' },
+                    { label: '开源', link: '/codex/getting-started/open-source/' },
+                    {
+                        label: 'Concepts',
+                        autogenerate: { directory: 'codex/getting-started/concepts' },
+                    },
+                ],
+            },
+            {
+                label: '使用 Codex',
+                items: [
+                    {
+                        label: 'App 桌面应用',
+                        autogenerate: { directory: 'codex/app' },
+                    },
+                    {
+                        label: 'IDE 扩展',
+                        autogenerate: { directory: 'codex/ide' },
+                    },
+                    {
+                        label: 'CLI',
+                        autogenerate: { directory: 'codex/cli' },
+                    },
+                    {
+                        label: 'Web 云端',
+                        autogenerate: { directory: 'codex/cloud' },
+                    },
+                    {
+                        label: '集成',
+                        autogenerate: { directory: 'codex/integrations' },
+                    },
+                    {
+                        label: 'Codex Security',
+                        autogenerate: { directory: 'codex/security' },
+                    },
+                ],
+            },
+            {
+                label: '配置',
+                items: [
+                    { label: 'Config Basics', link: '/codex/config-basic/' },
+                    { label: 'Advanced Config', link: '/codex/config-advanced/' },
+                    { label: 'Config Reference', link: '/codex/config-reference/' },
+                    { label: 'Sample Config', link: '/codex/config-sample/' },
+                    { label: 'Permissions 权限', link: '/codex/permissions/' },
+                    { label: 'Speed 加速', link: '/codex/speed/' },
+                    { label: 'Rules 规则', link: '/codex/rules/' },
+                    { label: 'Hooks 钩子', link: '/codex/hooks/' },
+                    { label: 'AGENTS.md', link: '/codex/agents-md/' },
+                    { label: 'MCP 协议', link: '/codex/mcp/' },
+                    {
+                        label: 'Plugins 插件',
+                        autogenerate: { directory: 'codex/plugins' },
+                    },
+                    { label: 'Skills 技能', link: '/codex/skills/' },
+                    { label: 'Subagents 子智能体', link: '/codex/subagents/' },
+                ],
+            },
+            {
+                label: '管理',
+                items: [
+                    {
+                        label: '认证',
+                        autogenerate: { directory: 'codex' },
+                    },
+                ],
+            },
+            {
+                label: '自动化',
+                items: [
+                    { label: 'Non-interactive Mode', link: '/codex/noninteractive/' },
+                    { label: 'Codex SDK', link: '/codex/sdk/' },
+                    { label: 'App Server', link: '/codex/app-server/' },
+                    { label: 'MCP Server', link: '/codex/mcp-server/' },
+                    { label: 'GitHub Action', link: '/codex/github-action/' },
+                ],
+            },
+            {
+                label: '学习',
+                items: [
+                    { label: '最佳实践', link: '/codex/learn/best-practices/' },
+                    { label: '视频教程', link: '/codex/learn/videos/' },
+                    { label: '构建 AI 团队', link: '/codex/building-ai-teams/' },
+                ],
+            },
+            {
+                label: '发布',
+                items: [
+                    { label: '更新日志', link: '/codex/releases/changelog/' },
+                    { label: '功能成熟度', link: '/codex/releases/feature-maturity/' },
+                ],
+            },
+            {
+                label: '发布',
+                items: [
+                    { label: '更新日志', link: '/codex/releases/changelog/' },
+                    { label: '功能成熟度', link: '/codex/releases/feature-maturity/' },
+                    { label: '开源', link: '/codex/releases/open-source/' },
+                ],
+            },
+        ],
+    },
+    {
         id: 'sdk',
         title: 'SDK',
         cardLabel: 'SDK 文档集',
@@ -66,6 +187,13 @@ export function buildDocsetSidebar() {
                 return {
                     label: section.label,
                     items: section.items,
+                };
+            }
+
+            if (section.link) {
+                return {
+                    label: section.label,
+                    link: section.link,
                 };
             }
 

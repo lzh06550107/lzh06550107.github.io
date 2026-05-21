@@ -1,0 +1,56 @@
+---
+title: Web 云端
+description: 将任务委托给 Codex 云端，在后台并行执行。
+sidebar:
+  order: 7
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex 云端
+
+> 委托给云端 Codex
+
+借助 Codex 云端，Codex 可以使用自己的云端环境在后台（包括并行）处理任务。
+
+ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
+
+## 云端设置
+
+访问 [Codex](https://chatgpt.com/codex) 并连接你的 GitHub 账户。这样 Codex 就可以处理你仓库中的代码，并根据其工作结果创建 Pull Request。
+
+:::note[企业用户]
+部分企业工作区可能需要 [管理员设置](https://developers.openai.com/codex/enterprise) 后才能访问 Codex。
+:::
+
+## 使用 Codex 云端
+
+### 学会提示
+
+编写更清晰的提示、添加约束条件、选择适当的详细程度，以获得更好的结果。
+
+### 常见工作流
+
+从经过验证的模式开始：委托任务、审查变更、将结果转化为 PR。
+
+### 配置环境
+
+选择 Codex 在云端运行任务时应使用的仓库、设置步骤和工具。
+
+### 从 IDE 扩展委托工作
+
+从编辑器中启动云端任务，然后监控进度并将生成的差异结果应用到本地。
+
+### 从 GitHub 委托
+
+在 issue 和 PR 中标记 `@codex`，直接从 GitHub 启动任务并提出变更。
+
+### 控制网络访问
+
+决定 Codex 是否可以从云端环境访问公共互联网，以及何时启用。
+
+---
+
+<LinkButton href="https://developers.openai.com/codex/cloud" variant="secondary">
+  查看官方完整文档 →
+</LinkButton>

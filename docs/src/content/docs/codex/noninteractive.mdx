@@ -1,0 +1,270 @@
+---
+title: 非交互模式
+description: 使用 codex exec 在脚本和 CI 中运行 Codex
+sidebar:
+  order: 20
+---
+
+非交互模式让你能够从脚本（例如持续集成 CI 任务）中运行 Codex，无需打开交互式 TUI。通过 `codex exec` 来调用。
+
+有关命令行参数的详细信息，请参阅 [`codex exec`](/codex/cli/reference#codex-exec)。
+
+## 何时使用 codex exec
+
+在以下场景使用 `codex exec`：
+
+- 在流水线中运行（CI、合并前检查、定时任务）。
+- 生成可以管道传输到其他工具的输出（例如生成发布说明或摘要）。
+- 自然地融入 CLI 工作流，将命令输出链接到 Codex，再将 Codex 输出传递给其他工具。
+- 使用预设的沙箱和审批设置来运行。
+
+## 基本用法
+
+将任务提示作为单个参数传入：
+
+```bash
+codex exec "概述仓库结构并列出风险最高的 5 个领域"
+```
+
+`codex exec` 运行时，Codex 将进度流式输出到 `stderr`，仅将最终的智能体消息输出到 `stdout`。这使得重定向或管道传输最终结果变得非常简单：
+
+```bash
+codex exec "为最近 10 次提交生成发布说明" | tee release-notes.md
+```
+
+如果你不想将会话部署文件持久化到磁盘，可以使用 `--ephemeral`：
+
+```bash
+codex exec --ephemeral "审查此仓库并建议下一步操作"
+```
+
+如果 stdin 被管道传入且你也提供了提示参数，Codex 会将提示视为指令，将管道传入的内容视为附加上下文。
+
+这使得用一个命令生成输入并直接将其交给 Codex 变得很容易：
+
+```bash
+curl -s https://jsonplaceholder.typicode.com/comments \
+  | codex exec "将前 20 条数据格式化为 Markdown 表格" \
+  > table.md
+```
+
+有关更高级的 stdin 管道模式，请参阅[高级 stdin 管道](#高级-stdin-管道)。
+
+## 权限与安全
+
+默认情况下，`codex exec` 在只读沙箱中运行。在自动化环境中，为工作流设置所需的最小权限：
+
+- 允许编辑：`codex exec --sandbox workspace-write "<任务>"`
+- 允许更广泛的访问：`codex exec --sandbox danger-full-access "<任务>"`
+
+仅在受控环境（例如隔离的 CI runner 或容器）中使用 `danger-full-access`。
+
+Codex 将 `codex exec --full-auto` 保留为已弃用的兼容标志，并会打印警告。在新脚本中，请优先使用显式的 `--sandbox workspace-write` 标志。
+
+当你需要一次不加载 `$CODEX_HOME/config.toml` 的运行，使用 `--ignore-user-config`；当你需要在受控自动化环境中跳过用户和项目的 execpolicy `.rules` 文件时，使用 `--ignore-rules`。
+
+如果你配置了一个启用且设置了 `required = true` 的 MCP 服务器，而它初始化失败，`codex exec` 会报错退出，而不是在该服务器不可用的情况下继续运行。
+
+## 使输出可被机器读取
+
+要在脚本中消费 Codex 输出，使用 JSON Lines 输出：
+
+```bash
+codex exec --json "概述仓库结构" | jq
+```
+
+当你启用 `--json` 后，`stdout` 会变成一个 JSON Lines (JSONL) 流，你可以捕获 Codex 运行过程中发出的每一个事件。事件类型包括 `thread.started`、`turn.started`、`turn.completed`、`turn.failed`、`item.*` 和 `error`。
+
+条目类型包括智能体消息、推理过程、命令执行、文件变更、MCP 工具调用、网页搜索和计划更新。
+
+示例 JSON 流（每行一个 JSON 对象）：
+
+```json
+{"type":"thread.started","thread_id":"0199a213-81c0-7800-8aa1-bbab2a035a53"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"bash -lc ls","status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"仓库包含 docs、sdk 和 examples 目录。"}}
+{"type":"turn.completed","usage":{"input_tokens":24763,"cached_input_tokens":24448,"output_tokens":122,"reasoning_output_tokens":0}}
+```
+
+如果你只需要最终消息，可以用 `-o <路径>`/`--output-last-message <路径>` 将其写入文件。这会将最终消息写入文件，同时仍然将其打印到 `stdout`（详见 [`codex exec`](/codex/cli/reference#codex-exec)）。
+
+## 使用 Schema 创建结构化输出
+
+如果你需要结构化数据以供下游步骤使用，可以使用 `--output-schema` 来请求符合 JSON Schema 的最终响应。这对于需要稳定字段的自动化工作流非常有用（例如任务摘要、风险报告或发布元数据）。
+
+`schema.json`：
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "project_name": { "type": "string" },
+    "programming_languages": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["project_name", "programming_languages"],
+  "additionalProperties": false
+}
+```
+
+使用 Schema 运行 Codex 并将最终 JSON 响应写入磁盘：
+
+```bash
+codex exec "提取项目元数据" \
+  --output-schema ./schema.json \
+  -o ./project-metadata.json
+```
+
+示例最终输出（stdout）：
+
+```json
+{
+  "project_name": "Codex CLI",
+  "programming_languages": ["Rust", "TypeScript", "Shell"]
+}
+```
+
+## 在 CI 中认证
+
+`codex exec` 默认复用已保存的 CLI 认证信息。在 CI 中，通常会显式提供凭证：
+
+### 使用 API Key 认证（推荐）
+
+- 将 `CODEX_API_KEY` 设置为任务的密钥环境变量。
+- 注意提示和工具输出：它们可能包含敏感代码或数据。
+
+要为单次运行使用不同的 API Key，可以内联设置 `CODEX_API_KEY`：
+
+```bash
+CODEX_API_KEY=<api-key> codex exec --json "分类未解决的 Bug 报告"
+```
+
+`CODEX_API_KEY` 仅在 `codex exec` 中受支持。
+
+## 恢复非交互会话
+
+如果你需要继续之前的运行（例如两阶段流水线），可以使用 `resume` 子命令：
+
+```bash
+codex exec "审查此变更是否存在竞态条件"
+codex exec resume --last "修复你发现的竞态条件"
+```
+
+你也可以使用 `codex exec resume <SESSION_ID>` 指定特定的会话 ID。
+
+## 需要 Git 仓库
+
+Codex 要求命令在 Git 仓库内运行，以防止破坏性变更。如果你确定环境是安全的，可以使用 `codex exec --skip-git-repo-check` 来跳过此检查。
+
+## 常见自动化模式
+
+### 示例：在 GitHub Actions 中自动修复 CI 失败
+
+你可以使用 `codex exec` 在 CI 工作流失败时自动提出修复方案。典型的模式是：
+
+1. 当你的主 CI 工作流以错误状态完成时，触发后续工作流。
+2. 检出失败的提交 SHA。
+3. 安装依赖并使用精简的提示和最小权限运行 Codex。
+4. 重新运行测试命令。
+5. 用生成的补丁创建一个 Pull Request。
+
+#### 使用 Codex CLI 的最小工作流
+
+下面的示例展示了核心步骤。请根据你的技术栈调整安装和测试命令。
+
+```yaml
+name: Codex auto-fix on CI failure
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-fix:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      FAILED_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      FAILED_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FAILED_HEAD_SHA }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm i; fi
+
+      - name: Install Codex
+        run: npm i -g @openai/codex
+
+      - name: Authenticate Codex
+        run: codex login --api-key "$OPENAI_API_KEY"
+
+      - name: Run Codex
+        run: |
+          codex exec --sandbox workspace-write \
+            "阅读仓库，运行测试套件，找出使所有测试通过所需的最小更改，仅实施该更改，然后停止。不要重构无关文件。"
+
+      - name: Verify tests
+        run: npm test --silent
+
+      - name: Create pull request
+        if: success()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: codex/auto-fix-${{ github.event.workflow_run.run_id }}
+          base: ${{ env.FAILED_HEAD_BRANCH }}
+          title: "Auto-fix failing CI via Codex"
+```
+
+#### 备选方案：使用 Codex GitHub Action
+
+如果你不想自行安装 CLI，可以通过 [Codex GitHub Action](/codex/github-action) 运行 `codex exec`，并将提示作为输入参数传入。
+
+## 高级 stdin 管道
+
+当另一个命令为 Codex 生成输入时，根据指令来源选择 stdin 模式。当你已经知道指令并希望将管道输出作为上下文传入时，使用 prompt-plus-stdin 模式。当 stdin 应作为完整提示时，使用 `codex exec -`。
+
+### 使用 prompt-plus-stdin
+
+当另一个命令已经生成了你想让 Codex 检查的数据时，prompt-plus-stdin 非常有用。在这种模式下，你自己编写指令，并将输出通过管道作为上下文传入，这使得它非常适合围绕命令输出、日志和生成数据构建的 CLI 工作流。
+
+```bash
+npm test 2>&1 \
+  | codex exec "总结失败的测试并提出最可能的最小修复方案" \
+  | tee test-summary.md
+```
+
+### 使用 codex exec - 以 stdin 作为提示
+
+如果你省略提示参数，Codex 会从 stdin 读取提示。使用 `codex exec -` 可以显式强制执行此行为。
+
+`-` 哨兵适用于另一个命令或脚本动态生成完整提示的场景。当你将提示存储在文件中、使用 shell 脚本组装提示，或者将实时命令输出与指令组合后再将整个提示交给 Codex 时，这种模式非常适合。
+
+```bash
+cat prompt.txt | codex exec -
+```
+
+```bash
+printf "用三个要点总结此错误日志：\n\n%s\n" "$(tail -n 200 app.log)" \
+  | codex exec -
+```
+
+```bash
+generate_prompt.sh | codex exec - --json > result.jsonl
+```

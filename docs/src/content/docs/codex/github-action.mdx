@@ -1,0 +1,116 @@
+---
+title: GitHub Action
+description: 从 GitHub Actions 工作流中触发 Codex 任务，自动化 PR 审查、补丁应用和 CI/CD 流程。
+sidebar:
+  order: 16
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Codex GitHub Action
+
+> 从 GitHub Events 触发 Codex 操作
+
+使用 Codex GitHub Action（`openai/codex-action@v1`）在 CI/CD 作业中运行 Codex、应用补丁或发布审查结果。该 Action 安装 Codex CLI，在提供 API 密钥时启动 Responses API 代理，并按你指定的权限运行 `codex exec`。
+
+## 适用场景
+
+- 自动化 PR 或发布时的 Codex 反馈，无需自行管理 CLI
+- 在 CI 流水线中通过 Codex 驱动的质量检查来把关变更
+- 从工作流文件运行可重复的 Codex 任务（代码审查、发布准备、迁移）
+
+## 前提条件
+
+| 要求 | 说明 |
+| --- | --- |
+| **API 密钥** | 将 OpenAI 密钥存储为 GitHub Secret（如 `OPENAI_API_KEY`） |
+| **运行环境** | Linux 或 macOS 运行器（Windows 需设置 `safety-strategy: unsafe`） |
+| **检出代码** | 调用 Action 前检出代码，以便 Codex 读取仓库内容 |
+| **提示内容** | 通过 `prompt` 内联提供或通过 `prompt-file` 指向仓库中的文件 |
+
+## 示例工作流
+
+以下示例审查新的 PR，捕获 Codex 的响应并将其发布到 PR 上：
+
+```yaml
+name: Codex pull request review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  codex:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      final_message: ${{ steps.run_codex.outputs.final-message }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+
+      - name: Pre-fetch base and head refs
+        run: |
+          git fetch --no-tags origin \
+            ${{ github.event.pull_request.base.ref }} \
+            +refs/pull/${{ github.event.pull_request.number }}/head
+
+      - name: Run Codex
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/review.md
+          output-file: codex-output.md
+          safety-strategy: drop-sudo
+          sandbox: workspace-write
+
+  post_feedback:
+    runs-on: ubuntu-latest
+    needs: codex
+    if: needs.codex.outputs.final_message != ''
+    steps:
+      - name: Post Codex feedback
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: process.env.CODEX_FINAL_MESSAGE,
+            });
+        env:
+          CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}
+```
+
+## 配置 codex exec
+
+| 输入 | 说明 |
+| --- | --- |
+| `prompt` / `prompt-file` | 内联指令或仓库中的提示文件路径 |
+| `codex-args` | 额外 CLI 标志，JSON 数组或 shell 字符串 |
+| `model` / `effort` | 选择 Codex 智能体配置 |
+| `sandbox` | 沙箱模式：`workspace-write`、`read-only`、`danger-full-access` |
+| `output-file` | 将 Codex 最终消息保存到磁盘 |
+| `codex-version` | 固定特定 CLI 版本 |
+| `codex-home` | 共享 Codex 主目录，跨步骤复用配置 |
+
+## 安全管理
+
+| 选项 | 说明 |
+| --- | --- |
+| `safety-strategy` | 默认 `drop-sudo` 移除 sudo；Windows 必须设为 `unsafe` |
+| `sandbox` | 选择最窄的选项，同时让任务完成 |
+| `allow-users` / `allow-bots` | 限制谁可以触发工作流 |
+
+## 安全清单
+
+- ✅ 限制谁可以启动工作流
+- ✅ 清理来自 PR、commit 消息或 issue 的提示输入，防止提示注入
+- ✅ 保持 `safety-strategy` 为 `drop-sudo` 保护 API 密钥
+- ✅ 将 Codex 作为作业的最后一步运行
+- ✅ 发现密钥泄露时立即轮换

@@ -1,0 +1,118 @@
+---
+title: IDE 扩展
+description: 在 VS Code、Cursor、Windsurf 或 JetBrains IDE 中使用 Codex 扩展，与 AI 编程智能体协作。
+sidebar:
+  order: 4
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex IDE 扩展
+
+> 在 IDE 中与 Codex 结对编程
+
+Codex 是 OpenAI 的编程智能体，能够读取、编辑和运行代码。它帮助你更快地构建、消灭 bug 和理解不熟悉的代码。通过 Codex VS Code 扩展，你可以在 IDE 中与 Codex 并肩工作，或将任务委托给 Codex Cloud。
+
+ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
+
+## 扩展安装
+
+Codex IDE 扩展支持 VS Code 分支（如 Cursor 和 Windsurf）以及 JetBrains IDE。
+
+### 下载扩展
+
+- [下载适用于 Visual Studio Code](vscode:extension/openai.chatgpt)
+- [下载适用于 Cursor](cursor:extension/openai.chatgpt)
+- [下载适用于 Windsurf](windsurf:extension/openai.chatgpt)
+- [下载适用于 VS Code Insiders](https://marketplace.visualstudio.com/items?itemName=openai.chatgpt)
+- [下载适用于 JetBrains IDE](https://plugins.jetbrains.com/plugin/chatgpt)
+
+Codex IDE 集成在 macOS、Windows 和 Linux 上均可使用。在 Windows 上，可以用原生 Windows 沙箱运行 Codex，或使用 WSL2 获取 Linux 原生环境。
+
+安装完成后，Codex 会出现在编辑器侧边栏中。VS Code 默认将 Codex 放在右侧边栏。如果看不到，请重启编辑器。
+
+![Codex 扩展在 VS Code 侧边栏中](/images/codex/ide/codex-extension.webp)
+
+### JetBrains IDE 集成
+
+要在 Rider、IntelliJ、PyCharm 或 WebStorm 等 JetBrains IDE 中使用 Codex，请安装 JetBrains IDE 集成插件。它支持使用 ChatGPT 账户、API 密钥或 JetBrains AI 订阅登录。
+
+<LinkButton href="https://plugins.jetbrains.com/plugin/chatgpt">
+  安装适用于 JetBrains IDE 的 Codex
+</LinkButton>
+
+### 将 Codex 移到右侧边栏
+
+在 VS Code 中，Codex 自动出现在右侧边栏。如果你偏好左侧边栏，将 Codex 图标拖到左侧活动栏即可。
+
+在 Cursor 等 VS Code 分支中，你可能需要手动将 Codex 移到右侧边栏：
+
+1. 打开编辑器设置，搜索 `activity bar`（在工作台设置中）
+2. 将方向改为 **垂直（vertical）**
+3. 重启编辑器
+4. 将 Codex 图标拖到右侧边栏（例如放在 Cursor 聊天旁边）
+5. 将活动栏方向改回水平以恢复默认布局
+
+![在 VS Code 设置中将活动栏方向改为垂直](/images/codex/ide/codex-workbench-setting.webp)
+
+## 登录
+
+安装扩展后，系统会提示你用 ChatGPT 账户或 API 密钥登录。你的 ChatGPT 套餐包含使用额度，无需额外设置即可使用 Codex。
+
+## 更新扩展
+
+扩展会自动更新，你也可以打开 IDE 中的扩展页面手动检查更新。
+
+## 设置快捷键
+
+Codex 包含多个命令，你可以在 IDE 设置中绑定为键盘快捷键（例如切换 Codex 聊天或向 Codex 添加上下文）。
+
+查看所有可用命令：点击 Codex 聊天中的设置图标 → 键盘快捷键
+
+## 使用 Codex IDE 扩展
+
+### 编辑器上下文提示
+
+利用打开的文件、选中内容和 `@file` 引用来获得更相关的结果，同时减少提示长度。
+
+### 切换模型
+
+使用默认模型或切换到其他模型以利用它们各自的优势。
+
+### 调整推理力度
+
+选择低、中、高，根据任务在速度和深度之间权衡。
+
+### 图像生成
+
+无需离开编辑器即可生成或编辑图像，在需要迭代时使用参考资源。
+
+### 选择审批模式
+
+在 **聊天（Chat）**、**智能体（Agent）** 和 **智能体（完全访问）** 之间切换，控制 Codex 的自主程度。
+
+### 委托到云端
+
+将较长的任务卸载到云端环境，然后在不离开 IDE 的情况下监控进度并审查结果。
+
+### 跟进云端工作
+
+预览云端变更、请求后续调整，并将结果差异应用到本地进行测试和完成。
+
+### IDE 扩展命令
+
+查看完整的命令列表，你可以在命令面板中运行这些命令并绑定为键盘快捷键。
+
+### 斜杠命令
+
+使用斜杠命令控制 Codex 的行为，并快速从聊天中更改常用设置。
+
+### 扩展设置
+
+通过编辑器设置调整模型、审批模式和其他默认值，让 Codex 适应你的工作流程。
+
+---
+
+<LinkButton href="https://developers.openai.com/codex/ide" variant="secondary">
+  查看官方完整文档 →
+</LinkButton>

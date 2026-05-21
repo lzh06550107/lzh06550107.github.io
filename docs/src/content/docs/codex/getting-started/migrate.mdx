@@ -1,0 +1,75 @@
+---
+title: 迁移到 Codex
+description: 从其他智能体将配置、技能、MCP 服务器和会话导入 Codex。
+sidebar:
+  order: 3
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+
+> 将你的设置从另一个智能体带入 Codex
+
+使用导入流程将你的指令、配置、技能、MCP 服务器、钩子、子智能体和最近的会话从其他智能体导入 Codex。
+
+![从其他智能体导入——通用设置中的导入入口](/images/codex/migrate/import-flow-light.png)
+
+## 开始迁移
+
+1. 在 Codex 桌面应用中打开 **设置**
+2. 在 **通用** 页面，找到 **导入其他智能体设置**
+3. 选择 **导入**
+4. 审查 Codex 找到的内容，选择要导入的项目，然后选择 **导入**
+5. 导入完成后，如果您想检查结果，请选择 **查看导入的文件**。
+
+## 迁移原理
+
+Codex 会同时检查您的用户级设置和当前项目。用户级设置来自您机器上的文件；项目级设置来自您打开的仓库中的文件。
+
+当您进行导入时，Codex 会：
+
+1. 检测它能找到的设置。
+2. 导入选中的、可以直接迁移的项。
+3. 在导入完成后再次进行检查。
+4. 如果还有任何需要后续处理的工作，会提议在新线程中继续迁移。
+
+## Codex 可以导入的内容
+
+| 检测到的设置 | Codex 目标 |
+| --- | --- |
+| 指令文件 | `AGENTS.md` |
+| settings.json | `config.toml` |
+| Skills | Codex 技能 |
+| 最近 30 天的会话 | Codex 线程和项目 |
+| MCP 服务器配置 | Codex MCP 配置 |
+| Hooks | Codex 钩子 |
+| 斜杠命令 | Codex 技能 |
+| Codex 智能体 | Codex 智能体 |
+
+## 在新线程中完成剩余设置
+
+某些检测到的设置无法干净地一一映射到 Codex。对于这些项目，Codex 可以使用 `migrate-to-codex` 技能打开一个新线程，以帮助完成迁移。
+
+当这种情况发生时，Codex 会显示剩余的设置，并提供 **在 Codex 中继续**。
+
+
+![导入后找到的额外设置](/images/codex/migrate/additional-setup-light.png)
+
+如果你继续，Codex 会打开一个新线程，并已填入剩余工作。该线程会将用户级设置和项目级设置分开，这样你就可以看到每个剩余项目应该放在哪里。
+
+![Codex 中的后续迁移任务](/images/codex/migrate/continue-with-codex-light.png)
+
+## 导入后需要审查的内容
+
+在依赖迁移后的设置之前，请先检查所有已迁移的设置，尤其是：
+
+- 导入的技能和代理中的工具限制或权限。
+- 使用自定义身份验证、请求头、环境变量或传输方式的 MCP 服务器设置。
+- 在 Codex 中行为可能不同的 Hooks。
+- 插件、市场或其他需要手动跟进的剩余设置。
+- 依赖参数、Shell 插值或文件路径占位符的提示词模板或命令式提示词。
+
+## 切换之后
+
+导入完成后，打开一个已迁移的项目，并从那里继续。如果你是 Codex 新用户，请查看 [快速入门](codex/quickstart)，了解后续设置流程。
+

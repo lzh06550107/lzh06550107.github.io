@@ -1,0 +1,92 @@
+---
+title: Codex 模型
+description: 了解驱动 Codex 的 AI 模型
+---
+
+import { Image } from '@astrojs/image/components';
+
+## Codex 模型
+
+认识驱动 Codex 的 AI 模型。
+
+## 推荐模型
+
+### gpt-5.5
+
+![gpt-5.5](/images/codex/models/gpt-5.5.jpg)
+
+最新的前沿模型，适用于复杂编程、计算机使用、知识工作和研究。
+
+```bash
+codex -m gpt-5.5
+```
+
+### gpt-5.4
+
+![gpt-5.4](/images/codex/models/gpt-5.4.jpg)
+
+旗舰前沿模型，拥有业界领先的编码能力。
+
+```bash
+codex -m gpt-5.4
+```
+
+### gpt-5.4-mini
+
+![gpt-5.4-mini](/images/codex/models/gpt-5.4-mini.jpg)
+
+快速高效的模型，适用于响应式编码任务和子代理。
+
+```bash
+codex -m gpt-5.4-mini
+```
+
+### gpt-5.3-codex
+
+![gpt-5.3-codex](/images/codex/models/gpt-5.3-codex.jpg)
+
+业界领先的编码模型，适用于复杂软件工程。
+
+```bash
+codex -m gpt-5.3-codex
+```
+
+### gpt-5.3-codex-spark
+
+![gpt-5.3-codex-spark](/images/codex/models/gpt-5.3-codex-spark.jpg)
+
+纯文本研究预览版，针对近乎实时的编码迭代进行了优化。需要 ChatGPT Pro。
+
+```bash
+codex -m gpt-5.3-codex-spark
+```
+
+## 其他模型
+
+### gpt-5.2
+
+![gpt-5.2](/images/codex/models/gpt-5.2.jpg)
+
+上一代通用模型，适用于编码和智能体任务。
+
+```bash
+codex -m gpt-5.2
+```
+
+## 配置默认模型
+
+在 `config.toml` 中配置默认本地模型：
+
+```toml
+model = "gpt-5.5"
+```
+
+## 临时切换模型
+
+- **CLI**：使用 `/model` 命令
+- **IDE**：使用模型选择器
+- **命令行标志**：使用 `--model` 或 `-m` 标志
+
+```bash
+codex -m gpt-5.5
+```

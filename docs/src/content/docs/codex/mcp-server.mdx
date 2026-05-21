@@ -1,0 +1,417 @@
+---
+title: 将 Codex 与 Agents SDK 结合使用
+description: 将 Codex 作为 MCP 服务器调用，构建多智能体开发工作流
+sidebar:
+  order: 21
+---
+
+import { Code } from '@astrojs/starlight/components';
+
+原文链接：[Use Codex with the Agents SDK](https://developers.openai.com/codex/guides/agents-sdk)
+
+## 将 Codex 作为 MCP 服务器运行
+
+你可以将 Codex 作为 MCP 服务器运行，并从其他 MCP 客户端（例如，使用 [OpenAI Agents SDK MCP 集成](https://openai.github.io/openai-agents-python/mcp/) 构建的智能体）连接它。
+
+要启动 Codex 作为 MCP 服务器，可以使用以下命令：
+
+```bash
+codex mcp-server
+```
+
+你还可以使用 [Model Context Protocol Inspector](https://github.com/modelcontextprotocol/inspector) 启动 Codex MCP 服务器：
+
+```bash
+npx @modelcontextprotocol/inspector codex mcp-server
+```
+
+发送 `tools/list` 请求会看到两个工具：
+
+**codex**：运行 Codex 会话。接受与 Codex Config 结构体匹配的配置参数。`codex` 工具接受以下属性：
+
+| 属性 | 类型 | 描述 |
+|------|------|------|
+| `prompt`（必需） | `string` | 启动 Codex 对话的初始用户提示。 |
+| `approval-policy` | `string` | 模型生成的 shell 命令的审批策略：`untrusted`、`on-request` 和 `never`。 |
+| `base-instructions` | `string` | 用于替代默认指令的指令集。 |
+| `config` | `object` | 覆盖 `$CODEX_HOME/config.toml` 中设置的单独配置项。 |
+| `cwd` | `string` | 会话的工作目录。如果是相对路径，则相对于服务器进程的当前目录解析。 |
+| `include-plan-tool` | `boolean` | 是否在对话中包含计划工具。 |
+| `model` | `string` | 可选的模型名称覆盖（例如 `o3`、`o4-mini`）。 |
+| `profile` | `string` | 来自 `config.toml` 的配置 profile，用于指定默认选项。 |
+| `sandbox` | `string` | 沙箱模式：`read-only`、`workspace-write` 或 `danger-full-access`。 |
+
+**codex-reply**：通过提供线程 ID 和提示来继续 Codex 会话。`codex-reply` 工具接受以下属性：
+
+| 属性 | 类型 | 描述 |
+|------|------|------|
+| `prompt`（必需） | `string` | 继续 Codex 对话的下一个用户提示。 |
+| `threadId`（必需） | `string` | 要继续的线程 ID。 |
+| `conversationId`（已弃用） | `string` | `threadId` 的已弃用别名（为兼容性保留）。 |
+
+使用 `tools/call` 响应中 `structuredContent.threadId` 提供的 `threadId`。审批提示（`exec`/`patch`）也会在其 params 负载中包含 `threadId`。
+
+示例响应负载：
+
+```json
+{
+  "structuredContent": {
+    "threadId": "019bbb20-bff6-7130-83aa-bf45ab33250e",
+    "content": "`ls -lah`（或 `ls -alh`）—— 长列表，包含隐藏文件，人类可读的文件大小。"
+  },
+  "content": [
+    {
+      "type": "text",
+      "text": "`ls -lah`（或 `ls -alh`）—— 长列表，包含隐藏文件，人类可读的文件大小。"
+    }
+  ]
+}
+```
+
+注意：现代 MCP 客户端通常在工具调用结果中仅返回 `structuredContent`（如果存在），不过 Codex MCP 服务器也会返回 `content` 以适配较旧的 MCP 客户端。
+
+## 创建多智能体工作流
+
+Codex CLI 的能力远不止运行临时任务。通过将 CLI 暴露为模型上下文协议（MCP）服务器并用 OpenAI Agents SDK 编排它，你可以创建确定性的、可审查的工作流，从单个智能体扩展到完整的软件交付流水线。
+
+本指南将演示与 [OpenAI Cookbook](https://cookbook.openai.com/examples/codex/agents_sdk_integration) 中展示的相同工作流。你将：
+
+- 将 Codex CLI 作为长期运行的 MCP 服务器启动，
+- 构建一个专注的单智能体工作流，生成一个可玩的浏览器游戏，
+- 编排一个具有交接、护栏和完整追踪的多智能体团队，便于事后审查。
+
+开始之前，请确保你已具备以下条件：
+
+- 本地安装了 Codex CLI，确保 `npx codex` 可以运行。
+- Python 3.10+ 及 pip。
+- Node.js 18+（`npx` 所需）。
+- 本地存储的 OpenAI API 密钥。你可以在 [OpenAI 仪表板](https://platform.openai.com/api-keys) 中创建或管理密钥。
+
+为本指南创建工作目录并将 API 密钥添加到 `.env` 文件：
+
+```bash
+mkdir codex-workflows
+cd codex-workflows
+printf "OPENAI_API_KEY=sk-..." > .env
+```
+
+### 安装依赖
+
+Agents SDK 负责跨 Codex 的编排、交接和追踪。安装最新的 SDK 包：
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade openai openai-agents python-dotenv
+```
+
+激活虚拟环境可以将 SDK 依赖与系统其余部分隔离开来。
+
+### 将 Codex CLI 初始化为 MCP 服务器
+
+首先将 Codex CLI 转变为 Agents SDK 可以调用的 MCP 服务器。该服务器暴露两个工具（`codex()` 用于启动对话，`codex-reply()` 用于继续对话），并在多个智能体轮次之间保持 Codex 存活。
+
+创建一个名为 `codex_mcp.py` 的文件并添加以下内容：
+
+```python
+import asyncio
+
+from agents import Agent, Runner
+from agents.mcp import MCPServerStdio
+
+
+async def main() -> None:
+    async with MCPServerStdio(
+        name="Codex CLI",
+        params={
+            "command": "npx",
+            "args": ["-y", "codex", "mcp-server"],
+        },
+        client_session_timeout_seconds=360000,
+    ) as codex_mcp_server:
+        print("Codex MCP server started.")
+        # 更多逻辑将在后续章节中添加。
+        return
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+运行此脚本一次以验证 Codex 是否成功启动：
+
+```bash
+python codex_mcp.py
+```
+
+脚本在打印 `Codex MCP server started.` 后退出。在后续章节中，你将在更丰富的工作流中重用同一个 MCP 服务器。
+
+### 构建单智能体工作流
+
+让我们从一个限定范围的示例开始，使用 Codex MCP 来交付一个小型浏览器游戏。该工作流依赖两个智能体：
+
+- **游戏设计师**：为游戏撰写简报。
+- **游戏开发者**：通过调用 Codex MCP 来实现游戏。
+
+使用以下代码更新 `codex_mcp.py`。它保留了上面的 MCP 服务器设置并添加了两个智能体。
+
+```python
+import asyncio
+import os
+
+from dotenv import load_dotenv
+
+from agents import Agent, Runner, set_default_openai_api
+from agents.mcp import MCPServerStdio
+
+load_dotenv(override=True)
+set_default_openai_api(os.getenv("OPENAI_API_KEY"))
+
+
+async def main() -> None:
+    async with MCPServerStdio(
+        name="Codex CLI",
+        params={
+            "command": "npx",
+            "args": ["-y", "codex", "mcp-server"],
+        },
+        client_session_timeout_seconds=360000,
+    ) as codex_mcp_server:
+        developer_agent = Agent(
+            name="Game Developer",
+            instructions=(
+                "You are an expert in building simple games using basic html + css + javascript with no dependencies. "
+                "Save your work in a file called index.html in the current directory. "
+                "Always call codex with \"approval-policy\": \"never\" and \"sandbox\": \"workspace-write\"."
+            ),
+            mcp_servers=[codex_mcp_server],
+        )
+
+        designer_agent = Agent(
+            name="Game Designer",
+            instructions=(
+                "You are an indie game connoisseur. Come up with an idea for a single page html + css + javascript game that a developer could build in about 50 lines of code. "
+                "Format your request as a 3 sentence design brief for a game developer and call the Game Developer coder with your idea."
+            ),
+            model="gpt-5",
+            handoffs=[developer_agent],
+        )
+
+        await Runner.run(designer_agent, "Implement a fun new game!")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+执行脚本：
+
+```bash
+python codex_mcp.py
+```
+
+Codex 将读取设计师的简报，创建一个 `index.html` 文件，并将完整的游戏写入磁盘。在浏览器中打开生成的文件即可游玩。每次运行都会生成不同的设计，具有独特的玩法和润色。
+
+### 扩展到多智能体工作流
+
+现在将单智能体设置转变为一个可编排、可追踪的工作流。系统增加了：
+
+- **项目经理**：创建共享需求，协调交接，并执行防护规则。
+- **设计师、前端开发者、后端开发者和测试员**：每个角色都有明确限定的指令和输出文件夹。
+
+创建一个名为 `multi_agent_workflow.py` 的新文件：
+
+```python
+import asyncio
+import os
+
+from dotenv import load_dotenv
+
+from agents import (
+    Agent,
+    ModelSettings,
+    Runner,
+    WebSearchTool,
+    set_default_openai_api,
+)
+from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
+from agents.mcp import MCPServerStdio
+from openai.types.shared import Reasoning
+
+load_dotenv(override=True)
+set_default_openai_api(os.getenv("OPENAI_API_KEY"))
+
+
+async def main() -> None:
+    async with MCPServerStdio(
+        name="Codex CLI",
+        params={"command": "npx", "args": ["-y", "codex", "mcp"]},
+        client_session_timeout_seconds=360000,
+    ) as codex_mcp_server:
+        designer_agent = Agent(
+            name="Designer",
+            instructions=(
+                f"""{RECOMMENDED_PROMPT_PREFIX}"""
+                "You are the Designer.\n"
+                "Your only source of truth is AGENT_TASKS.md and REQUIREMENTS.md from the Project Manager.\n"
+                "Do not assume anything that is not written there.\n\n"
+                "You may use the internet for additional guidance or research."
+                "Deliverables (write to /design):\n"
+                "- design_spec.md – a single page describing the UI/UX layout, main screens, and key visual notes as requested in AGENT_TASKS.md.\n"
+                "- wireframe.md – a simple text or ASCII wireframe if specified.\n\n"
+                "Keep the output short and implementation-friendly.\n"
+                "When complete, handoff to the Project Manager with transfer_to_project_manager."
+                "When creating files, call Codex MCP with {\"approval-policy\":\"never\",\"sandbox\":\"workspace-write\"}."
+            ),
+            model="gpt-5",
+            tools=[WebSearchTool()],
+            mcp_servers=[codex_mcp_server],
+        )
+
+        frontend_developer_agent = Agent(
+            name="Frontend Developer",
+            instructions=(
+                f"""{RECOMMENDED_PROMPT_PREFIX}"""
+                "You are the Frontend Developer.\n"
+                "Read AGENT_TASKS.md and design_spec.md. Implement exactly what is described there.\n\n"
+                "Deliverables (write to /frontend):\n"
+                "- index.html – main page structure\n"
+                "- styles.css or inline styles if specified\n"
+                "- main.js or game.js if specified\n\n"
+                "Follow the Designer's DOM structure and any integration points given by the Project Manager.\n"
+                "Do not add features or branding beyond the provided documents.\n\n"
+                "When complete, handoff to the Project Manager with transfer_to_project_manager_agent."
+                "When creating files, call Codex MCP with {\"approval-policy\":\"never\",\"sandbox\":\"workspace-write\"}."
+            ),
+            model="gpt-5",
+            mcp_servers=[codex_mcp_server],
+        )
+
+        backend_developer_agent = Agent(
+            name="Backend Developer",
+            instructions=(
+                f"""{RECOMMENDED_PROMPT_PREFIX}"""
+                "You are the Backend Developer.\n"
+                "Read AGENT_TASKS.md and REQUIREMENTS.md. Implement the backend endpoints described there.\n\n"
+                "Deliverables (write to /backend):\n"
+                "- package.json – include a start script if requested\n"
+                "- server.js – implement the API endpoints and logic exactly as specified\n\n"
+                "Keep the code as simple and readable as possible. No external database.\n\n"
+                "When complete, handoff to the Project Manager with transfer_to_project_manager_agent."
+                "When creating files, call Codex MCP with {\"approval-policy\":\"never\",\"sandbox\":\"workspace-write\"}."
+            ),
+            model="gpt-5",
+            mcp_servers=[codex_mcp_server],
+        )
+
+        tester_agent = Agent(
+            name="Tester",
+            instructions=(
+                f"""{RECOMMENDED_PROMPT_PREFIX}"""
+                "You are the Tester.\n"
+                "Read AGENT_TASKS.md and TEST.md. Verify that the outputs of the other roles meet the acceptance criteria.\n\n"
+                "Deliverables (write to /tests):\n"
+                "- TEST_PLAN.md – bullet list of manual checks or automated steps as requested\n"
+                "- test.sh or a simple automated script if specified\n\n"
+                "Keep it minimal and easy to run.\n\n"
+                "When complete, handoff to the Project Manager with transfer_to_project_manager."
+                "When creating files, call Codex MCP with {\"approval-policy\":\"never\",\"sandbox\":\"workspace-write\"}."
+            ),
+            model="gpt-5",
+            mcp_servers=[codex_mcp_server],
+        )
+
+        project_manager_agent = Agent(
+            name="Project Manager",
+            instructions=(
+                f"""{RECOMMENDED_PROMPT_PREFIX}"""
+                """
+                You are the Project Manager.
+
+                Objective:
+                Convert the input task list into three project-root files the team will execute against.
+
+                Deliverables (write in project root):
+                - REQUIREMENTS.md: concise summary of product goals, target users, key features, and constraints.
+                - TEST.md: tasks with [Owner] tags (Designer, Frontend, Backend, Tester) and clear acceptance criteria.
+                - AGENT_TASKS.md: one section per role containing:
+                  - Project name
+                  - Required deliverables (exact file names and purpose)
+                  - Key technical notes and constraints
+
+                Process:
+                - Resolve ambiguities with minimal, reasonable assumptions. Be specific so each role can act without guessing.
+                - Create files using Codex MCP with {"approval-policy":"never","sandbox":"workspace-write"}.
+                - Do not create folders. Only create REQUIREMENTS.md, TEST.md, AGENT_TASKS.md.
+
+                Handoffs (gated by required files):
+                1) After the three files above are created, hand off to the Designer with transfer_to_designer_agent and include REQUIREMENTS.md and AGENT_TASKS.md.
+                2) Wait for the Designer to produce /design/design_spec.md. Verify that file exists before proceeding.
+                3) When design_spec.md exists, hand off in parallel to both:
+                   - Frontend Developer with transfer_to_frontend_developer_agent (provide design_spec.md, REQUIREMENTS.md, AGENT_TASKS.md).
+                   - Backend Developer with transfer_to_backend_developer_agent (provide REQUIREMENTS.md, AGENT_TASKS.md).
+                4) Wait for Frontend to produce /frontend/index.html and Backend to produce /backend/server.js. Verify both files exist.
+                5) When both exist, hand off to the Tester with transfer_to_tester_agent and provide all prior artifacts and outputs.
+                6) Do not advance to the next handoff until the required files for that step are present. If something is missing, request the owning agent to supply it and re-check.
+
+                PM Responsibilities:
+                - Coordinate all roles, track file completion, and enforce the above gating checks.
+                - Do NOT respond with status updates. Just handoff to the next agent until the project is complete.
+                """
+            ),
+            model="gpt-5",
+            model_settings=ModelSettings(
+                reasoning=Reasoning(effort="medium"),
+            ),
+            handoffs=[designer_agent, frontend_developer_agent, backend_developer_agent, tester_agent],
+            mcp_servers=[codex_mcp_server],
+        )
+
+        designer_agent.handoffs = [project_manager_agent]
+        frontend_developer_agent.handoffs = [project_manager_agent]
+        backend_developer_agent.handoffs = [project_manager_agent]
+        tester_agent.handoffs = [project_manager_agent]
+
+        task_list = """
+Goal: Build a tiny browser game to showcase a multi-agent workflow.
+
+High-level requirements:
+- Single-screen game called "Bug Busters".
+- Player clicks a moving bug to earn points.
+- Game ends after 20 seconds and shows final score.
+- Optional: submit score to a simple backend and display a top-10 leaderboard.
+
+Roles:
+- Designer: create a one-page UI/UX spec and basic wireframe.
+- Frontend Developer: implement the page and game logic.
+- Backend Developer: implement a minimal API (GET /health, GET/POST /scores).
+- Tester: write a quick test plan and a simple script to verify core routes.
+
+Constraints:
+- No external database—memory storage is fine.
+- Keep everything readable for beginners; no frameworks required.
+- All outputs should be small files saved in clearly named folders.
+"""
+
+        result = await Runner.run(project_manager_agent, task_list, max_turns=30)
+        print(result.final_output)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+运行脚本并观察生成的文件：
+
+```bash
+python multi_agent_workflow.py
+ls -R
+```
+
+项目经理智能体会写入 `REQUIREMENTS.md`、`TEST.md` 和 `AGENT_TASKS.md`，然后协调设计师、前端、后端和测试员智能体之间的交接。每个智能体在其自己的文件夹中写入限定范围的制品，然后将控制权交还给项目经理。
+
+### 追踪工作流
+
+Codex 会自动记录追踪，捕获每个提示、工具调用和交接。多智能体运行完成后，打开 [Traces 仪表板](https://platform.openai.com/traces) 查看执行时间线。
+
+顶层追踪突出显示了项目经理如何在前进之前验证交接。点击各个步骤可以查看提示、Codex MCP 调用、写入的文件和执行时长。这些细节使得审计每次交接、理解工作流如何逐轮演进变得直接明了。这些追踪让你无需额外工具即可轻松调试工作流问题、审计智能体行为，并随时间衡量性能。

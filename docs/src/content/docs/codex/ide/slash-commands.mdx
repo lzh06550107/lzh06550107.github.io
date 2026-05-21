@@ -1,0 +1,36 @@
+---
+title: 斜杠命令
+description: Codex IDE 扩展斜杠命令参考，用于在聊天输入中快速控制 Codex。
+sidebar:
+  order: 8
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex IDE 扩展斜杠命令
+
+> Codex IDE 扩展斜杠命令参考
+
+斜杠命令让你无需离开聊天输入框即可控制 Codex。使用它们可以查看状态、在本地和云端模式之间切换，或发送反馈。
+
+## 使用斜杠命令
+
+1. 在 Codex 聊天输入框中，输入 `/`。
+2. 从列表中选择一个命令，或继续输入以筛选（例如，`/status`）。
+3. 按 **Enter**。
+
+## 可用的斜杠命令
+
+<div class="md:max-w-5xl mx-auto overflow-x-auto">
+
+| 斜杠命令 | 描述 |
+|---|---|
+| `/auto-context` | 打开或关闭自动上下文，以自动包含最近的文件和 IDE 上下文。 |
+| `/cloud` | 切换到云端模式，远程运行任务（需要云端访问权限）。 |
+| `/cloud-environment` | 选择要使用的云端环境（仅在云端模式下可用）。 |
+| `/feedback` | 打开反馈对话框，提交反馈并可选择包含日志。 |
+| `/local` | 切换到本地模式，在工作区中运行任务。 |
+| `/review` | 启动代码审查模式，审查未提交的更改或与基准分支进行比较。 |
+| `/status` | 显示线程 ID、上下文使用情况和速率限制。 |
+
+</div>

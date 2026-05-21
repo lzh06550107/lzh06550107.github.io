@@ -1,0 +1,752 @@
+---
+title: 配置参考
+description: Codex config.toml 和 requirements.toml 完整参考
+sidebar:
+  order: 10
+---
+
+将此页面用作 Codex 配置文件的可搜索参考。有关概念指导和示例，请从 [Config 基础](/codex/config-basics) 和 [高级配置](/codex/advanced-config) 开始。
+
+## config.toml
+
+用户级配置位于 `~/.codex/config.toml`。你也可以在 `.codex/config.toml` 文件中添加项目范围的覆盖。Codex 仅在你信任该项目时加载项目范围的配置文件。
+
+项目范围的配置不能覆盖以下机器本地的键：provider、auth、notification、profile 或 telemetry routing。当项目本地的 `.codex/config.toml` 中出现以下键时，Codex 会忽略它们：`openai_base_url`、`chatgpt_base_url`、`model_provider`、`model_providers`、`notify`、`profile`、`profiles`、`experimental_realtime_ws_base_url` 和 `otel`；请将这些配置放在用户级配置中。
+
+对于 sandbox 和 approval 键（`approval_policy`、`sandbox_mode` 和 `sandbox_workspace_write.*`），请结合 [Sandbox 和审批](/codex/sandbox-and-approvals)、[可写根目录中的受保护路径](/codex/protected-paths) 和 [网络访问](/codex/network-access) 来阅读此参考。对于 beta 权限配置文件，请参阅 [Permissions](/codex/permissions)。
+
+### agents
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `agents.<name>.config_file` | string (路径) | 指向该角色的 TOML 配置层的路径；相对路径会从声明该角色的配置文件所在目录解析。 |
+| `agents.<name>.description` | string | 当 Codex 选择和生成该 agent 类型时显示的角色指导信息。 |
+| `agents.<name>.nickname_candidates` | array\<string\> | 该角色生成的 agent 的可选显示昵称池。 |
+| `agents.job_max_runtime_seconds` | number | `spawn_agents_on_csv` 作业的默认每 worker 超时时间。未设置时，该工具默认每个 worker 为 1800 秒。 |
+| `agents.max_depth` | number | 生成的 agent 线程允许的最大嵌套深度（根会话从深度 0 开始；默认值：1）。 |
+| `agents.max_threads` | number | 可同时打开的 agent 线程的最大数量。未设置时默认为 6。 |
+
+### allow_login_shell
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `allow_login_shell` | boolean | 允许基于 shell 的工具使用登录 shell 语义。默认为 `true`；设为 `false` 时，`login = true` 的请求会被拒绝，省略 login 时默认使用非登录 shell。 |
+
+### analytics
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `analytics.enabled` | boolean | 为此机器/配置文件启用或禁用分析。未设置时，使用客户端默认值。 |
+
+### approval_policy
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `approval_policy` | `untrusted` \| `on-request` \| `never` \| `{ granular = { sandbox_approval = bool, rules = bool, mcp_elicitations = bool, request_permissions = bool, skill_approval = bool } }` | 控制 Codex 何时在执行命令前暂停等待审批。你也可以使用 `approval_policy = { granular = { ... } }` 来允许或自动拒绝特定提示类别，同时保持其他提示为交互式。`on-failure` 已弃用；请使用 `on-request`（交互式运行）或 `never`（非交互式运行）。 |
+| `approval_policy.granular.mcp_elicitations` | boolean | 当为 `true` 时，允许 MCP 引导提示显示，而不是自动拒绝。 |
+| `approval_policy.granular.request_permissions` | boolean | 当为 `true` 时，允许来自 `request_permissions` 工具的提示显示。 |
+| `approval_policy.granular.rules` | boolean | 当为 `true` 时，允许由 execpolicy 提示规则触发的审批显示。 |
+| `approval_policy.granular.sandbox_approval` | boolean | 当为 `true` 时，允许沙箱升级审批提示显示。 |
+| `approval_policy.granular.skill_approval` | boolean | 当为 `true` 时，允许 skill 脚本审批提示显示。 |
+
+### approvals_reviewer
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `approvals_reviewer` | `user` \| `auto_review` | 在 `on-request` 或 `granular` 审批策略下，谁审查符合条件的审批提示。默认为 `user`；`auto_review` 使用审查子 agent。此设置不会更改沙箱模式或沙箱内已允许的审查操作。 |
+
+### apps
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `apps._default.destructive_enabled` | boolean | 对带有 `destructive_hint = true` 的应用工具的默认允许/拒绝。 |
+| `apps._default.enabled` | boolean | 所有应用的默认启用状态，除非按应用覆盖。 |
+| `apps._default.open_world_enabled` | boolean | 对带有 `open_world_hint = true` 的应用工具的默认允许/拒绝。 |
+| `apps.<id>.default_tools_approval_mode` | `auto` \| `prompt` \| `approve` | 此应用中工具的默认审批行为，除非存在按工具的覆盖。 |
+| `apps.<id>.default_tools_enabled` | boolean | 此应用中工具的默认启用状态，除非存在按工具的覆盖。 |
+| `apps.<id>.destructive_enabled` | boolean | 允许或阻止此应用中声明 `destructive_hint = true` 的工具。 |
+| `apps.<id>.enabled` | boolean | 按 id 启用或禁用特定的应用/连接器（默认：`true`）。 |
+| `apps.<id>.open_world_enabled` | boolean | 允许或阻止此应用中声明 `open_world_hint = true` 的工具。 |
+| `apps.<id>.tools.<tool>.approval_mode` | `auto` \| `prompt` \| `approve` | 对单个应用工具的按工具审批行为覆盖。 |
+| `apps.<id>.tools.<tool>.enabled` | boolean | 对应用工具的按工具启用覆盖（例如 `repos/list`）。 |
+
+### auto_review
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `auto_review.policy` | string | 用于自动审查的本地 Markdown 策略指令。托管的 `guardian_policy_config` 优先。空白值被忽略。 |
+
+### background_terminal_max_timeout
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `background_terminal_max_timeout` | number | 空 `write_stdin` 轮询（后台终端轮询）的最大轮询窗口（毫秒）。默认值：300000（5 分钟）。替代旧的 `background_terminal_timeout` 键。 |
+
+### chatgpt_base_url
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `chatgpt_base_url` | string | 覆盖 ChatGPT 登录流程中使用的基础 URL。 |
+
+### check_for_update_on_startup
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `check_for_update_on_startup` | boolean | 在启动时检查 Codex 更新（仅在更新由中央管理时设为 `false`）。 |
+
+### cli_auth_credentials_store
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `cli_auth_credentials_store` | `file` \| `keyring` \| `auto` | 控制 CLI 存储缓存凭据的位置（基于文件的 `auth.json` 与操作系统密钥链）。 |
+
+### commit_attribution
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `commit_attribution` | string | 启用 `[features].codex_git_commit` 时使用的提交联合作者尾注。默认为 `Codex <noreply@openai.com>`；设为 `""` 以禁用。 |
+
+### compact_prompt
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `compact_prompt` | string | 用于历史压缩提示的内联覆盖。 |
+
+### default_permissions
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `default_permissions` | string | 应用于沙箱工具调用的默认权限配置文件的名称。内置选项为 `:read-only`、`:workspace` 和 `:danger-full-access`；自定义配置文件名称需要匹配 `[permissions.<name>]` 表。 |
+
+### developer_instructions
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `developer_instructions` | string | 注入到会话中的附加开发者指令（可选）。 |
+
+### disable_paste_burst
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `disable_paste_burst` | boolean | 在 TUI 中禁用批量粘贴检测。 |
+
+### experimental_compact_prompt_file
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `experimental_compact_prompt_file` | string (路径) | 从文件中加载压缩提示覆盖（实验性）。 |
+
+### experimental_use_unified_exec_tool
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `experimental_use_unified_exec_tool` | boolean | 启用统一 exec 的旧名称；推荐使用 `[features].unified_exec` 或 `codex --enable unified_exec`。 |
+
+### features
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `features.apps` | boolean | 启用 ChatGPT Apps/连接器支持（实验性）。 |
+| `features.codex_git_commit` | boolean | 启用 Codex 生成的 git 提交。启用后，Codex 使用 `commit_attribution` 在生成的提交消息中追加 `Co-authored-by:` 尾注。 |
+| `features.enable_request_compression` | boolean | 使用 zstd 压缩流式请求体（稳定；默认开启）。 |
+| `features.fast_mode` | boolean | 在 TUI 中启用模型目录服务层级选择，包括当前模型支持的 Fast 层级命令（稳定；默认开启）。 |
+| `features.hooks` | boolean | 启用从 `hooks.json` 或内联 `[hooks]` 配置加载的生命周期钩子。`features.codex_hooks` 是已弃用的别名。 |
+| `features.memories` | boolean | 启用记忆功能（默认关闭）。 |
+| `features.multi_agent` | boolean | 启用多 agent 协作工具（`spawn_agent`、`send_input`、`resume_agent`、`wait_agent` 和 `close_agent`）（稳定；默认开启）。 |
+| `features.network_proxy` | boolean \| table | 启用沙箱网络。使用表形式设置网络策略选项，如域名（实验性；默认关闭）。 |
+| `features.network_proxy.allow_local_binding` | boolean | 允许更广泛的本地/私有网络访问。默认为 `false`；确切的本地 IP 文字或 localhost 允许规则仍可允许特定本地目标。 |
+| `features.network_proxy.allow_upstream_proxy` | boolean | 允许通过环境中的上游代理进行链式连接。默认为 `true`。 |
+| `features.network_proxy.dangerously_allow_all_unix_sockets` | boolean | 允许任意 Unix socket 目标，而不是仅允许列表访问。默认为 `false`；仅在严格控制的环境中使用。 |
+| `features.network_proxy.dangerously_allow_non_loopback_proxy` | boolean | 允许非回环监听地址。默认为 `false`；启用它可能会将代理监听器暴露到 localhost 之外。 |
+| `features.network_proxy.domains` | map\<string, `allow` \| `deny`\> | 沙箱网络的域名策略。默认未设置，这意味着在添加允许规则之前不允许任何外部目标。支持精确主机、`*.example.com`（仅子域名）、`**.example.com`（顶级域名加子域名）以及全局 `*` 允许规则；推荐使用限定范围的规则，因为 `*` 会广泛开放公共出站访问。添加 `deny` 规则用于阻止目标；冲突时 deny 优先。 |
+| `features.network_proxy.enable_socks5` | boolean | 暴露 SOCKS5 支持。默认为 `true`。 |
+| `features.network_proxy.enable_socks5_udp` | boolean | 允许通过 SOCKS5 传输 UDP。默认为 `true`。 |
+| `features.network_proxy.enabled` | boolean | 启用沙箱网络。默认为 `false`。 |
+| `features.network_proxy.proxy_url` | string | 沙箱网络的 HTTP 监听器 URL。默认为 `"http://127.0.0.1:3128"`。 |
+| `features.network_proxy.socks_url` | string | SOCKS5 监听器 URL。默认为 `"http://127.0.0.1:8081"`。 |
+| `features.network_proxy.unix_sockets` | map\<string, `allow` \| `none`\> | 沙箱网络的 Unix socket 策略。默认未设置；为允许的 socket 添加 `allow` 条目。 |
+| `features.personality` | boolean | 启用个性选择控件（稳定；默认开启）。 |
+| `features.plugin_hooks` | boolean | 选择加入已启用插件捆绑的生命周期钩子。此版本默认关闭；设为 `true` 以选择加入。 |
+| `features.prevent_idle_sleep` | boolean | 在 turn 活跃运行时防止机器休眠（实验性；默认关闭）。 |
+| `features.shell_snapshot` | boolean | 快照 shell 环境以加速重复命令（稳定；默认开启）。 |
+| `features.shell_tool` | boolean | 启用用于运行命令的默认 shell 工具（稳定；默认开启）。 |
+| `features.skill_mcp_dependency_install` | boolean | 允许为 skills 提示和安装缺失的 MCP 依赖（稳定；默认开启）。 |
+| `features.undo` | boolean | 启用撤销支持（稳定；默认关闭）。 |
+| `features.unified_exec` | boolean | 使用统一的 PTY 支持 exec 工具（稳定；除 Windows 外默认启用）。 |
+| `features.web_search` | boolean | 已弃用的旧版开关；推荐使用顶层 `web_search` 设置。 |
+| `features.web_search_cached` | boolean | 已弃用的旧版开关。当 `web_search` 未设置时，`true` 映射为 `web_search = "cached"`。 |
+| `features.web_search_request` | boolean | 已弃用的旧版开关。当 `web_search` 未设置时，`true` 映射为 `web_search = "live"`。 |
+
+### feedback
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `feedback.enabled` | boolean | 通过 `/feedback` 在 Codex 各界面启用反馈提交（默认：`true`）。 |
+
+### file_opener
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `file_opener` | `vscode` \| `vscode-insiders` \| `windsurf` \| `cursor` \| `none` | 用于从 Codex 输出打开引用的 URI scheme（默认：`vscode`）。 |
+
+### forced_chatgpt_workspace_id
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `forced_chatgpt_workspace_id` | string (uuid) | 将 ChatGPT 登录限制到特定的工作区标识符。 |
+
+### forced_login_method
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `forced_login_method` | `chatgpt` \| `api` | 将 Codex 限制为特定的身份验证方法。 |
+
+### hide_agent_reasoning
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `hide_agent_reasoning` | boolean | 在 TUI 和 `codex exec` 输出中隐藏推理事件。 |
+
+### history
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `history.max_bytes` | number | 如果设置，通过删除最旧的条目来限制历史文件的大小（字节）。 |
+| `history.persistence` | `save-all` \| `none` | 控制 Codex 是否将会话记录保存到 `history.jsonl`。 |
+
+### hooks
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `hooks` | table | 在 `config.toml` 中内联配置的生命周期钩子。使用与 `hooks.json` 相同的事件模式；有关示例和支持的事件，请参阅 [Hooks 指南](/codex/hooks)。 |
+
+### instructions
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `instructions` | string | 保留供将来使用；推荐使用 `model_instructions_file` 或 `AGENTS.md`。 |
+
+### log_dir
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `log_dir` | string (路径) | Codex 写入日志文件的目录（例如 `codex-tui.log`）；默认为 `$CODEX_HOME/log`。 |
+
+### MCP OAuth 设置
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `mcp_oauth_callback_port` | integer | MCP OAuth 登录期间使用的本地 HTTP 回调服务器的可选固定端口。未设置时，Codex 绑定到操作系统选择的临时端口。 |
+| `mcp_oauth_callback_url` | string | MCP OAuth 登录的可选重定向 URI 覆盖（例如，devbox 入口 URL）。`mcp_oauth_callback_port` 仍然控制回调监听器端口。 |
+| `mcp_oauth_credentials_store` | `auto` \| `file` \| `keyring` | MCP OAuth 凭据的首选存储方式。 |
+
+### mcp_servers
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `mcp_servers.<id>.args` | array\<string\> | 传递给 MCP stdio 服务器命令的参数。 |
+| `mcp_servers.<id>.bearer_token_env_var` | string | 为 MCP HTTP 服务器提供 bearer token 的环境变量。 |
+| `mcp_servers.<id>.command` | string | MCP stdio 服务器的启动命令。 |
+| `mcp_servers.<id>.cwd` | string | MCP stdio 服务器进程的工作目录。 |
+| `mcp_servers.<id>.default_tools_approval_mode` | `auto` \| `prompt` \| `approve` | 此服务器上 MCP 工具的默认审批行为，除非存在按工具覆盖。 |
+| `mcp_servers.<id>.disabled_tools` | array\<string\> | 在 `enabled_tools` 之后应用的拒绝列表。 |
+| `mcp_servers.<id>.enabled` | boolean | 禁用 MCP 服务器而不移除其配置。 |
+| `mcp_servers.<id>.enabled_tools` | array\<string\> | MCP 服务器暴露的工具名称允许列表。 |
+| `mcp_servers.<id>.env` | map\<string,string\> | 转发给 MCP stdio 服务器的环境变量。 |
+| `mcp_servers.<id>.env_http_headers` | map\<string,string\> | 从环境变量填充的 MCP HTTP 服务器的 HTTP 头。 |
+| `mcp_servers.<id>.env_vars` | array\<string \| \{ name = string, source = "local" \| "remote" }\> | 为 MCP stdio 服务器额外白名单的环境变量。字符串条目默认为 `source = "local"`；仅对 executor 支持的远程 stdio 使用 `source = "remote"`。 |
+| `mcp_servers.<id>.experimental_environment` | `local` \| `remote` | MCP 服务器的实验性放置位置。`remote` 通过远程 executor 环境启动 stdio 服务器；streamable HTTP 远程放置尚未实现。 |
+| `mcp_servers.<id>.http_headers` | map\<string,string\> | 每个 MCP HTTP 请求中包含的静态 HTTP 头。 |
+| `mcp_servers.<id>.oauth_resource` | string | MCP 登录期间包含的可选 RFC 8707 OAuth 资源参数。 |
+| `mcp_servers.<id>.required` | boolean | 当为 `true` 时，如果此启用的 MCP 服务器无法初始化，则启动/恢复失败。 |
+| `mcp_servers.<id>.scopes` | array\<string\> | 向该 MCP 服务器进行身份验证时请求的 OAuth 范围。 |
+| `mcp_servers.<id>.startup_timeout_ms` | number | `startup_timeout_sec` 的毫秒别名。 |
+| `mcp_servers.<id>.startup_timeout_sec` | number | 覆盖 MCP 服务器的默认 10 秒启动超时。 |
+| `mcp_servers.<id>.tool_timeout_sec` | number | 覆盖 MCP 服务器的默认 60 秒每工具超时。 |
+| `mcp_servers.<id>.tools.<tool>.approval_mode` | `auto` \| `prompt` \| `approve` | 对此服务器上一个 MCP 工具的按工具审批行为覆盖。 |
+| `mcp_servers.<id>.url` | string | MCP streamable HTTP 服务器的端点。 |
+
+### memories
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `memories.consolidation_model` | string | 用于全局记忆整合的可选模型覆盖。 |
+| `memories.disable_on_external_context` | boolean | 当为 `true` 时，使用外部上下文（如 MCP 工具调用、网络搜索或工具搜索）的线程不会被包含在记忆生成中。默认为 `false`。旧别名：`memories.no_memories_if_mcp_or_web_search`。 |
+| `memories.extract_model` | string | 用于每个线程记忆提取的可选模型覆盖。 |
+| `memories.generate_memories` | boolean | 当为 `false` 时，新创建的线程不会被存储为记忆生成输入。默认为 `true`。 |
+| `memories.max_raw_memories_for_consolidation` | number | 保留用于全局整合的最大最近原始记忆数。默认为 256，上限为 4096。 |
+| `memories.max_rollout_age_days` | number | 考虑用于记忆生成的线程的最大天数。默认为 30，限制在 0-90。 |
+| `memories.max_rollouts_per_startup` | number | 每次启动通过处理的最大 rollout 候选数。默认为 16，上限为 128。 |
+| `memories.max_unused_days` | number | 记忆自上次使用以来在不再符合整合条件之前的最大天数。默认为 30，限制在 0-365。 |
+| `memories.min_rate_limit_remaining_percent` | number | 记忆生成开始前 Codex 速率限制窗口中所需的最小剩余百分比。默认为 25，限制在 0-100。 |
+| `memories.min_rollout_idle_hours` | number | 线程在被考虑用于记忆生成之前的最小空闲时间。默认为 6，限制在 1-48。 |
+| `memories.use_memories` | boolean | 当为 `false` 时，Codex 跳过将现有记忆注入未来的会话中。默认为 `true`。 |
+
+### model
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model` | string | 要使用的模型（例如 `gpt-5.5`）。 |
+
+### model_auto_compact_token_limit
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_auto_compact_token_limit` | number | 触发自动历史压缩的 token 阈值（未设置时使用模型默认值）。 |
+
+### model_catalog_json
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_catalog_json` | string (路径) | 启动时加载的可选 JSON 模型目录路径。配置文件级别的 `profiles.<name>.model_catalog_json` 可以按配置文件覆盖此项。 |
+
+### model_context_window
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_context_window` | number | 活动模型可用的上下文窗口 token 数。 |
+
+### model_instructions_file
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_instructions_file` | string (路径) | 替代内置指令的文件，替代 `AGENTS.md`。 |
+
+### model_provider
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_provider` | string | 来自 `model_providers` 的提供者 ID（默认：`openai`）。 |
+
+### model_providers
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_providers.<id>` | table | 自定义提供者定义。内置提供者 ID（`openai`、`ollama` 和 `lmstudio`）是保留的，不能被覆盖。 |
+| `model_providers.<id>.auth` | table | 自定义提供者的基于命令的 bearer token 配置。不要与 `env_key`、`experimental_bearer_token` 或 `requires_openai_auth` 组合使用。 |
+| `model_providers.<id>.auth.args` | array\<string\> | 传递给 token 命令的参数。 |
+| `model_providers.<id>.auth.command` | string | Codex 需要 bearer token 时运行的命令。该命令必须将 token 打印到 stdout。 |
+| `model_providers.<id>.auth.cwd` | string (路径) | token 命令的工作目录。 |
+| `model_providers.<id>.auth.refresh_interval_ms` | number | Codex 主动刷新 token 的频率（毫秒）（默认：300000）。设为 0 仅在身份验证重试后刷新。 |
+| `model_providers.<id>.auth.timeout_ms` | number | token 命令的最大运行时间（毫秒）（默认：5000）。 |
+| `model_providers.<id>.base_url` | string | 模型提供者的 API 基础 URL。 |
+| `model_providers.<id>.env_http_headers` | map\<string,string\> | 当存在时从环境变量填充的 HTTP 头。 |
+| `model_providers.<id>.env_key` | string | 提供提供者 API 密钥的环境变量。 |
+| `model_providers.<id>.env_key_instructions` | string | 提供者 API 密钥的可选设置指导。 |
+| `model_providers.<id>.experimental_bearer_token` | string | 提供者的直接 bearer token（不推荐；使用 `env_key`）。 |
+| `model_providers.<id>.http_headers` | map\<string,string\> | 添加到提供者请求的静态 HTTP 头。 |
+| `model_providers.<id>.name` | string | 自定义模型提供者的显示名称。 |
+| `model_providers.<id>.query_params` | map\<string,string\> | 追加到提供者请求的额外查询参数。 |
+| `model_providers.<id>.request_max_retries` | number | 对提供者的 HTTP 请求的重试次数（默认：4）。 |
+| `model_providers.<id>.requires_openai_auth` | boolean | 提供者使用 OpenAI 身份验证（默认为 `false`）。 |
+| `model_providers.<id>.stream_idle_timeout_ms` | number | SSE 流的空闲超时（毫秒）（默认：300000）。 |
+| `model_providers.<id>.stream_max_retries` | number | SSE 流中断的重试次数（默认：5）。 |
+| `model_providers.<id>.supports_websockets` | boolean | 该提供者是否支持 Responses API WebSocket 传输。 |
+| `model_providers.<id>.wire_api` | `responses` | 提供者使用的协议。`responses` 是唯一支持的值，省略时默认使用。 |
+| `model_providers.amazon-bedrock.aws.profile` | string | 内置 `amazon-bedrock` 提供者使用的 AWS 配置文件名称。 |
+| `model_providers.amazon-bedrock.aws.region` | string | 内置 `amazon-bedrock` 提供者使用的 AWS 区域。 |
+
+### model_reasoning_effort
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_reasoning_effort` | `minimal` \| `low` \| `medium` \| `high` \| `xhigh` | 为支持的模型调整推理力度（仅 Responses API；`xhigh` 取决于模型）。 |
+
+### model_reasoning_summary
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_reasoning_summary` | `auto` \| `concise` \| `detailed` \| `none` | 选择推理摘要详细程度或完全禁用摘要。 |
+
+### model_supports_reasoning_summaries
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_supports_reasoning_summaries` | boolean | 强制 Codex 发送或不发送推理元数据。 |
+
+### model_verbosity
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `model_verbosity` | `low` \| `medium` \| `high` | 可选的 GPT-5 Responses API 详细程度覆盖；未设置时，使用所选模型/预设的默认值。 |
+
+### notice
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `notice.hide_full_access_warning` | boolean | 跟踪完全访问警告提示的确认。 |
+| `notice.hide_gpt-5.1-codex-max_migration_prompt` | boolean | 跟踪 gpt-5.1-codex-max 迁移提示的确认。 |
+| `notice.hide_gpt5_1_migration_prompt` | boolean | 跟踪 GPT-5.1 迁移提示的确认。 |
+| `notice.hide_rate_limit_model_nudge` | boolean | 跟踪速率限制模型切换提醒的选择退出。 |
+| `notice.hide_world_writable_warning` | boolean | 跟踪 Windows 全局可写目录警告的确认。 |
+| `notice.model_migrations` | map\<string,string\> | 跟踪已确认的模型迁移，作为旧→新映射。 |
+
+### notify
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `notify` | array\<string\> | 为通知调用的命令；从 Codex 接收 JSON 负载。 |
+
+### openai_base_url
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `openai_base_url` | string | 内置 `openai` 模型提供者的基础 URL 覆盖。 |
+
+### oss_provider
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `oss_provider` | `lmstudio` \| `ollama` | 使用 `--oss` 运行时的默认本地提供者（未设置时默认提示选择）。 |
+
+### otel (OpenTelemetry)
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `otel.environment` | string | 应用于发出的 OpenTelemetry 事件的环境标签（默认：`dev`）。 |
+| `otel.exporter` | `none` \| `otlp-http` \| `otlp-grpc` | 选择 OpenTelemetry 导出器并提供任何端点元数据。 |
+| `otel.exporter.<id>.endpoint` | string | OTEL 日志的导出器端点。 |
+| `otel.exporter.<id>.headers` | map\<string,string\> | OTEL 导出器请求中包含的静态头。 |
+| `otel.exporter.<id>.protocol` | `binary` \| `json` | OTLP/HTTP 导出器使用的协议。 |
+| `otel.exporter.<id>.tls.ca-certificates` | string | OTEL 导出器 TLS 的 CA 证书路径。 |
+| `otel.exporter.<id>.tls.client-certificate` | string | OTEL 导出器 TLS 的客户端证书路径。 |
+| `otel.exporter.<id>.tls.client-private-key` | string | OTEL 导出器 TLS 的客户端私钥路径。 |
+| `otel.log_user_prompt` | boolean | 选择加入将原始用户提示与 OpenTelemetry 日志一起导出。 |
+| `otel.metrics_exporter` | `none` \| `statsig` \| `otlp-http` \| `otlp-grpc` | 选择 OpenTelemetry 指标导出器（默认为 `statsig`）。 |
+| `otel.trace_exporter` | `none` \| `otlp-http` \| `otlp-grpc` | 选择 OpenTelemetry 追踪导出器并提供任何端点元数据。 |
+| `otel.trace_exporter.<id>.endpoint` | string | OTEL 日志的追踪导出器端点。 |
+| `otel.trace_exporter.<id>.headers` | map\<string,string\> | OTEL 追踪导出器请求中包含的静态头。 |
+| `otel.trace_exporter.<id>.protocol` | `binary` \| `json` | OTLP/HTTP 追踪导出器使用的协议。 |
+| `otel.trace_exporter.<id>.tls.ca-certificates` | string | OTEL 追踪导出器 TLS 的 CA 证书路径。 |
+| `otel.trace_exporter.<id>.tls.client-certificate` | string | OTEL 追踪导出器 TLS 的客户端证书路径。 |
+| `otel.trace_exporter.<id>.tls.client-private-key` | string | OTEL 追踪导出器 TLS 的客户端私钥路径。 |
+
+### permissions
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `permissions.<name>.filesystem` | table | 命名的文件系统权限配置文件。每个键是绝对路径或特殊 token，如 `:minimal` 或 `:workspace_roots`。 |
+| `permissions.<name>.filesystem.":workspace_roots".<subpath-or-glob>` | `"read"` \| `"write"` \| `"deny"` | 相对于每个有效工作区根目录的限定范围的文件系统访问。使用 `"."` 表示根目录本身；glob 子路径如 `"**/*.env"` 可以用 `"deny"` 拒绝读取。 |
+| `permissions.<name>.filesystem.<path-or-glob>` | `"read"` \| `"write"` \| `"deny"` \| table | 为路径、glob 模式或特殊 token 授予直接访问，或限定该根目录下的嵌套条目。使用 `"deny"` 拒绝匹配路径的读取。 |
+| `permissions.<name>.filesystem.glob_scan_max_depth` | number | 在沙箱启动前快照匹配的平台上的拒绝读取 glob 模式展开的最大深度。设置时必须至少为 1。 |
+| `permissions.<name>.network.allow_local_binding` | boolean | 允许通过沙箱网络进行更广泛的本地/私有网络访问。当此选项保持 `false` 时，确切的本地 IP 文字或 localhost 允许规则仍可允许特定本地目标。 |
+| `permissions.<name>.network.allow_upstream_proxy` | boolean | 允许沙箱网络通过另一个上游代理进行链式连接。 |
+| `permissions.<name>.network.dangerously_allow_all_unix_sockets` | boolean | 允许任意 Unix socket 目标，而不是默认的限制集。仅在严格控制的环境中使用。 |
+| `permissions.<name>.network.dangerously_allow_non_loopback_proxy` | boolean | 允许沙箱网络监听器的非回环绑定地址。启用它可能会将监听器暴露到 localhost 之外。 |
+| `permissions.<name>.network.domains` | table | 沙箱网络的域名规则。支持精确主机、`*.example.com`（仅子域名）、`**.example.com`（顶级域名加子域名）以及全局 `*` 允许规则。冲突时 deny 优先。 |
+| `permissions.<name>.network.domains.<pattern>` | `allow` \| `deny` | 允许或拒绝精确主机或限定范围的通配符模式，如 `*.example.com` 或 `**.example.com`。 |
+| `permissions.<name>.network.enable_socks5` | boolean | 当此权限配置文件启用沙箱网络时暴露 SOCKS5 支持。 |
+| `permissions.<name>.network.enable_socks5_udp` | boolean | 启用时允许通过 SOCKS5 监听器传输 UDP。 |
+| `permissions.<name>.network.enabled` | boolean | 为此命名的权限配置文件启用网络访问。这会更改沙箱网络策略；它本身不会启动网络代理。 |
+| `permissions.<name>.network.mode` | `limited` \| `full` | 用于子进程流量的网络代理模式。 |
+| `permissions.<name>.network.proxy_url` | string | 当此权限配置文件启用沙箱网络时使用的 HTTP 监听器 URL。 |
+| `permissions.<name>.network.socks_url` | string | 此权限配置文件使用的 SOCKS5 代理端点。 |
+| `permissions.<name>.network.unix_sockets` | table | 沙箱网络的 Unix socket 允许列表覆盖。使用 socket 路径作为键；`allow` 添加路径，`none` 清除继承的 allow 条目。 |
+| `permissions.<name>.network.unix_sockets.<path>` | `allow` \| `none` | 使用 `allow` 将绝对 Unix socket 路径添加到有效允许列表，或使用 `none` 清除继承的 allow 条目。`none` 不是单独的拒绝列表决策。 |
+| `permissions.<name>.workspace_roots` | table | 配置文件定义的工作区根目录，与会话的运行时工作区根目录一起接收 `:workspace_roots` 文件系统规则。 |
+| `permissions.<name>.workspace_roots.<path>` | boolean | 当为 `true` 时将路径纳入配置文件的工作区根目录集。禁用的条目保持非活动状态。 |
+
+### personality
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `personality` | `none` \| `friendly` \| `pragmatic` | 对于声明 `supportsPersonality` 的模型的默认沟通风格；可以按线程/turn 覆盖或通过 `/personality` 覆盖。 |
+
+### plan_mode_reasoning_effort
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `plan_mode_reasoning_effort` | `none` \| `minimal` \| `low` \| `medium` \| `high` \| `xhigh` | Plan 模式特定的推理覆盖。未设置时，Plan 模式使用其内置预设默认值。 |
+
+### plugins
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `plugins.<plugin>.mcp_servers.<server>.default_tools_approval_mode` | `auto` \| `prompt` \| `approve` | 插件提供的 MCP 服务器上工具的默认审批行为。 |
+| `plugins.<plugin>.mcp_servers.<server>.disabled_tools` | array\<string\> | 在 `enabled_tools` 之后应用于插件提供的 MCP 服务器的拒绝列表。 |
+| `plugins.<plugin>.mcp_servers.<server>.enabled` | boolean | 启用或禁用已安装插件捆绑的 MCP 服务器，而不更改插件清单。 |
+| `plugins.<plugin>.mcp_servers.<server>.enabled_tools` | array\<string\> | 插件提供的 MCP 服务器暴露的工具允许列表。 |
+| `plugins.<plugin>.mcp_servers.<server>.tools.<tool>.approval_mode` | `auto` \| `prompt` \| `approve` | 插件提供的 MCP 工具的按工具审批行为覆盖。 |
+
+### profile / profiles
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `profile` | string | 启动时应用的默认配置文件（等同于 `--profile`）。 |
+| `profiles.<name>.*` | 各种 | 任何受支持配置键的配置文件级别覆盖。 |
+| `profiles.<name>.analytics.enabled` | boolean | 配置文件级别分析启用覆盖。 |
+| `profiles.<name>.experimental_use_unified_exec_tool` | boolean | 启用统一 exec 的旧名称；推荐使用 `[features].unified_exec`。 |
+| `profiles.<name>.model_catalog_json` | string (路径) | 配置文件级别的模型目录 JSON 路径覆盖（仅在启动时应用；覆盖该配置文件的顶层 `model_catalog_json`）。 |
+| `profiles.<name>.model_instructions_file` | string (路径) | 配置文件级别的内置指令文件替代。 |
+| `profiles.<name>.oss_provider` | `lmstudio` \| `ollama` | 配置文件级别的 `--oss` 会话 OSS 提供者。 |
+| `profiles.<name>.personality` | `none` \| `friendly` \| `pragmatic` | 配置文件级别支持的模型沟通风格覆盖。 |
+| `profiles.<name>.plan_mode_reasoning_effort` | `none` \| `minimal` \| `low` \| `medium` \| `high` \| `xhigh` | 配置文件级别 Plan 模式推理覆盖。 |
+| `profiles.<name>.service_tier` | string | 配置文件级别新 turn 的服务层级偏好。 |
+| `profiles.<name>.tools_view_image` | boolean | 在该配置文件中启用或禁用 `view_image` 工具。 |
+| `profiles.<name>.web_search` | `disabled` \| `cached` \| `live` | 配置文件级别网络搜索模式覆盖（默认：`"cached"`）。 |
+| `profiles.<name>.windows.sandbox` | `unelevated` \| `elevated` | 配置文件级别 Windows 沙箱模式覆盖。 |
+
+### project_doc_fallback_filenames
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `project_doc_fallback_filenames` | array\<string\> | 当 `AGENTS.md` 缺失时尝试的其他文件名。 |
+
+### project_doc_max_bytes
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `project_doc_max_bytes` | number | 在构建项目指令时从 `AGENTS.md` 读取的最大字节数。 |
+
+### project_root_markers
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `project_root_markers` | array\<string\> | 项目根目录标记文件名列表；在搜索父目录以查找项目根目录时使用。 |
+
+### projects
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `projects.<path>.trust_level` | string | 将项目或工作树标记为受信任或不受信任（`"trusted"` \| `"untrusted"`）。不受信任的项目跳过项目范围的 `.codex/` 层，包括项目本地配置、钩子和规则。 |
+
+### review_model
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `review_model` | string | `/review` 使用的可选模型覆盖（默认为当前会话模型）。 |
+
+### sandbox_mode
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `sandbox_mode` | `read-only` \| `workspace-write` \| `danger-full-access` | 命令执行期间文件和网络访问的沙箱策略。 |
+
+### sandbox_workspace_write
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `sandbox_workspace_write.exclude_slash_tmp` | boolean | 在 workspace-write 模式下从可写根目录中排除 `/tmp`。 |
+| `sandbox_workspace_write.exclude_tmpdir_env_var` | boolean | 在 workspace-write 模式下从可写根目录中排除 `$TMPDIR`。 |
+| `sandbox_workspace_write.network_access` | boolean | 允许在 workspace-write 沙箱内的出站网络访问。 |
+| `sandbox_workspace_write.writable_roots` | array\<string\> | 当 `sandbox_mode = "workspace-write"` 时的附加可写根目录。 |
+
+### service_tier
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `service_tier` | string | 新 turn 的首选服务层级。内置值包括 `flex` 和 `fast`；旧版 `fast` 配置映射到请求值优先级，目录提供的层级 ID 也可以存储。 |
+
+### shell_environment_policy
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `shell_environment_policy.exclude` | array\<string\> | 在默认值之后移除环境变量的 glob 模式。 |
+| `shell_environment_policy.experimental_use_profile` | boolean | 在生成子进程时使用用户 shell 配置文件。 |
+| `shell_environment_policy.ignore_default_excludes` | boolean | 在其他过滤器运行之前保留包含 KEY/SECRET/TOKEN 的变量。 |
+| `shell_environment_policy.include_only` | array\<string\> | 模式白名单；设置后只保留匹配的变量。 |
+| `shell_environment_policy.inherit` | `all` \| `core` \| `none` | 生成子进程时的基线环境继承。 |
+| `shell_environment_policy.set` | map\<string,string\> | 注入到每个子进程中的显式环境覆盖。 |
+
+### show_raw_agent_reasoning
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `show_raw_agent_reasoning` | boolean | 当活动模型发出原始推理内容时显示它。 |
+
+### skills
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `skills.config` | array\<object\> | 在 `config.toml` 中存储的每个 skill 的启用覆盖。 |
+| `skills.config.<index>.enabled` | boolean | 启用或禁用引用的 skill。 |
+| `skills.config.<index>.path` | string (路径) | 包含 `SKILL.md` 的 skill 文件夹路径。 |
+
+### sqlite_home
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `sqlite_home` | string (路径) | Codex 存储 SQLite 支持的状态数据库的目录，该数据库由 agent 作业和其他可恢复的运行时状态使用。 |
+
+### suppress_unstable_features_warning
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `suppress_unstable_features_warning` | boolean | 抑制当启用开发中功能标志时出现的警告。 |
+
+### tool_output_token_limit
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `tool_output_token_limit` | number | 用于在历史中存储单个工具/函数输出的 token 预算。 |
+
+### tool_suggest
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `tool_suggest.disabled_tools` | array\<table\> | 禁用特定可发现连接器或插件的建议。每个条目使用 `type = "connector"` 或 `"plugin"` 和一个 `id`。 |
+| `tool_suggest.discoverables` | array\<table\> | 允许为额外的可发现连接器或插件提供工具建议。每个条目使用 `type = "connector"` 或 `"plugin"` 和一个 `id`。 |
+
+### tools
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `tools.view_image` | boolean | 启用本地图片附件工具 `view_image`。 |
+| `tools.web_search` | boolean \| \{ context_size = "low\|medium\|high", allowed_domains = [string], location = \{ country, region, city, timezone } } | 可选的网络搜索工具配置。旧版布尔形式仍然接受，但对象形式允许你设置搜索上下文大小、允许的域名和大致用户位置。 |
+
+### tui
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `tui` | table | TUI 特定选项，如启用内联桌面通知。 |
+| `tui.alternate_screen` | `auto` \| `always` \| `never` | 控制 TUI 的交替屏幕使用（默认：`auto`；`auto` 在 Zellij 中跳过以保留回滚）。 |
+| `tui.animations` | boolean | 启用终端动画（欢迎屏幕、微光效果、旋转器）（默认：`true`）。 |
+| `tui.keymap.<context>.<action>` | string \| array\<string\> | TUI 操作的键盘快捷键绑定。支持的上下文包括 `global`、`chat`、`composer`、`editor`、`pager`、`list` 和 `approval`；上下文特定的绑定覆盖 `tui.keymap.global`。 |
+| `tui.keymap.<context>.<action> = []` | 空数组 | 在该键映射上下文中取消绑定操作。键名使用标准化字符串，如 `ctrl-a`、`shift-enter`、`page-down` 或 `minus`。 |
+| `tui.model_availability_nux.<model>` | integer | 按模型 slug 键控的内部启动提示状态。 |
+| `tui.notification_condition` | `unfocused` \| `always` | 控制 TUI 通知是仅在终端未聚焦时触发还是无论焦点如何都触发。默认为 `unfocused`。 |
+| `tui.notification_method` | `auto` \| `osc9` \| `bel` | 终端通知的通知方式（默认：`auto`）。 |
+| `tui.notifications` | boolean \| array\<string\> | 启用 TUI 通知；可选地限制到特定事件类型。 |
+| `tui.raw_output_mode` | boolean | 以原始回滚模式启动 TUI，以便于终端选择复制（默认：`false`）。你可以用 `/raw` 或默认的 `alt-r` 键绑定切换它。 |
+| `tui.show_tooltips` | boolean | 在 TUI 欢迎屏幕上显示入门提示（默认：`true`）。 |
+| `tui.status_line` | array\<string\> \| null | TUI 页脚状态行项目标识符的有序列表。`null` 禁用状态行。 |
+| `tui.terminal_title` | array\<string\> \| null | 终端窗口/标签标题项目标识符的有序列表。默认为 `["spinner", "project"]`；`null` 禁用标题更新。 |
+| `tui.theme` | string | 语法高亮主题覆盖（kebab-case 主题名称）。 |
+| `tui.vim_mode_default` | boolean | 在 Vim 普通模式而非插入模式下启动编辑器（默认：`false`）。你仍然可以每会话用 `/vim` 切换。 |
+
+### web_search
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `web_search` | `disabled` \| `cached` \| `live` | 网络搜索模式（默认：`"cached"`；cached 使用 OpenAI 维护的索引，不获取实时页面；如果你使用 `--yolo` 或其他完全访问沙箱设置，它默认使用 `"live"`）。使用 `"live"` 从网络获取最新数据，或使用 `"disabled"` 移除此工具。 |
+
+### Windows 特定设置
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `windows_wsl_setup_acknowledged` | boolean | 跟踪 Windows 入门确认（仅 Windows）。 |
+| `windows.sandbox` | `unelevated` \| `elevated` | 在原生 Windows 上运行 Codex 时的仅 Windows 原生沙箱模式。 |
+| `windows.sandbox_private_desktop` | boolean | 默认在原生 Windows 上的私有桌面上运行最终沙箱子进程。仅在与旧版 `Winsta0\\Default` 行为兼容时设为 `false`。 |
+
+你可以在[此处](https://developers.openai.com/codex/config-schema.json)找到 `config.toml` 的最新 JSON schema。
+
+要在 VS Code 或 Cursor 中编辑 `config.toml` 时获取自动补全和诊断信息，你可以安装 **Even Better TOML** 扩展，并将此行添加到 `config.toml` 的顶部：
+
+```toml
+#:schema https://developers.openai.com/codex/config-schema.json
+```
+
+> **注意**：将 `experimental_instructions_file` 重命名为 `model_instructions_file`。Codex 弃用了旧键；请将现有配置更新为新名称。
+
+---
+
+## requirements.toml
+
+`requirements.toml` 是一个管理员强制配置文件，用于约束用户无法覆盖的安全敏感设置。有关详细信息、位置和示例，请参阅 [管理员强制要求](/codex/admin-enforced-requirements)。
+
+对于 ChatGPT Business 和 Enterprise 用户，Codex 还可以应用云端获取的要求。有关优先级详细信息，请参阅[安全页面](/codex/security)。
+
+在 `requirements.toml` 中使用 `[features]` 通过 `config.toml` 使用的相同规范键来固定功能标志。省略的键保持不受约束。
+
+### allowed_approval_policies
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `allowed_approval_policies` | array\<string\> | `approval_policy` 的允许值（例如 `untrusted`、`on-request`、`never` 和 `granular`）。 |
+
+### allowed_approvals_reviewers
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `allowed_approvals_reviewers` | array\<string\> | `approvals_reviewer` 的允许值，如 `user` 和 `auto_review`。 |
+
+### allowed_sandbox_modes
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `allowed_sandbox_modes` | array\<string\> | `sandbox_mode` 的允许值。 |
+
+### allowed_web_search_modes
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `allowed_web_search_modes` | array\<string\> | `web_search` 的允许值（`disabled`、`cached`、`live`）。`disabled` 始终被允许；空列表有效地仅允许 `disabled`。 |
+
+### experimental_network
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `experimental_network` | table | 从 `requirements.toml` 强制执行的网络访问要求。这些约束与 `features.network_proxy` 分开，可以在没有用户功能标志的情况下配置沙箱网络。 |
+| `experimental_network.allow_local_binding` | boolean | 允许沙箱网络更广泛的本地/私有网络访问。当此选项保持 `false` 时，确切的本地 IP 文字或 localhost 允许规则仍可允许特定本地目标。 |
+| `experimental_network.allow_upstream_proxy` | boolean | 允许沙箱网络通过环境中的上游代理进行链式连接。 |
+| `experimental_network.allowed_domains` | array\<string\> | 沙箱网络的列表形式管理员允许规则。不要与 `experimental_network.domains` 组合使用。 |
+| `experimental_network.dangerously_allow_all_unix_sockets` | boolean | 允许任意 Unix socket 目标，而不是仅允许列表访问。仅在严格控制的环境中使用。 |
+| `experimental_network.dangerously_allow_non_loopback_proxy` | boolean | 允许 `[experimental_network]` 要求的非回环监听地址。启用它可能会将监听器暴露到 localhost 之外。 |
+| `experimental_network.denied_domains` | array\<string\> | 沙箱网络的列表形式管理员拒绝规则。不要与 `experimental_network.domains` 组合使用。 |
+| `experimental_network.domains` | map\<string, `allow` \| `deny`\> | 沙箱网络的映射形式管理员域名策略。支持精确主机、`*.example.com`（仅子域名）、`**.example.com`（顶级域名加子域名）以及全局 `*` 允许规则；推荐使用限定范围的规则，因为 `*` 会广泛开放公共出站访问。冲突时 deny 优先。不要与 `experimental_network.allowed_domains` 或 `experimental_network.denied_domains` 组合使用。 |
+| `experimental_network.enabled` | boolean | 启用沙箱网络要求。当活动沙箱关闭命令网络时，这不授予网络访问权限。 |
+| `experimental_network.http_port` | integer | 用于 `[experimental_network]` 要求的回环 HTTP 监听器端口。 |
+| `experimental_network.managed_allowed_domains_only` | boolean | 当为 `true` 时，沙箱网络要求处于活动状态时，只有管理员管理的允许规则保持有效；用户允许列表添加被忽略。没有管理的允许规则时，用户添加的域名允许规则不保持有效。 |
+| `experimental_network.socks_port` | integer | 用于 `[experimental_network]` 要求的回环 SOCKS5 监听器端口。 |
+| `experimental_network.unix_sockets` | map\<string, `allow` \| `none`\> | 沙箱网络的管理员管理 Unix socket 策略。 |
+
+### features
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `features` | table | 按 `config.toml` 的 `[features]` 表中的规范名称键控的固定功能值。 |
+| `features.<name>` | boolean | 要求特定的规范功能键保持启用或禁用。 |
+| `features.browser_use` | boolean | 在 `requirements.toml` 中设为 `false` 以禁用浏览器使用和浏览器 Agent 可用性。 |
+| `features.computer_use` | boolean | 在 `requirements.toml` 中设为 `false` 以禁用计算机使用可用性及相关的安装或启用流程。 |
+| `features.in_app_browser` | boolean | 在 `requirements.toml` 中设为 `false` 以禁用应用内浏览器面板。 |
+
+### guardian_policy_config
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `guardian_policy_config` | string | 用于自动审查的托管 Markdown 策略指令。这优先于本地 `[auto_review].policy`。空白值被忽略。 |
+
+### hooks
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `hooks` | table | 管理员强制托管的生命周期钩子。需要托管钩子目录，使用与 `config.toml` 中内联 `[hooks]` 相同的事件模式。 |
+| `hooks.<Event>` | array\<table\> | 钩子事件的匹配器组，如 `PreToolUse`、`PermissionRequest`、`PostToolUse`、`SessionStart`、`UserPromptSubmit` 或 `Stop`。 |
+| `hooks.<Event>[].hooks` | array\<table\> | 匹配器组的钩子处理器。目前支持命令钩子；prompt 和 agent 钩子处理器被解析但跳过。 |
+| `hooks.managed_dir` | string (绝对路径) | macOS 和 Linux 上包含托管钩子脚本的目录。Codex 在加载托管钩子之前验证它是绝对的且存在。 |
+| `hooks.windows_managed_dir` | string (绝对路径) | Windows 上包含托管钩子脚本的目录。Codex 在加载托管钩子之前验证它是绝对的且存在。 |
+
+### mcp_servers
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `mcp_servers` | table | 可能启用的 MCP 服务器允许列表。服务器名称（`<id>`）及其身份必须匹配才能启用 MCP 服务器。任何不在允许列表中的已配置 MCP 服务器（或身份不匹配的）将被禁用。 |
+| `mcp_servers.<id>.identity` | table | 单个 MCP 服务器的身份规则。设置 `command`（stdio）或 `url`（streamable HTTP）。 |
+| `mcp_servers.<id>.identity.command` | string | 当 `mcp_servers.<id>.command` 匹配此命令时允许 MCP stdio 服务器。 |
+| `mcp_servers.<id>.identity.url` | string | 当 `mcp_servers.<id>.url` 匹配此 URL 时允许 MCP streamable HTTP 服务器。 |
+
+### permissions
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `permissions.filesystem.deny_read` | array\<string\> | 管理员强制文件系统读取拒绝。条目可以是路径或 glob 模式，用户无法通过本地配置削弱它们。 |
+
+### remote_sandbox_config
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `remote_sandbox_config` | array\<table\> | 特定于主机的沙箱要求。第一个 `hostname_patterns` 匹配解析主机名的条目会覆盖该要求源的顶层 `allowed_sandbox_modes`。特定于主机的条目目前仅覆盖沙箱模式。 |
+| `remote_sandbox_config[].allowed_sandbox_modes` | array\<string\> | 当此特定于主机的条目匹配时应用的允许沙箱模式。 |
+| `remote_sandbox_config[].hostname_patterns` | array\<string\> | 不区分大小写的主机名模式。支持 `*` 表示任意字符序列，`?` 表示一个字符。 |
+
+### rules
+
+| 键 | 类型/值 | 详情 |
+|---|---|---|
+| `rules` | table | 管理员强制命令规则，与 `.rules` 文件合并。Requirements 规则必须是限制性的。 |
+| `rules.prefix_rules` | array\<table\> | 强制前缀规则列表。每个规则必须包含 `pattern` 和 `decision`。 |
+| `rules.prefix_rules[].decision` | `prompt` \| `forbidden` | 必需。Requirements 规则只能提示或禁止（不能允许）。 |
+| `rules.prefix_rules[].justification` | string | 可选的非空理由，显示在审批提示或拒绝消息中。 |
+| `rules.prefix_rules[].pattern` | array\<table\> | 以模式 token 表示的命令前缀。每个 token 设置 `token` 或 `any_of`。 |
+| `rules.prefix_rules[].pattern[].any_of` | array\<string\> | 此位置允许的替代 token 列表。 |
+| `rules.prefix_rules[].pattern[].token` | string | 此位置的单个字面 token。 |

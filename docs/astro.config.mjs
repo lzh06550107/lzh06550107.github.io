@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import { fileURLToPath } from 'node:url';
 import starlight from '@astrojs/starlight';
 import lucode from 'lucode-starlight';
 import { buildDocsetSidebar } from './src/data/docsets.mjs';
@@ -56,6 +57,11 @@ export default defineConfig({
     ],
 
     vite: {
+        resolve: {
+            alias: {
+                '@lucode-starlight': fileURLToPath(new URL('../packages/lucode-starlight', import.meta.url)),
+            },
+        },
         plugins: [],
     },
 });

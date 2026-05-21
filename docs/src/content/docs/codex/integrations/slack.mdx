@@ -1,0 +1,50 @@
+---
+title: 在 Slack 中使用 Codex
+description: 从频道和讨论串中让 Codex 执行任务
+sidebar:
+  order: 7
+---
+
+在 Slack 中使用 Codex，你可以从频道和讨论串中启动编码任务。只需在消息中 `@Codex` 并附上提示，Codex 就会创建一个云端任务并将结果回复给你。
+
+![Codex Slack 集成效果图](/images/codex/integrations/slack-example.png)
+
+## 设置 Slack 应用
+
+1. 设置 [Codex 云端任务](/codex/cloud/overview)。你需要 Plus、Pro、Business、Enterprise 或 Edu 套餐（参见 [ChatGPT 定价](https://openai.com/chatgpt/pricing/)）、已连接的 GitHub 账户以及至少一个[环境](/codex/cloud/environments)。
+2. 前往 [Codex 设置](https://chatgpt.com/codex/settings)并为你的工作区安装 Slack 应用。根据你的 Slack 工作区策略，可能需要管理员批准安装。
+3. 将 `@Codex` 添加到频道中。如果你尚未添加，Slack 会在你提及它时提示你。
+
+## 启动任务
+
+在频道或讨论串中，`@Codex` 并附上你的提示。Codex 可以引用讨论串中之前的消息，因此你通常无需重复说明上下文。
+
+（可选）在提示中指定环境或仓库，例如：`@Codex fix the above in openai/codex`。
+
+等待 Codex 做出反应（👀）并回复任务链接。任务完成后，Codex 会发布结果，并根据你的设置，在讨论串中回复答案。
+
+### Codex 如何选择环境和仓库
+
+Codex 会审查你可以访问的环境，并选择最匹配你请求的那个。如果请求不明确，它会回退到你最近使用的环境。
+
+任务会针对该环境仓库映射中列出的第一个仓库的默认分支运行。如果需要不同的默认仓库或更多仓库，请在 Codex 中更新仓库映射。
+
+如果没有合适的环境或仓库可用，Codex 会在 Slack 中回复，说明如何解决问题后再重试。
+
+## 企业数据控制
+
+默认情况下，Codex 会在讨论串中回复答案，其中可能包含来自其运行环境的信息。为防止这种情况，企业管理员可以在 ChatGPT 工作区设置中取消勾选 **允许 Codex Slack 应用在任务完成时发布答案**。当管理员关闭答案功能后，Codex 仅会回复任务链接。
+
+## 数据使用、隐私与安全
+
+当你 `@Codex` 时，Codex 会接收你的消息和讨论串历史记录，以理解你的请求并创建任务。数据处理遵循 OpenAI 的[隐私政策](https://openai.com/policies/privacy-policy/)、[使用条款](https://openai.com/policies/terms-of-use/)以及其他适用政策。有关安全的更多信息，请参阅 [Codex 安全文档](/codex/security)。
+
+> Codex 使用大型语言模型，可能会出现错误。请始终审查答案和代码差异。
+
+## 提示与故障排除
+
+- **连接缺失**：如果 Codex 无法确认你的 Slack 或 GitHub 连接，它会回复一个重新连接的链接。
+- **环境选择不符合预期**：在讨论串中回复你想要的环境（例如 `Please run this in openai/openai (applied)`），然后再次 `@Codex`。
+- **讨论串过长或复杂**：在最新消息中总结关键细节，以免 Codex 遗漏埋藏在前面讨论串中的上下文。
+- **工作区发布限制**：某些企业工作区限制发布最终答案。在这种情况下，打开任务链接以查看进度和结果。
+- **更多帮助**：请参阅 [OpenAI 帮助中心](https://help.openai.com/)。

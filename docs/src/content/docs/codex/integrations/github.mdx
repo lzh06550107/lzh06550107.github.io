@@ -1,0 +1,95 @@
+---
+title: GitHub 代码审查
+description: 为 GitHub Pull Request 配置 Codex 代码审查，使用 @codex review 请求审查，启用自动审查，以及自定义审查指南。
+sidebar:
+  order: 6
+---
+
+> **在 GitHub Pull Request 中获得高信号量的代码审查**
+
+使用 Codex 代码审查功能，为 GitHub Pull Request 增加一道高信号量的审查环节。Codex 会审查 Pull Request 的 diff，遵循你仓库的指导规范，并发布专注于严重问题的标准 GitHub 代码审查。
+
+<video src="/images/codex/code-review/codex-code-review-walkthrough.mp4" controls></video>
+
+## 准备工作
+
+请确保你已具备以下条件：
+
+- 为要审查的仓库设置了 Codex Cloud。
+- 拥有 Codex 代码审查设置的访问权限。
+- 如果希望 Codex 遵循仓库特定的审查指导，请准备好 `AGENTS.md` 文件。
+
+## 配置 Codex 代码审查
+
+1. 设置 Codex Cloud。
+2. 前往 Codex 设置页面。
+3. 为你的仓库开启 **Code review**。
+
+![代码审查设置](/images/codex/code-review/code-review-settings.png)
+
+## 请求 Codex 审查
+
+1. 在 Pull Request 评论中，提及 `@codex review`。
+2. 等待 Codex 做出反应（👀）并发布审查结果。
+
+![审查触发](/images/codex/code-review/review-trigger.png)
+
+Codex 会像团队成员一样在 Pull Request 上发布审查结果。在 GitHub 中，Codex 仅标记 P0 和 P1 级别的问题，确保审查评论聚焦于高优先级风险。
+
+![审查示例](/images/codex/code-review/review-example.png)
+
+## 启用自动审查
+
+如果你希望 Codex 自动审查每一个 Pull Request，请在 Codex 设置中开启 **Automatic reviews**。
+
+开启后，每当有人提交新的 Pull Request 等待审查时，Codex 会自动发布审查结果，无需手动输入 `@codex review` 评论。
+
+## 自定义 Codex 的审查内容
+
+Codex 会搜索仓库中的 `AGENTS.md` 文件，并遵循你在其中编写的 **审查指南**。
+
+要为仓库设置指南，请在顶层 `AGENTS.md` 中添加或更新类似以下内容的章节：
+
+```markdown
+## Review guidelines
+
+- 不要记录个人身份信息（PII）。
+- 验证每个路由都有认证中间件包裹。
+```
+
+Codex 会为每个变更文件应用距离其最近的 `AGENTS.md` 中的指导。当特定包需要额外审查时，你可以在目录树更深处放置更具体的指令。
+
+如需单次特定关注点，可在 Pull Request 评论中添加：
+
+```
+@codex review for security regressions
+```
+
+如果你希望 Codex 标记文档中的拼写错误，请在 `AGENTS.md` 中添加指导（例如："将文档中的拼写错误视为 P1 级别。"）。
+
+## 处理审查发现的问题
+
+在 Codex 发布审查结果后，你可以通过再次发表评论，要求它在同一个 Pull Request 中修复问题：
+
+```
+@codex fix the P1 issue
+```
+
+Codex 会以该 Pull Request 为上下文启动一个云端任务，并在拥有权限时将修复推回分支。
+
+## 让 Codex 执行其他任务
+
+如果你在评论中提及 `@codex` 并附上 `review` 以外的其他指令，Codex 会以你的 Pull Request 为上下文启动一个云端任务。
+
+```
+@codex fix the CI failures
+```
+
+## 排查代码审查问题
+
+如果 Codex 没有做出反应或未发布审查结果，请检查以下事项：
+
+- 确认你已在 Codex 设置中为该仓库开启了 **Code review**。
+- 确认该 Pull Request 所属仓库已设置了 Codex Cloud。
+- 确保在 Pull Request 评论中使用了准确的触发短语 `@codex review`。
+- 对于自动审查，请检查是否已开启 **Automatic reviews**，并确认 Pull Request 事件符合你的审查触发设置。

@@ -1,0 +1,321 @@
+---
+title: 托管配置
+description: 配置托管的 Codex 需求和默认设置
+sidebar:
+  order: 7
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# 托管配置
+
+> 配置托管的 Codex 需求和默认设置
+
+企业管理员可以通过两种方式控制本地 Codex 行为：
+
+- **需求（Requirements）**：管理员强制执行的约束，用户无法覆盖。
+- **托管默认值（Managed defaults）**：Codex 启动时应用的初始值。用户仍可在会话期间更改设置；Codex 会在下次启动时重新应用托管默认值。
+
+## 管理员强制执行的需求（requirements.toml）
+
+需求约束了安全敏感的设置（审批策略、审批审核人、自动审核策略、沙箱模式、网页搜索模式、托管钩子，以及用户可启用的 MCP 服务器）。在解析配置时（例如来自 config.toml、配置文件或 CLI 配置覆盖），如果某个值与强制规则冲突，Codex 会回退到兼容值并通知用户。如果你配置了 `mcp_servers` 允许列表，Codex 仅在其名称和身份都匹配已批准条目时才启用 MCP 服务器；否则 Codex 会禁用它。
+
+需求还可以通过 `requirements.toml` 中的 `[features]` 表来约束功能标志。请注意，功能标志并不总是安全敏感的，但企业可以根据需要固定值。未指定的键不受约束。
+
+有关确切的键列表，请参阅配置参考中的 requirements.toml 章节。
+
+### 位置与优先级
+
+Codex 按以下顺序应用需求层（按字段，较早的优先）：
+
+1. 云端管理需求（ChatGPT Business 或 Enterprise）
+2. macOS 托管偏好设置（MDM），通过 `com.openai.codex:requirements_toml_base64`
+3. 系统 requirements.toml（Unix 系统（包括 Linux/macOS）上为 `/etc/codex/requirements.toml`，Windows 上为 `%ProgramData%\OpenAI\Codex\requirements.toml`）
+
+跨层合并时，Codex 按字段合并需求：如果较早的层设置了某字段（包括空列表），后面的层不会覆盖该字段，但仍可填充未设置的字段。
+
+为保持向后兼容性，Codex 还将旧版 `managed_config.toml` 中的 `approval_policy` 和 `sandbox_mode` 字段解释为需求（仅允许该单一值）。
+
+## 云端管理需求
+
+当你使用 ChatGPT Business 或 Enterprise 计划登录时，Codex 还可以从 Codex 服务获取管理员强制执行的需求。这是另一个与 requirements.toml 兼容的需求来源。这适用于所有 Codex 界面，包括 CLI、App 和 IDE 扩展。
+
+### 配置云端管理需求
+
+1. 前往 Codex 托管配置页面。
+2. 使用与 requirements.toml 相同的格式和键创建新的托管需求文件。
+
+```toml
+enforce_residency = "us"
+allowed_approval_policies = ["on-request"]
+allowed_sandbox_modes = ["read-only", "workspace-write"]
+
+[rules]
+prefix_rules = [
+  { pattern = [{ any_of = ["bash", "sh", "zsh"] }], decision = "prompt", justification = "Require explicit approval for shell entrypoints" },
+]
+```
+
+保存配置后，更新的托管需求会立即对匹配的用户生效。更多示例请参阅示例 requirements.toml。
+
+### 将需求分配给用户组
+
+管理员可以为不同的用户组配置不同的托管需求，还可以设置默认的回退需求策略。
+
+如果用户匹配多个组特定规则，则应用第一个匹配的规则。Codex 不会从后面的匹配组规则中填充未设置的字段。
+
+例如，如果第一个匹配的组规则仅设置了 `allowed_sandbox_modes = ["read-only"]`，而后面的匹配组规则设置了 `allowed_approval_policies = ["on-request"]`，则 Codex 仅应用第一个匹配的组规则，不会从后面的规则中填充 `allowed_approval_policies`。
+
+### Codex 如何在本地应用云端管理需求
+
+当用户启动 Codex 并使用 ChatGPT Business 或 Enterprise 计划登录时，Codex 会尽力应用托管需求。Codex 首先检查是否存在有效、未过期的本地托管需求缓存条目，如果可用则使用它。如果缓存缺失、过期、损坏或与当前认证身份不匹配，Codex 会尝试从服务获取托管需求（带重试），并在成功时写入新的签名缓存条目。如果没有可用的有效缓存条目且获取失败或超时，Codex 将在没有托管需求层的情况下继续运行。
+
+缓存解析后，Codex 将托管需求作为上述正常需求分层的一部分来强制执行。
+
+### 示例 requirements.toml
+
+此示例阻止 `--ask-for-approval never` 和 `--sandbox danger-full-access`（包括 `--yolo`）：
+
+```toml
+allowed_approval_policies = ["untrusted", "on-request"]
+allowed_sandbox_modes = ["read-only", "workspace-write"]
+```
+
+### 按主机覆盖沙箱需求
+
+当一项托管策略需要在不同主机上应用不同的沙箱需求时，使用 `[[remote_sandbox_config]]`。例如，你可以为笔记本电脑保持更严格的默认设置，同时在匹配的开发机或 CI 运行器上允许工作区写入。主机特定条目目前仅覆盖 `allowed_sandbox_modes`：
+
+```toml
+allowed_sandbox_modes = ["read-only"]
+
+[[remote_sandbox_config]]
+hostname_patterns = ["*.devbox.example.com", "runner-??.ci.example.com"]
+allowed_sandbox_modes = ["read-only", "workspace-write"]
+```
+
+Codex 将每个 `hostname_patterns` 条目与尽力解析的主机名进行比较。它优先使用完全限定域名，在不可用时回退到本地主机名。匹配不区分大小写；`*` 匹配任意字符序列，`?` 匹配单个字符。
+
+在同一需求源中，第一个匹配的 `[[remote_sandbox_config]]` 条目胜出。如果没有条目匹配，Codex 保留顶级 `allowed_sandbox_modes`。主机名匹配仅用于策略选择，不要将其视为经过认证的设备证明。
+
+### 约束网页搜索模式
+
+你还可以约束网页搜索模式：
+
+```toml
+allowed_web_search_modes = ["cached"] # "disabled" 仍然隐式允许
+```
+
+`allowed_web_search_modes = []` 仅允许 `"disabled"`。例如，`allowed_web_search_modes = ["cached"]` 即使在 danger-full-access 会话中也阻止实时网页搜索。
+
+### 配置网络访问需求
+
+当管理员需要集中定义网络访问需求时，在 requirements.toml 中使用 `[experimental_network]`。这些需求与用户的 `features.network_proxy` 开关是分开的：它们可以在没有该功能标志的情况下配置沙箱网络，但在活动沙箱关闭网络时不授予命令网络访问权限。
+
+```toml
+experimental_network.enabled = true
+experimental_network.dangerously_allow_all_unix_sockets = true
+experimental_network.allow_local_binding = true
+experimental_network.allowed_domains = [
+  "api.openai.com",
+  "*.example.com",
+]
+experimental_network.denied_domains = [
+  "blocked.example.com",
+  "*.exfil.example.com",
+]
+```
+
+仅当你还定义了管理员拥有的 `allowed_domains` 并希望该允许列表为独占时，才使用 `experimental_network.managed_allowed_domains_only = true`。如果将其设为 true 而没有托管允许规则，用户添加的域名允许规则将不再有效。
+
+域名语法、本地/私有目标规则、拒绝优先于允许的行为以及 DNS 重绑定限制与「代理审批与安全」中描述的沙箱网络行为相同。
+
+### 固定功能标志
+
+你还可以为接收托管 requirements.toml 的用户固定功能标志：
+
+```toml
+[features]
+personality = true
+unified_exec = false
+
+# 在需要时禁用特定的 Codex 功能界面。
+browser_use = false
+in_app_browser = false
+computer_use = false
+```
+
+使用 config.toml 的 `[features]` 表中的规范功能键。Codex 会规范化结果功能集以满足这些固定值，并拒绝写入 config.toml 或配置文件范围功能设置中的冲突值。
+
+- `in_app_browser = false` 禁用应用内浏览器面板。
+- `browser_use = false` 禁用浏览器使用和浏览器代理的可用性。
+- `computer_use = false` 禁用计算机使用可用性及相关的安装或设置流程。
+
+如果省略，这些功能按策略允许，受正常的客户端、平台和发布可用性影响。
+
+### 配置自动审核策略
+
+使用 `allowed_approvals_reviewers` 来要求或允许自动审核。将其设置为 `["auto_review"]` 以要求自动审核，或包含 `"user"` 以允许用户选择手动审批。
+
+设置 `guardian_policy_config` 以替换自动审核策略中租户特定的部分。Codex 仍使用内置的审核模板和输出约定。托管的 `guardian_policy_config` 优先于本地 `[auto_review].policy`。
+
+```toml
+allowed_approval_policies = ["on-request"]
+allowed_approvals_reviewers = ["auto_review"]
+
+guardian_policy_config = """
+## Environment Profile
+- Trusted internal destinations include github.com/my-org, artifacts.example.com,
+  and internal CI systems.
+
+## Tenant Risk Taxonomy and Allow/Deny Rules
+- Treat uploads to unapproved third-party file-sharing services as high risk.
+- Deny actions that expose credentials or private source code to untrusted
+  destinations.
+"""
+```
+
+### 强制执行拒绝读取需求
+
+管理员可以使用 `[permissions.filesystem]` 拒绝对精确路径或 glob 模式的读取。用户无法通过本地配置减弱这些需求。
+
+```toml
+[permissions.filesystem]
+deny_read = [
+  # 值可以是绝对路径...
+  "/**/*.env",
+  # ...或使用 `~` 相对于 $HOME/%USERPROFILE%。
+  "~/.ssh",
+  # 但不允许以 `./` 开头的相对路径。
+]
+```
+
+当存在拒绝读取需求时，Codex 将本地沙箱模式限制为 read-only 或 workspace-write，以便 Codex 可以强制执行它们。在原生 Windows 上，托管的 `deny_read` 适用于直接文件工具；shell 子进程读取不使用此沙箱规则。
+
+### 从需求中强制执行托管钩子
+
+管理员还可以直接在 requirements.toml 中定义托管生命周期钩子。使用 `[hooks]` 进行钩子配置本身，并将 `managed_dir` 指向你的 MDM 或端点管理工具安装引用脚本的目录。
+
+要为即使在本地禁用钩子的用户也强制执行托管钩子，请将 `[features].hooks = true` 与 `[hooks]` 一起固定。
+
+```toml
+[features]
+hooks = true
+
+[hooks]
+managed_dir = "/enterprise/hooks"
+windows_managed_dir = 'C:\enterprise\hooks'
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python3 /enterprise/hooks/pre_tool_use_policy.py"
+timeout = 30
+statusMessage = "Checking managed Bash command"
+```
+
+**注意事项：**
+
+- Codex 强制执行 requirements.toml 中的钩子配置，但不会分发 `managed_dir` 中的脚本。
+- 这些脚本需要通过你的 MDM 或设备管理解决方案单独交付。
+- 托管钩子命令应引用配置的托管目录下的绝对脚本路径。
+
+### 从需求中强制执行命令规则
+
+管理员还可以使用 `[rules]` 表从 requirements.toml 强制执行限制性命令规则。这些规则与常规 `.rules` 文件合并，最严格的决策仍然胜出。
+
+与 `.rules` 不同，需求规则必须指定 `decision`，且该决策必须是 `"prompt"` 或 `"forbidden"`（不能是 `"allow"`）。
+
+```toml
+[rules]
+prefix_rules = [
+  { pattern = [{ token = "rm" }], decision = "forbidden", justification = "Use git clean -fd instead." },
+  { pattern = [{ token = "git" }, { any_of = ["push", "commit"] }], decision = "prompt", justification = "Require review before mutating history." },
+]
+```
+
+### 限制 MCP 服务器
+
+要限制 Codex 可以启用的 MCP 服务器，添加 `mcp_servers` 批准列表。对于 stdio 服务器，按 `command` 匹配；对于流式 HTTP 服务器，按 `url` 匹配：
+
+```toml
+[mcp_servers.docs]
+identity = { command = "codex-mcp" }
+
+[mcp_servers.remote]
+identity = { url = "https://example.com/mcp" }
+```
+
+如果 `mcp_servers` 存在但为空，Codex 将禁用所有 MCP 服务器。
+
+## 托管默认值（managed_config.toml）
+
+托管默认值合并到用户本地 config.toml 之上，并优先于任何 CLI `--config` 覆盖，在 Codex 启动时设置初始值。用户仍可在会话期间更改这些设置；Codex 会在下次启动时重新应用托管默认值。
+
+确保你的托管默认值符合你的需求；Codex 会拒绝不允许的值。
+
+### 优先级与分层
+
+Codex 按以下顺序组装有效配置（顶部覆盖底部）：
+
+1. 托管偏好设置（macOS MDM；最高优先级）
+2. managed_config.toml（系统/托管文件）
+3. config.toml（用户的基础配置）
+
+CLI `--config key=value` 覆盖应用于基础配置，但托管层会覆盖它们。这意味着即使你提供了本地标志，每次运行仍从托管默认值开始。
+
+云端管理需求影响需求层（而非托管默认值）。有关优先级，请参阅上方的「管理员强制执行的需求」章节。
+
+### 位置
+
+- Linux/macOS（Unix）：`/etc/codex/managed_config.toml`
+- Windows/非 Unix：`~/.codex/managed_config.toml`
+
+如果文件缺失，Codex 会跳过托管层。
+
+## macOS 托管偏好设置（MDM）
+
+在 macOS 上，管理员可以推送设备配置文件，在以下位置提供 base64 编码的 TOML 负载：
+
+- 偏好设置域：`com.openai.codex`
+- 键：
+  - `config_toml_base64`（托管默认值）
+  - `requirements_toml_base64`（需求）
+
+Codex 将这些"托管偏好设置"负载解析为 TOML。对于托管默认值（`config_toml_base64`），托管偏好设置具有最高优先级。对于需求（`requirements_toml_base64`），优先级遵循上述云端管理需求的顺序。相同的需求端 `[features]` 表也可在 `requirements_toml_base64` 中使用，同样使用规范功能键。
+
+### MDM 设置工作流
+
+Codex 遵循标准的 macOS MDM 负载，因此你可以使用 Jamf Pro、Fleet 或 Kandji 等工具分发设置。轻量级部署流程如下：
+
+1. 构建托管负载 TOML 并使用 base64 编码（不换行）。
+2. 将字符串放入你的 MDM 配置文件中 `com.openai.codex` 域下的 `config_toml_base64`（托管默认值）或 `requirements_toml_base64`（需求）。
+3. 推送配置文件，然后要求用户重启 Codex 并确认启动配置摘要反映了托管值。
+4. 撤销或更改策略时，更新托管负载；CLI 在下次启动时读取刷新后的偏好设置。
+
+避免在负载中嵌入密钥或高变动动态值。像对待任何其他受变更控制的 MDM 设置一样对待托管 TOML。
+
+## 示例 managed_config.toml
+
+```toml
+# 设置保守的默认值
+approval_policy = "on-request"
+sandbox_mode    = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false             # 保持网络禁用，除非明确允许
+
+[otel]
+environment = "prod"
+exporter = "otlp-http"            # 指向你的收集器
+log_user_prompt = false            # 保持提示词脱敏
+# 导出器详情位于导出器表下；请参阅上方的监控和遥测
+```
+
+## 推荐的防护措施
+
+- 对大多数用户优先使用 workspace-write 配合审批；为受控容器保留完全访问权限。
+- 保持 `network_access = false`，除非你的安全审查允许收集器或工作流所需的域名。
+- 使用托管配置固定 OTel 设置（exporter、environment），但保持 `log_user_prompt = false`，除非你的策略明确允许存储提示内容。
+- 定期审计本地 config.toml 与托管策略之间的差异以发现偏差；托管层应优先于本地标志和文件。

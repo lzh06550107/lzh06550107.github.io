@@ -5,9 +5,9 @@ sidebar:
   order: 4
 ---
 
-Hermes 可以选择性地把 `openai/*` 和 `openai-codex/*` 的轮次交给 Codex CLI app-server，而不是运行自己的工具循环。启用后，终端命令、文件编辑、沙箱以及 MCP 工具调用都会在 Codex 的 runtime 内执行——Hermes 则变成包裹在它外层的 shell（负责 sessions DB、slash commands、gateway、memory 和 skill review）。
+Hermes 可以选择性地把 `openai/*` 和 `openai-codex/*` 的轮次交给 [Codex CLI app-server](https://github.com/openai/codex)，而不是运行自己的工具循环。启用后，终端命令、文件编辑、沙箱以及 MCP 工具调用都会在 Codex 的 runtime 内执行——Hermes 则变成包裹在它外层的 shell（负责 sessions DB、slash commands、gateway、memory 和 skill review）。
 
-这只是可选启用。除非你打开该标志，否则 Hermes 的默认行为不会改变。Hermes 永远不会自动把你路由到这个 runtime。
+这只是**可选启用**。除非你打开该标志，否则 Hermes 的默认行为不会改变。Hermes 永远不会自动把你路由到这个 runtime。
 
 ## 为什么
 
@@ -20,6 +20,10 @@ Hermes 可以选择性地把 `openai/*` 和 `openai-codex/*` 的轮次交给 Cod
 * Hermes 更丰富的工具也会一起可用——`web_search`、`web_extract`、浏览器自动化、视觉、图像生成、skills 和 TTS 会通过 MCP 回调工作。Codex 会回调 Hermes 来使用它自身没有内置的工具。
 
 * Memory 和 skill nudges 会继续工作——Codex 的事件会被投射成 Hermes 的消息形态，因此自我改进循环会看到一个看起来正常的 transcript。
+
+:::note[注意]
+hermes 中的选择的模型必须也是 ChatGPT 订阅号登录的。否则不会进入 Codex App-Server Runtime 。
+:::
 
 ## 模型实际拥有哪些工具
 
@@ -47,12 +51,12 @@ Hermes 可以选择性地把 `openai/*` 和 `openai-codex/*` 的轮次交给 Cod
 
 示例（OpenClaw 讨论串中重点提到的那些“YouTube 视频级”示例）：
 
-* Linear —— 查找 / 更新 issues
-* GitHub —— 搜索代码、查看 PR、评论
-* Gmail —— 读取 / 发送邮件
-* Google Calendar —— 创建 / 查找日程
-* Outlook calendar/email —— 通过 Microsoft connector 提供相同形态
-* Canva —— 设计生成
+* `Linear` —— 查找 / 更新 issues
+* `GitHub` —— 搜索代码、查看 PR、评论
+* `Gmail` —— 读取 / 发送邮件
+* `Google Calendar` —— 创建 / 查找日程
+* `Outlook calendar/email` —— 通过 Microsoft connector 提供相同形态
+* `Canva` —— 设计生成
 * ……以及你通过 `codex plugin marketplace add openai-curated` + `codex plugin install` 安装的其他任何插件……
 
 不会迁移的内容：

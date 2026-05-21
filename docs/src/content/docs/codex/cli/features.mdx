@@ -1,0 +1,262 @@
+---
+title: 特性
+description: Codex CLI 功能概览 — 交互模式、子智能体、图像支持、代码审查等。
+sidebar:
+  order: 5
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Codex CLI 特性
+
+> Codex 终端客户端功能概览
+
+Codex 不仅支持聊天对话，还支持更多工作流。阅读本指南，了解每项功能能解锁什么能力，以及何时使用它们。
+
+## 交互模式运行
+
+Codex 会启动一个全屏终端 UI（TUI），可以读取你的代码仓库、编辑文件并运行命令，与你一起迭代。当你想要一个可以实时审查 Codex 操作的对话式工作流时，可以使用此模式。
+
+```bash
+codex
+```
+
+你也可以在命令行上指定一个初始提示。
+
+```bash
+codex "Explain this codebase to me"
+```
+
+会话打开后，你可以：
+
+- 直接在输入框（composer）中发送提示、代码片段或截图（参见**图像输入**）。
+- 在 Codex 做出更改之前查看它解释计划，并逐行批准或拒绝步骤。
+- 在 TUI 中阅读语法高亮的 Markdown 代码块和差异（diff），然后使用 `/theme` 预览并保存你喜欢的主题。
+- 使用 `/clear` 清除终端并开始新对话，或按 `Ctrl+L` 清屏而不开始新对话。
+- 使用 `/copy` 或按 `Ctrl+O` 复制最近完成的 Codex 输出。如果当前回合还在运行，Codex 会复制最近完成的结果，而不是进行中的文本。
+- 在 Codex 运行时按 `Tab` 键，可为下一回合排队后续文本、斜杠命令或 `!` shell 命令。
+- 在输入框中使用方向键 `↑/↓` 浏览草稿历史；Codex 会恢复之前的草稿文本和图片占位符。
+- 按 `Ctrl+R` 在输入框中搜索提示历史，然后按 `Enter` 接受匹配项或按 `Esc` 取消。
+- 完成后按 `Ctrl+C` 或使用 `/exit` 关闭交互式会话。
+
+## 恢复对话
+
+Codex 会在本地存储你的对话记录，这样你就可以接着上次的进度继续，而无需重复上下文。当你想重新打开一个具有相同仓库状态和指令的早期会话时，使用 `resume` 子命令。
+
+- `codex resume` 启动一个最近交互会话的选择器。高亮某次运行可查看其摘要，按 `Enter` 重新打开它。
+- `codex resume --all` 显示当前工作目录之外的所有会话，这样你可以重新打开任何本地运行。
+- `codex resume --last` 跳过选择器，直接跳转到当前工作目录中最近的会话（添加 `--all` 可忽略当前工作目录过滤）。
+- `codex resume <SESSION_ID>` 可指定特定的运行。你可以从选择器、`/status` 或 `~/.codex/sessions/` 下的文件中复制 ID。
+
+非交互式自动化运行也可以恢复：
+
+```bash
+codex exec resume --last "Fix the race conditions you found"
+codex exec resume 7f9f9a2e-1b3c-4c7a-9b0e-.... "Implement the plan"
+```
+
+每次恢复的运行都会保留原始的对话记录、计划历史和审批结果，因此 Codex 可以利用之前的上下文，同时你提供新的指令。使用 `--cd` 覆盖工作目录，或使用 `--add-dir` 添加额外的根目录，以便在恢复前调整环境。
+
+## 将 TUI 连接到远程应用服务器
+
+远程 TUI 模式允许你在一台机器上运行 Codex 应用服务器，并从另一台机器使用 Codex 终端 UI。使用 WebSocket 监听器启动应用服务器：
+
+```bash
+codex app-server --listen ws://127.0.0.1:4500
+```
+
+然后将 TUI 连接到该端点：
+
+```bash
+codex --remote ws://127.0.0.1:4500
+```
+
+要从另一台机器访问，请将应用服务器绑定到可访问的网络接口，并在远程使用前配置 WebSocket 认证：
+
+```bash
+TOKEN_FILE="$HOME/.codex/app-server-token"
+openssl rand -base64 32 > "$TOKEN_FILE"
+chmod 600 "$TOKEN_FILE"
+codex app-server --listen ws://0.0.0.0:4500 --ws-auth capability-token --ws-token-file "$TOKEN_FILE"
+```
+
+`--remote` 接受显式的 `ws://host:port` 和 `wss://host:port` 地址。普通 WebSocket 连接适用于 localhost 和 SSH 端口转发工作流。对于非本地客户端，请使用 WebSocket 认证并将连接置于 TLS 之后。
+
+Codex 支持以下 WebSocket 认证模式：
+
+- **能力令牌（Capability token）**：使用 `--ws-auth capability-token` 启动服务器，并配合 `--ws-token-file /absolute/path` 或 `--ws-token-sha256 HEX`。
+- **签名持有者令牌（Signed bearer token）**：使用 `--ws-auth signed-bearer-token --ws-shared-secret-file /absolute/path` 启动服务器，可选 `--ws-issuer`、`--ws-audience` 和 `--ws-max-clock-skew-seconds`。
+
+TUI 在 WebSocket 握手期间将远程认证令牌作为 `Authorization: Bearer <token>` 标头发送。Codex 仅接受通过 `wss://` URL 或 loopback `ws://` URL 发送的远程认证令牌。
+
+```bash
+export CODEX_REMOTE_TOKEN="$(cat "$TOKEN_FILE")"
+codex --remote wss://remote-host:4500 --remote-auth-token-env CODEX_REMOTE_TOKEN
+```
+
+对于 Codex 应用中的 SSH 远程项目，请使用**远程连接**。对于托管的远程控制客户端，`codex remote-control` 会启动一个启用了远程控制支持的应用服务器进程。
+
+## 模型与推理
+
+对于 Codex 中的大多数任务，推荐使用 `gpt-5.5` 模型。它是 OpenAI 最新的前沿模型，适用于复杂编码、计算机操作、知识工作和研究工作流，在规划、工具使用和多步骤任务执行方面表现更强。对于超快速任务，ChatGPT Pro 订阅者可以使用研究预览中的 `GPT-5.3-Codex-Spark` 模型。
+
+在会话中使用 `/model` 命令切换模型，或在启动 CLI 时指定模型。
+
+```bash
+codex --model gpt-5.5
+```
+
+了解有关 Codex 中可用模型的更多信息。
+
+## 功能标志
+
+Codex 包含少量功能标志。使用 `features` 子命令查看可用标志并将更改持久化到配置中。
+
+```bash
+codex features list
+codex features enable unified_exec
+codex features disable shell_snapshot
+```
+
+`codex features enable <feature>` 和 `codex features disable <feature>` 会将更改写入 `~/.codex/config.toml`。如果使用 `--profile` 启动 Codex，Codex 会将更改存储在该配置文件中，而不是根配置中。
+
+## 子智能体
+
+使用 Codex 子智能体（Subagent）工作流来并行化更大的任务。有关设置、角色配置（`config.toml` 中的 `[agents]` 部分）和示例，请参阅**子智能体**文档。
+
+Codex 只会在你明确要求时才会派生子智能体。由于每个子智能体都执行自己的模型和工具工作，子智能体工作流比同等的单智能体运行消耗更多的令牌。
+
+## 图像输入
+
+附加截图或设计规范，让 Codex 能够在处理你的提示时同时读取图像细节。你可以将图像粘贴到交互式输入框中，或在命令行上提供文件。
+
+```bash
+codex -i screenshot.png "Explain this error"
+codex --image img1.png,img2.jpg "Summarize these diagrams"
+```
+
+Codex 接受常见的格式，如 PNG 和 JPEG。对于两个或更多图像，使用逗号分隔的文件名，并将它们与文本指令组合以添加上下文。
+
+## 图像生成
+
+直接在 CLI 中让 Codex 生成或编辑图像。这非常适合图标、横幅、插图、精灵表和占位图等素材。如果你想让 Codex 变换或扩展现有素材，请在提示中附带参考图像。
+
+你可以使用自然语言请求，或通过在提示中包含 `$imagegen` 来显式调用图像生成技能。
+
+内置图像生成使用 `gpt-image-2`，计入你的一般 Codex 使用限额，并且平均消耗速度比不含图像生成的类似回合快 3-5 倍（取决于图像质量和大小）。详情请参见**定价**。有关提示技巧和模型详情，请参阅**图像生成指南**。
+
+对于大批量图像生成，请在环境变量中设置 `OPENAI_API_KEY`，并让 Codex 通过 API 生成图像，这样将适用 API 定价。
+
+## 语法高亮和主题
+
+TUI 对围栏 Markdown 代码块和文件差异（diff）进行语法高亮，使代码在审查和调试时更易于阅读。
+
+使用 `/theme` 打开主题选择器，实时预览主题，并将选择保存到 `~/.codex/config.toml` 中的 `tui.theme`。你还可以在 `$CODEX_HOME/themes` 下添加自定义 `.tmTheme` 文件，并在选择器中选择它们。
+
+## 运行本地代码审查
+
+在 CLI 中键入 `/review` 打开 Codex 的审查预设。CLI 会启动一个专门的审查器，读取你选择的差异并报告优先级排序的、可操作的发现，而不会触及你的工作树。默认使用当前会话模型；可在 `config.toml` 中设置 `review_model` 进行覆盖。
+
+- **针对基础分支审查**：选择一个本地分支；Codex 找到其上游的合并基础，对你的工作进行差异比较，并在你发起拉取请求之前突出显示最大的风险。
+- **审查未提交的更改**：检查所有已暂存、未暂存或未跟踪的内容，以便你在提交之前解决问题。
+- **审查某个提交**：列出最近的提交，并让 Codex 读取你选择的 SHA 的确切变更集。
+- **自定义审查指令**：接受你自己的措辞（例如，"关注无障碍回归"），并使用该提示运行相同的审查器。
+
+每次运行在对话记录中显示为独立的回合，因此你可以在代码演变时重新运行审查并比较反馈。
+
+## 网络搜索
+
+Codex 内置了第一方网络搜索工具。对于 Codex CLI 中的本地任务，Codex 默认启用网络搜索，并从网络搜索缓存提供结果。该缓存是 OpenAI 维护的网页结果索引，因此缓存模式返回预索引的结果，而不是获取实时页面。这减少了来自任意实时内容的提示注入风险，但你仍然应将网页结果视为不受信任。如果你使用 `--yolo` 或其他完全访问沙盒设置，网络搜索默认使用实时结果。要获取最新数据，可为单次运行传递 `--search`，或在**配置基础**中设置 `web_search = "live"`。你还可以设置 `web_search = "disabled"` 来关闭该工具。
+
+每当 Codex 查找内容时，你会在记录或 `codex exec --json` 输出中看到 `web_search` 条目。
+
+## 使用输入提示运行
+
+当你只需要快速答案时，使用单个提示运行 Codex 并跳过交互式 UI。
+
+```bash
+codex "explain this codebase"
+```
+
+Codex 将读取工作目录、制定计划，并将响应流式传输回终端，然后退出。可以搭配 `--path` 等标志来定位特定目录，或使用 `--model` 来预先调整行为。
+
+## Shell 自动补全
+
+通过安装为你的 Shell 生成的补全脚本来加速日常使用：
+
+```bash
+codex completion bash
+codex completion zsh
+codex completion fish
+```
+
+在你的 Shell 配置文件中运行补全脚本，为新会话设置自动补全。例如，如果你使用 zsh，可以将以下内容添加到 `~/.zshrc` 文件末尾：
+
+```bash
+# ~/.zshrc
+eval "$(codex completion zsh)"
+```
+
+启动新会话，输入 `codex` 并按 `Tab` 查看补全。如果看到 `command not found: compdef` 错误，请在 `eval "$(codex completion zsh)"` 行之前添加 `autoload -Uz compinit && compinit`，然后重启 Shell。
+
+## 审批模式
+
+审批模式定义了 Codex 在无需等待确认的情况下可以执行多少操作。在交互式会话中使用 `/permissions` 根据你的舒适度切换模式。
+
+- **自动（Auto，默认）**：允许 Codex 在工作目录内读取文件、编辑和运行命令。在触及该范围之外或使用网络之前，它仍然会询问。
+- **只读（Read-only）**：让 Codex 保持咨询模式。它可以浏览文件，但在你批准计划之前不会进行更改或运行命令。
+- **完全访问（Full Access）**：授予 Codex 在整个机器上工作的能力（包括网络访问），无需询问。请谨慎使用，仅在信任仓库和任务时使用。
+
+Codex 始终会提供其操作的记录，因此你可以使用常用的 Git 工作流审查或回滚更改。
+
+## 脚本化 Codex
+
+使用 `exec` 子命令自动化工作流或将 Codex 接入现有脚本。这会以非交互方式运行 Codex，将最终计划和结果通过管道输出到 stdout。
+
+```bash
+codex exec "fix the CI failure"
+```
+
+将 `exec` 与 Shell 脚本结合，构建自定义工作流，例如自动更新更新日志、对问题进行分类，或在 PR 发布前强制执行编辑检查。
+
+## 使用 Codex Cloud
+
+`codex cloud` 命令让你无需离开终端即可分类和启动 Codex Cloud 任务。不带参数运行它会打开交互式选择器，浏览活跃或已完成的任务，并将更改应用到你的本地项目。
+
+你也可以直接从终端启动任务：
+
+```bash
+codex cloud exec --env ENV_ID "Summarize open bugs"
+```
+
+添加 `--attempts`（1–4）可请求 N 选 1 运行（best-of-N），当你希望 Codex Cloud 生成多个解决方案时使用。例如，`codex cloud exec --env ENV_ID --attempts 3 "Summarize open bugs"`。
+
+环境 ID 来自你的 Codex Cloud 配置——使用 `codex cloud` 并按 `Ctrl+O` 选择环境，或通过 Web 仪表板确认确切的值。认证遵循你现有的 CLI 登录，如果提交失败，命令会以非零状态退出，以便你将其接入脚本或 CI。
+
+## 斜杠命令
+
+斜杠命令让你快速访问专门的工作流，如 `/review`、`/fork`、`/side` 或你自己的可重用提示。Codex 附带了一组精选的内置命令，你可以为团队特定任务或个人快捷方式创建自定义命令。
+
+请参阅**斜杠命令指南**浏览内置命令目录，了解如何编写自定义命令，以及它们存储在磁盘的什么位置。
+
+## 提示编辑器
+
+当你正在起草一个较长的提示时，切换到完整的编辑器然后将结果发送回输入框可能更方便。
+
+在提示输入框中，按 `Ctrl+G` 打开由 `VISUAL` 环境变量定义的编辑器（如果未设置 `VISUAL`，则使用 `EDITOR`）。
+
+## 模型上下文协议（MCP）
+
+通过配置 MCP（Model Context Protocol）服务器，将 Codex 连接到更多工具。在 `~/.codex/config.toml` 中添加 STDIO 或流式 HTTP 服务器，或使用 `codex mcp` CLI 命令进行管理——Codex 会在会话启动时自动启动它们，并将它们的工具与内置工具一起暴露。你甚至可以在另一个智能体中需要 Codex 时将其本身作为 MCP 服务器运行。
+
+请参阅**模型上下文协议**了解示例配置、支持的认证流程以及更详细的指南。
+
+## 提示与快捷键
+
+- 在输入框中输入 `@` 可打开工作区根目录下的模糊文件搜索；按 `Tab` 或 `Enter` 将高亮路径插入到消息中。
+- 在 Codex 运行时按 `Enter` 可将新指令注入到当前回合中，或按 `Tab` 为下一回合排队后续输入。排队输入可以是普通提示、斜杠命令（如 `/review`）或 `!` shell 命令。Codex 在运行时解析排队的斜杠命令。
+- 在行前加上 `!` 可运行本地 Shell 命令（例如，`!ls`）。Codex 将输出视为用户提供的命令结果，并且仍然应用你的审批和沙盒设置。
+- 当输入框为空时，双击 `Esc` 可编辑上一条用户消息。继续按 `Esc` 可继续在对话记录中向前追溯，然后按 `Enter` 从该点分叉（fork）。
+- 使用 `codex --cd <path>` 从任何目录启动 Codex 来设置工作根目录，无需先运行 `cd`。当前路径显示在 TUI 标题栏中。
+- 使用 `--add-dir` 暴露更多可写根目录（例如，`codex --cd apps/frontend --add-dir ../backend --add-dir ../shared`），当你需要跨多个项目协调更改时使用。
+- 在启动 Codex 之前确保你的环境已设置完毕，这样它就不会消耗令牌来探测应该激活什么。例如，提前激活你的 Python 虚拟环境（或其他语言环境）、启动任何必需的守护进程，并导出你预期使用的环境变量。

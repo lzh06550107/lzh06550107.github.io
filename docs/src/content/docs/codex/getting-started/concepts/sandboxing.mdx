@@ -1,0 +1,45 @@
+---
+title: 沙箱
+description: Codex 如何在 Codex 应用、IDE 和 CLI 中使用沙箱
+sidebar:
+  order: 5
+---
+
+沙箱是一个边界，让 Codex 能够自主行动，同时避免对其赋予对您机器的无限制访问权限。
+
+当 Codex 运行本地命令时，这些命令会在一个受限环境中执行。该环境定义了 Codex 可以自主做什么——它可以修改哪些文件，命令是否可以使用网络。
+
+沙箱和审批是两种不同的控制机制，协同工作。沙箱定义技术边界。审批策略决定 Codex 何时必须停下来并在跨越边界前请求许可。
+
+## 沙箱的作用
+
+- 适用于生成的命令，而不仅仅是文件操作
+- 使用平台原生的强制机制（macOS Seatbelt、Windows 沙箱、Linux/WSL2 bubblewrap）
+
+## 为什么重要
+
+- 减少审批疲劳
+- 为智能体工作提供更清晰的信任模型
+
+## 前提条件
+
+- **macOS**：开箱即用
+- **Windows**：使用原生 Windows 沙箱（PowerShell）或 Linux 沙箱（WSL2）
+- **Linux/WSL2**：先安装 bubblewrap（`sudo apt install bubblewrap`）
+
+## 如何控制
+
+- Codex 应用和 IDE 中的权限选择器
+- CLI 中的 `/permissions` 命令
+
+## 沙箱模式
+
+- `read-only`（只读）
+- `workspace-write`（工作区写入，默认）
+- `danger-full-access`（危险-完全访问）
+
+## 审批策略
+
+- `untrusted`（不信任）
+- `on-request`（按需请求，默认）
+- `never`（从不）

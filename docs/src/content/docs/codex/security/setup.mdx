@@ -1,0 +1,92 @@
+---
+title: Codex Security 设置
+description: 设置 Codex Security，等待初始扫描结果，并通过编辑威胁模型来改进结果。
+sidebar:
+  order: 4
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex Security 设置
+
+> 设置 Codex Security，等待初始扫描结果，并通过编辑威胁模型来改进结果。
+
+本页面将引导你从初始访问到查看扫描发现以及通过 Codex Security 创建修复 Pull Request 的完整流程。
+
+请先确认你已经设置了 Codex Cloud。如果还没有，请参阅 [Codex Cloud](/codex/cloud) 开始设置。
+
+## 1. 访问权限与环境
+
+Codex Security 会扫描通过 [Codex Cloud](/codex/cloud) 连接的 GitHub 仓库。
+
+- 确认你的工作区具有 Codex Security 的访问权限。
+- 确认你要扫描的仓库已在 Codex Cloud 中可用。
+
+前往 [Codex 环境设置](https://chatgpt.com/codex/settings/environments)，检查该仓库是否已有对应的环境。如果没有，请先在那里创建一个环境再继续。
+
+<LinkButton href="https://chatgpt.com/codex/settings/environments">打开环境设置</LinkButton>
+
+## 2. 新建安全扫描
+
+环境创建完成后，前往[创建安全扫描](https://chatgpt.com/codex/security/scans/new)页面，选择你刚刚连接的仓库。
+
+<LinkButton href="https://chatgpt.com/codex/security/scans/new">创建安全扫描</LinkButton>
+
+Codex Security 从最新提交开始向后扫描仓库。它利用这些数据来构建和刷新扫描上下文，随着新提交的到来持续更新。
+
+配置仓库的步骤：
+
+1. 选择 GitHub 组织。
+2. 选择仓库。
+3. 选择要扫描的分支。
+4. 选择环境。
+5. 选择**历史窗口**（history window）。更长的窗口提供更多上下文，但回填耗时更长。
+6. 点击**创建（Create）**。
+
+## 3. 初始扫描可能需要一段时间
+
+创建扫描后，Codex Security 首先会在所选历史窗口内运行一次提交级别的安全扫描。初始回填可能需要数小时，特别是对于较大的仓库或较长的历史窗口。如果发现结果没有立即显示，这是正常现象。请等待初始扫描完成后再提交工单或进行故障排查。
+
+初始扫描设置是自动且彻底的，可能需要数小时。如果第一批发现结果延迟出现，不必担心。
+
+## 4. 查看扫描结果并改进威胁模型
+
+<LinkButton href="https://chatgpt.com/codex/security/scans">查看扫描</LinkButton>
+
+初始扫描完成后，打开扫描并查看生成的威胁模型。在初始发现结果出现后，更新威胁模型使其与你的架构、信任边界和业务上下文相匹配。这有助于 Codex Security 为你的团队对问题进行优先级排序。
+
+如果你希望扫描结果发生变化，可以编辑威胁模型，更新范围、优先级和假设。
+
+在初始发现结果出现后，重新审视威胁模型，使扫描指导与当前优先级保持一致。保持模型更新有助于 Codex Security 产生更好的建议。
+
+关于威胁模型及其如何影响严重程度和分类的更多说明，请参阅[改进威胁模型](/codex/security/threat-model)。
+
+## 5. 查看发现结果并修复
+
+初始回填完成后，从**发现结果（Findings）**视图中查看扫描发现。
+
+<LinkButton href="https://chatgpt.com/codex/security/findings">打开发现结果</LinkButton>
+
+你可以使用两种视图：
+
+- **推荐发现（Recommended Findings）**：仓库中最关键问题的动态前十列表
+- **全部发现（All Findings）**：可排序、可过滤的跨仓库发现结果表格
+
+点击某个发现结果打开其详情页面，其中包含：
+
+- 问题的简明描述
+- 关键元数据，如提交详情和文件路径
+- 关于影响的上下文推理
+- 相关代码片段
+- 可用时的调用路径或数据流上下文
+- 验证步骤和验证输出
+
+你可以逐一查看每个发现结果，并直接从发现详情页面创建 PR。
+
+<LinkButton href="https://chatgpt.com/codex/security/findings">查看发现结果并创建 PR</LinkButton>
+
+## 相关文档
+
+- [Codex Security](/codex/security) — 产品概览
+- [FAQ](/codex/security/faq) — 常见问题解答
+- [改进威胁模型](/codex/security/threat-model) — 讲解如何改进扫描上下文和发现结果的优先级排序
