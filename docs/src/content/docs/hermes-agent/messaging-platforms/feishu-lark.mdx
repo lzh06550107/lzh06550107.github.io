@@ -1,0 +1,531 @@
+---
+title: 飞书 / Lark 设置
+description: hermes agent 飞书 / Lark 设置
+---
+
+Hermes 智能体可以作为一个全功能的机器人与飞书和 Lark 进行集成。连接成功后，您可以在私聊或群聊中与该智能体对话，在主聊天中接收定时任务（cron job）的结果，并通过标准的网关流程发送文本、图片、音频和文件附件。
+
+该集成同时支持以下两种连接模式：
+
+* websocket —— 推荐使用；Hermes 会主动建立出站连接，您不需要提供公开的 webhook 终端节点（endpoint）
+* webhook —— 当您希望飞书/Lark 通过 HTTP 将事件推送到您的网关时非常有用
+
+## Hermes 的行为方式
+
+| 上下文  | 行为                                   |
+| ---- | ------------------------------------ |
+| 私信   | Hermes 会回复每条消息。                      |
+| 群聊   | Hermes 只会在聊天中被 @提及时回复。               |
+| 共享群聊 | 默认情况下，在共享聊天中，session history 会按用户隔离。 |
+
+这种共享聊天行为由 `config.yaml` 控制：
+
+```yaml
+group_sessions_per_user: true
+```
+
+只有当你明确想让每个聊天使用一个共享会话时，才将它设置为 `false`。
+
+## 步骤 1：创建 Feishu / Lark App
+
+### 推荐：扫码创建（一个命令）
+
+```bash
+hermes gateway setup
+```
+
+选择 **Feishu / Lark**，并使用你的 Feishu 或 Lark 手机 App 扫描二维码。Hermes 会自动创建一个具有正确权限的 bot application，并保存凭据。
+
+### 替代方案：手动设置
+
+如果扫码创建不可用，向导会回退到手动输入：
+
+1. 打开 Feishu 或 Lark 开发者控制台：
+
+    * Feishu：`https://open.feishu.cn/`
+    * Lark：`https://open.larksuite.com/`
+
+2. 创建一个新 app。
+3. 在 **Credentials & Basic Info** 中，复制 **App ID** 和 **App Secret**。
+4. 为该 app 启用 Bot capability。
+5. 运行 `hermes gateway setup`，选择 **Feishu / Lark**，并在提示时输入凭据。
+
+:::caution[警告]
+请保密 App Secret。任何拥有它的人都可以冒充你的 app。
+:::
+
+## 步骤 2：选择连接模式
+
+### 推荐：WebSocket 模式
+
+当 Hermes 运行在你的笔记本电脑、工作站或私有服务器上时，使用 WebSocket 模式。不需要公网 URL。官方 Lark SDK 会打开并维护一个持久的出站 WebSocket 连接，并自动重连。
+
+```env
+FEISHU_CONNECTION_MODE=websocket
+```
+
+**要求**：必须安装 `websockets` Python package。SDK 会在内部处理连接生命周期、心跳和自动重连。
+
+**工作原理**：adapter 会在后台 executor thread 中运行 Lark SDK 的 WebSocket client。入站事件（messages、reactions、card actions）会被分发到主 asyncio loop。断开连接时，SDK 会自动尝试重新连接。
+
+### 可选：Webhook 模式
+
+只有当你已经将 Hermes 运行在一个可访问的 HTTP endpoint 后面时，才使用 webhook 模式。
+
+```env
+FEISHU_CONNECTION_MODE=webhook
+```
+
+在 webhook 模式下，Hermes 会启动一个 HTTP server（通过 `aiohttp`），并在以下路径提供 Feishu endpoint：
+
+```text
+/feishu/webhook
+```
+
+**要求**：必须安装 `aiohttp` Python package。
+
+你可以自定义 webhook server 的绑定地址和路径：
+
+```env
+FEISHU_WEBHOOK_HOST=127.0.0.1   # 默认：127.0.0.1
+FEISHU_WEBHOOK_PORT=8765         # 默认：8765
+FEISHU_WEBHOOK_PATH=/feishu/webhook  # 默认：/feishu/webhook
+```
+
+当 Feishu 发送 URL verification challenge（`type: url_verification`）时，webhook 会自动响应，因此你可以在 Feishu developer console 中完成订阅设置。
+
+## 步骤 3：配置 Hermes
+
+### 选项 A：交互式设置
+
+```bash
+hermes gateway setup
+```
+
+选择 **Feishu / Lark**，并填写提示内容。
+
+### 选项 B：手动配置
+
+将以下内容添加到 `~/.hermes/.env`：
+
+```env
+FEISHU_APP_ID=cli_xxx
+FEISHU_APP_SECRET=secret_xxx
+FEISHU_DOMAIN=feishu
+FEISHU_CONNECTION_MODE=websocket
+
+# 可选但强烈推荐
+FEISHU_ALLOWED_USERS=ou_xxx,ou_yyy
+FEISHU_HOME_CHANNEL=oc_xxx
+```
+
+`FEISHU_DOMAIN` 接受：
+
+* `feishu` 用于中国飞书
+* `lark` 用于国际版 Lark
+
+## 步骤 4：启动 Gateway
+
+```bash
+hermes gateway
+```
+
+然后从 Feishu / Lark 给 bot 发送消息，确认连接已生效。
+
+## Home Chat
+
+在 Feishu / Lark 聊天中使用 `/set-home`，将其标记为 cron job 结果和跨平台通知的 home channel。
+
+你也可以预先配置它：
+
+```env
+FEISHU_HOME_CHANNEL=oc_xxx
+```
+
+## 安全
+
+### 用户 Allowlist
+
+生产环境使用时，请设置 Feishu Open IDs 的 allowlist：
+
+```env
+FEISHU_ALLOWED_USERS=ou_xxx,ou_yyy
+```
+
+如果你将 allowlist 留空，任何能够访问该 bot 的人都可能可以使用它。在群聊中，消息处理前会根据发送者的 `open_id` 检查 allowlist。
+
+### Webhook Encryption Key
+
+在 webhook 模式下运行时，请设置 encryption key，以启用对入站 webhook payloads 的签名验证：
+
+```env
+FEISHU_ENCRYPT_KEY=your-encrypt-key
+```
+
+该 key 可以在你的 Feishu app 配置中的 **Event Subscriptions** 部分找到。设置后，adapter 会使用以下签名算法验证每个 webhook 请求：
+
+```text
+SHA256(timestamp + nonce + encrypt_key + body)
+```
+
+计算出的 hash 会使用 timing-safe comparison 与 `x-lark-signature` header 进行比较。签名无效或缺失的请求会被 HTTP 401 拒绝。
+
+:::tip[提示]
+在 WebSocket 模式下，签名验证由 SDK 自身处理，因此 `FEISHU_ENCRYPT_KEY` 是可选的。在 webhook 模式下，生产环境强烈推荐设置它。
+:::
+
+### Verification Token
+
+这是额外一层认证，用于检查 webhook payloads 内部的 `token` 字段：
+
+```env
+FEISHU_VERIFICATION_TOKEN=your-verification-token
+```
+
+该 token 同样可以在你的 Feishu app 的 **Event Subscriptions** 部分找到。设置后，每个入站 webhook payload 的 `header` 对象中都必须包含匹配的 token。token 不匹配会被 HTTP 401 拒绝。
+
+`FEISHU_ENCRYPT_KEY` 和 `FEISHU_VERIFICATION_TOKEN` 可以一起使用，以实现纵深防御。
+
+### Group Message Policy
+
+`FEISHU_GROUP_POLICY` 环境变量控制 Hermes 是否以及如何在群聊中回复：
+
+```env
+FEISHU_GROUP_POLICY=allowlist   # 默认
+```
+
+| 值           | 行为                                              |
+| ----------- | ----------------------------------------------- |
+| `open`      | Hermes 会回复任意群组中任意用户的 @提及。                       |
+| `allowlist` | Hermes 只会回复列在 `FEISHU_ALLOWED_USERS` 中的用户的 @提及。 |
+| `disabled`  | Hermes 会完全忽略所有群消息。                              |
+
+在所有模式下，消息被处理前，bot 都必须在群中被明确 @提及（或 @all）。私信始终绕过这个门控。
+
+设置 `FEISHU_REQUIRE_MENTION=false` 可以让 Hermes 读取所有群流量，而不要求 @提及：
+
+```env
+FEISHU_REQUIRE_MENTION=false
+```
+
+对于按聊天控制，请在 `group_rules` 条目上设置 `require_mention` —— 请参见下面的 [Per-Group Access Control](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/feishu#per-group-access-control)。
+
+### Bot Identity
+
+Hermes 会在启动时自动检测 bot 的 `open_id` 和显示名称。只有当自动检测无法访问 Feishu API，或者你的 app 使用 tenant-scoped user IDs 时，才需要手动设置这些：
+
+```env
+FEISHU_BOT_OPEN_ID=ou_xxx     # 仅在自动检测失败时使用
+FEISHU_BOT_USER_ID=xxx        # 如果你的 app 使用 sender_id_type=user_id，则需要
+FEISHU_BOT_NAME=MyBot         # 仅在自动检测失败时使用
+```
+
+## Bot-to-Bot Messaging
+
+默认情况下，Hermes 会忽略其他 bots 发送的消息。当你希望 Hermes 参与 A2A 编排，或接收同一群组中其他 bots 的通知时，可以启用 bot-to-bot messaging。
+
+```env
+FEISHU_ALLOW_BOTS=mentions   # 默认：none
+```
+
+| 值          | 行为                          |
+| ---------- | --------------------------- |
+| `none`     | 忽略来自其他 bots 的所有消息（默认）。      |
+| `mentions` | 仅当 peer bot @提及 Hermes 时接受。 |
+| `all`      | 接受每一条 peer bot 消息。          |
+
+也可以在 `config.yaml` 中配置为 `feishu.allow_bots`（当两者都设置时，env 优先）。
+
+Peer bots 不需要添加到 `FEISHU_ALLOWED_USERS` —— 该 allowlist 只适用于人类发送者。
+
+授予 `application:bot.basic_info:read` scope 可以显示 peer bot 名称；如果没有它，peer bots 仍然可以正确路由，但会显示为它们的 `open_id`。
+
+## 交互式卡片操作
+
+当用户点击按钮或与 bot 发送的交互式卡片交互时，adapter 会将这些路由为合成的 `/card` 命令事件：
+
+* 按钮点击会变成：`/card button {"key": "value", ...}`
+* 卡片定义中的 action 的 value payload 会作为 JSON 包含进去。
+* Card actions 会使用 15 分钟窗口进行去重，以防止重复处理。
+
+Gateway 驱动的 update prompts 会使用原生 Feishu Yes / No 卡片，而不是回退到纯文本回复。当 `hermes update --gateway` 需要确认时，adapter 会将所选答案记录到 Hermes 的 `.update_response` 文件中，并将卡片内联替换为已解决状态。
+
+Card action events 会以 `MessageType.COMMAND` 分发，因此它们会流经正常的命令处理 pipeline。
+
+这也是 command approval 的工作方式——当 agent 需要运行危险命令时，它会发送一张带有 Allow Once / Session / Always / Deny 按钮的交互式卡片。用户点击按钮，card action callback 会将 approval decision 传回给 agent。
+
+## 必需的 Feishu App 配置
+
+交互式卡片需要在 Feishu Developer Console 中完成**三个**配置步骤。缺少其中任何一个，用户点击卡片按钮时都会导致错误 `200340`。
+
+1. 订阅 card action event：在 Event Subscriptions 中，添加 `card.action.trigger` 到你的 subscribed events。
+
+2. 启用 Interactive Card capability：在 App Features > Bot 中，确保 Interactive Card toggle 已启用。这会告诉 Feishu 你的 app 可以接收 card action callbacks。
+
+3. 配置 Card Request URL（仅 webhook 模式）：在 App Features > Bot > Message Card Request URL 中，将 URL 设置为与你的 event webhook 相同的 endpoint（例如 `https://your-server:8765/feishu/webhook`）。在 WebSocket 模式下，这由 SDK 自动处理。
+
+:::caution[警告]
+如果没有完成全部三个步骤，Feishu 仍然可以成功发送交互式卡片（发送只需要 `im:message:send` 权限），但点击任何按钮都会返回错误 `200340`。卡片看起来可以工作——错误只会在用户与其交互时出现。
+:::
+
+## 文档评论智能回复
+
+除了聊天之外，adapter 还可以回答 Feishu/Lark 文档中留下的 @提及。当用户在文档上评论（本地文本选择或整篇文档评论）并 @提及 bot 时，Hermes 会读取文档以及周围的评论线程，并在线程中内联发布 LLM 回复。
+
+由 `drive.notice.comment_add_v1` 事件驱动，该 handler 会：
+
+* 并行获取文档内容和评论时间线（整篇文档线程为 20 条消息，本地选择线程为 12 条消息）。
+* 使用限定在该单个评论 session 中的 `feishu_doc` + `feishu_drive` toolsets 运行 agent。
+* 以 4000 字符为单位拆分回复，并将它们作为 threaded replies 发送回去。
+* 按文档缓存 sessions 1 小时，并设置 50 条消息上限，这样同一文档上的后续评论可以保留上下文。
+
+### 3 层访问控制
+
+文档评论回复是显式授权模式——不存在隐式 allow-all 模式。权限按以下顺序解析（每个字段首个匹配获胜）：
+
+1. Exact doc —— 作用域限定到特定 document token 的规则。
+2. Wildcard —— 匹配某种 docs 模式的规则。
+3. Top-level —— workspace 的默认规则。
+
+每条规则有两种 policy 可用：
+
+* `allowlist` —— 静态用户 / tenants 列表。
+* `pairing` —— 静态列表 ∪ 运行时批准存储。适合 moderators 可以实时授予访问权限的 rollout 场景。
+
+Rules 位于 `~/.hermes/feishu_comment_rules.json` 中（pairing grants 位于 `~/.hermes/feishu_comment_pairing.json` 中），并带有 mtime-cached hot-reload —— 编辑会在下一次 comment event 时生效，无需重启 gateway。
+
+CLI：
+
+```bash
+# 检查当前 rules 和 pairing 状态
+python -m gateway.platforms.feishu_comment_rules status
+
+# 为特定 doc + user 模拟一次 access check
+python -m gateway.platforms.feishu_comment_rules check <fileType:fileToken> <user_open_id>
+
+# 在运行时管理 pairing grants
+python -m gateway.platforms.feishu_comment_rules pairing list
+python -m gateway.platforms.feishu_comment_rules pairing add <user_open_id>
+python -m gateway.platforms.feishu_comment_rules pairing remove <user_open_id>
+```
+
+## 必需的 Feishu App 配置
+
+除了已经授予的 chat/card permissions 之外，还需要添加 drive comment event：
+
+* 在 Event Subscriptions 中订阅 `drive.notice.comment_add_v1`。
+* 授予 `docs:doc:readonly` 和 `drive:drive:readonly` scopes，这样 handler 才能读取文档内容。
+
+## 媒体支持
+
+### 入站（接收）
+
+adapter 会接收并缓存来自用户的以下媒体类型：
+
+| 类型 | 扩展名                                                        | 处理方式                   |
+| -- | ---------------------------------------------------------- | ---------------------- |
+| 图片 | `.jpg`、`.jpeg`、`.png`、`.gif`、`.webp`、`.bmp`                | 通过 Feishu API 下载并缓存在本地 |
+| 音频 | `.ogg`、`.mp3`、`.wav`、`.m4a`、`.aac`、`.flac`、`.opus`、`.webm` | 下载并缓存；小型文本文件会自动提取      |
+| 视频 | `.mp4`、`.mov`、`.avi`、`.mkv`、`.webm`、`.m4v`、`.3gp`          | 下载并作为 documents 缓存     |
+| 文件 | `.pdf`、`.doc`、`.docx`、`.xls`、`.xlsx`、`.ppt`、`.pptx` 等      | 下载并作为 documents 缓存     |
+
+来自富文本（post）消息的媒体，包括内联图片和文件附件，也会被提取并缓存。
+
+对于小型文本型 documents（`.txt`、`.md`），文件内容会被自动注入到消息文本中，因此 agent 可以直接读取它，而不需要使用工具。
+
+### 出站（发送）
+
+| 方法                               | 发送内容                                    |
+| -------------------------------- | --------------------------------------- |
+| `send`                           | 文本或富文本 post 消息（根据 markdown 内容自动检测）      |
+| `send_image` / `send_image_file` | 上传图片到 Feishu，然后作为原生图片气泡发送（可带可选 caption） |
+| `send_document`                  | 上传文件到 Feishu API，然后作为文件附件发送             |
+| `send_voice`                     | 将音频文件作为 Feishu 文件附件上传                   |
+| `send_video`                     | 上传视频并作为原生媒体消息发送                         |
+| `send_animation`                 | GIF 会降级为文件附件（Feishu 没有原生 GIF 气泡）        |
+
+文件上传会根据扩展名自动路由：
+
+* `.ogg`、`.opus` → 作为 opus audio 上传
+* `.mp4`、`.mov`、`.avi`、`.m4v` → 作为 mp4 media 上传
+* `.pdf`、`.doc(x)`、`.xls(x)`、`.ppt(x)` → 按其 document type 上传
+* 其他所有内容 → 作为 generic stream file 上传
+
+## Markdown 渲染和 Post 回退
+
+当出站文本包含 markdown 格式（标题、加粗、列表、代码块、链接等）时，adapter 会自动将其作为带有嵌入式 `md` 标签的 Feishu post 消息发送，而不是作为纯文本发送。这可以在 Feishu 客户端中启用富文本渲染。
+
+如果 Feishu API 拒绝 post payload（例如由于不支持的 markdown 构造），adapter 会自动回退为发送去除 markdown 后的纯文本。这个两阶段回退确保消息始终能够送达。
+
+纯文本消息（未检测到 markdown）会作为简单 text message 类型发送。
+
+## 处理状态 Reactions
+
+当 agent 正在工作时，bot 会在你的消息上显示 `Typing` reaction。当回复到达时它会被清除；如果处理失败，则会被替换为 `CrossMark`。
+
+设置 `FEISHU_REACTIONS=false` 可以关闭它。
+
+## 突发保护和批处理
+
+adapter 包含针对快速消息突发的 debouncing，以避免压垮 agent：
+
+### 文本批处理
+
+当用户快速连续发送多条文本消息时，它们会在分发前合并成一个事件：
+
+| 设置      | Env Var                                  | 默认值    |
+| ------- | ---------------------------------------- | ------ |
+| 静默期     | `HERMES_FEISHU_TEXT_BATCH_DELAY_SECONDS` | `0.6s` |
+| 每批最大消息数 | `HERMES_FEISHU_TEXT_BATCH_MAX_MESSAGES`  | `8`    |
+| 每批最大字符数 | `HERMES_FEISHU_TEXT_BATCH_MAX_CHARS`     | `4000` |
+
+### 媒体批处理
+
+快速连续发送的多个媒体附件（例如拖拽多张图片）会合并成一个事件：
+
+| 设置  | Env Var                                   | 默认值    |
+| --- | ----------------------------------------- | ------ |
+| 静默期 | `HERMES_FEISHU_MEDIA_BATCH_DELAY_SECONDS` | `0.8s` |
+
+### 按聊天串行化
+
+同一个聊天中的消息会串行处理（一次一个），以保持对话连贯性。每个聊天都有自己的锁，因此不同聊天中的消息会并发处理。
+
+## 速率限制（Webhook 模式）
+
+在 webhook 模式下，adapter 会强制执行按 IP 的速率限制，以防滥用：
+
+* Window：60 秒滑动窗口
+* Limit：每个 `(app_id, path, IP)` 三元组每个窗口 120 个请求
+* Tracking cap：最多跟踪 4096 个唯一 key（防止内存无限增长）
+
+超过限制的请求会收到 HTTP 429（Too Many Requests）。
+
+### Webhook 异常跟踪
+
+adapter 会跟踪每个 IP 地址的连续错误响应。在 6 小时窗口内，如果同一个 IP 出现 25 次连续错误，则会记录一条 warning。这有助于检测配置错误的客户端或探测尝试。
+
+额外的 webhook 保护：
+
+* Body size limit：最大 1 MB
+* Body read timeout：30 秒
+* Content-Type enforcement：只接受 `application/json`
+
+## WebSocket 调优
+
+使用 `websocket` 模式时，你可以自定义重连和 ping 行为：
+
+```yaml
+platforms:
+  feishu:
+    extra:
+      ws_reconnect_interval: 120   # 重连尝试之间的秒数（默认：120）
+      ws_ping_interval: 30         # WebSocket pings 之间的秒数（可选；未设置则使用 SDK 默认值）
+```
+
+| 设置      | Config key              | 默认值       | 描述                            |
+| ------- | ----------------------- | --------- | ----------------------------- |
+| 重连间隔    | `ws_reconnect_interval` | `120s`    | 重连尝试之间等待多久                    |
+| Ping 间隔 | `ws_ping_interval`      | （SDK 默认值） | WebSocket keepalive pings 的频率 |
+
+## 按群组访问控制
+
+除了全局 `FEISHU_GROUP_POLICY` 之外，你还可以在 `config.yaml` 中使用 `group_rules` 为每个群聊设置细粒度规则：
+
+```yaml
+platforms:
+  feishu:
+    extra:
+      default_group_policy: "open"     # 不在 group_rules 中的群组默认策略
+      admins:                          # 可以管理 bot 设置的用户
+        - "ou_admin_open_id"
+      group_rules:
+        "oc_group_chat_id_1":
+          policy: "allowlist"          # open | allowlist | blacklist | admin_only | disabled
+          allowlist:
+            - "ou_user_open_id_1"
+            - "ou_user_open_id_2"
+        "oc_group_chat_id_2":
+          policy: "admin_only"
+        "oc_group_chat_id_3":
+          policy: "blacklist"
+          blacklist:
+            - "ou_blocked_user"
+        "oc_free_chat":
+          policy: "open"
+          require_mention: false       # 覆盖该聊天的 FEISHU_REQUIRE_MENTION
+```
+
+| Policy       | 描述                                |
+| ------------ | --------------------------------- |
+| `open`       | 群组中的任何人都可以使用 bot                  |
+| `allowlist`  | 只有该群组 allowlist 中的用户可以使用 bot      |
+| `blacklist`  | 除该群组 blacklist 中的用户外，所有人都可以使用 bot |
+| `admin_only` | 只有全局 admins 列表中的用户可以在该群组中使用 bot   |
+| `disabled`   | Bot 会忽略该群组中的所有消息                  |
+
+在 `group_rules` 条目上设置 `require_mention: false`，可以跳过该特定聊天中的 @提及要求。省略时，该聊天会继承全局 `FEISHU_REQUIRE_MENTION` 值。
+
+未列在 `group_rules` 中的群组会回退到 `default_group_policy`（默认使用 `FEISHU_GROUP_POLICY` 的值）。
+
+## 去重
+
+入站消息会使用 message IDs 进行去重，TTL 为 24 小时。去重状态会跨重启持久化到 `~/.hermes/feishu_seen_message_ids.json`。
+
+| 设置   | Env Var                          | 默认值            |
+| ---- | -------------------------------- | -------------- |
+| 缓存大小 | `HERMES_FEISHU_DEDUP_CACHE_SIZE` | `2048 entries` |
+
+## 所有环境变量
+
+| 变量                                        | 必需 | 默认值               | 描述                                           |
+| ----------------------------------------- | -- | ----------------- | -------------------------------------------- |
+| `FEISHU_APP_ID`                           | ✅  | —                 | Feishu/Lark App ID                           |
+| `FEISHU_APP_SECRET`                       | ✅  | —                 | Feishu/Lark App Secret                       |
+| `FEISHU_DOMAIN`                           | —  | `feishu`          | `feishu`（中国）或 `lark`（国际版）                    |
+| `FEISHU_CONNECTION_MODE`                  | —  | `websocket`       | `websocket` 或 `webhook`                      |
+| `FEISHU_ALLOWED_USERS`                    | —  | （空）               | 用于用户 allowlist 的逗号分隔 `open_id` 列表            |
+| `FEISHU_ALLOW_BOTS`                       | —  | `none`            | 接受来自其他 bots 的消息：`none`、`mentions` 或 `all`    |
+| `FEISHU_REQUIRE_MENTION`                  | —  | `true`            | 群消息是否必须 @提及 bot                              |
+| `FEISHU_HOME_CHANNEL`                     | —  | —                 | cron/notification 输出使用的 Chat ID              |
+| `FEISHU_ENCRYPT_KEY`                      | —  | （空）               | 用于 webhook 签名验证的 Encrypt key                 |
+| `FEISHU_VERIFICATION_TOKEN`               | —  | （空）               | 用于 webhook payload auth 的 Verification token |
+| `FEISHU_GROUP_POLICY`                     | —  | `allowlist`       | 群消息策略：`open`、`allowlist`、`disabled`          |
+| `FEISHU_BOT_OPEN_ID`                      | —  | （空）               | Bot 的 `open_id`（用于 @提及检测）                    |
+| `FEISHU_BOT_USER_ID`                      | —  | （空）               | Bot 的 `user_id`（用于 @提及检测）                    |
+| `FEISHU_BOT_NAME`                         | —  | （空）               | Bot 的显示名称（用于 @提及检测）                          |
+| `FEISHU_WEBHOOK_HOST`                     | —  | `127.0.0.1`       | Webhook server 绑定地址                          |
+| `FEISHU_WEBHOOK_PORT`                     | —  | `8765`            | Webhook server 端口                            |
+| `FEISHU_WEBHOOK_PATH`                     | —  | `/feishu/webhook` | Webhook endpoint path                        |
+| `HERMES_FEISHU_DEDUP_CACHE_SIZE`          | —  | `2048`            | 要跟踪的最大去重 message IDs 数                       |
+| `HERMES_FEISHU_TEXT_BATCH_DELAY_SECONDS`  | —  | `0.6`             | 文本突发 debounce 静默期                            |
+| `HERMES_FEISHU_TEXT_BATCH_MAX_MESSAGES`   | —  | `8`               | 每个文本批次合并的最大消息数                               |
+| `HERMES_FEISHU_TEXT_BATCH_MAX_CHARS`      | —  | `4000`            | 每个文本批次合并的最大字符数                               |
+| `HERMES_FEISHU_MEDIA_BATCH_DELAY_SECONDS` | —  | `0.8`             | 媒体突发 debounce 静默期                            |
+
+WebSocket 和按群组 ACL 设置通过 `config.yaml` 中的 `platforms.feishu.extra` 配置（见上方 WebSocket Tuning 和 Per-Group Access Control）。
+
+## 故障排查
+
+| 问题                                                     | 修复                                                                                                                      |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `lark-oapi not installed`                              | 安装 SDK：`pip install lark-oapi`                                                                                          |
+| `websockets not installed; websocket mode unavailable` | 安装 websockets：`pip install websockets`                                                                                  |
+| `aiohttp not installed; webhook mode unavailable`      | 安装 aiohttp：`pip install aiohttp`                                                                                        |
+| `FEISHU_APP_ID` 或 `FEISHU_APP_SECRET` 未设置              | 设置两个 env vars，或通过 `hermes gateway setup` 配置                                                                             |
+| 另一个本地 Hermes gateway 已经在使用这个 Feishu `app_id`           | 同一时间只有一个 Hermes 实例可以使用同一个 `app_id`。请先停止另一个 gateway。                                                                     |
+| Bot 在群组中不回复                                            | 确保 bot 被 @提及，检查 `FEISHU_GROUP_POLICY`，如果 policy 是 `allowlist`，请确认发送者在 `FEISHU_ALLOWED_USERS` 中                          |
+| Webhook 被拒绝：invalid verification token                 | 确保 `FEISHU_VERIFICATION_TOKEN` 与你的 Feishu app 的 Event Subscriptions 配置中的 token 匹配                                       |
+| Webhook 被拒绝：invalid signature                          | 确保 `FEISHU_ENCRYPT_KEY` 与你的 Feishu app 配置中的 encrypt key 匹配                                                              |
+| Post messages 显示为纯文本                                   | Feishu API 拒绝了 post payload；这是正常的 fallback 行为。查看日志获取详情。                                                                 |
+| Bot 没有收到图片/文件                                          | 为你的 Feishu app 授予 `im:message` 和 `im:resource` permission scopes                                                        |
+| Bot identity 未自动检测                                     | 通常是访问 Feishu 的 bot info endpoint 时出现短暂网络问题。将 `FEISHU_BOT_OPEN_ID` 和 `FEISHU_BOT_NAME` 设为手动值作为 workaround。               |
+| 启用 `FEISHU_ALLOW_BOTS` 后，peer bot messages 仍然被忽略       | Hermes 还无法识别自己——设置 `FEISHU_BOT_OPEN_ID`（如果你的 app 使用 `sender_id_type=user_id`，还要设置 `FEISHU_BOT_USER_ID`）。                |
+| Peer bots 显示为 `ou_xxxxxx`，而不是名称                        | 授予 `application:bot.basic_info:read` scope。                                                                             |
+| 点击 approval buttons 时出现错误 `200340`                     | 在 Feishu Developer Console 中启用 Interactive Card capability，并配置 Card Request URL。参见上方 Required Feishu App Configuration。 |
+| Webhook rate limit exceeded                            | 同一 IP 每分钟超过 120 个请求。这通常是配置错误或循环。                                                                                        |
+
+## Toolset
+
+Feishu / Lark 使用 `hermes-feishu` 平台 preset，其中包含与 Telegram 和其他基于 gateway 的消息平台相同的核心工具。
+
