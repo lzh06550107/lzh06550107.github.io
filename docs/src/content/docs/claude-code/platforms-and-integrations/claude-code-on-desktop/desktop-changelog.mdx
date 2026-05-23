@@ -1,0 +1,150 @@
+---
+title: Desktop 更新日志
+description: Claude Desktop 中 Claude Code 相关功能的版本更新记录，涵盖新特性、改进与修复项；CLI 内核更新请另见 CLI changelog。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+# Desktop 更新日志
+
+本文记录的是 **Claude Desktop 中 Claude Code 相关功能** 的变更，而不是内置 CLI 本身的完整更新日志。若你想看打包在 Desktop 里的 Claude Code CLI 更新，请另查 CLI changelog。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+## 1.7196.0 · 2026-05-12
+
+### 修复
+
+- 修复在 **Relaunch to Update** 阶段，若弹出窗口拒绝关闭会导致自动更新无限卡住的问题。
+- 修复本地 session 因缓存了损坏的 Claude Code 二进制而无法启动的问题。
+- 修复 credential helper 在开始新对话时重复打开多个浏览器登录标签页的问题。
+- 修复 Code 标签页中的 PR 状态图标在 merged、merge queue、draft 等状态下显示错误的问题。
+- 修复 **Quick Entry** 在使用韩文、日文、中文输入法时会丢字符的问题。
+
+### 新增与改进
+
+- 在 scheduled task 删除对话框中新增 **Also delete files on disk** 选项；勾选后会同时删除 `~/.claude/scheduled-tasks/` 下该任务的 `SKILL.md` 与关联数据。
+- 新增对鼠标 **后退 / 前进按钮** 的支持，可用于聊天视图导航。
+
+### 3P managed deployments
+
+- 新增可由 IT 管理员配置的**组织横幅**，会显示在应用窗口顶部。
+
+## 1.6889.0 · 2026-05-08
+
+### 新增与改进
+
+- Code 会话新增 **MCP App widget** 渲染支持。
+- 当某个 Code session 完成任务而你当前不在该会话里时，系统会发送 **操作系统通知**。
+- macOS 现在会自动检测损坏的 Claude Code CLI 二进制并重新下载。
+- Scheduled tasks 现在可在运行中通过 `update_scheduled_task` MCP tool 修改自己的 schedule 或 prompt。
+- 本地 MCP 配置发生变化时，可用 MCP tools 列表会自动刷新。
+- PR auto-fix 现在会对每个已处理 review thread 自动回复，并把线程标记为 resolved。
+- 应用启动时会预连接已保存的 SSH 配置，以提升 SSH session 启动速度。
+- 管理端可通过 `labelOverride` 自定义 model picker 中的模型显示名。
+
+### 修复
+
+- 修复向繁忙终端粘贴代码块时的问题；若现有终端已有进程运行，应用现在会自动新开一个 terminal tab。
+- 修复 Code session 里 PR bar 的多个问题：每一行现在展示各自的 diff，且当 PR 被合并后，侧边栏状态图标会正确更新。
+- 修复在运行过代码块后再打开 terminal pane 时出现的乱码滚动历史，如 stray `%` 符号或半截换行 prompt。
+- 修复通过 Handoff 或 share link 打开 Code session 链接时，窗口控制区域重叠的问题。
+- 修复本地 session 中使用 1Password 或 Secretive 持有签名密钥时，git commit signing 失败的问题。
+- 修复 plugin registry 文件被并发写坏后，本地已安装插件会从 session 中消失的问题。
+- 修复 scheduled task 在 auto-approve 模式下把 tool-use suggestions 回显进 session 的问题。
+- 修复 SSH plugin sync 中单个异常插件会阻塞其他插件同步的问题。
+- 修复管理员按 tool 配置的 MCP server policy 在某些 session 类型中未被完全执行的问题。
+
+### 3P managed deployments
+
+- 新增 `managedMcpServers` managed-settings 配置，支持通过 **stdio transport** 提供本地 MCP servers；connector 详情面板会展示 command 与 arguments，环境变量值在管理员 Setup 页面外会被遮罩。
+- 新增可禁用 `claude://` deep-link 处理的 managed-settings 选项。
+
+## 1.6608.0 · 2026-05-07
+
+### 修复
+
+- 修复 scheduled task 因上一轮卡在 permission prompt 而导致后续运行无法启动的问题。
+- 修复 scheduled task 在一次运行失败后不断重试，而不是等待下一个计划时间的问题。
+- 修复 scheduled-task history 把由于并发限制而跳过的运行错误显示成 “computer asleep” 的问题。
+- 修复连接目录为盘符根目录时，folder permission rules 无法正确匹配的问题。
+- 修复 Windows 安装后会在 `%LOCALAPPDATA%` 下遗留空目录的问题。
+
+### 新增与改进
+
+- 支持通过 plugin manifest 为组织下发插件时启用 **per-plugin auto-install**。
+- Code session 右键菜单新增 **Unarchive**；向已归档 session 再次发送消息时，也会自动恢复。
+- 当归档一个带有未提交 worktree 改动的 Code session 时，会显示警告。
+- 当应用退出或重启，而本地 Code sessions 仍在运行时，会显示警告。
+- SSH 连接新增对 `csh` 与 `tcsh` login shell 的支持。
+
+## 1.6259.0 · 2026-05-05
+
+### 新增与改进
+
+- 当未配置工作目录时，Code session 现在默认把 working directory 设为 home 目录。
+- SSH Code session 现在会从 SSH host 继承并级联 `settings.json` project settings。
+- **Always allow** 工具权限现在可跨应用重启持久保存，并显示其作用域。
+- Windows 现在会自动检测损坏的 Claude Code CLI 二进制并重新下载。
+- PR bar 现在除了当前分支自身 PR 之外，也会展示 stacked 与 sibling pull requests。
+- 当一个 turn 正在运行时，新发出的消息现在会进入队列，而不是被丢弃。
+- 在 iOS 上打开 Code session link 时，现在可通过 Handoff 在 macOS 上继续该会话。
+
+## 1.5354.0 · 2026-04-29
+
+### 新增与改进
+
+- 当管理员在 console 中关闭组织级 **Skills** 开关后，Code session 现在会移除 skill 管理相关工具：`list_skills`、`save_skill`、`propose_skills`。
+- 当 session 的 working directory 是一个 symlink 时，preview pane 现在会自动打开。
+- 优化 login-shell 的 PATH 提取逻辑，提高工具发现的可靠性。
+
+## 1.5220.0 · 2026-04-28
+
+### 新增与改进
+
+- 新增 **multi-tab terminal pane**：点击 terminal pane 标题栏中的 `+` 可打开第二个终端标签页；右键聊天中的文件夹，也可直接选择 **Open in terminal**。
+
+### 修复
+
+- 修复 worktree pool 在 checkout 失败时错误创建全新 worktree，而不是复用现有 worktree 的问题。
+- 修复在先前 rewind 已产生 fork 的情况下，后续 rewind 选中了错误 assistant message 的问题。
+
+## 1.5186.0 · 2026-04-28
+
+### 新增与改进
+
+- 新增 `list_sessions`、`search_session_transcripts`、`archive_session` MCP tools，可在 session 内直接管理 Code sessions。
+- 改进 SSH 唤醒路径的可靠性，并在调试时显示 `ProxyCommand stderr`，便于排障。
+- PR review bodies 与 issue comments 现在会被转发给 auto-fix engine。
+- 新增按错误类别分组的 Code session 错误 UI，可显示更明确的恢复步骤。
+
+### 修复
+
+- 修复 fish shell 用户的 login-shell PATH 提取逻辑：此前返回的是按换行分隔列表，而不是冒号分隔 PATH。
+- 修复 SSH remote control socket 目录权限，使 `~/.claude/remote` 不再对所有用户可遍历。
+
+## 如何使用这份更新日志
+
+这份 changelog 主要适合以下用途：
+
+- 判断某个 Desktop 行为是不是最近才新增
+- 排查遇到的问题是否已在新版修复
+- 观察 scheduled tasks、SSH、PR bar、plugins、MCP 集成等能力的演进节奏
+- 区分是 **Desktop 外壳层** 的变化，还是 **CLI 内核** 的变化
+
+如果你发现某个问题与文中的修复项高度吻合，但本地仍复现，优先检查：
+
+1. Desktop 是否已更新到对应版本或更高版本
+2. 问题是否其实来自 CLI 内核而不是 Desktop 外壳
+3. 是否涉及组织管理策略、MCP 配置或本地损坏缓存
+
+## 相关阅读
+
+- [Claude Desktop 入门](/claude-code/platforms-and-integrations/claude-code-on-desktop/get-started/)：先了解 Desktop 安装与第一条会话
+- [Claude Code Desktop 参考](/claude-code/platforms-and-integrations/claude-code-on-desktop/reference/)：查看 Desktop 全量能力说明
+- [Scheduled tasks](/claude-code/platforms-and-integrations/claude-code-on-desktop/scheduled-tasks/)：理解 changelog 里多次出现的定时任务能力

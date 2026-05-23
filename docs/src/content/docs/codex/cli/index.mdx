@@ -1,14 +1,12 @@
 ---
-title: CLI
+title: Codex CLI
 description: 在终端中使用 Codex CLI，一个基于 Rust 构建的开源编程智能体。
 sidebar:
-  order: 5
+  order: 1
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
-
-# Codex CLI
 
 > 在终端中与 Codex 结对编程
 
@@ -78,6 +76,10 @@ ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
   </TabItem>
 </Tabs>
 
+:::note
+Codex CLI 可在 macOS、Windows 和 Linux 上使用。在 Windows 上，可以在 PowerShell 中原生运行 Codex 并使用 Windows sandbox，或者在需要 Linux 原生环境时使用 WSL2。有关设置详情，请参阅 [Windows 设置指南](/codex/administration/windows)。
+:::
+
 :::tip[新手提示]
 如果你是 Codex 新手，建议先阅读 [最佳实践指南](/codex/learn/best-practices)。
 :::
@@ -131,8 +133,6 @@ codex exec "为这个项目添加深色模式支持"
 ### 审批模式
 
 选择适合你舒适度的审批模式，控制 Codex 在编辑或运行命令前的行为。
-
----
 
 <LinkButton href="https://developers.openai.com/codex/cli" variant="secondary">
   查看官方完整文档 →

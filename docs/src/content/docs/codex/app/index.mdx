@@ -2,7 +2,7 @@
 title: App 桌面应用
 description: Codex 桌面应用是专注于并行处理 Codex 任务的桌面体验，内置工作树支持、自动化和 Git 功能。
 sidebar:
-  order: 6
+  order: 1
 ---
 
 import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
@@ -23,33 +23,33 @@ Codex 桌面应用适用于 macOS 和 Windows。大多数功能在两个平台�
 
 ### 1. 下载并安装
 
-- 下载适用于 macOS（Apple Silicon）
-- 下载适用于 macOS（Intel）
-- 下载适用于 Windows
-
-:::note[Linux 用户]
-Linux 版本正在开发中，敬请关注。
-:::
+- [下载适用于 macOS](https://persistent.oaistatic.com/codex-app-prod/Codex.dmg)
+- [下载适用于 Linux](https://openai.com/form/codex-app/)
+- [下载适用于 Windows](https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi)
 
 ### 2. 打开 Codex 并登录
 
 安装完成后，打开 Codex 并使用 ChatGPT 账户或 OpenAI API 密钥登录。
 
 :::caution
-如果使用 API 密钥登录，部分功能（如云端线程）可能不可用。
+如果使用 API 密钥登录，部分功能（如[云端线程](https://developers.openai.com/codex/prompting#threads)）可能不可用。
 :::
 
 ### 3. 选择一个项目
 
 选择你想让 Codex 工作的项目文件夹。如果你之前使用过 Codex，会看到过去的工作项目列表。
 
-### 4. 发送第一条消息
+如果你之前使用过 Codex app、CLI 或 IDE Extension，你将会看到你曾经处理过的历史项目。
+
+### 1. 发送第一条消息
 
 选择项目后，确保选中 **本地** 模式，让 Codex 在你的机器上工作。你可以询问关于项目或计算机的任何问题。例如：
 
 - ![🧠](/images/codex/colorcons/brain.png) 告诉我这个项目是做什么的
 - ![🎮](/images/codex/colorcons/gamepad.png) 在这个仓库中构建一个经典的贪吃蛇游戏
 - ![🔍](/images/codex/colorcons/search.png) 在我的代码库中查找并修复 bug
+
+如果你需要更多灵感，可以探索 [Codex 的 use cases](https://developers.openai.com/codex/getting-started/use-cases)。如果你是 Codex 新手，请阅读 [best practices guide](https://developers.openai.com/codex/learn/best-practices)。
 
 ## 使用 Codex 桌面应用
 
@@ -68,6 +68,10 @@ Linux 版本正在开发中，敬请关注。
 ### 计算机使用
 
 让 Codex 使用 macOS 应用处理 GUI 任务、浏览器流程和原生应用测试。
+
+### Appshots
+
+将当前位于最前方的 Mac 应用窗口以截图和可用文本的形式发送给 Codex。
 
 ### 审查并发布变更
 
@@ -113,8 +117,7 @@ Linux 版本正在开发中，敬请关注。
 
 在桌面应用和 IDE 会话之间共享自动上下文和活动线程。
 
----
-
 <LinkButton href="https://developers.openai.com/codex/app" variant="secondary">
   查看官方完整文档 →
 </LinkButton>
+

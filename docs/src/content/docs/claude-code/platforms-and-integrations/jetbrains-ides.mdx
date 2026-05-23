@@ -1,0 +1,258 @@
+---
+title: JetBrains IDEs
+description: 在 IntelliJ、PyCharm、WebStorm、Android Studio 等 JetBrains IDE 中使用 Claude Code 插件，获得 diff、选区共享、诊断共享与 IDE 集成能力。
+editUrl: false
+sidebar:
+  order: 9
+---
+
+# JetBrains IDEs
+
+Claude Code 可以通过官方插件接入大多数 JetBrains IDE，把 IDE 里的选区、诊断、diff 审查与 Claude 会话连接起来，让你既能保留 JetBrains 的开发体验，又能使用 Claude Code 的代理式工作流。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+## 支持哪些 IDE
+
+Claude Code 插件目前支持大多数主流 JetBrains 产品，包括：
+
+- IntelliJ IDEA
+- PyCharm
+- Android Studio
+- WebStorm
+- PhpStorm
+- GoLand
+
+## 这类集成能带来什么
+
+JetBrains 插件主要提供以下能力：
+
+- **Quick launch**：直接从编辑器里唤起 Claude Code
+- **Diff viewing**：代码改动可直接用 IDE 原生 diff viewer 展示，而不是只看终端 diff
+- **Selection context**：IDE 当前选区或当前标签页上下文可自动共享给 Claude
+- **File reference shortcuts**：快速插入 `@path#Lx-y` 这样的文件引用
+- **Diagnostic sharing**：IDE 中的 lint / syntax / language server 错误会自动共享给 Claude
+
+如果某个文件命中了 read deny 规则，那么该文件的自动上下文共享会被阻止。
+
+## 安装方式
+
+### 从 JetBrains Marketplace 安装
+
+直接在 JetBrains Marketplace 中搜索并安装 **Claude Code** 插件，然后重启 IDE。
+
+如果你尚未安装 Claude Code 本体，请先参考 Claude Code 的快速开始文档完成安装。
+
+:::note[安装后可能需要彻底重启 IDE]
+官方说明里特别提到：有时不仅需要重新加载项目，而是需要**完整退出并重启 IDE**，插件能力才会真正生效。
+:::
+
+## 怎么使用
+
+### 方式一：从 IDE 集成终端启动
+
+最简单的方式，是直接在 IDE 的 integrated terminal 里运行：
+
+```bash
+claude
+```
+
+只要你从 IDE 自带终端启动，JetBrains 集成功能就会自动启用。
+
+### 方式二：从外部终端连接当前 IDE
+
+如果你是在外部终端里使用 Claude Code，也可以在会话里执行：
+
+```text
+/ide
+```
+
+这会把当前 Claude 会话连接到 JetBrains IDE，并启用对应集成功能。
+
+:::tip[从项目根目录启动]
+如果你希望 Claude 看到的文件范围与 IDE 完全一致，最好从 IDE 项目根目录启动 Claude Code。
+:::
+
+## 配置方式
+
+### 在 Claude Code 里配置 IDE 集成
+
+你可以在 Claude Code 里：
+
+1. 运行 `claude`
+2. 输入 `/config`
+3. 把 diff tool 设为：
+   - `auto`：优先在 IDE 中显示 diff
+   - `terminal`：继续用终端展示 diff
+
+### 在 JetBrains 插件设置中配置
+
+进入：
+
+- `Settings → Tools → Claude Code [Beta]`
+
+可以看到插件自己的配置项。
+
+## 常见插件设置
+
+### General settings
+
+常见配置包括：
+
+- **Claude command**：指定 Claude 启动命令，例如：
+  - `claude`
+  - `/usr/local/bin/claude`
+  - `npx @anthropic-ai/claude-code`
+- **Suppress notification for Claude command not found**：找不到命令时不再弹通知
+- **Enable using Option+Enter for multi-line prompts**：仅 macOS，允许 `Option+Enter` 在 prompt 中换行
+- **Enable automatic updates**：自动检查并安装插件更新（重启后生效）
+
+对于 WSL 用户，官方特别建议把 Claude command 设置为类似：
+
+```text
+wsl -d Ubuntu -- bash -lic "claude"
+```
+
+其中 `Ubuntu` 需要替换成你自己的 WSL 发行版名称。
+
+## ESC 中断配置
+
+如果你发现在 JetBrains 终端中，按 **Esc** 不能中断 Claude Code：
+
+1. 进入 `Settings → Tools → Terminal`
+2. 二选一：
+   - 取消勾选 **Move focus to the editor with Escape**
+   - 或点击 **Configure terminal keybindings**，删除 `Switch focus to Editor` 快捷键
+3. 应用设置
+
+这样 Esc 才会真正传递给 Claude Code，用于中断操作。
+
+## 特殊场景配置
+
+### Remote Development
+
+如果你在使用 JetBrains Remote Development，插件必须安装在：
+
+- **remote host**
+
+而不是你本地客户端机器上。安装路径通常是 `Settings → Plugin (Host)`。
+
+### WSL 配置
+
+如果你在 **WSL2 + Windows 上的 JetBrains IDE** 组合里看到：
+
+- `No available IDEs detected`
+
+最常见原因不是 Claude Code 本身，而是：
+
+- WSL2 的 NAT 网络
+- Windows 防火墙阻止了 WSL2 与 Windows 主机上 IDE 的连接
+
+官方特别说明：
+
+- **WSL1** 直接共享主机网络，不受这个问题影响
+- 主要受影响的是 **WSL2**
+
+#### 方案一：给 WSL2 流量放行 Windows 防火墙
+
+这是官方推荐方案，因为它不要求你改 WSL2 的网络模式。
+
+**步骤 1：查看 WSL2 IP**
+
+在 WSL shell 中运行：
+
+```bash
+hostname -I
+```
+
+记下你的子网，例如 `172.21.123.45` 属于 `172.21.0.0/16`。
+
+**步骤 2：创建防火墙规则**
+
+以管理员身份打开 PowerShell，运行（注意按你的子网修改）：
+
+```powershell
+New-NetFirewallRule -DisplayName "Allow WSL2 Internal Traffic" -Direction Inbound -Protocol TCP -Action Allow -RemoteAddress 172.21.0.0/16 -LocalAddress 172.21.0.0/16
+```
+
+**步骤 3：重启 IDE 与 Claude Code**
+
+关闭并重新打开两者，让规则生效。
+
+#### 方案二：把 WSL2 切到 mirrored networking
+
+这个方案要求：
+
+- Windows 11 22H2 或更高版本
+
+如果你是 Windows 10，应优先使用前面的防火墙规则方案。
+
+在 Windows 用户目录下的 `.wslconfig` 中加入：
+
+```ini
+[wsl2]
+networkingMode=mirrored
+```
+
+然后在 PowerShell 中执行：
+
+```powershell
+wsl --shutdown
+```
+
+## 常见问题排查
+
+### 插件装了但不工作
+
+如果插件已经安装，但 Claude Code 功能仍没有在 IDE 中出现，优先检查：
+
+- 你是否从**项目根目录**运行 Claude Code
+- JetBrains 插件是否已启用
+- IDE 是否已经**彻底重启**（必要时可能要试不止一次）
+- Remote Development 场景下，插件是否真的装在 remote host 上
+
+### IDE 没被检测到
+
+如果运行 `claude` 时看到：
+
+- `No available IDEs detected`
+
+可按顺序排查：
+
+- 插件是否安装并启用
+- IDE 是否已完全重启
+- 你是否在 IDE 的 integrated terminal 中运行 Claude Code
+- 如果在 WSL 上，按上一节的 WSL 配置方案处理
+
+### 点击 Claude 图标提示 `command not found`
+
+通常说明 JetBrains 插件找不到 Claude 可执行命令。可检查：
+
+- 终端里 `claude --version` 是否正常
+- 插件设置里的 **Claude command** 路径是否正确
+- 若在 WSL 场景，是否按前文的 WSL 命令格式配置了启动命令
+
+## 安全注意事项
+
+当 Claude Code 在 JetBrains IDE 中运行，并且开启自动编辑权限后，它可能修改一些会被 IDE 自动执行或加载的配置文件。这会带来两个额外风险：
+
+- 提高 auto-edit 模式下的风险面
+- 某些情况下可能绕过原本依赖 Claude 权限提示的 bash 执行保护边界
+
+因此在 JetBrains 中建议尤其注意：
+
+- 优先使用**手工批准模式**
+- 只在**可信 prompt / 可信项目**中使用
+- 清楚哪些文件在当前工程里对 Claude 可写
+
+如果问题并不是 IDE 集成层，而是 Claude Code 安装或登录本身出了问题，应再回头看通用安装 / 登录排障文档。
+
+## 相关阅读
+
+- [Visual Studio Code](/claude-code/platforms-and-integrations/visual-studio-code/)：如果你也在 VS Code 中使用 Claude Code，可对比两种 IDE 集成方式
+- [权限模式](/claude-code/use-claude-code/permission-modes/)：理解 auto-edit / ask / plan 的安全边界
+- [Remote Control](/claude-code/platforms-and-integrations/remote-control/)：在浏览器或手机中继续你的本地 Claude 会话

@@ -1,0 +1,487 @@
+---
+title: Prompt 库
+description: 可直接复制到 Claude Code 中使用的提示词库，按任务与角色分类，适合作为起点和灵感来源。
+editUrl: false
+sidebar:
+  order: 5
+---
+
+# Prompt 库
+
+可直接复制到 Claude Code 中使用的提示词库，按任务与角色分类，适合作为起点和灵感来源。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+这是一个可以直接复制进 Claude Code 的 prompt 库。你可以把它当作灵感来源：当你想尝试一种还没用过的工作方式，或暂时不知道该如何起手时，就从这里找一个接近的模板。
+
+这些 prompts 汇总自多个 Anthropic 指南，包括：
+
+- [常见工作流](/claude-code/use-claude-code/common-workflows/)
+- [最佳实践](/claude-code/use-claude-code/best-practices/)
+- How Anthropic teams use Claude Code
+
+它们更像是**起点**，而不是必须照抄的脚本。官方页面里每个 prompt 下都可以展开 **Why this works**，帮助你理解其背后的模式，从而写出更适合你自己项目的提示词。
+
+## 首先建议尝试的 5 个 prompts
+
+官方页面最先推荐的 5 个起手 prompts 如下：
+
+### 1. 在新仓库中快速建立方向感
+
+```text
+give me an overview of this codebase: architecture, key directories, and how the pieces connect
+```
+
+### 2. 找到某件事发生在哪里
+
+```text
+where do we validate uploaded file types?
+```
+
+### 3. 找出并修好一个失败的测试
+
+```text
+the UserAuth test is failing, find out why and fix it
+```
+
+### 4. 编写测试、运行测试并修复失败项
+
+```text
+write tests for app/parsers/feed.py, run them, and fix any failures
+```
+
+### 5. 在提交前审查你的改动
+
+```text
+review my uncommitted changes and flag anything that looks risky before I commit
+```
+
+## 这些 prompts 为什么有效
+
+这些 prompts 虽然场景不同，但共享了几种非常关键的写法模式。理解这些模式，比死记具体句子更重要。
+
+### 描述结果，而不是步骤
+
+直接说你要的结果，让 Claude 自己去找文件和路径。
+
+```text
+add rate limiting to the public API and make sure existing tests still pass
+```
+
+这个 prompt 并没有点名任何文件路径，但仍然足够有效。
+
+### 给 Claude 一个自我验证的方法
+
+在同一个 prompt 里要求它 `run`、`test`、`compare` 或 `verify`，Claude 就更可能迭代，而不是第一版就停下。
+
+```text
+write the migration, run it against the dev database, and confirm the schema matches
+```
+
+### 给出参考物
+
+指向一个现有文件、测试或模式，让新代码和已有体系保持一致。
+
+```text
+add a settings page that follows the same layout as the profile page
+```
+
+### 说明可衡量目标
+
+如果目标是性能、覆盖率或体积优化，明确写出指标与阈值，让“完成”不再模糊。
+
+```text
+get the bundle size under 200KB and show me what you removed
+```
+
+### 直接提供产物
+
+把错误、日志、截图、计划输出直接贴进去，或者用 `@` 引用文件，让 Claude 直接读取原始材料，而不是依赖你转述。
+
+```text
+why is the build failing? @build.log
+```
+
+### 指定你想要的回答形式
+
+明确说明输出格式、长度或受众，让解释更贴合实际用途。如果你希望每次回答都默认某种格式，可以设置 output style。
+
+```text
+explain how the payment retry logic works as an HTML page with a diagram, then open it in my browser
+```
+
+关于这些模式的更深入说明，可以参考 [最佳实践](/claude-code/use-claude-code/best-practices/)。
+
+## 分类提示词清单
+
+下面是官方页面中公开展示的提示词分组与示例内容。
+
+### DISCOVER · ONBOARD
+
+#### 在新仓库中建立方向感
+
+```text
+give me an overview of this codebase: architecture, key directories, and how the pieces connect
+```
+
+### DISCOVER · UNDERSTAND
+
+#### 解释陌生代码
+
+```text
+explain what src/scheduler/queue.ts does and how data flows through it. write it up as an HTML page with a diagram, then open it in my browser
+```
+
+#### 找到某件事发生在哪里
+
+```text
+where do we validate uploaded file types?
+```
+
+#### 删除前先判断会影响什么
+
+```text
+what would break if I deleted the retryWithBackoff helper?
+```
+
+#### 追踪代码如何演化
+
+```text
+look through the commit history of internal/auth/session.go and summarize how it evolved and why
+```
+
+#### 在动手前先界定改动范围
+
+```text
+which files would I need to touch to add a dark mode toggle to settings?
+```
+
+#### 向代码库提一个产品问题
+
+```text
+I am a PM. walk me through what happens when a user clicks Export to PDF, from the UI down to the result
+```
+
+### DESIGN · PLAN
+
+#### 在动代码前先规划一个多文件改动
+
+```text
+plan how to refactor the payment module to support multiple currencies. list the files you would change, but don't edit anything yet
+```
+
+#### 通过访谈先产出规格说明
+
+```text
+I want to build per-workspace rate limits. interview me about implementation, UX, edge cases, and tradeoffs until we have covered everything, then write the spec to SPEC.md
+```
+
+#### 把会议记录转成任务单
+
+```text
+read @meeting-notes.md and write up the action items, then create a Linear ticket for each with acceptance criteria
+```
+
+#### 在开发前梳理边界情况
+
+```text
+list the error states, empty states, and edge cases for the file upload flow that the design needs to cover
+```
+
+### DESIGN · PROTOTYPE
+
+#### 把 mockup 变成可交互原型
+
+```text
+here is a mockup. build a working prototype I can click through, matching the layout and states shown
+```
+
+#### 从截图实现，并自检差异
+
+```text
+implement this design, then take a screenshot of the result, compare it to the original, and fix any differences
+```
+
+### BUILD · IMPLEMENT
+
+#### 跟随现有模式实现新功能
+
+```text
+look at how the GitHub webhook handler is implemented to understand the pattern, then build a Stripe webhook handler the same way
+```
+
+#### 为缺文档的代码补文档
+
+```text
+find the public functions in src/auth/ without JSDoc comments and add them, matching the style already used in the file
+```
+
+#### 添加一个小而明确的功能
+
+```text
+add a /health endpoint that returns the app version and uptime
+```
+
+#### 从零构建一个小型内部工具
+
+```text
+create a drag-and-drop Kanban board with three columns using HTML, CSS, and vanilla JavaScript, then open it in my browser
+```
+
+#### 端到端处理一个 issue
+
+```text
+read issue #312, implement the fix, and run the tests
+```
+
+#### 在整个代码库里查找并统一修改文案
+
+```text
+find every place we say "Sign up free" or a close variant, show me each one in context, then update them all to "Start free trial". leave tests and the changelog alone
+```
+
+#### 参考旧文档草拟新文档
+
+```text
+read the privacy impact assessments in legal/pia/ to learn the structure and voice, then draft a new one for the new analytics integration
+```
+
+### BUILD · TEST
+
+#### 写测试、跑测试并修复失败项
+
+```text
+write tests for app/parsers/feed.py, run them, and fix any failures
+```
+
+#### 先写测试，再驱动实现
+
+```text
+write tests for the password reset flow first, then implement it until they pass
+```
+
+#### 根据覆盖率报告补低覆盖区域
+
+```text
+read coverage/coverage-summary.json and add tests for the lowest-covered files until each is above 80%
+```
+
+### BUILD · REFACTOR
+
+#### 在整个代码库中迁移一种模式
+
+```text
+migrate everything from the old logging API to the structured logger: identify every place that needs to change, then make the changes
+```
+
+#### 把代码移植到另一门语言
+
+```text
+port this Python module to Rust, keeping the same public API and test behavior
+```
+
+#### 针对可量化目标做优化
+
+```text
+optimize the search query to bring p95 latency from 2s down to under 500ms
+```
+
+#### 修复一个精确的视觉缺陷
+
+```text
+the login button extends 20px beyond the card border on mobile. fix it.
+```
+
+### BUILD · REVIEW
+
+#### 提交前审查你的改动
+
+```text
+review my uncommitted changes and flag anything that looks risky before I commit
+```
+
+#### 审查一个 Pull Request
+
+```text
+review PR #247 and summarize what changed, then list any concerns
+```
+
+#### 在应用前审查基础设施改动
+
+```text
+here is my Terraform plan output. what is this going to do, and is anything here going to cause problems?
+```
+
+#### 用 subagent 做安全审查
+
+```text
+use a subagent to review src/api/ for security issues and report what it finds
+```
+
+#### 在正式评审前先发现问题
+
+```text
+review launch-post.md for unsupported claims, missing attributions, and brand-guideline issues and list anything I should fix before it goes to legal
+```
+
+### BUILD · STEER
+
+#### 纠正错误方向
+
+```text
+that is not right: the function signature needs to stay backward-compatible. try a different approach
+```
+
+#### 缩小改动范围
+
+```text
+that is too much. keep only the changes to the validation logic in src/forms/ and undo your other edits
+```
+
+#### 把纠正固化成规则
+
+```text
+you keep using default exports when this project uses named exports. add a rule to CLAUDE.md so this stops happening
+```
+
+### SHIP · GIT
+
+#### 解决合并冲突
+
+```text
+resolve the merge conflicts in this branch and explain what you kept from each side
+```
+
+#### 生成提交信息并提交
+
+```text
+commit these changes with a message that summarizes what I did
+```
+
+#### 从工单直接开 PR
+
+```text
+find the Linear ticket about the login timeout and open a PR that implements it
+```
+
+### SHIP · RELEASE
+
+#### 根据 Git 历史草拟发布说明
+
+```text
+compare v2.3.0 to v2.4.0 and draft release notes grouped by feature, fix, and breaking change
+```
+
+#### 编写 CI 工作流
+
+```text
+write a GitHub Actions workflow that runs the tests and deploys to staging on every push to main
+```
+
+### OPERATE · DEBUG
+
+#### 找出并修复失败的测试
+
+```text
+the UserAuth test is failing, find out why and fix it
+```
+
+#### 调查一个已上报错误
+
+```text
+users are seeing 500 errors on /api/settings. investigate and tell me what is going on
+```
+
+#### 从根因修复构建错误
+
+```text
+here is a build error. fix the root cause and verify the build succeeds
+```
+
+### OPERATE · INCIDENT
+
+#### 调查线上事故
+
+```text
+the checkout endpoint started returning 500s an hour ago. check the logs, recent deploys, and config changes, then tell me the most likely cause
+```
+
+#### 从控制台截图诊断问题
+
+```text
+here is a screenshot of the GCP Kubernetes dashboard. walk me through why this pod is failing and give me the exact commands to fix it
+```
+
+#### 用自然语言查询日志
+
+```text
+show me all failed logins for the auth service over the past 24 hours. write the query, run it, and tell me what stands out
+```
+
+### OPERATE · DATA
+
+#### 分析数据文件
+
+```text
+read @reports/q1-signups.csv, summarize the key patterns, and write the results to an HTML page with charts, then open it in my browser
+```
+
+#### 根据表现数据生成新变体
+
+```text
+read @ads-performance.csv, find the underperforming headlines, and generate 20 new variations that stay under 90 characters
+```
+
+### OPERATE · AUTOMATE
+
+#### 把重复任务做成 skill
+
+```text
+create a /ship skill for this project that runs the linter and tests, then drafts a commit message
+```
+
+#### 用 hook 固定重复行为
+
+```text
+write a hook that runs prettier after every edit to a .ts or .tsx file
+```
+
+#### 通过 MCP 接入工具
+
+```text
+set up the Sentry MCP server so you can read my error reports directly
+```
+
+#### 记录这次会话中值得记住的内容
+
+```text
+summarize what we did this session and suggest what to add to CLAUDE.md
+```
+
+## 这些 prompts 来源于哪里
+
+这些 prompts 建立在 Anthropic 已发布的资料模式之上。页面中每张卡片都能追溯到其来源：
+
+- **Common workflows**：核心任务的分步工作方法
+- **Best practices**：提示模式与项目配置思路
+- **How Anthropic teams use Claude Code**：来自工程、产品、设计、数据等团队的真实工作流
+- **Scaling agentic coding guide**：面向企业采用的推广指南
+
+如果你想看视频 walkthrough，可以参考 Anthropic Academy 上免费的 **Claude Code in Action** 课程。
+
+## 相关资源
+
+本页的 prompts 更适合作为起点。一旦某个 prompt 在你的项目里验证有效，下一步通常是把它变成可复用能力：
+
+- 将其保存为一个 **skill**，让团队成员都能通过 `/command` 方式复用
+- 把 Claude 在实践中学到的约定记录进 **CLAUDE.md**，让每次会话都能默认带着这些上下文开始
+- 对于更大或更高风险的改动，使用 **plan mode**，在真正编辑文件之前先看一遍即将触碰的文件列表
+
+如果你要在团队范围内推广 Claude Code，可继续参考：
+
+- administration：了解托管配置与策略控制
+- costs and usage：了解不同工作方式在你的计划下如何计费

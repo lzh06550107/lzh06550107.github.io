@@ -1,0 +1,258 @@
+---
+title: Claude Desktop 入门
+description: 安装 Claude Desktop，进入 Code 标签页，启动第一个本地、远程或 SSH 编程会话，并理解 Desktop 与 CLI 的关系。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# Claude Desktop 入门
+
+**Claude Desktop** 把 Claude Code 带进了图形界面：你可以不用先打开终端，就在一个桌面应用里并行管理多个会话、查看 diff、运行终端、预览应用、追踪 PR，并继续使用 Claude Code 的核心开发能力。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Desktop 适合希望用图形界面完成开发工作的用户：侧边栏可同时管理多个会话，布局支持拖拽，内置终端和文件编辑器，支持可视化 diff 审查、实时应用预览、GitHub PR 状态监控与 scheduled tasks。
+
+## 平台与订阅要求
+
+当前 Claude Desktop 支持：
+
+- **macOS**（Intel / Apple Silicon 通用构建）
+- **Windows x64**
+- **Windows ARM64**（需下载 ARM64 安装包）
+
+**不支持 Linux**；Linux 用户应继续使用 CLI。
+
+同时，Claude Code Desktop 需要以下任一付费订阅：
+
+- Pro
+- Max
+- Team
+- Enterprise
+
+## Desktop 里的三个标签页
+
+Desktop 应用包含三个主要标签页：
+
+| 标签页 | 作用 |
+|---|---|
+| Chat | 通用对话，不直接访问文件，体验接近 claude.ai |
+| Cowork | 在云端 VM 中运行的自治后台 agent，可独立处理较长任务 |
+| Code | 带文件访问的交互式编程助手，会实时展示并等待你审查改动 |
+
+本文只聚焦 **Code** 标签页。
+
+## 安装并登录
+
+### 1. 安装客户端
+
+从官方安装链接下载对应平台的安装包并执行：
+
+- macOS：下载 Desktop 安装包后，从 Applications 启动
+- Windows：安装完成后从 Start 菜单启动
+- Windows ARM64：需要选择专用 ARM64 安装包
+
+### 2. 使用 Anthropic 账号登录
+
+启动 Claude Desktop 后，用你的 Anthropic 账号完成登录。
+
+### 3. 打开 Code 标签页
+
+点击顶部中间的 **Code** 标签页。
+
+如果此处出现不同提示，对应含义通常是：
+
+- **提示升级**：说明当前账号没有付费订阅
+- **提示在线登录**：完成网页登录后重启应用
+- **403 错误**：应转去认证排障文档进一步处理
+
+:::note[无需单独安装 Node.js 或 CLI]
+Desktop 已内置 Claude Code，因此只想在图形界面里用 Code 标签页时，不需要额外安装 Node.js 或 CLI。只有当你还想在终端里运行 `claude` 时，才需要单独安装 CLI。
+:::
+
+## 启动第一个会话
+
+进入 Code 标签页后，就可以开始第一条开发会话。
+
+### 1. 选择运行环境与项目目录
+
+最常见的起点是 **Local**：让 Claude 直接在你的机器上运行，并访问本地项目文件。
+
+操作方式：
+
+1. 选择 **Local**
+2. 点击 **Select folder**
+3. 选择你的项目目录
+
+建议第一次先选一个你比较熟悉、规模较小的项目，这样最容易观察 Claude Code Desktop 的工作方式。
+
+补充说明：
+
+- Windows 上，本地会话依赖 **Git**，因此必须安装 Git
+- 大多数 Mac 默认已带 Git
+
+除了 Local，你还可以选择：
+
+| 环境 | 说明 |
+|---|---|
+| Remote | 运行在 Anthropic 云端基础设施上，即使关闭应用也能继续跑 |
+| SSH | 通过 SSH 连接远程主机、云 VM、dev container 等；首次连接会自动安装 Claude Code |
+
+### 2. 选择模型
+
+在发送按钮旁的下拉框中选择模型。后续在同一会话中也可以再切换。
+
+### 3. 输入任务
+
+接下来直接告诉 Claude 你要它做什么，例如：
+
+- 找出一个 TODO 并修复
+- 给主函数补测试
+- 为当前代码库创建 `CLAUDE.md`
+
+Desktop 中的 **session** 就是一段围绕代码库展开的会话。每个 session 都有自己的上下文和改动记录，因此你可以同时并行推进多个任务，而不会互相污染。
+
+### 4. 审查并接受改动
+
+默认情况下，Code 标签页会以 **Ask permissions** 模式启动：Claude 会先提出改动，等待你批准后才真正写入文件。
+
+你会看到：
+
+- 每个文件的可视化 diff
+- **Accept / Reject** 按钮
+- Claude 逐步执行时的实时状态变化
+
+如果你拒绝某个改动，Claude 会继续询问你希望如何调整；在你点击接受之前，文件不会被真正修改。
+
+## 第一次上手后可以继续做什么
+
+完成第一轮修改后，Desktop 还有几类很值得立刻尝试的能力。
+
+### 中途打断并重新引导
+
+你不需要等 Claude 一整轮做完再纠偏：
+
+- 点击 **stop** 可立即打断
+- 也可以直接输入修正要求并按 Enter，在不停止当前动作的前提下把反馈追加进去
+
+### 给 Claude 更多上下文
+
+你可以通过以下方式补充上下文：
+
+- 在 prompt 中使用 `@filename` 引入特定文件
+- 用附件按钮添加图片或 PDF
+- 直接把文件拖进 prompt 区域
+
+上下文越明确，Claude 的输出通常越稳定。
+
+### 使用 skills / slash commands
+
+输入 `/` 或点击 `+ → Slash commands`，可以浏览：
+
+- 内置命令
+- 自定义 skills
+- plugin skills
+
+适合把高频工作固化成可复用入口，如代码审查清单、部署步骤等。
+
+### 审查 diff 后再提交
+
+Claude 改完文件后，会出现类似 `+12 -1` 的 diff 指示。点击后可以：
+
+- 按文件查看修改
+- 对具体行发表评论
+- 让 Claude 根据这些评论继续修订
+- 点击 **Review code** 让 Claude 再做一轮自我审查
+
+### 调整你保留多少控制权
+
+权限模式决定 Claude 的自主程度：
+
+- **Ask permissions**：每次改动都先审批
+- **Auto accept edits**：自动接受文件修改，加快迭代
+- **Plan mode**：先做方案，不改文件
+
+更完整的模式说明可见 [Claude Code Desktop 参考](/claude-code/platforms-and-integrations/claude-code-on-desktop/reference/)。
+
+### 安装插件
+
+点击 prompt 旁边的 `+`，进入 **Plugins**，可以安装提供以下能力的插件：
+
+- skills
+- agents
+- MCP servers
+- 其他扩展能力
+
+### 组织工作区布局
+
+Desktop 支持自由拖拽：
+
+- chat
+- diff
+- terminal
+- file
+- preview
+
+你可以把它们组合成自己顺手的布局。打开终端后，可以一边运行命令，一边继续和 Claude 会话；点击文件路径，也能直接在文件窗格中打开对应文件。
+
+### 预览应用
+
+通过 **Preview** 下拉菜单，可以直接在 Desktop 内运行开发服务器并查看应用效果。Claude 也能基于预览结果继续：
+
+- 观察页面行为
+- 测试接口
+- 查看日志
+- 继续迭代修复
+
+### 追踪 PR 状态
+
+创建 PR 后，Claude Code Desktop 可以继续监控 CI 检查结果，并在合适的情况下帮助自动修复失败项或跟进合并流程。
+
+### 使用 scheduled tasks
+
+如果你想让 Claude 自动执行例行任务，例如：
+
+- 每天早上做一次代码审查
+- 每周跑一次依赖巡检
+- 定时生成 morning briefing
+
+可以继续使用 Desktop 自带的 scheduled tasks，详见 [Scheduled tasks](/claude-code/platforms-and-integrations/claude-code-on-desktop/scheduled-tasks/)。
+
+### 规模化并行工作
+
+当你熟悉后，还可以：
+
+- 从侧边栏打开多个并行 session
+- 用独立 worktree 同时推进多项任务
+- 打开 tasks pane 观察 subagents 与后台命令
+- 在 side chat 中提问，而不打断主线程
+- 把长任务送去云端继续跑
+- 把外部工具如 GitHub、Slack、Linear 接进工作流
+
+## 从 CLI 切换过来时要知道什么
+
+Desktop 与 CLI 底层使用的是同一套 Claude Code 引擎，因此你可以在同一个项目上同时使用两者。
+
+它们会共享很多配置，包括：
+
+- `CLAUDE.md`
+- MCP servers
+- hooks
+- skills
+- settings
+
+如果你已经是 CLI 用户，可以把 Desktop 理解成一个更偏图形化的工作台，而不是完全不同的产品。
+
+## 下一步建议
+
+完成入门后，建议继续阅读：
+
+- [Claude Code Desktop 参考](/claude-code/platforms-and-integrations/claude-code-on-desktop/reference/)：权限模式、并行会话、diff、connectors、企业配置等完整说明
+- [Scheduled tasks](/claude-code/platforms-and-integrations/claude-code-on-desktop/scheduled-tasks/)：让 Desktop 在本机定时自动跑 Claude
+- [常见工作流](/claude-code/use-claude-code/common-workflows/)：调试、重构、测试与 PR 场景配方
+- [最佳实践](/claude-code/use-claude-code/best-practices/)：如何写更有效的 prompt、控制上下文与验证结果

@@ -1,0 +1,230 @@
+---
+title: Ultrareview 深度代码审查
+description: 用 /ultrareview 在 Claude Code on the web 云端启动多智能体深度代码审查，在合并前发现并验证真实 Bug。
+editUrl: false
+sidebar:
+  order: 5
+---
+
+# Ultrareview 深度代码审查
+
+**Ultrareview** 是运行在 Claude Code on the web 云基础设施上的深度代码审查能力。你在 Claude Code CLI 中执行 `/ultrareview` 后，Claude 会在远端沙箱里拉起一组 reviewer agents，对你的分支或 PR 做并行、可验证的 Bug 检查。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Ultrareview 目前处于 **research preview**，需要 Claude Code `v2.1.86` 或更高版本。功能、定价和可用性都可能继续变化。
+
+## 它和本地 `/review` 有什么不同
+
+与本地 `/review` 相比，Ultrareview 的定位不是“更快”，而是“更深、更稳、更像合并前的高强度审查”：
+
+- **更高信号密度**：每条 finding 都会经过独立复现与验证，更聚焦真实 Bug，而不是泛泛风格建议
+- **覆盖面更广**：多个 reviewer agents 并行探索，能挖出单次人工或单代理扫描容易漏掉的问题
+- **不占本地资源**：整个审查过程在远端沙箱运行，本地终端可以继续做别的事情
+
+适合的场景通常包括：
+
+- 大改动合并前的最终检查
+- 涉及多个模块、调用链较长的变更
+- 想在 merge 前补一轮“高置信度 Bug 搜索”
+- 需要比普通 `/review` 更深的并行审查
+
+## 使用前提
+
+Ultrareview 依赖 Claude Code on the web 的远程基础设施，因此要求：
+
+- 你已使用 **Claude.ai 账号** 登录 Claude Code
+- 项目可以被上传到远端沙箱，或可通过 GitHub PR 直接 clone
+- 账号 / 组织允许使用 Claude Code on the web
+
+以下情形目前不支持：
+
+- Amazon Bedrock
+- Google Cloud Vertex AI
+- Microsoft Foundry
+- 开启 **Zero Data Retention** 的组织
+
+如果你当前仅使用 API key 登录，应先执行 `/login` 并切换到 Claude.ai 账号认证。
+
+## 从 CLI 启动 Ultrareview
+
+在任意 git 仓库里都可以发起：
+
+```text
+/ultrareview
+```
+
+不带参数时，Ultrareview 会审查：
+
+- 当前分支相对默认分支的 diff
+- 以及工作区中尚未提交、已暂存的改动
+
+Claude Code 会把当前仓库状态打包并上传到远端沙箱完成审查。
+
+### 审查 GitHub PR
+
+如果你想直接针对某个 PR 做审查，可以传 PR 编号：
+
+```text
+/ultrareview 1234
+```
+
+此时远端沙箱会直接从 GitHub clone 该 PR，而不是打包你的本地工作区。
+
+:::note[PR 模式要求]
+PR 模式要求该仓库配置了 `github.com` remote。
+:::
+
+### 仓库太大时怎么办
+
+如果本地仓库过大，不适合打包上传，Claude Code 会提示你改用 PR 模式：
+
+1. 先把分支推上 GitHub
+2. 打开一个 draft PR
+3. 再执行 `/ultrareview <PR-number>`
+
+## 启动前会展示什么
+
+正式启动前，Claude Code 会显示一个确认对话框，内容通常包括：
+
+- 本次审查范围
+- 若是 branch review，则附带文件数与行数
+- 你剩余的免费次数
+- 预估成本
+
+只有你明确确认后，Ultrareview 才会开始。Claude 不会自行在普通对话中悄悄发起 Ultrareview；它只会在你手动使用 `/ultrareview` 时运行。
+
+## 计费与免费次数
+
+Ultrareview 属于 **premium feature**。在免费次数用完后，它不是走套餐内普通 usage，而是改为消耗 **usage credits**。
+
+| 套餐 | 免费次数 | 免费次数用完后 |
+|---|---|---|
+| Pro | 3 次 | 按 usage credits 计费 |
+| Max | 3 次 | 按 usage credits 计费 |
+| Team / Enterprise | 无 | 按 usage credits 计费 |
+
+补充规则：
+
+- Pro / Max 的 3 次免费 run 是**一次性额度**，不会每周期刷新
+- 远端 session 只要成功启动，就会消耗一次免费 run，即使你后来手动停止或审查未完整完成
+- 付费 run 通常成本在 **5 到 20 美元**之间，取决于变更规模
+- 对付费 run，只会按实际运行部分计 usage credits
+
+:::caution[付费前提]
+免费次数外的 Ultrareview 需要你的账号或组织已开启 usage credits。若未开启，Claude Code 会阻止启动，并引导你去 billing settings 开启。你也可以运行 `/usage-credits` 查看或修改当前设置。
+:::
+
+## 审查运行时如何跟踪
+
+一次审查通常需要 **5 到 10 分钟**。它会以后台任务形式运行，因此你可以：
+
+- 继续在当前 session 中做别的事
+- 执行其他命令
+- 甚至直接关闭终端
+
+要查看运行状态，可以使用：
+
+```text
+/tasks
+```
+
+在任务列表中你可以：
+
+- 看到正在进行和已完成的 review
+- 打开某次 review 的详情
+- 停止正在运行的 review
+
+如果你手动停止一个 review：
+
+- 云端 session 会被归档
+- 部分 findings 不会返回给你
+
+当审查完成后，Claude 会在当前 session 中推送一条通知。每个 finding 都会包含：
+
+- 文件位置
+- 问题解释
+
+这样你可以直接接着让 Claude 修复这些问题。
+
+## 非交互方式：`claude ultrareview`
+
+如果你要把 Ultrareview 接进 CI 或脚本，而不想进入交互式 session，可以使用 CLI 子命令：
+
+```bash
+claude ultrareview
+claude ultrareview 1234
+claude ultrareview origin/main
+```
+
+它和 `/ultrareview` 启动的是同一种远程审查，但行为上更偏脚本友好：
+
+- 会阻塞直到远端 review 完成
+- 审查结果打印到 `stdout`
+- 成功返回退出码 `0`
+- 失败返回退出码 `1`
+
+### 参数含义
+
+- 不带参数：审查当前分支相对默认分支的 diff
+- 传 PR 编号：审查对应 pull request
+- 传 base branch：审查当前分支相对该 base branch 的 diff
+
+调用该子命令时，默认视为你已同意交互版会展示的 billing 与 terms 提示。
+
+### 输出与 flags
+
+为了让 `stdout` 保持可解析：
+
+- 进度信息与 live session URL 会输出到 `stderr`
+- findings 或 JSON 结果输出到 `stdout`
+
+常用 flags：
+
+| Flag | 作用 |
+|---|---|
+| `--json` | 打印原始 `bugs.json` 负载，而不是格式化 findings |
+| `--timeout <minutes>` | 最长等待时间，默认 30 分钟 |
+
+### 退出码语义
+
+| 退出码 | 含义 |
+|---|---|
+| `0` | 审查成功完成，无论有没有 findings |
+| `1` | 启动失败、远端 session 出错或等待超时 |
+| `130` | 被 `Ctrl-C` 中断 |
+
+:::note[中断不会停止远端审查]
+如果你中断 `claude ultrareview`，远端审查仍会继续跑。你可以跟随打印在 `stderr` 的 session URL，在浏览器中继续查看进度。
+:::
+
+## 与 `/review` 的场景对照
+
+| 维度 | `/review` | `/ultrareview` |
+|---|---|---|
+| 运行位置 | 当前本地 session | 远端云沙箱 |
+| 深度 | 单次审查 | 多智能体并行 + 独立验证 |
+| 耗时 | 几秒到几分钟 | 通常 5–10 分钟 |
+| 成本 | 计入普通 usage | 免费次数后走 usage credits |
+| 最适合 | 日常迭代中的快速反馈 | 合并前的大改动深度体检 |
+
+一个实用判断标准是：
+
+- **正在边写边改** → 优先用 `/review`
+- **准备合并、有一定风险或规模较大** → 优先补一轮 `/ultrareview`
+
+## 自动化与 GitHub 集成提示
+
+如果你希望对 GitHub PR 自动做深度审查，而不是手动在 CLI 中触发，官方更推荐直接使用仓库级的 **Code Review** 集成，让发现结果以内联 PR 评论的形式直接回写到 GitHub。
+
+如果你更偏手工控制、希望先在自己终端发起，再决定是否继续修，就继续使用 `/ultrareview` 或 `claude ultrareview` 即可。
+
+## 相关阅读
+
+- [Claude Code on the web 参考](/claude-code/platforms-and-integrations/claude-code-on-the-web/reference/)：理解远端云 sandbox 与环境约束
+- [Plan in the cloud](/claude-code/platforms-and-integrations/claude-code-on-the-web/plan-in-the-cloud/)：Ultrareview 的“规划版”对应功能
+- [Routines](/claude-code/platforms-and-integrations/claude-code-on-the-web/routines/)：把自动化工作交给云端例行执行

@@ -1,0 +1,269 @@
+---
+title: GitLab CI/CD
+description: 在 GitLab CI/CD 中运行 Claude Code，把 issue、MR 评论和定时流水线转化为代码实现、修复、审查与自动化变更。
+editUrl: false
+sidebar:
+  order: 13
+---
+
+# GitLab CI/CD
+
+Claude Code for GitLab CI/CD 让你把 Claude 接进 GitLab 的 CI 流水线，在隔离 job 中执行编码任务，并通过分支和 MR 把结果带回代码审查流程。它适合使用 GitLab 的团队，尤其是希望把 AI 执行环境保留在自家 runner、并根据企业要求切换 Claude API、Amazon Bedrock 或 Google Vertex AI 的场景。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+:::note[当前状态]
+官方文档说明该集成目前仍处于 **beta**，并且由 **GitLab** 维护。
+:::
+
+## 为什么在 GitLab 里用 Claude Code
+
+典型价值包括：
+
+- **一句话生成 MR**：根据 issue 或评论直接提出完整改动
+- **自动实现任务**：把需求描述变成代码与 MR
+- **遵守项目约定**：读取仓库中的 `CLAUDE.md`
+- **只改一份 `.gitlab-ci.yml`**：搭建门槛低
+- **企业可选 provider**：Claude API / Bedrock / Vertex AI
+- **默认更可控**：在你的 GitLab runner 中执行，保留分支保护与审批流程
+
+## 它是怎么工作的
+
+Claude Code 在 GitLab 里通常通过 CI job 执行，核心流程是：
+
+1. GitLab 根据事件触发流水线（例如 MR、手动触发、外部 API、评论事件）
+2. job 收集线程与仓库上下文
+3. 将上下文拼成 prompt，调用 Claude Code CLI
+4. Claude 在隔离容器里运行，必要时修改仓库内容
+5. 改动通过 branch / MR 暴露给 reviewer
+
+官方文档强调了三点：
+
+- **事件驱动编排**：可根据评论、MR、web/API 触发
+- **provider 抽象**：可按环境切到 Claude API / Bedrock / Vertex
+- **沙箱执行**：容器内受限网络与文件系统权限，改动通过 MR 暴露
+
+## Claude 可以做什么
+
+在 GitLab 场景中，Claude 常被用来：
+
+- 根据 issue 描述创建或更新 MR
+- 分析性能回归并提出优化
+- 直接在分支上实现功能，再打开 MR
+- 根据测试失败或评论修 Bug
+- 根据后续评论继续迭代同一 MR
+
+## 最快上手：最小可用配置
+
+官方给出的 quick setup 思路是：
+
+1. 在 **Settings → CI/CD → Variables** 添加 `ANTHROPIC_API_KEY`
+2. 在 `.gitlab-ci.yml` 里加一个 Claude job
+3. 先手动运行，或通过 MR 事件触发
+
+下面是文档中的简化版示意：
+
+```yaml
+stages:
+  - ai
+
+claude:
+  stage: ai
+  image: node:24-alpine3.21
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  variables:
+    GIT_STRATEGY: fetch
+  before_script:
+    - apk update
+    - apk add --no-cache git curl bash
+    - curl -fsSL https://claude.ai/install.sh | bash
+  script:
+    - /bin/gitlab-mcp-server || true
+    - >
+      claude
+      -p "${AI_FLOW_INPUT:-'Review this MR and implement the requested changes'}"
+      --permission-mode acceptEdits
+      --allowedTools "Bash Read Edit Write mcp__gitlab"
+      --debug
+```
+
+如果想通过 web/API 触发并携带更多上下文，通常会传入类似：
+
+- `AI_FLOW_INPUT`
+- `AI_FLOW_CONTEXT`
+- `AI_FLOW_EVENT`
+
+## 生产环境更推荐的手动配置
+
+如果你希望把 provider、GitLab API 权限和触发方式控制得更清楚，官方建议：
+
+- Claude API：使用 `ANTHROPIC_API_KEY`
+- Amazon Bedrock：配置 GitLab → AWS OIDC
+- Google Vertex AI：配置 GitLab → GCP Workload Identity Federation
+- GitLab API 权限：优先用 `CI_JOB_TOKEN`，或使用具备 `api` scope 的 Project Access Token
+
+如果你希望通过评论中的 `@claude` 驱动流水线，还可能需要：
+
+- 为项目增加 note/comment webhook
+- 由事件监听器在检测到 `@claude` 时调用 pipeline trigger API
+- 同时传递 `AI_FLOW_*` 变量给流水线
+
+## 常见使用方式
+
+### 把 issue 变成 MR
+
+```text
+@claude implement this feature based on the issue description
+```
+
+Claude 会分析 issue 与代码库，在分支上写改动并发起 MR。
+
+### 在 MR 中请求实现建议
+
+```text
+@claude suggest a concrete approach to cache the results of this API call
+```
+
+Claude 会基于当前 MR 与代码上下文给出实现，甚至直接更新 MR。
+
+### 快速修 Bug
+
+```text
+@claude fix the TypeError in the user dashboard component
+```
+
+Claude 会定位问题并在分支上提交修复。
+
+## 使用 Bedrock / Vertex AI
+
+对于企业环境，GitLab CI/CD 的一大优势就是可以完全跑在你自己的云身份体系里。
+
+### Amazon Bedrock
+
+需要准备：
+
+- 已启用 Bedrock 的 AWS 账号
+- 在 AWS IAM 中把 GitLab 配成 OIDC identity provider
+- 具备 Bedrock 权限的 IAM role
+- CI/CD 变量：
+  - `AWS_ROLE_TO_ASSUME`
+  - `AWS_REGION`
+
+文档中的 Bedrock 示例会在运行时：
+
+- 读取 GitLab OIDC token
+- 调用 `aws sts assume-role-with-web-identity`
+- 导出临时 AWS 凭据
+- 再执行 `claude`
+
+### Google Vertex AI
+
+需要准备：
+
+- 启用 Vertex AI API 的 GCP 项目
+- 配好 Workload Identity Federation 信任 GitLab OIDC
+- 具备 Vertex AI 权限的 service account
+- CI/CD 变量：
+  - `GCP_WORKLOAD_IDENTITY_PROVIDER`
+  - `GCP_SERVICE_ACCOUNT`
+  - `CLOUD_ML_REGION`
+
+这种做法不需要保存长期 service account key。
+
+## 配置要点与常用参数
+
+文档里提到的常见输入包括：
+
+- `prompt` / `prompt_file`
+- `max_turns`
+- `timeout_minutes`
+- `ANTHROPIC_API_KEY`
+- provider 相关环境变量（例如 `AWS_REGION`）
+
+:::tip[版本差异]
+GitLab 方案基于 Claude Code CLI / Agent SDK，某些 flags 会随 `@anthropic-ai/claude-code` 版本变化。遇到不确定时，优先在 job 里运行：
+
+```bash
+claude --help
+```
+:::
+
+## 最佳实践
+
+### 维护好 `CLAUDE.md`
+
+在仓库根目录清晰定义：
+
+- 项目编码规范
+- review 标准
+- 安全要求
+- 仓库特有约定
+
+这样可以让 GitLab job 中的 Claude 运行更稳定、输出更一致。
+
+### 安全建议
+
+- 不要把 API key 或云凭据写进仓库
+- 一律使用 **GitLab CI/CD variables**
+- 能用 OIDC / WIF 就不要发长期密钥
+- 限制 job 权限与网络出口
+- 把 Claude 的改动当成普通贡献者代码来审查
+
+### 性能与成本优化
+
+- 保持 `CLAUDE.md` 简洁
+- issue / MR 描述尽量明确，减少往返
+- 配合理的 timeout
+- cache 依赖安装，减少 runner 冷启动成本
+- 控制并发与 `max_turns`
+
+## 安全与治理视角
+
+GitLab 方案的一个关键优点，是所有输出都仍然回到 GitLab 原生治理模型里：
+
+- 每个 job 在隔离容器里执行
+- 改动通过 MR 暴露给 reviewer
+- 分支保护与审批规则照旧生效
+- provider 凭据由企业自己控制
+
+## 故障排查
+
+### `@claude` 没有触发
+
+优先检查：
+
+- 流水线是否真的被触发（手动、MR 事件或外部 webhook）
+- `ANTHROPIC_API_KEY` / provider 变量是否存在
+- 评论中是否使用 `@claude` 而不是 `/claude`
+- 你的 mention 监听器是否正确把上下文转成 pipeline variables
+
+### job 无法写评论或打开 MR
+
+检查：
+
+- `CI_JOB_TOKEN` 权限是否足够
+- 是否需要改用具备 `api` scope 的 Project Access Token
+- `--allowedTools` 中是否启用了 `mcp__gitlab`
+- job 是否运行在正确的 MR / 上下文中
+
+### 认证错误
+
+- Claude API：确认 `ANTHROPIC_API_KEY` 有效
+- Bedrock / Vertex：核查 OIDC / WIF、角色假设、区域与模型可用性
+
+## 什么时候选 GitLab CI/CD
+
+当你的组织已经以 GitLab 为主，并且希望：
+
+- 在 **GitLab runner** 中执行 Claude
+- 保持 MR 审查、分支保护和企业权限体系不变
+- 在 Claude API、Bedrock、Vertex AI 间自由切换
+- 通过 issue / MR / webhook / schedule 驱动 AI 自动化
+
+那 GitLab CI/CD 会比 GitHub 专用方案更自然。

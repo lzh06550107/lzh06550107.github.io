@@ -1,0 +1,304 @@
+---
+title: Claude Code 的工作原理
+description: 了解代理式循环、内置工具，以及 Claude Code 如何与项目、会话和权限机制协同工作。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# Claude Code 的工作原理
+
+了解代理式循环、内置工具，以及 Claude Code 如何与你的项目交互。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code 是一个运行在终端中的代理式助手。虽然它尤其擅长编程，但凡是你能通过命令行完成的事情，它通常都能帮上忙：编写文档、运行构建、搜索文件、调研资料等等。
+
+本指南介绍它的核心架构、内置能力，以及如何更高效地与它协作。若你想看按步骤展开的实例，可参见官方的 Common workflows 页面；若你想了解 skills、MCP、hooks 等扩展机制，可参见官方的 Extend Claude Code 页面。
+
+## 代理式循环
+
+当你给 Claude 一个任务时，它通常会经历三个阶段：**收集上下文、采取行动、验证结果**。这三个阶段并不是完全割裂的，而是彼此交织。Claude 会在整个过程中持续使用工具：它可能先搜索文件来理解代码，再编辑文件实现修改，最后运行测试验证结果。
+
+Claude 会根据你的任务动态调整这个循环：
+
+- 针对一个关于代码库的问题，可能只需要收集上下文。
+- 修复一个 bug，往往会在三个阶段之间来回多轮循环。
+- 做一次重构，通常还需要更大量的验证工作。
+
+Claude 会根据上一步学到的内容决定下一步该做什么，因此它可以把几十个动作串联起来，并在途中不断纠偏。
+
+你也是这个循环的一部分。你可以在任何时刻打断 Claude、改变方向、补充更多上下文，或者要求它换一种思路。Claude 虽然可以自主工作，但始终会对你的输入保持响应。
+
+这个代理式循环由两个核心组件驱动：**负责推理的模型** 和 **负责执行的工具**。Claude Code 充当的是围绕 Claude 的代理式执行框架：它提供工具、上下文管理和执行环境，把一个语言模型变成一个能够实际完成编码任务的代理。
+
+![代理式循环示意图](/images/claude-code/core-concepts/agentic-loop.svg)
+
+### 模型
+
+Claude Code 使用 Claude 模型来理解你的代码并对任务进行推理。Claude 可以读取任意语言的代码、理解组件之间的联系，并判断为了完成目标需要修改什么。
+
+面对复杂任务时，它会把工作拆成多个步骤，执行这些步骤，并根据中途学到的信息不断调整。
+
+可用模型通常有不同取舍：
+
+- **Sonnet**：适合大多数编码任务
+- **Opus**：在复杂架构决策上拥有更强推理能力
+
+你可以在会话中通过 `/model` 切换模型，也可以在启动时使用：
+
+```bash
+claude --model <name>
+```
+
+当本文说“Claude 选择了……”或“Claude 决定了……”时，真正进行推理的是底层模型。
+
+### 工具
+
+工具是 Claude Code 之所以“代理式”的关键。如果没有工具，Claude 只能输出文本；有了工具，Claude 才能真正采取行动：读取代码、编辑文件、运行命令、搜索网页、与外部服务交互。
+
+每次工具调用都会返回新的信息，而这些信息又会重新流入代理式循环，成为 Claude 下一步决策的依据。
+
+内置工具大致可以分为五类：
+
+| 类别 | Claude 能做什么 |
+|---|---|
+| 文件操作 | 读取文件、编辑代码、创建新文件、重命名与重组文件 |
+| 搜索 | 按模式查找文件、用正则搜索内容、探索代码库 |
+| 执行 | 运行 shell 命令、启动服务、执行测试、使用 git |
+| Web | 搜索网页、抓取文档、查找错误信息 |
+| 代码智能 | 在编辑后查看类型错误与警告、跳转定义、查找引用（通常需要代码智能插件） |
+
+这些是最主要的能力。除此之外，Claude 还拥有用于生成 subagents、向你提问以及进行编排的其他工具。完整列表可参考官方的 Tools available to Claude 页面。
+
+Claude 会根据你的提示以及执行过程中逐步获得的信息，自主选择要使用哪些工具。例如，当你说“修复失败的测试”时，Claude 可能会：
+
+1. 运行测试套件，查看哪些测试失败；
+2. 读取错误输出；
+3. 搜索相关源文件；
+4. 阅读这些文件来理解代码；
+5. 编辑文件修复问题；
+6. 再次运行测试进行验证。
+
+每一次工具调用都会提供新的信息，而这些信息又会影响下一步。这就是代理式循环在实际工作中的表现。
+
+**扩展基础能力：** 内置工具只是基础层。你还可以通过 **skills** 扩展 Claude 已知的工作流程，通过 **MCP** 连接外部服务，通过 **hooks** 自动化流程，通过 **subagents** 把任务分派出去。这些扩展共同构成了核心代理式循环之上的一层能力体系。关于何时该用哪种扩展，请参见官方的 Extend Claude Code 页面。
+
+## Claude 能访问什么
+
+本页主要聚焦终端环境。不过 Claude Code 也可以运行在 VS Code、JetBrains IDE 以及其他环境中。
+
+当你在某个目录里运行 `claude` 时，Claude Code 会获得以下访问能力：
+
+- **你的项目**：当前目录及其子目录中的文件；在你授权时，也可以访问其他位置的文件。
+- **你的终端**：任何你能自己运行的命令，例如构建工具、git、包管理器、系统工具和脚本。只要命令行能做，Claude 通常也能做。
+- **你的 git 状态**：当前分支、未提交改动以及最近的提交历史。
+- **你的 `CLAUDE.md`**：一个 Markdown 文件，用来保存项目级指令、约定和上下文，让 Claude 在每次会话开始时都知道这些内容。
+- **自动记忆**：Claude 在工作过程中自动保存的经验，例如项目模式和你的偏好。每次会话开始时，会加载 `MEMORY.md` 的前 200 行或前 25KB（以先到者为准）。
+- **你配置的扩展**：例如用于连接外部服务的 MCP servers、用于工作流的 skills、用于任务委派的 subagents，以及用于浏览器交互的 Claude in Chrome。
+
+因为 Claude 能看到你的整个项目，所以它可以跨文件、跨模块协同工作。举例来说，当你要求 Claude “修复认证 bug” 时，它会搜索相关文件、读取多个文件来理解上下文、做协调一致的修改、运行测试验证修复结果，并在你要求时帮你提交改动。这与只能看到当前文件的内联代码助手非常不同。
+
+## 环境与界面
+
+无论你在哪里使用 Claude Code，上面描述的代理式循环、工具与能力都是一样的。真正变化的是：**代码在哪个环境执行**，以及 **你通过什么界面与它交互**。
+
+### 执行环境
+
+Claude Code 可以运行在三种环境中，每种环境都对应不同取舍：
+
+| 环境 | 代码运行位置 | 适用场景 |
+|---|---|---|
+| Local | 你的机器 | 默认模式。完整访问你的文件、工具和本地环境 |
+| Cloud | Anthropic 管理的虚拟机 | 适合卸载任务负载，或处理你本地没有的仓库 |
+| Remote Control | 你的机器，但由浏览器控制 | 想用 Web UI，同时又希望一切仍在本地执行 |
+
+### 界面
+
+你可以通过终端、桌面应用、IDE 扩展、`claude.ai/code`、Remote Control、Slack 和 CI/CD 流水线访问 Claude Code。界面决定了你如何看到并操作 Claude，但底层的代理式循环是相同的。完整列表可参考官方的 Use Claude Code everywhere 页面。
+
+## 使用会话工作
+
+Claude Code 会在你工作时把对话保存在本地。每条消息、每次工具调用以及每个结果都会写入 `~/.claude/projects/` 下的纯文本 JSONL 文件，这使得你能够回退、恢复和分叉会话。
+
+在 Claude 修改代码前，它还会对受影响文件做快照，以便你在必要时回滚。关于这些数据的路径、保留方式以及清理方法，可参见官方的 `~/.claude` 应用数据说明。
+
+每个会话彼此独立。新会话会从一个全新的上下文窗口开始，不会自动带入以往对话历史。Claude 可以通过自动记忆跨会话保留经验，你也可以通过 `CLAUDE.md` 添加自己的持久化指令。
+
+### 跨分支工作
+
+每个 Claude Code 对话都是一个绑定到当前目录的会话。`/resume` 选择器默认显示当前 worktree 的会话，也提供快捷键把范围扩展到其他 worktree 或项目。关于选择器快捷键和名称解析，可参见官方的 Manage sessions 页面。
+
+Claude 看到的是你**当前分支**上的文件。当你切换分支后，Claude 会看到新分支的文件，但对话历史会保持不变。也就是说，它仍然记得你之前讨论过什么。
+
+由于会话绑定到目录，因此你可以借助 git worktrees 同时运行多个 Claude 会话——为不同分支创建不同目录，从而获得并行工作能力。
+
+### 恢复或分叉会话
+
+使用 `claude --continue` 或 `claude --resume` 恢复会话时，会在**同一个 session ID** 下继续，并把新消息追加进原有对话。
+
+使用 `--fork-session` 或 `/branch` 分叉时，则会复制现有历史到一个**新的 session ID** 中，原会话保持不变。
+
+![会话连续性示意图](/images/claude-code/core-concepts/session-continuity.svg)
+
+关于 resume 参数、`/resume` 选择器、会话命名，以及同一会话在两个终端里同时打开时会发生什么，可参见官方的 Manage sessions 页面。
+
+### 上下文窗口
+
+Claude 的上下文窗口会承载很多内容：你的对话历史、文件内容、命令输出、`CLAUDE.md`、自动记忆、已加载 skills 以及系统指令。
+
+随着工作推进，上下文会逐渐被填满。Claude 会自动做 compact（压缩），但对话早期的一些详细指令可能会丢失。因此，**持久规则应放进 `CLAUDE.md`，而不是只依赖会话历史**。你也可以运行 `/context` 查看是什么占用了上下文空间。
+
+若想以交互方式理解“哪些东西会在何时被加载”，可参见官方的 Explore the context window 页面。
+
+### 当上下文快满时
+
+当你接近上下文上限时，Claude Code 会自动管理上下文：它会先清理较旧的工具输出；如果还不够，再对会话做摘要。
+
+你的请求和关键代码片段通常会被保留，但对话早期的细节型指令可能会丢失。因此仍然建议把持久规则写进 `CLAUDE.md`。
+
+如果你希望控制 compact 时保留什么内容，可以：
+
+- 在 `CLAUDE.md` 中加入 **Compact Instructions** 小节；
+- 或运行带焦点的 `/compact`，例如：
+
+```text
+/compact focus on the API changes
+```
+
+如果某个单独文件或某段工具输出大到在每次摘要后都会立刻重新把上下文塞满，Claude Code 会在自动 compact 尝试几次后停止，并报错而不是无限循环。恢复方法可参考官方的 thrashing error 说明。
+
+你也可以运行 `/context` 查看占用情况。默认情况下，MCP 工具定义会延迟加载，只在实际需要某个工具时才通过工具搜索拉入上下文，因此在真正使用之前，通常只有工具名称会消耗上下文。你还可以运行 `/mcp` 查看按服务器拆分的成本。
+
+### 用 skills 和 subagents 管理上下文
+
+除了 compact，你还可以借助其他机制控制哪些内容进入上下文。
+
+**Skills 按需加载。** Claude 在会话开始时只会看到 skill 的描述；完整内容通常只有在 skill 被使用时才会加载。对于你手动调用的 skill，可以设置 `disable-model-invocation: true`，让它在真正需要前不进入上下文。对于不是你自己写的 skill，也可以通过 `skillOverrides` 在设置里实现类似控制。
+
+**Subagents 拥有独立上下文。** 每个 subagent 都有自己全新的上下文，与主会话完全隔离，因此它们的工作不会把主会话上下文撑大。任务完成后，它们只返回一个摘要。这种隔离正是 subagents 在长会话中非常有用的原因。
+
+关于各种特性的上下文成本，可参考官方的 context costs 和 reduce token usage 页面。
+
+## 通过 checkpoints 和 permissions 保持安全
+
+Claude 有两层关键安全机制：
+
+- **checkpoints**：让你撤销文件改动；
+- **permissions**：控制 Claude 能在不询问你的前提下做哪些事。
+
+### 用 checkpoints 撤销改动
+
+每次文件编辑都可逆。Claude 在修改任意文件之前，都会先对当前内容做快照。如果出现问题，你可以按两次 `Esc` 回退到之前状态，或者直接要求 Claude 撤销。
+
+Checkpoints 只存在于本地会话中，与 git 无关。它们只覆盖文件改动；像数据库、API、部署这类影响远程系统的操作无法通过 checkpoint 回滚，这也是为什么 Claude 在执行具有外部副作用的命令前通常会先征求确认。
+
+### 控制 Claude 能做什么
+
+你可以按 `Shift+Tab` 在权限模式之间切换：
+
+- **Default**：Claude 在编辑文件和执行 shell 命令前都会先询问。
+- **Auto-accept edits**：Claude 可直接编辑文件，也可以无需确认运行常见文件系统命令（如 `mkdir`、`mv`），但对其他命令仍会询问。
+- **Plan mode**：Claude 只能使用只读工具，先生成一个计划，等待你批准后再执行。
+- **Auto mode**：Claude 会用后台安全检查评估所有动作。当前仍是 research preview。
+
+你也可以在 `.claude/settings.json` 中允许特定命令，这样 Claude 就不必每次都重复询问。对于像 `npm test` 或 `git status` 这样的可信命令，这会非常方便。设置既可以来自组织级策略，也可以细化到你个人偏好。更多细节可参见官方的 Permissions 页面。
+
+## 更高效地与 Claude Code 协作
+
+下面这些建议能帮助你从 Claude Code 得到更好的结果。
+
+### 直接向 Claude Code 求助
+
+Claude Code 本身就可以教你怎么使用它。你可以直接问它：
+
+- “how do I set up hooks?”
+- “what’s the best way to structure my CLAUDE.md?”
+
+它会解释应该如何做。
+
+内置命令也会引导你完成配置：
+
+- `/init`：引导你为项目创建 `CLAUDE.md`
+- `/agents`：帮助你配置自定义 subagents
+- `/doctor`：诊断安装中的常见问题
+
+### 这是一次对话，不是一次性指令
+
+Claude Code 是对话式的。你不需要一开始就写出完美提示。可以先从你的目标开始，然后在过程中不断修正：
+
+```text
+Fix the login bug
+
+[Claude investigates, tries something]
+That's not quite right. The issue is in the session handling.
+
+[Claude adjusts approach]
+```
+
+第一次尝试不对时，你不必推倒重来；你只需要继续迭代。
+
+### 随时打断并调整方向
+
+你可以在任何时候重定向 Claude，而不必等当前回合结束，也不需要重开一轮：
+
+- 按 `Esc`：立即停止 Claude。当前运行中的工具调用会被取消，Claude 会等待你的下一条指令。
+- 直接输入修正并按回车：无需先停止当前工具。Claude 会在当前动作结束后读取你的补充，并在决定下一步之前做出调整。
+
+### 一开始就尽量说具体
+
+你的初始提示越具体，后续需要纠偏的次数通常就越少。尽量引用具体文件、说明约束条件、指出可参考的实现模式。
+
+```text
+The checkout flow is broken for users with expired cards.
+Check src/payments/ for the issue, especially token refresh.
+Write a failing test first, then fix it.
+```
+
+模糊提示当然也能工作，但你往往要花更多时间去纠偏。像上面这样具体的提示，往往第一次就更接近正确结果。
+
+### 给 Claude 一个可验证的标准
+
+当 Claude 能自行验证结果时，它的表现会更好。你可以提供测试用例、贴上期望界面的截图，或明确说明你希望得到什么输出。
+
+```text
+Implement validateEmail. Test cases: 'user@example.com' → true,
+'invalid' → false, 'user@.com' → false. Run the tests after.
+```
+
+做视觉类工作时，也可以贴一张设计图，让 Claude 把自己的实现与之比对。
+
+### 先探索，再实现
+
+面对复杂问题时，最好把“调研”和“编码”拆开。你可以先用 **Plan mode**（按两次 `Shift+Tab`）进行只读分析：
+
+```text
+Read src/auth/ and understand how we handle sessions.
+Then create a plan for adding OAuth support.
+```
+
+先审阅计划，再通过对话去打磨它，最后再让 Claude 执行实现。相比一上来就写代码，这种“两阶段工作法”通常会得到更好的结果。
+
+### 以委派的方式合作，而不是逐条微操
+
+把 Claude 想象成一个能力很强的同事。你提供背景和方向，然后信任它去补全细节：
+
+```text
+The checkout flow is broken for users with expired cards.
+The relevant code is in src/payments/. Can you investigate and fix it?
+```
+
+你不需要明确告诉它“应该读哪个文件”或“要运行哪些命令”。Claude 会自己判断。
+
+## 接下来做什么
+
+- **扩展功能**：添加 Skills、MCP 连接和自定义命令。
+- **常见工作流**：查看典型任务的分步指南。
+
+:::note
+本地站点中，这两个后续页面还没有完全补齐；因此这里保留为说明性内容，后续我可以继续把对应页面逐步翻译进来。
+:::

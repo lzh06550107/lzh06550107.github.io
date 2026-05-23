@@ -2,7 +2,7 @@
 title: Windows
 description: 在 Windows 上使用 Codex 应用，支持原生沙盒和 PowerShell
 sidebar:
-  order: 14
+  order: 13
 ---
 
 Codex Windows 应用为你提供了一个统一的界面，用于跨项目工作、运行并行代理线程以及审查结果。Windows 应用支持核心工作流，包括工作树（worktrees）、自动化（automations）、Git 功能、应用内浏览器、产物预览、插件和技能（skills）。它原生运行在 Windows 上，使用 PowerShell 和 Windows 沙盒，或者你也可以将其配置为在 Windows Subsystem for Linux 2 (WSL2) 中运行。
@@ -27,7 +27,7 @@ winget install Codex -s msstore
 
 Codex Windows 应用在代理运行于 PowerShell 时支持原生 Windows 沙盒，在代理运行于 Windows Subsystem for Linux 2 (WSL2) 时使用 Linux 沙盒。要在任一模式下应用沙盒保护，请在向 Codex 发送消息之前，在 Composer 中将沙盒权限设置为「默认权限」。
 
-在全访问模式下运行 Codex 意味着 Codex 不再受限于你的项目目录，可能会执行意外的破坏性操作，从而导致数据丢失。请保持沙盒边界，使用[规则](/codex/rules)进行针对性的例外处理，或将你的[审批策略](/codex/permissions)设置为「从不」，让 Codex 根据你的审批和安全设置在无需请求提权的情况下尝试解决问题。
+在全访问模式下运行 Codex 意味着 Codex 不再受限于你的项目目录，可能会执行意外的破坏性操作，从而导致数据丢失。请保持沙盒边界，使用[规则](/codex/configuration/rules)进行针对性的例外处理，或将你的[审批策略](/codex/configuration/permissions)设置为「从不」，让 Codex 根据你的审批和安全设置在无需请求提权的情况下尝试解决问题。
 
 ## 自定义你的开发环境
 

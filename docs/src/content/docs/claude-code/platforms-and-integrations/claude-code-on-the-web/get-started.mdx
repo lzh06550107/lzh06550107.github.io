@@ -1,0 +1,321 @@
+---
+title: Claude Code on the web 入门
+description: 从浏览器或手机启动 Claude Code 云端会话，完成 GitHub 连接、云环境创建、首个任务提交，以及常见初始化问题排查。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# Claude Code on the web 入门
+
+通过 **Claude Code on the web**，你可以直接在 `claude.ai/code` 或 Claude 移动端里发起云端任务，让 Claude 在 Anthropic 托管的虚拟机中 clone 仓库、修改代码、运行测试并推送分支，而不需要先在本地安装完整工具链。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code on the web 目前处于 **research preview**。它面向 Pro、Max、Team 用户开放，也适用于拥有 premium seats 或 Chat + Claude Code seats 的 Enterprise 用户。
+
+## 这类云端会话适合什么场景
+
+Claude Code on the web 特别适合以下工作：
+
+- **并行跑多个任务**：每个任务都会进入独立 session 和分支，不需要你手动管理多个 worktree
+- **本地没有仓库副本时**：Claude 会在云端 fresh clone 代码库，你不必先在电脑里 checkout
+- **不需要频繁干预的明确任务**：把需求描述清楚后，可以先去做别的事，等 Claude 完成后再回来审查
+- **代码理解与排查**：即使本地没环境，也能让 Claude 解释代码结构、追踪实现路径或排查问题
+
+如果任务强依赖你的本地配置、私有工具链或自建开发环境，更适合使用本地 CLI 或 [Remote Control](/claude-code/platforms-and-integrations/remote-control/)。
+
+## 云端任务是怎么运行的
+
+提交任务后，Claude 会依次执行：
+
+1. **clone 仓库并准备环境**：把仓库克隆到 Anthropic 托管 VM 中，并在需要时运行 setup script
+2. **套用网络策略**：按所选 cloud environment 的网络访问级别决定能访问哪些域名
+3. **执行任务**：分析代码、改文件、跑测试、验证结果
+4. **推送分支**：在到达一个稳定停点后，把分支推送到 GitHub，方便你审查 diff 或创建 PR
+
+即使分支已经推送，session 也不会立刻结束。你仍然可以继续对话、追改、补充反馈或让 Claude 继续处理后续问题。
+
+## 与其他运行方式的差异
+
+Claude Code 的核心行为在各端一致，但运行位置和可用环境不同：
+
+| 方式 | 代码运行位置 | 对话入口 | 能否使用本地配置 | 是否依赖 GitHub | 断开后是否继续运行 |
+|---|---|---|---|---|---|
+| Claude Code on the web | Anthropic 云端 VM | `claude.ai/code` / 移动端 | 否，仅仓库内配置 | 是 | 是 |
+| Remote Control | 你的机器 | `claude.ai/code` / 移动端 | 是 | 否 | 只要本地终端还活着 |
+| Terminal CLI | 你的机器 | 终端 | 是 | 否 | 否 |
+| Desktop app | 本机或云端 | Desktop UI | 取决于 session 类型 | 云端模式需要 | 取决于 session 类型 |
+
+如果你更关注跨设备持续运行，Web 更合适；如果你更在意本地工具与文件系统访问，Remote Control 或 CLI 更合适。
+
+## 一次性完成 GitHub 接入与环境创建
+
+初始化通常只做一次。如果你已经习惯使用 `gh`，也可以改走终端方式完成接入。
+
+### 1. 访问 `claude.ai/code`
+
+打开 `claude.ai/code`，并使用你的 Anthropic 账号登录。
+
+### 2. 安装 Claude GitHub App
+
+首次进入时，页面会提示你连接 GitHub。按引导安装 **Claude GitHub App**，并为它授权相应仓库访问。
+
+需要注意：
+
+- Claude Code on the web 只能针对 **已有的 GitHub 仓库** 工作
+- 如果你要从零开始新项目，应先在 GitHub 上创建一个空仓库
+- 后续如果你还想启用自动 PR 跟进、GitHub 事件触发等能力，GitHub App 也是必要前提之一
+
+### 3. 创建 cloud environment
+
+连上 GitHub 后，系统会要求你创建一个 cloud environment。这个环境定义了：
+
+- **网络访问策略**
+- **环境变量**
+- **setup script**
+
+创建表单中的关键字段如下：
+
+| 字段 | 作用 | 说明 |
+|---|---|---|
+| Name | 环境显示名 | 便于区分多个项目或不同访问级别的环境 |
+| Network access | 网络访问级别 | 默认 `Trusted` 允许常见包管理器与开发域名，阻止任意互联网访问 |
+| Environment variables | 所有 session 共用的变量 | 使用 `.env` 格式；不要额外加引号 |
+| Setup script | 启动前运行的 Bash 脚本 | 可用于安装系统包或额外依赖；结果会被缓存 |
+
+如果只是第一次体验，建议先保留默认设置并点击 **Create environment**。之后你仍可编辑环境或再创建其他环境。
+
+## 用终端完成接入：`/web-setup`
+
+如果你已经使用 GitHub CLI，可以不经过浏览器 onboarding，而在 Claude Code CLI 中直接完成接入。
+
+### 前提
+
+- 本机已安装并登录 `gh`
+- 你已在 Claude Code CLI 中登录自己的 `claude.ai` 账号
+
+### 操作步骤
+
+1. 在 shell 中登录 GitHub CLI：
+
+```bash
+gh auth login
+```
+
+2. 在 Claude Code CLI 中执行登录（如果还没登录）：
+
+```text
+/login
+```
+
+3. 在 Claude Code CLI 内运行：
+
+```text
+/web-setup
+```
+
+`/web-setup` 会读取本地 `gh` token，把它同步到 Claude 账号，并在你还没有 cloud environment 时自动创建一个默认环境：
+
+- 网络访问：`Trusted`
+- setup script：空
+- 环境变量：空
+
+完成后，你就可以：
+
+- 在终端里使用 `--remote` 发起云端 session
+- 用 `/schedule` 创建云端 routine
+- 在浏览器中直接选仓库继续工作
+
+:::caution[Zero Data Retention 组织限制]
+开启 **Zero Data Retention** 的组织不能使用 `/web-setup`，也不能使用其他 Claude Code on the web 云端会话能力。
+:::
+
+## 启动第一个任务
+
+当 GitHub 与环境都准备好后，就可以开始真正提交任务了。
+
+### 1. 选择仓库与分支
+
+在 `claude.ai/code` 或 Claude 移动端的 Code 标签页中，点击输入框下方的仓库选择器，选择 Claude 要操作的仓库。
+
+你也可以：
+
+- 切换分支，让 Claude 从 feature branch 起步
+- 一次加入多个仓库，让 Claude 在同一 session 跨仓协作
+
+### 2. 选择权限模式
+
+Web 云端会话默认是 **Auto accept edits**，也就是 Claude 直接改代码并推送分支。
+
+你也可以切换成 **Plan mode**，先让 Claude 提出方案，再决定是否开始实际修改。
+
+云端 Web session 不提供以下模式：
+
+- Ask permissions
+- Auto mode
+- Bypass permissions
+
+如需完整了解所有模式，请参见 [权限模式](/claude-code/use-claude-code/permission-modes/)。
+
+### 3. 用足够具体的 prompt 提交任务
+
+输入需求后按 Enter 即可。为了让云端 session 更稳定，建议 prompt 尽量具体：
+
+- 明确文件、函数或目录：例如“修复 `tests/test_auth.py` 中失败的认证测试”
+- 粘贴错误输出或 CI 报错
+- 描述**预期行为**，不只描述现象
+
+每个任务都会获得自己的独立 session 和分支，因此你不必等上一个任务结束后再开下一个。
+
+## 预填充新 session
+
+你可以通过 `claude.ai/code` 的查询参数，预先带入 prompt、仓库和 environment，适合做 issue tracker、报警平台或内部工具联动。
+
+| 参数 | 作用 |
+|---|---|
+| `prompt` / `q` | 预填充输入框中的 prompt |
+| `prompt_url` | 从外部 URL 拉取 prompt 文本，适合超长内容 |
+| `repositories` / `repo` | 预选一个或多个 `owner/repo` |
+| `environment` | 预选 environment 名称或 ID |
+
+例如：
+
+```text
+https://claude.ai/code?prompt=Fix%20the%20login%20bug&repositories=acme/webapp
+```
+
+这样打开页面后，prompt 和仓库就已经提前选好。
+
+## 审查结果并继续迭代
+
+当 Claude 跑完第一轮后，可以继续用 Web 界面完成审查和追改。
+
+### 打开 diff 视图
+
+界面会显示类似 `+42 -18` 的 diff 指示器。点击后可以看到：
+
+- 左侧文件列表
+- 右侧逐文件 diff
+
+### 添加行内评论
+
+在 diff 里选中任意一行，就能直接输入反馈。你下一次发送消息时，这些 inline comments 会和主消息一起被 Claude 理解，从而精准定位问题位置。
+
+### 创建 PR
+
+如果 diff 看起来没问题，可以点击 **Create PR**：
+
+- 建正式 PR
+- 建 draft PR
+- 跳去 GitHub 的 PR 创建页，并自动带上标题和描述
+
+### PR 后继续改
+
+PR 建立后 session 仍然是活的。你可以继续把：
+
+- CI 报错
+- Reviewer 评论
+- 额外需求
+
+直接贴进聊天里，让 Claude 在原 session 上继续处理。
+
+## 常见初始化问题排查
+
+### 连接 GitHub 后看不到仓库
+
+云端 session 能访问的是**当前连接 GitHub 账号可见的所有仓库**，不取决于 GitHub App 被安装到哪些仓库上。
+
+如果仓库缺失，请优先确认：
+
+- 当前连接的是正确的 GitHub 账号
+- 该账号本身就有访问该仓库的权限
+
+如果你还要启用 Auto-fix 等依赖 webhook 的能力，再去 GitHub 中确认 Claude App 对该仓库的安装范围。
+
+### 页面里只有 GitHub 登录按钮
+
+这通常说明还没完成 GitHub 接入。你可以：
+
+- 走浏览器中的连接流程
+- 或在 CLI 中运行 `/web-setup`
+
+如果你完全不想连接 GitHub，可以改用 [Remote Control](/claude-code/platforms-and-integrations/remote-control/)，让 Claude 在你自己的机器上运行。
+
+### 显示 “Not available for the selected organization”
+
+这通常意味着 Enterprise 组织尚未由管理员启用 Claude Code on the web，需要联系 Anthropic 账户团队或组织管理员处理。
+
+### `/web-setup` 返回 “Unknown command”
+
+请确认你是在 **Claude Code CLI 内部**执行 `/web-setup`，而不是在 shell 里直接敲它。
+
+如果是在 Claude Code 中执行仍报错，常见原因有：
+
+- CLI 版本低于 `v2.1.80`
+- 当前登录方式是 API key 或第三方 provider，而不是 `claude.ai` 订阅账号
+
+可先运行：
+
+```text
+claude update
+```
+
+然后重新 `/login`，再执行 `/web-setup`。
+
+### 创建 cloud environment 失败 / `--remote` 提示没有可用环境
+
+如果看到类似：
+
+- `Could not create a cloud environment`
+- `No cloud environment available`
+
+说明自动创建默认环境失败，或 CLI 版本太旧不支持自动创建。解决方式：
+
+- 在 Claude Code CLI 中手动运行 `/web-setup`
+- 或直接访问 `claude.ai/code`，按页面流程创建 environment
+
+### setup script 执行失败
+
+这会阻止 session 启动。常见原因包括：
+
+- 所需 registry 不在当前 network access 允许范围内
+- 脚本依赖了 fresh clone 中并不存在的路径
+- 某些命令在 Ubuntu VM 中需要不同写法
+
+调试建议：
+
+- 在脚本顶部加 `set -x`
+- 对非关键命令加 `|| true`
+- 减少过重安装步骤，必要时迁移到后续 hook 或会话内部执行
+
+### 新 session 卡在 setup 阶段或超时
+
+如果 setup script 执行时间过长，可能会超出大约 5 分钟的环境缓存构建预算。常见高风险步骤有：
+
+- 拉很大的 Docker 镜像
+- 全量同步依赖树
+- 下载大模型权重
+
+优化思路：
+
+- 互不依赖的安装步骤并行执行，最后统一 `wait`
+- 把超重下载移出 setup script，改放到后续 `SessionStart` hook 中后台执行
+- 删除长时间 sleep / retry 循环
+
+### 关闭标签页后 session 还在继续
+
+这是**预期行为**。关闭浏览器标签页不会停止云端 session。它会在后台继续运行，直到当前任务结束，然后进入空闲状态。
+
+## 下一步建议
+
+完成入门后，接下来最值得继续读的页面通常是：
+
+- [Claude Code on the web 参考](/claude-code/platforms-and-integrations/claude-code-on-the-web/reference/)：环境变量、setup script、网络访问、任务迁移等细节
+- [Routines](/claude-code/platforms-and-integrations/claude-code-on-the-web/routines/)：按计划、API 或 GitHub 事件自动运行 Claude
+- [Plan in the cloud](/claude-code/platforms-and-integrations/claude-code-on-the-web/plan-in-the-cloud/)：把本地规划任务交给云端草拟，再决定在哪里执行
+- [Ultrareview](/claude-code/platforms-and-integrations/claude-code-on-the-web/ultrareview/)：用云端多智能体深度代码审查在合并前找 Bug

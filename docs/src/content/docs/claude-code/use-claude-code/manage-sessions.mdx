@@ -1,0 +1,219 @@
+---
+title: 管理会话
+description: 了解如何在 Claude Code 中命名、恢复、分叉、切换和导出会话，包括 --continue、--resume、--from-pr 与 /resume 的使用方式。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+# 管理会话
+
+了解如何在 Claude Code 中命名、恢复、分叉、切换和导出会话，包括 `--continue`、`--resume`、`--from-pr` 与 `/resume` 的使用方式。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+会话（session）是**绑定到某个项目目录的已保存对话**。Claude Code 会在你工作时持续把它保存到本地，因此你可以：
+
+- 退出后回来接着做
+- 换一条思路进行分叉尝试
+- 在多个任务之间来回切换
+
+桌面应用、Claude Code on the Web 和 VS Code 扩展都会各自维护自己的会话历史。本页讲的是 **CLI 会话**，包括：
+
+- 通过标志、名称或 PR 恢复旧对话
+- 给会话命名，方便之后搜索
+- 使用 `/resume` 选择器浏览会话
+- 对会话分叉，尝试另一种做法
+- 导出会话记录，并在磁盘上找到它们
+
+## 恢复一个会话
+
+你工作时，会话会持续保存到本地 transcript 文件，所以即使你退出 CLI 或执行 `/clear`，之后仍然可以回到原来的对话。
+
+可用入口如下：
+
+| 命令 | 作用 |
+|---|---|
+| `claude --continue` | 恢复当前目录中最近一次会话 |
+| `claude --resume` | 打开会话选择器 |
+| `claude --resume <name>` | 直接恢复指定名称的会话 |
+| `claude --from-pr <number>` | 恢复与该 pull request 关联的会话 |
+| `/resume` | 在当前活动会话中切换到另一段对话 |
+
+需要注意的是：通过 `claude -p` 或 Agent SDK 创建的会话**不会出现在会话选择器里**。不过你仍然可以把它们的 session ID 传给：
+
+```bash
+claude --resume <session-id>
+```
+
+来直接恢复。
+
+### 会话选择器会去哪里找
+
+会话是**按项目目录**存储的。默认情况下，会话选择器会显示：
+
+- 当前 worktree 中创建的交互式会话
+- 以及那些虽然起始于别处，但后来通过 `/add-dir` 把当前目录加入进来的会话
+
+你可以通过快捷键扩大搜索范围：
+
+- `Ctrl+W`：扩展到当前仓库的所有 worktree
+- `Ctrl+A`：扩展到这台机器上的所有项目
+
+如果你从选择器中选中了：
+
+- **同一仓库的其他 worktree 会话**：Claude 会在原地直接恢复它
+- **无关项目的会话**：Claude 会把一条 `cd + resume` 命令复制到剪贴板，而不是直接切进来
+
+按名称恢复时，搜索范围是**当前仓库及其所有 worktree**。下表展示两种按名称恢复的行为：
+
+| 命令 | 精确匹配 | 名称有歧义 |
+|---|---|---|
+| `claude --resume <name>` | 直接恢复 | 打开会话选择器，并把该名字预填为搜索词 |
+| `/resume <name>` | 直接恢复 | 报错；需要无参数运行 `/resume` 再手动选 |
+
+## 给会话命名
+
+给会话取一个清晰的名字，可以让它们更容易在选择器里被找到，也更方便通过名字恢复。特别是在你同时并行处理多件事时，这一点很重要。
+
+| 什么时候 | 如何命名 |
+|---|---|
+| 启动时 | `claude -n auth-refactor` |
+| 会话中 | `/rename auth-refactor`，名称也会显示在 prompt bar 上 |
+| 从会话选择器中 | 高亮某个会话并按 `Ctrl+R` |
+| 接受 plan 时 | 在 plan mode 下接受计划后，若你尚未手动命名，会话会根据 plan 内容自动命名 |
+
+会话一旦命名，就可以通过以下方式再次回到它：
+
+```bash
+claude --resume <name>
+```
+
+或：
+
+```text
+/resume <name>
+```
+
+跨 worktree 的匹配行为，可参见前文“恢复一个会话”。
+
+## 使用会话选择器
+
+你可以在会话中运行 `/resume`，或者在命令行中运行无参数的 `claude --resume`，打开交互式会话选择器。
+
+常用快捷键如下：
+
+| 快捷键 | 动作 |
+|---|---|
+| `↑` / `↓` | 在会话之间移动 |
+| `→` / `←` | 展开或折叠分组会话 |
+| `Enter` | 恢复当前高亮的会话 |
+| `Space` | 预览会话内容；某些终端也可用 `Ctrl+V` |
+| `Ctrl+R` | 重命名当前高亮会话 |
+| `/` 或任意可打印字符（空格除外） | 进入搜索模式并筛选会话；还可以粘贴 GitHub、GitHub Enterprise、GitLab 或 Bitbucket 的 PR / MR URL 来定位创建它的会话 |
+| `Ctrl+A` | 显示这台机器上所有项目的会话；再次按下恢复到当前仓库范围 |
+| `Ctrl+W` | 显示当前仓库所有 worktree 的会话；再次按下恢复到当前 worktree 范围；仅在多 worktree 仓库中显示 |
+| `Ctrl+B` | 只显示当前 git branch 下的会话；再次按下显示所有分支 |
+| `Esc` | 退出选择器或搜索模式 |
+
+每一行通常会显示：
+
+- 会话名（若已设置）
+- 若未命名，则显示对话摘要或第一条 prompt
+- 距离上次活动的时间
+- 消息数量
+- git 分支
+
+当你用 `Ctrl+A` 扩展到所有项目后，还会额外显示项目路径。
+
+由 `/branch`、`/rewind` 或 `--fork-session` 创建出来的分叉会话，会按“根会话”分组显示。按 `→` 可以展开组。
+
+## 分叉一个会话
+
+分叉（branch）会创建当前对话的一个副本，并把你切换进这个副本中，而原会话保持不变。它适合在不丢失原路线的前提下，尝试另一种做法。
+
+在会话内部，你可以这样做：
+
+```text
+/branch try-streaming-approach
+```
+
+在命令行里，则可以把 `--continue` 或 `--resume` 和 `--fork-session` 组合使用：
+
+```bash
+claude --continue --fork-session
+```
+
+分叉后的行为如下：
+
+- 原会话不会被修改
+- 原会话仍然会保留在会话选择器中
+- `/branch` 执行确认后，会打印两个 session ID：
+  - 当前新分支的 ID
+  - 原始会话的 ID
+
+如果你想回到原会话，可以：
+
+- 把它的 ID 传给 `/resume`
+- 在会话选择器中选它
+- 或者运行 `/resume <original-name>`
+
+还有一个容易忽略的点：如果你在原会话中曾批准过“**allow for this session**”之类的临时权限，这些权限**不会自动继承到新分支**。
+
+另外，如果你在**两个终端里同时恢复同一个会话**，但没有 fork，那么两边消息会交错写进同一个 transcript 中。
+
+如果你想在**单个会话内部**基于 checkpoint 做回退，可参考官方的 Checkpointing 文档。
+
+## 在单个会话内管理上下文
+
+以下命令用于控制当前会话中的上下文窗口，而不需要离开会话：
+
+- `/clear`：从空上下文重新开始；此前对话会被保存，之后仍可恢复
+- `/compact [instructions]`：把历史压缩成摘要，并可通过附加说明指定你希望保留的重点
+- `/context`：查看当前有哪些内容正在占用上下文
+
+关于 compact 与 `CLAUDE.md`、skills、rules 的交互方式，可参考上下文窗口文档。至于什么时候该 clear、什么时候该 compact，官方建议可参考 Best practices。
+
+## 导出与定位会话数据
+
+你可以运行 `/export`，把当前会话导出到剪贴板，或保存为一个纯文本文件，内容会以可读形式渲染消息与工具输出。
+
+如果你直接给 `/export` 传一个文件名，它会直接写到该文件中。
+
+底层 transcript 默认保存为 JSONL，路径如下：
+
+```text
+~/.claude/projects/<project>/<session-id>.jsonl
+```
+
+其中：
+
+- `<project>` 是根据工作目录路径推导出的项目标识
+- 每一行都是一个 JSON 对象
+- 这些对象可能表示：消息、工具调用、元数据条目等
+
+如果你想把会话保存到 `~/.claude` 以外的位置，可以设置：
+
+```text
+CLAUDE_CONFIG_DIR
+```
+
+这些本地 transcript 默认会在 **30 天后清理**。你可以通过 `cleanupPeriodDays` 修改这个保留时间。
+
+如果你希望**完全不写 transcript**，可以：
+
+- 设置 `CLAUDE_CODE_SKIP_PROMPT_HISTORY`
+- 或在非交互模式中使用 `--no-session-persistence`
+
+## 另请参阅
+
+以下页面进一步解释与会话、并行工作相关的机制：
+
+- [Worktrees](https://code.claude.com/docs/en/worktrees)：在不同分支上运行隔离的并行会话
+- [Checkpointing](https://code.claude.com/docs/en/checkpointing)：把代码和对话一起回滚到更早的状态
+- [Context window](https://code.claude.com/docs/en/context-window)：什么内容会进入上下文、compact 后哪些会保留
+- [Non-interactive mode](https://code.claude.com/docs/en/non-interactive-mode)：`claude -p` 下的会话行为

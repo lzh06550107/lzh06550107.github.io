@@ -1,0 +1,90 @@
+---
+title: 探索上下文窗口
+description: 通过交互式会话时间线理解 Claude Code 的上下文如何被填充、压缩，以及不同机制在会话中何时加载。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+# 探索上下文窗口
+
+通过一个交互式模拟，理解 Claude Code 的上下文窗口在会话中如何被填充：哪些内容会自动加载、每次文件读取大概会消耗什么成本，以及 rules 和 hooks 会在什么时候触发。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code 的上下文窗口保存着它对当前会话所“知道”的一切：你的说明、它读过的文件、它自己的回复，以及一些**并不会直接出现在你终端里**的内容。官方页面在这里提供了一个时间线式可视化；如果你更喜欢文字版，可以继续看下面的整理。
+
+## 时间线展示了什么
+
+官方模拟的是一个现实中比较常见的会话流程，并给出了**示意性的 token 规模**。核心过程如下：
+
+- **你还没输入任何内容之前**：`CLAUDE.md`、自动记忆、MCP 工具名称和 skill 描述就已经先加载进上下文了。根据你的配置，可能还会额外加入 output style，或 `--append-system-prompt` 追加的文本；这些都会像 system prompt 一样进入上下文。
+- **Claude 开始工作后**：每次读文件都会让对应内容进入上下文；路径作用域的 rules 会随着匹配文件一起自动加载；每次编辑后，`PostToolUse` hook 也会触发。
+- **后续追问阶段**：如果你把研究任务交给 subagent，它会在**自己独立的上下文窗口**里处理，因此那部分大体量文件读取不会塞进你的主会话。主会话里只会回来一个摘要，以及少量元数据尾注。
+- **会话后期**：运行 `/compact` 后，Claude Code 会把对话历史替换为结构化摘要。大多数启动时就有的内容会自动重新加载；哪些机制会保留、哪些会暂时丢失，后面有专门的表格说明。
+
+官方页面在可视化里给出的关键提示是：**在你真正输入第一条消息之前，其实已经有很多东西先进入上下文了。** `CLAUDE.md`、记忆、skills 和 MCP 工具都可能已经在里面。
+
+## 交互式图示的核心含义
+
+官方时间线的图例会把内容大致分为这些来源：
+
+- System
+- `CLAUDE.md`
+- Memory
+- Skills
+- MCP
+- Rules
+- You
+- Files
+- Output
+- Claude
+- Hooks
+
+你在终端里真正能“看见”的，只是其中一部分。比如输入框、Claude 的回复、命令输出、文件编辑结果，都会直接出现在终端；但像 system prompt、预加载的 skills 描述、某些内部元信息，则是“进入了上下文”，却不一定以可见文本的形式展现给你。
+
+## 会话压缩后，什么会保留
+
+当长会话发生 compact 时，Claude Code 会为了腾出上下文空间，把对话历史总结为一个摘要。**不同类型的说明在 compact 之后的命运并不一样。**
+
+| 机制 | compact 之后会怎样 |
+|---|---|
+| System prompt 与 output style | 不变；它们不属于消息历史的一部分 |
+| 项目根 `CLAUDE.md` 与不带作用域的 rules | 会从磁盘重新注入 |
+| 自动记忆 | 会从磁盘重新注入 |
+| 带 `paths:` frontmatter 的 rules | 会丢失，直到再次读取匹配文件时才重新加载 |
+| 子目录中的嵌套 `CLAUDE.md` | 会丢失，直到再次读取该子目录中的文件时才重新加载 |
+| 已调用过的 skill 正文 | 会重新注入，但每个 skill 最多 5,000 tokens，总计最多 25,000 tokens；超限时最早的会先被丢弃 |
+| Hooks | 不适用；hook 是以代码形式运行，不属于上下文文本 |
+
+需要特别理解两点：
+
+1. **path-scoped rules 与嵌套 `CLAUDE.md` 本来就是通过“读文件触发”进入消息历史的。** 因此 compact 时，它们会和普通消息一起被总结掉；只有再次读到匹配文件，它们才会重新回来。
+2. **Skill 正文在 compact 之后会尝试重新注入，但会被截断。** 截断保留的是**开头部分**，因此你应该把最关键的说明放在 `SKILL.md` 顶部。
+
+如果某条规则必须在 compact 之后也稳定存在，那最好：
+
+- 去掉 `paths:` frontmatter，让它成为常驻规则；或
+- 直接移动到项目根 `CLAUDE.md` 中。
+
+## 检查你自己的会话
+
+官方可视化里的数字是示意值，不代表你的真实会话成本。要查看你自己的上下文使用情况，可以：
+
+- 运行 `/context`：查看按类别拆分的实时上下文占用，并获得优化建议；
+- 运行 `/memory`：确认启动时到底加载了哪些 `CLAUDE.md` 和自动记忆文件。
+
+## 相关资源
+
+如果你想进一步理解时间线里出现的这些机制，可以继续看：
+
+- [扩展 Claude Code](/claude-code/core-concepts/extend-claude-code/)：理解 `CLAUDE.md`、skills、rules、hooks 和 MCP 分别适合什么场景。
+- [存储说明与记忆](https://code.claude.com/docs/en/memory)：理解 `CLAUDE.md` 层级和自动记忆。
+- [Subagents](https://code.claude.com/docs/en/sub-agents)：把研究任务委托给独立上下文窗口。
+- [最佳实践](https://code.claude.com/docs/en/best-practices)：把上下文管理当成首要约束来处理。
+- [提示缓存](/claude-code/core-concepts/prompt-caching/)：了解哪些动作会使缓存前缀失效。
+- [减少 token 使用](https://code.claude.com/docs/en/costs)：除了缓存之外，还能如何压低上下文成本。

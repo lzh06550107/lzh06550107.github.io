@@ -1,0 +1,133 @@
+---
+title: 访问令牌
+description: 创建和管理 Codex 访问令牌，用于程序化工作流
+sidebar:
+  order: 5
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# 访问令牌
+
+> 创建和管理 Codex 访问令牌，用于程序化工作流
+
+Codex 访问令牌允许受信任的自动化程序以 ChatGPT 工作区身份运行 Codex 本地任务。当脚本、定时任务或 CI 运行器需要可重复的非交互式 Codex 访问时，使用它们。
+
+> **注意：** Codex 访问令牌目前支持 ChatGPT Business 和 Enterprise 工作区。
+
+访问令牌在 ChatGPT 管理控制台的 **访问令牌** 页面创建。它们与创建它们的 ChatGPT 用户和工作区绑定，Codex 将其用作程序化本地工作流的代理身份。
+
+> **提示：** 如果你的自动化中 Platform API 密钥已经能满足需求，请继续使用 API 密钥认证。仅在以下场景使用 Codex 访问令牌：工作流特别需要 ChatGPT 工作区访问权限、ChatGPT 管理的 Codex 权益或企业工作区控制。
+
+## 访问令牌的工作原理
+
+当 Codex 需要在不进行浏览器登录的情况下运行时，使用访问令牌。该令牌代表创建它的 ChatGPT 工作区用户，因此运行可以使用该用户的 Codex 访问权限，并体现在工作区治理数据中。
+
+Codex 在运行启动时检查令牌，并将该运行关联到对应的工作区身份。请像对待任何其他自动化密钥一样对待令牌：存储在密钥管理器中，避免出现在日志中，并定期轮换。
+
+**适用场景：**
+
+- 从受信任的自动化中运行的 `codex exec` 任务
+- 需要可重复、非交互式 Codex 运行的本地脚本
+- 使用情况应关联到 ChatGPT 工作区用户（而非 API 组织密钥）的企业工作流
+
+**需避免的主要风险：**
+
+- **密钥泄露：** 任何拥有令牌的人都可以以令牌创建者的身份启动 Codex 运行。将令牌存储在密钥管理器中，避免出现在日志中，并定期轮换
+- **不受信任的运行器：** 公共 CI、fork 的拉取请求或共享机器可能将令牌暴露给工作区之外的人。仅在受信任的运行器上使用访问令牌
+- **共享身份：** 一个人的令牌在无关团队间重复使用，会使所有权和审计追踪难以解读。为特定的工作流所有者创建令牌
+- **过期凭证：** 长期有效的令牌可能在工作流变更后仍然保持活跃。优先使用有限有效期，并撤销不再使用的令牌
+- **错误的凭证类型：** 访问令牌用于 Codex 本地工作流。通用 OpenAI API 调用应使用 Platform API 密钥
+
+## 启用访问令牌创建功能
+
+使用工作区设置中的 Codex Local 控件为允许的成员开启访问令牌创建功能。
+
+![ChatGPT 工作区 RBAC 设置中的访问令牌权限](/images/codex/administration/enterprise/rbac_access_token_access_permission.png)
+
+1. 前往 **工作区设置 > 设置与权限**
+2. 在 **Codex Local** 部分，确保 **允许成员使用 Codex Local** 已开启
+3. 如果希望所有允许的成员都能创建访问令牌，请开启 **允许成员使用 Codex 访问令牌**
+4. 如果使用自定义角色进行更精细的部署，仅将访问令牌权限分配给需要创建令牌的组
+
+将访问令牌创建权限限制在了解令牌存储位置、使用令牌的自动化程序以及轮换方式的个人或服务所有者。
+
+## 创建访问令牌
+
+使用 **访问令牌** 页面为令牌命名并选择过期时间。
+
+![访问令牌页面，带有创建按钮](/images/codex/administration/enterprise/access_token_create_header.png)
+
+1. 前往 **访问令牌** 页面
+2. 选择 **创建**
+
+![创建访问令牌弹窗，包含名称和过期时间字段](/images/codex/administration/enterprise/access_token_creation_modal.png)
+
+3. 输入描述性名称，例如 `release-ci` 或 `nightly-docs-check`
+4. 选择过期时间。建议使用有限有效期，如 7 天、30 天、60 天或 90 天。如果选择 **无过期时间**，请按定期计划轮换令牌
+5. 选择 **创建**
+6. **立即复制生成的访问令牌。** 关闭弹窗后将无法再次查看
+7. 将令牌存储在密钥管理器或 CI 密钥存储中
+
+最短自定义过期时间为一天。已撤销和已过期的令牌无法用于启动新的 Codex 运行。
+
+## 在 Codex CLI 中使用访问令牌
+
+对于临时性自动化，将令牌存储在 `CODEX_ACCESS_TOKEN` 中并正常运行 Codex：
+
+```bash
+export CODEX_ACCESS_TOKEN="<access-token>"
+codex exec --json "review this repository and summarize the top risks"
+```
+
+对于持久性本地登录，将令牌通过管道传递给 `codex login --with-access-token`：
+
+```bash
+printf '%s' "$CODEX_ACCESS_TOKEN" | codex login --with-access-token
+codex exec "summarize the last release diff"
+```
+
+`codex login --with-access-token` 会在 Codex 认证存储中保存一个代理身份凭证。如果不想在机器上持久保存凭证，请改用 `CODEX_ACCESS_TOKEN` 环境变量。
+
+## 轮换或撤销令牌
+
+以与轮换其他自动化密钥相同的方式轮换访问令牌：
+
+1. 创建一个替换令牌
+2. 在运行器、调度器或密钥管理器中更新密钥
+3. 使用新令牌运行冒烟测试
+4. 从 **访问令牌** 页面撤销旧令牌
+
+在 **访问令牌** 页面上，工作区所有者和管理员可以撤销工作区中的任何令牌。拥有访问令牌权限的成员只能撤销自己创建的令牌。
+
+## 权限模型
+
+访问令牌权限与通用的 Codex Local 权限是分开的。成员可以拥有 Codex 应用、CLI 或 IDE 扩展的访问权限，但不被允许创建访问令牌。
+
+| 能力 | 工作区所有者和管理员 | 拥有访问令牌权限的成员 | 无访问令牌权限的成员 |
+|------|---------------------|----------------------|---------------------|
+| 打开访问令牌页面 | ✅ 是 | ✅ 是 | ❌ 否 |
+| 创建访问令牌 | ✅ 是，为自己的 ChatGPT 工作区身份 | ✅ 是，为自己的 ChatGPT 工作区身份 | ❌ 否 |
+| 列出访问令牌 | 工作区列表，包含每个令牌的创建者 | 仅自己创建的令牌 | ❌ 否 |
+| 通过访问令牌页面撤销令牌 | 工作区中的任意令牌 | 仅自己创建的令牌 | 无法访问页面 |
+| 授予或移除访问令牌权限 | ✅ 是 | ❌ 否 | ❌ 否 |
+| 管理其他 Codex 企业设置 | ✅ 是，基于管理员角色和 Codex 管理员权限 | ❌ 否，除非单独授予 | ❌ 否 |
+
+简而言之：工作区所有者和管理员在工作区层面管理访问权限。成员需要访问令牌权限才能创建和管理自己的令牌，但该权限不授予管理员权限或访问其他成员令牌的能力。
+
+## 故障排除
+
+### 访问令牌页面返回 404 或禁止访问
+
+请工作区所有者或管理员确认 Codex 访问令牌已启用，并且你的角色包含访问令牌权限。
+
+### `codex login --with-access-token` 失败
+
+确认你复制的是生成的访问令牌，而非浏览器会话令牌或 Platform API 密钥。同时确认令牌未过期或未被撤销。
+
+## 相关文档
+
+- [认证](/codex/administration/enterprise/authentication)
+- [非交互模式](/codex/automation/non-interactive-mode)
+- [管理员设置](/codex/administration/enterprise/admin-setup)
+- [治理](/codex/administration/enterprise/governance)

@@ -1,0 +1,253 @@
+---
+title: Chrome 扩展（Beta）
+description: 把 Claude Code 连接到 Chrome 或 Edge，让它能测试 Web 应用、读取控制台、自动填表、抓取网页数据，并复用你已登录的浏览器状态。
+editUrl: false
+sidebar:
+  order: 5
+---
+
+# Chrome 扩展（Beta）
+
+通过 **Claude in Chrome** 浏览器扩展，把 Claude Code 直接接入你的 Chrome / Edge 浏览器。这样你就能在 CLI 或 VS Code 中一边写代码，一边让 Claude 打开页面、查看控制台、填写表单、抽取数据和记录浏览器操作。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code 会在浏览器任务中打开**可见的新标签页**，并复用你当前浏览器中的登录状态。因此，它可以直接访问你已经登录的网站；如果遇到登录页或 CAPTCHA，则会停下来让你手动处理。
+
+当前状态：
+
+- 属于 **beta**
+- 支持 **Google Chrome** 与 **Microsoft Edge**
+- 暂不支持 Brave、Arc 等其他 Chromium 浏览器
+- **不支持 WSL（Windows Subsystem for Linux）**
+
+## 能做什么
+
+接入浏览器后，你可以把“写代码”和“用浏览器验证”串成一个工作流：
+
+- **实时调试**：读取 console 错误、查看 DOM 状态，再回到代码中修复问题
+- **设计验收**：照着 Figma 或设计稿搭 UI，然后让 Claude 打开页面检查是否一致
+- **Web 应用测试**：验证表单校验、用户流程与视觉回归
+- **登录态网站操作**：操作 Gmail、Google Docs、Notion 等已登录 Web 应用，而无需额外 API
+- **网页数据抽取**：把页面中的结构化信息提取并落地成文件
+- **重复任务自动化**：自动化表单填写、录入、跨站点流程
+- **会话录制**：把浏览器操作录成 GIF，便于说明或分享
+
+## 前置要求
+
+使用前需要满足：
+
+| 条件 | 说明 |
+|---|---|
+| 浏览器 | Google Chrome 或 Microsoft Edge |
+| 扩展 | Claude in Chrome 扩展，版本 `1.0.36+` |
+| Claude Code | 版本 `2.0.73+` |
+| 账号 | Anthropic 直连套餐：Pro、Max、Team、Enterprise |
+
+它**不支持**第三方 provider 路线，例如：
+
+- Amazon Bedrock
+- Google Cloud Vertex AI
+- Microsoft Foundry
+
+如果你平时只通过这些 provider 使用 Claude，那么要使用这个功能，仍需额外拥有一个 `claude.ai` 账号。
+
+## 在 CLI 中启用
+
+### 启动方式
+
+直接带 `--chrome` 启动：
+
+```bash
+claude --chrome
+```
+
+如果你已经在一个会话中，也可以运行：
+
+```text
+/chrome
+```
+
+来启用或管理浏览器连接。
+
+### 最简单的交互方式
+
+例如你可以直接这样说：
+
+```text
+Go to code.claude.com/docs, click on the search box,
+type "hooks", and tell me what results appear
+```
+
+Claude 会从终端或编辑器里完成：
+
+- 打开页面
+- 点击搜索框
+- 输入关键词
+- 报告观察结果
+
+### 设为默认启用
+
+如果你不想每次都写 `--chrome`：
+
+- 在 CLI 中运行 `/chrome`
+- 选择 **Enabled by default**
+
+但要注意：**默认启用会增加上下文消耗**，因为浏览器工具会一直加载。如果你对上下文预算敏感，更建议仅在需要时用 `--chrome`。
+
+### 站点权限
+
+Claude 对哪些站点可浏览、点击、输入，继承自 Chrome 扩展本身的站点权限配置。要收紧权限，请直接在浏览器扩展设置中管理。
+
+## 常见工作流
+
+### 测试本地 Web 应用
+
+例如：
+
+```text
+I just updated the login form validation. Can you open localhost:3000,
+try submitting the form with invalid data, and check if the error
+messages appear correctly?
+```
+
+Claude 会访问本地服务、操作表单，并告诉你实际观察到的现象。
+
+### 用控制台调试
+
+例如：
+
+```text
+Open the dashboard page and check the console for any errors when
+the page loads.
+```
+
+比起“把所有日志全贴出来”，更建议你让 Claude 聚焦在某类错误模式上，因为控制台信息通常很多。
+
+### 自动填表
+
+例如：
+
+```text
+I have a spreadsheet of customer contacts in contacts.csv. For each row,
+go to the CRM at crm.example.com, click "Add Contact", and fill in the
+name, email, and phone fields.
+```
+
+Claude 会把本地数据与网页操作串起来，适合批量录入。
+
+### 在 Google Docs 中起草内容
+
+例如：
+
+```text
+Draft a project update based on the recent commits and add it to my
+Google Doc at docs.google.com/document/d/abc123
+```
+
+只要你已经登录该网页应用，Claude 就能直接在其编辑器中输入内容。
+
+### 抽取网页数据
+
+例如：
+
+```text
+Go to the product listings page and extract the name, price, and
+availability for each item. Save the results as a CSV file.
+```
+
+Claude 会浏览页面、抽取数据，并整理成结构化输出。
+
+### 跨多个站点联动
+
+例如：
+
+```text
+Check my calendar for meetings tomorrow, then for each meeting with
+an external attendee, look up their company website and add a note
+about what they do.
+```
+
+它可以在多个标签页之间切换，完成跨站点工作流。
+
+### 录制演示 GIF
+
+例如：
+
+```text
+Record a GIF showing how to complete the checkout flow, from adding
+an item to the cart through to the confirmation page.
+```
+
+适合做演示、报告问题或给同事复现步骤。
+
+## 故障排查
+
+### 扩展未被检测到
+
+如果 Claude Code 提示 **Chrome extension not detected**：
+
+1. 确认扩展已在 `chrome://extensions` 中安装并启用
+2. 确认 Claude Code 版本足够新：
+
+```bash
+claude --version
+```
+
+3. 确认浏览器已启动
+4. 运行 `/chrome`，选择 **Reconnect extension**
+5. 如仍失败，重启浏览器与 Claude Code
+
+第一次启用 Chrome integration 时，Claude Code 会安装一份 **native messaging host** 配置文件。Chrome 只在启动时读取它，所以首次检测失败时，重启浏览器往往就能解决。
+
+### 浏览器不响应
+
+如果 Claude 的浏览器命令突然失效：
+
+- 先检查页面是否有 `alert` / `confirm` / `prompt` 弹窗阻塞
+- 让 Claude 新开一个标签页再试
+- 在 `chrome://extensions` 中关闭再启用扩展
+
+### 长会话后连接断开
+
+扩展的 service worker 在长时间空闲后可能会休眠。若浏览器工具一段时间后失效：
+
+- 运行 `/chrome`
+- 选择 **Reconnect extension**
+
+### Windows 常见问题
+
+- **Named pipe 冲突（EADDRINUSE）**：可能是另一个 Claude Code 会话占用了同名管道，重启 Claude Code 并关闭其他会话
+- **Native messaging host 启动异常**：可尝试重装 Claude Code 以重新生成 host 配置
+
+### 常见报错速查
+
+| 错误 | 原因 | 解决方法 |
+|---|---|---|
+| `Browser extension is not connected` | native messaging host 无法连上扩展 | 重启浏览器与 Claude Code，再用 `/chrome` 重连 |
+| `Extension not detected` | 扩展未安装或已禁用 | 在 `chrome://extensions` 中安装 / 启用 |
+| `No tab available` | Claude 在标签页尚未准备好时就开始操作 | 让 Claude 新开一个标签页后重试 |
+| `Receiving end does not exist` | 扩展 service worker 已休眠 | 运行 `/chrome` 并选择 **Reconnect extension** |
+
+## 何时用它，而不是别的集成
+
+可以这样理解几种能力的边界：
+
+- **Chrome extension**：适合真实网页、登录态页面与浏览器内流程
+- **Computer use**：适合浏览器之外的原生桌面应用与 GUI
+- **Connectors / APIs**：适合已经有正式 API 的服务集成
+
+Claude 通常会优先使用更精确、更结构化的接入方式；浏览器自动化是“比 API 更通用、但也更脆弱”的方案。
+
+## 相关资源
+
+- Computer use：当任务不适合在浏览器中完成时，用于控制原生桌面应用
+- Use Claude Code in VS Code：在 VS Code 扩展中使用浏览器自动化
+- CLI reference：查看 `--chrome` 等命令行参数
+- Common workflows：更多 Claude Code 的工作流示例
+- Data and privacy：了解 Claude Code 的数据处理方式
+- Getting started with Claude in Chrome：浏览器扩展本身的完整文档

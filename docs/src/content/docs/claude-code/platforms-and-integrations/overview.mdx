@@ -1,0 +1,102 @@
+---
+title: 平台与集成概览
+description: 选择适合你的 Claude Code 运行平台，并了解如何连接浏览器、Slack、CI/CD 等外部工具与工作流。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# 平台与集成概览
+
+选择适合你的 Claude Code 运行平台，并了解如何连接浏览器、Slack、CI/CD 等外部工具与工作流。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code 在不同界面上运行的是同一个底层引擎，但每种使用界面都针对不同的工作方式做了优化。本页会帮助你为自己的工作流选择合适的平台，并连接你已经在使用的工具。
+
+## 在哪里运行 Claude Code
+
+你可以根据自己的工作习惯，以及项目实际位于哪里，来选择合适的平台。
+
+| 平台 | 最适合 | 你会得到什么 |
+|---|---|---|
+| CLI | 终端工作流、脚本化、远程服务器 | 最完整的功能集、Agent SDK、macOS 上的 computer use（Pro / Max）、第三方 provider 支持 |
+| Desktop | 可视化审查、并行会话、托管式安装体验 | diff viewer、应用预览、computer use 与 Dispatch（Pro / Max） |
+| VS Code | 希望在 VS Code 内工作，而不想频繁切去终端 | inline diffs、集成终端、文件上下文 |
+| JetBrains | 在 IntelliJ、PyCharm、WebStorm 或其他 JetBrains IDE 中工作 | diff viewer、selection sharing、终端会话 |
+| Web | 适合几乎不需要频繁干预的长任务，或希望断开连接后仍继续运行的任务 | Anthropic 托管云环境，断开连接后仍可继续 |
+| Mobile | 当你离开电脑时启动、查看和跟进任务 | iOS / Android Claude app 中的云端会话、针对本地会话的 Remote Control，以及 Pro / Max 可用的 Dispatch to Desktop |
+
+CLI 是面向终端原生工作方式最完整的界面：脚本化与 Agent SDK 都是 CLI 独有。第三方 provider 也可用于 VS Code。对于企业级 Desktop 部署，支持 Vertex AI 和 gateway providers；如果你要使用 Bedrock 或 Foundry，则应优先选择 CLI 或 VS Code，而不是 Desktop。
+
+Desktop 与 IDE 扩展相较 CLI，牺牲了一部分 CLI 专属能力，但换来了更强的可视化审查体验与更紧密的编辑器集成。Web 版本运行在 Anthropic 的云端，因此你断开连接后任务仍能继续。Mobile 则是这些云端会话，或通过 Remote Control 连接到本地会话的轻量客户端；它还可以通过 Dispatch 把任务发送到 Desktop 去执行。
+
+你也可以在同一个项目上混合使用多种界面。配置、项目记忆和 MCP servers 会在各个本地界面之间共享。
+
+## 连接你的工具
+
+Integrations 让 Claude 可以处理代码库之外的服务与系统。
+
+| 集成 | 它能做什么 | 适用场景 |
+|---|---|---|
+| Chrome | 借助你已登录的浏览器会话操作网页 | 测试 Web 应用、填写表单、自动化没有 API 的网站 |
+| GitHub Actions | 在 CI 流水线中运行 Claude | 自动化 PR 审查、issue 分拣、定时维护任务 |
+| GitLab CI/CD | GitLab 上与 GitHub Actions 类似的能力 | GitLab 上的 CI 自动化 |
+| Code Review | 为每个 PR 自动执行审查 | 在人工评审前提前发现 Bug |
+| Slack | 在频道里响应 `@Claude` 提及 | 在团队聊天中把 bug 报告转成 pull request |
+
+对于这里没有列出的集成，还可以使用 MCP servers 与 connectors 去接入几乎任何系统，例如：
+
+- Linear
+- Notion
+- Google Drive
+- 你自己的内部 API
+
+## 当你不在终端前时继续工作
+
+Claude Code 提供了多种在你离开终端时继续工作的方式。它们的差异主要体现在：
+
+- 如何触发任务
+- Claude 实际运行在哪里
+- 需要多少前置配置
+
+| 方式 | 触发方式 | Claude 运行在 | 配置方式 | 最适合 |
+|---|---|---|---|---|
+| Dispatch | 在 Claude mobile app 中发送任务 | 你的机器（Desktop） | 将 mobile app 与 Desktop 配对 | 人不在电脑前时委派任务，且配置成本低 |
+| Remote Control | 从 `claude.ai/code` 或 Claude mobile app 驱动一个正在运行的会话 | 你的机器（CLI 或 VS Code） | 运行 `claude remote-control` | 从另一台设备继续接管正在进行的任务 |
+| Channels | 由 Telegram、Discord 等聊天应用，或你自己的服务器推送事件 | 你的机器（CLI） | 安装 channel plugin 或自行构建 | 对 CI 失败、聊天消息等外部事件做响应 |
+| Slack | 在团队频道中 `@Claude` | Anthropic 云端 | 安装 Slack app 并启用 Claude Code on the web | 在团队聊天中发起 PR 与 review |
+| Scheduled tasks | 按计划周期触发 | CLI、Desktop 或云端 | 设定频率 | 每日审查、周期性自动化任务 |
+
+如果你不确定该从哪里开始，建议先安装 CLI，并在项目目录里运行它。如果你更不喜欢终端，也可以直接使用 Desktop，它提供的是同一个底层引擎，但有图形界面。
+
+## 相关资源
+
+### 平台
+
+- CLI quickstart：在终端中安装并运行你的第一条命令
+- Desktop：可视化 diff 审查、并行会话、computer use 与 Dispatch
+- VS Code：在编辑器内部使用 Claude Code 扩展
+- JetBrains：适用于 IntelliJ、PyCharm 与其他 JetBrains IDE 的扩展
+- Claude Code on the web：在云端运行，即使你断开连接任务仍可继续
+- Mobile：适用于 iOS / Android 的 Claude app，用于离开电脑时启动与跟进任务
+
+### 集成
+
+- Chrome：利用你已登录的浏览器会话自动化网页任务
+- Computer use：让 Claude 在 macOS 上打开应用并控制你的屏幕
+- GitHub Actions：在 CI 流水线中运行 Claude
+- GitLab CI/CD：GitLab 版本的同类能力
+- Code Review：对每个 pull request 自动执行审查
+- Slack：在团队聊天中发任务，并把 PR 结果带回来
+
+### 远程访问
+
+- Dispatch：从手机发送任务，并让它拉起一个 Desktop 会话来处理
+- Remote Control：从手机或浏览器操控一个正在运行的会话
+- Channels：把聊天应用或你自己的服务器事件推送进会话
+- Scheduled tasks：按周期定时运行 prompts

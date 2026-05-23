@@ -1,0 +1,283 @@
+---
+title: Scheduled tasks
+description: 在 Claude Desktop 中创建本地定时任务，让 Claude 按分钟、小时、天或自定义节奏自动运行，并了解 worktree、补跑、权限与管理方式。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+# Scheduled tasks
+
+**Scheduled tasks** 可以让 Claude Desktop 在你自己的机器上按预定时间自动启动一个全新的 Claude 会话，用于执行每日代码审查、依赖巡检、morning briefing 等重复性工作。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+它的核心特点是：**任务运行在你的本机**，因此可以直接访问本地文件与工具；但也正因为如此，只有在 **Desktop 应用保持运行且电脑处于唤醒状态** 时，它才会实际触发。
+
+## 和云端 Routines / `/loop` 的区别
+
+Claude Code 现在大致有三种“按计划运行”的方式：
+
+| 方式 | 运行位置 | 需要机器开着 | 需要已有打开会话 | 可跨重启保留 | 本地文件访问 | 最小间隔 |
+|---|---|---|---|---|---|---|
+| Cloud task / Routines | Anthropic 云端 | 否 | 否 | 是 | 否（fresh clone） | 1 小时 |
+| Desktop scheduled task | 你的机器 | 是 | 否 | 是 | 是 | 1 分钟 |
+| `/loop` | 你的机器 | 是 | 是 | `--resume` 后可恢复（未过期时） | 是 | 1 分钟 |
+
+适用判断可以简单记成：
+
+- **机器关机也要可靠执行** → 用云端 [Routines](/claude-code/platforms-and-integrations/claude-code-on-the-web/routines/)
+- **需要本地文件、本地工具链或本地凭据** → 用 Desktop scheduled tasks
+- **只是当前会话里临时轮询一下** → 用 `/loop`
+
+:::tip[关于工作目录状态]
+默认情况下，scheduled task 会基于你当前工作目录的实际状态运行，**包括未提交改动**。如果你想让每次执行都隔离在独立 Git worktree 中，创建任务时应打开 worktree 选项。
+:::
+
+## 如何创建一个 scheduled task
+
+在 Desktop 侧边栏点击 **Routines**，然后点击 **New routine**，并选择 **Local**。
+
+这会创建一个运行在本机的任务，而不是云端 routine。
+
+### 需要填写的字段
+
+| 字段 | 说明 |
+|---|---|
+| Name | 任务标识符，会转成小写 kebab-case，并作为磁盘目录名；必须唯一 |
+| Description | 在任务列表中显示的简短说明 |
+| Instructions | Claude 每次运行时要执行的 prompt；这里也会一起设置 model、permission mode、工作目录和是否使用 worktree |
+| Schedule | 任务多久执行一次 |
+
+保存前必须先指定一个 folder。如果这个目录还没有被 Desktop 信任，应用会先要求你信任该目录。
+
+## 也可以直接让 Claude 帮你创建
+
+你不一定非得进表单手动填。也可以在任意 Desktop 会话里直接告诉 Claude：
+
+- “帮我创建一个每天早上 9 点运行的代码审查任务”
+- “明天下午 3 点提醒我检查 deploy”
+
+Claude 会把这类自然语言解析成 recurring task 或 one-off task。
+
+## 可选的 schedule 类型
+
+Schedule 控件里常见的预设包括：
+
+| 选项 | 行为 |
+|---|---|
+| Manual | 不自动运行，只在你点击 **Run now** 时执行 |
+| Hourly | 每小时执行一次 |
+| Daily | 每天指定时间执行，默认 9:00 AM 本地时间 |
+| Weekdays | 与 Daily 类似，但跳过周六和周日 |
+| Weekly | 每周指定某天某时执行 |
+
+如果你需要更灵活的节奏，例如：
+
+- 每 15 分钟
+- 每月 1 号
+- 某个未来指定时刻只跑一次
+
+可以直接让 Claude 在 Desktop 会话中用自然语言帮你设置，例如：
+
+- “schedule a task to run all the tests every 6 hours”
+
+## 任务实际是怎么跑的
+
+Scheduled task 运行在你的机器上。Desktop 只要保持打开，就会**每分钟检查一次**是否有任务到点。
+
+当任务到点时：
+
+- Desktop 会创建一个**新的独立 session**
+- 它和你当前手工打开的会话彼此独立
+- Claude 可以在该 session 里编辑文件、运行命令、创建提交、发起 PR
+
+官方还说明，每个任务在计划时间后都会有一个**几分钟的固定延迟**，用于错峰 API 流量。这个延迟是确定性的——同一个任务每次都会落在相同的偏移上。
+
+### 触发时会发生什么
+
+任务触发时，你通常会看到：
+
+- 一条桌面通知
+- 侧边栏 **Scheduled** 分组下出现一个新 session
+
+打开这个 session 后，你就能查看：
+
+- Claude 做了什么
+- 改了哪些文件
+- 是否有待你批准的权限请求
+
+## 睡眠、关机与 missed runs
+
+Scheduled task 只有在以下前提下才能准时触发：
+
+- Desktop 应用正在运行
+- 电脑处于唤醒状态
+
+如果电脑在计划时间里睡眠，该次执行会被跳过。
+
+若你想尽量减少因为空闲而睡眠，可在设置里开启：
+
+- **Keep computer awake**
+
+但要注意，**合上笔记本盖子仍然会让电脑睡眠**。
+
+### 醒来后如何补跑
+
+当应用启动或电脑唤醒时，Desktop 会检查过去 **7 天**内是否错过了任务执行。
+
+若发现有 missed runs：
+
+- 只会补跑**最近一次**错过的时间点
+- 更早那些错过的运行会被丢弃
+
+例如：一个 daily task 连续错过 6 天，醒来后只会补跑 1 次，而不是把 6 次都补齐。
+
+Desktop 在触发这种 catch-up run 时也会给你发通知。
+
+:::caution[Prompt 最好考虑“延迟执行”]
+如果时间敏感，prompt 里应自己写保护条件。比如：
+
+“只审查今天的提交；如果已经超过下午 5 点，就不要再做正式 review，只汇总今天错过了什么。”
+:::
+
+## 权限模式如何影响 scheduled task
+
+每个 task 都有**独立的 permission mode**，在创建或编辑时设置。
+
+此外，`~/.claude/settings.json` 中的 allow rules 也会作用到 scheduled task 会话。
+
+如果某个任务运行在 **Ask mode** 下，而它需要调用一个尚未获批的工具：
+
+- 该次运行会卡住等待你批准
+- session 会继续保留在侧边栏中
+- 你之后可以再回来补批准
+
+### 避免卡住的建议
+
+最实用的方式是：
+
+1. 创建完任务后先点一次 **Run now**
+2. 观察是否弹权限提示
+3. 对需要长期允许的操作勾选 **always allow**
+
+这样后续同任务再跑时，遇到同类工具调用就会自动批准，不再阻塞。
+
+这些已保存的批准项也可以在任务详情页里查看和撤销。
+
+## 如何管理已有任务
+
+点击 **Routines** 列表中的某个任务，可以打开它的详情页。
+
+你可以在这里做的事包括：
+
+### Run now
+
+立即执行一次，而不用等到下一个计划时间。
+
+### Active / Paused
+
+通过状态开关暂停或恢复任务，而不必删除它。
+
+### Edit
+
+修改：
+
+- instructions
+- schedule
+- folder
+- model
+- 其他配置
+
+### Review history
+
+查看历史运行记录，包括：
+
+- 成功运行
+- skipped runs
+
+对 skipped 条目悬停时，通常还能看到跳过原因，例如：
+
+- 电脑当时睡眠
+- 上一轮还没跑完
+- 同时已有其他 scheduled tasks 在运行
+
+### Review allowed permissions
+
+在 **Always allowed** 面板里查看并撤销该任务保存下来的工具批准。
+
+### Delete
+
+删除任务，并归档它创建过的所有 sessions。
+
+删除确认框里还会有一个：
+
+- **Also delete files on disk**
+
+勾上后，会额外删除：
+
+- 任务的 `SKILL.md`
+- 存放在 `~/.claude/scheduled-tasks/` 下的相关数据
+
+## 也可以通过 Claude 管理任务
+
+在任意 Desktop session 里，你也可以直接让 Claude：
+
+- 列出任务
+- 创建任务
+- 编辑任务
+- 暂停任务
+
+例如：
+
+- “pause my dependency-audit task”
+- “show me my scheduled tasks”
+
+但**删除任务**仍建议从详情页上的 **Delete** 按钮完成。
+
+## 任务还能在运行过程中修改自己
+
+Scheduled task 运行时，可以通过 `update_scheduled_task` MCP tool 修改自己的：
+
+- schedule
+- prompt
+
+这意味着它可以根据运行结果**自我调整**。例如：
+
+- 发现 release branch 已创建后，把下一次 code review 改到更早时间
+- 在某次巡检无异常时，自动放宽下次执行频率
+
+## 任务在磁盘上的提示词文件
+
+如果你想直接在磁盘上编辑任务 prompt，可以打开：
+
+```text
+~/.claude/scheduled-tasks/<task-name>/SKILL.md
+```
+
+如果设置了 `CLAUDE_CONFIG_DIR`，则会写到该目录下对应位置。
+
+这个文件结构大致是：
+
+- YAML frontmatter：保存 `name` 和 `description`
+- 正文：保存 prompt 本身
+
+改动会在**下一次运行**时生效。
+
+不过以下内容并不保存在这个文件里，仍需通过 Edit 表单或直接让 Claude 修改：
+
+- schedule
+- folder
+- model
+- enabled state
+
+## 相关阅读
+
+- [Claude Desktop 入门](/claude-code/platforms-and-integrations/claude-code-on-desktop/get-started/)：先完成 Desktop 安装与第一条会话
+- [Routines](/claude-code/platforms-and-integrations/claude-code-on-the-web/routines/)：了解云端计划任务、API 触发和 GitHub 事件触发
+- [Claude Code Desktop 参考](/claude-code/platforms-and-integrations/claude-code-on-desktop/reference/)：查看 Desktop 更完整的能力说明
+- [Remote Control](/claude-code/platforms-and-integrations/remote-control/)：在网页或手机里继续你自己机器上的 Claude 会话

@@ -1,0 +1,237 @@
+---
+title: Code Review
+description: 为 GitHub 拉取请求启用 Claude Code 自动审查，利用多智能体分析在完整代码库上下文中发现逻辑错误、安全漏洞和回归风险。
+editUrl: false
+sidebar:
+  order: 10
+---
+
+# Code Review
+
+Code Review 是 Claude Code 提供的**托管式 PR 自动审查服务**。它会在 GitHub PR 打开、推送更新或你手动触发时运行，由多组专门 agent 并行分析 diff 与上下文代码，然后把发现的问题直接回写成 **行内评论**、**Checks 输出** 和 **diff 注释**。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+:::note[可用性]
+Code Review 目前属于 **research preview**，仅适用于 **Team** 与 **Enterprise** 订阅；如果组织启用了 **Zero Data Retention**，则不可用。
+:::
+
+## 它解决什么问题
+
+与只在本地跑一次 prompt 不同，Code Review 的目标是把 Claude 接入标准 PR 流程：
+
+- 在完整代码库上下文中检查 PR 改动
+- 重点发现**逻辑错误**、**安全问题**、**边界条件缺陷**与**隐蔽回归**
+- 保留现有 reviewer / branch protection 流程，不替代人工审批
+- 用 `CLAUDE.md` 与 `REVIEW.md` 持续校准“该报什么、不该报什么”
+
+如果你想在**自己的 CI 基础设施**上运行 Claude，而不是使用 Anthropic 托管服务，请改看：
+
+- [GitHub Actions](/claude-code/platforms-and-integrations/github-actions/)
+- [GitLab CI/CD](/claude-code/platforms-and-integrations/gitlab-ci-cd/)
+- [GitHub Enterprise Server](/claude-code/platforms-and-integrations/github-enterprise-server/)
+
+## 审查是如何工作的
+
+一旦组织管理员启用 Code Review，审查就可以按仓库级策略运行：
+
+- **PR 创建后运行一次**
+- **每次 push 都运行**
+- **完全手动触发**
+
+无论仓库默认策略是什么，评论 `@claude review` 都能启动审查。
+
+一次审查大致经历以下阶段：
+
+1. 多个专门 agent 并行分析 PR diff 与周边代码
+2. 每个 agent 聚焦不同类型的问题
+3. 验证步骤对候选问题做交叉核实，减少误报
+4. 系统去重、按严重级别排序
+5. 在对应代码行发布评论，并在检查结果中附总览
+
+平均完成时间大约 **20 分钟**，成本会随 PR 体量和复杂度增长。
+
+## 严重级别说明
+
+Code Review 会给每条发现标注严重级别：
+
+| 标记 | 级别 | 含义 |
+| --- | --- | --- |
+| 🔴 | Important | 应在合并前修复的真实 bug |
+| 🟡 | Nit | 非阻断的小问题，值得修但不阻塞 |
+| 🟣 | Pre-existing | 代码库里原本就存在、不是本次 PR 引入的问题 |
+
+每条发现还可以展开查看更多推理过程，理解 Claude 为什么判定该问题存在，以及它如何验证。
+
+## 审查结果会出现在哪里
+
+除了行内评论外，Code Review 还会把结果写入 **Claude Code Review check run**：
+
+- 在 **Checks** 中看到按严重级别汇总的问题表
+- 在 **Files changed** 中看到直接挂在 diff 行上的 annotation
+- 即使 GitHub 因代码行移动而拒绝行内评论，check run 里的结果仍然保留
+
+:::tip[不会自动阻止合并]
+Code Review 的 check run 结论始终是 **neutral**，不会直接触发 branch protection 阻塞合并。如果你想据此卡住合并，需要在你自己的 CI 中读取 check run 输出并自行判断。
+:::
+
+官方给出了一个从 check run 中抽取严重级别统计的例子：
+
+```bash
+gh api repos/OWNER/REPO/check-runs/CHECK_RUN_ID \
+  --jq '.output.text | split("bughunter-severity: ")[1] | split(" -->")[0] | fromjson'
+```
+
+这会返回类似下面的 JSON：
+
+```json
+{"normal": 2, "nit": 1, "pre_existing": 0}
+```
+
+其中 `normal` 代表 **Important** 级别数量。
+
+## 如何启用
+
+启用由**组织管理员**完成，流程大致如下：
+
+1. 打开 `claude.ai/admin-settings/claude-code`
+2. 在 Code Review 区域点击 **Setup**
+3. 安装 Claude GitHub App
+4. 选择要启用的仓库
+5. 为每个仓库设置 Review Behavior
+
+GitHub App 会请求这些仓库权限：
+
+- **Contents**：read & write
+- **Issues**：read & write
+- **Pull requests**：read & write
+
+管理员完成后，可以在表格里为每个仓库设置：
+
+- **Once after PR creation**：PR 打开或从 draft 变成 ready 时运行一次
+- **After every push**：每次推送都运行，并在问题修复后自动 resolve 相关线程
+- **Manual**：只有评论触发时才运行
+
+## 手动触发命令
+
+你可以在 PR 顶层评论里使用两种命令：
+
+| 命令 | 行为 |
+| --- | --- |
+| `@claude review` | 立即运行，并让该 PR 后续 push 也继续自动审查 |
+| `@claude review once` | 只运行当前这一轮，不订阅后续 push |
+
+使用要求：
+
+- 必须发在 **PR 顶层评论**，不能发在行内评论里
+- 命令要写在评论开头
+- 触发者需要是仓库 owner / member / collaborator
+- PR 必须处于打开状态
+
+与自动触发不同，**手动命令可以在 draft PR 上运行**。
+
+## 用 `CLAUDE.md` 与 `REVIEW.md` 定制审查
+
+Code Review 会读取两类文件：
+
+### `CLAUDE.md`
+
+- 是 Claude Code 的**通用项目说明文件**
+- Code Review 会把其中的约定当作项目上下文
+- 新引入的违反项，通常会以 **Nit** 级别报告
+- 分层目录下的 `CLAUDE.md` 只作用于对应子目录
+
+### `REVIEW.md`
+
+- 放在仓库根目录
+- 只作用于审查流程
+- 会以**最高优先级**注入给每个审查 agent
+- 适合定义：
+  - 什么算 Important
+  - Nit 最多报多少条
+  - 哪些路径 / 类型完全跳过
+  - 哪些仓库特有规则必须检查
+  - 对证据与误报控制的要求
+
+## `REVIEW.md` 里值得优先写什么
+
+实践上，最有价值的是下面这些约束：
+
+- **Severity 重新定义**：例如 docs 仓库的重要问题与生产后端仓库完全不同
+- **Nit 数量上限**：避免一次 review 因样式问题刷屏
+- **Skip rules**：例如 lockfile、生成代码、vendored 依赖不必评论
+- **Repo-specific checks**：例如“新增 API 路由必须带 integration test”
+- **Verification bar**：例如行为判断必须给出 file:line 证据
+- **Re-review convergence**：多轮 review 后只继续报 Important，避免反复纠缠风格
+
+## 使用量与定价
+
+管理员可以在 `claude.ai/analytics/code-review` 查看：
+
+- 每日被审查的 PR 数量
+- 每周成本
+- 因修复问题而自动关闭的评论数量
+- 各仓库的平均审查成本
+
+定价按 **token usage** 计费。官方文档给出的平均范围是 **每次 review 约 15–25 美元**，会随：
+
+- PR 大小
+- 代码库复杂度
+- 需要验证的问题数量
+
+而变化。
+
+:::caution[成本与触发策略强相关]
+- **Once after PR creation**：每个 PR 一次
+- **After every push**：每次推送都增加一次成本
+- **Manual**：只有显式触发才产生费用
+
+如果只是想做一次额外复查，优先用 `@claude review once`。
+:::
+
+## 故障排查
+
+### 审查失败或超时后如何重跑
+
+如果 check run 显示：
+
+- `Code review encountered an error`
+- `Code review timed out`
+
+可通过以下方式重新运行：
+
+- 在 PR 评论 `@claude review once`
+- 或向 PR 分支再 push 一次（如果该 PR 已订阅 push 触发）
+
+GitHub Checks 页面的 **Re-run** 按钮**不会**重新触发 Code Review。
+
+### PR 上提示已达到 spend cap
+
+达到组织月度 spend cap 时，Claude 会在 PR 中留下一条“本次审查已跳过”的评论。可通过两种方式恢复：
+
+- 等下一个 billing period 自动恢复
+- 由管理员去 `claude.ai/admin-settings/usage` 提高上限
+
+### Check run 说发现了问题，但看不到行内评论
+
+优先到下面位置检查：
+
+- **Check run → Details**：能看到完整严重级别表
+- **Files changed**：有些问题会以 annotation 出现
+- **Review body**：如果审查期间 PR 又更新过，旧行号上的发现可能落在附加说明区，而不是行内评论里
+
+## 适用场景总结
+
+当你需要的是：
+
+- 对 GitHub PR 做**稳定、持续、自动化**的质量检查
+- 让审查保留在标准 PR / Checks 界面里
+- 利用 `REVIEW.md` 长期沉淀 repo 级审查规则
+
+那么 Code Review 是优先选择。
+
+如果你更想做**自定义自动化**、**按事件自由编排**、**在自有 runner 上执行**，则更适合 GitHub Actions 或 GitLab CI/CD。

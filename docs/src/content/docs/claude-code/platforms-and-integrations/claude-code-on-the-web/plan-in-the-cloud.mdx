@@ -1,0 +1,235 @@
+---
+title: Plan in the cloud
+description: 使用 ultraplan 把本地 CLI 中的规划任务交给 Claude Code on the web 在云端起草，再决定留在网页执行还是回传终端本地执行。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+# Plan in the cloud
+
+**Ultraplan** 是 Claude Code 的云端规划模式：你在本地 CLI 发起规划任务，Claude 会把这次 planning 工作转交给 Claude Code on the web 的云端 session，在浏览器中生成更容易审阅的计划草案，然后由你决定是继续在云端执行，还是把计划送回终端本地执行。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Ultraplan 目前处于 **research preview**，需要 Claude Code `v2.1.91` 或更高版本。
+
+## 它解决了什么问题
+
+本地 CLI 中也有 [Plan mode](/claude-code/use-claude-code/permission-modes/)，但 Ultraplan 适合“先在云端细化计划、再决定在哪里动手”的场景。它的优势主要体现在：
+
+- **更适合审阅计划**：你可以在浏览器里对计划的具体段落做定点评论，而不是整段回复
+- **起草过程不占本地终端**：计划在云端生成，本地终端可以继续干别的事
+- **执行位置可后选**：计划满意后，可以留在云端实现，也可以传回本地终端实施
+
+它尤其适合：
+
+- 迁移方案设计
+- 跨模块重构前的方案拆解
+- 较长任务的执行路径审阅
+- 需要先让团队看方案，再决定在哪个环境落地的工作
+
+## 使用前提
+
+Ultraplan 需要满足以下条件：
+
+- 你使用的是 **Claude.ai 账号** 登录的 Claude Code
+- 目标代码在 GitHub 仓库中
+- 你的账号能使用 **Claude Code on the web**
+
+由于它依赖 Anthropic 托管的云基础设施，因此：
+
+- **不支持** Amazon Bedrock
+- **不支持** Google Cloud Vertex AI
+- **不支持** Microsoft Foundry
+
+Ultraplan 会运行在你账号的**默认 cloud environment** 中；如果你还没有 environment，首次启动时会自动帮你创建。
+
+## 如何从 CLI 发起 Ultraplan
+
+本地 CLI 中有三种启动方式。
+
+### 方式一：显式命令
+
+直接运行：
+
+```text
+/ultraplan migrate the auth service from sessions to JWTs
+```
+
+### 方式二：在普通 prompt 中包含关键字
+
+只要在正常 prompt 中带上 `ultraplan` 这个词，Claude 也会识别并进入相同流程。
+
+### 方式三：从本地计划结果升级
+
+如果你先在本地做了一次普通规划，Claude 给出 plan 后会弹出批准对话框。此时选择：
+
+```text
+No, refine with Ultraplan on Claude Code on the web
+```
+
+就会把当前计划草案交给云端继续细化。
+
+:::note[确认对话]
+通过命令和关键字方式进入时，Claude 会先弹出确认对话框；从“本地计划升级”为 Ultraplan 时，不会再次确认，因为这个选择本身就代表确认。
+:::
+
+如果你当前启用了 [Remote Control](/claude-code/platforms-and-integrations/remote-control/)，在 Ultraplan 启动时它会断开，因为两者都会占用 `claude.ai/code` 界面，而且同一时间只能保持一种连接。
+
+## CLI 中的状态反馈
+
+云端 session 启动后，本地终端输入框会显示状态指示器：
+
+| 状态 | 含义 |
+|---|---|
+| `◇ ultraplan` | Claude 正在研究代码库并起草计划 |
+| `◇ ultraplan needs your input` | Claude 遇到澄清问题，需要你打开链接回答 |
+| `◆ ultraplan ready` | 计划草案已生成，可在浏览器中审阅 |
+
+你还可以运行：
+
+```text
+/tasks
+```
+
+在任务列表中打开 Ultraplan 的详情，查看：
+
+- session 链接
+- agent 活动状态
+- `Stop ultraplan` 操作
+
+如果你停止 Ultraplan：
+
+- 云端 session 会被归档
+- 本地状态指示器会清空
+- 计划不会自动写回终端
+
+## 在浏览器中审阅与修订计划
+
+当状态变为 `◆ ultraplan ready` 后，打开对应 session 链接，就能在 `claude.ai` 里看到专门的计划审阅视图。
+
+这个视图支持：
+
+### 行内评论
+
+选中计划中的任意段落或片段，直接留下评论，Claude 会按你的具体意见修订相关部分。
+
+### Emoji reactions
+
+你可以给某一节加表情，快速表达“这部分可以”“这部分有风险”“这里我不确定”等态度，而不必每次都写文字反馈。
+
+### 大纲侧边栏
+
+可快速跳转到计划的不同章节，适合较长、层级较多的方案。
+
+当你让 Claude 处理这些评论后，它会生成更新后的草案。这个过程可以反复迭代，直到你满意为止。
+
+## 审阅完成后：选择在哪里执行
+
+计划定稿后，你可以在浏览器中决定 Claude 应该在哪里落实它。
+
+## 方案一：继续在 Web 云端执行
+
+选择：
+
+```text
+Approve Claude’s plan and start coding in your browser
+```
+
+这样 Claude 会直接在同一个 Claude Code on the web session 中开始实现。此时：
+
+- 本地终端会收到确认信息
+- 状态指示器清空
+- 真正编码工作继续在云端完成
+
+等实现结束后，你可以在 Web 界面里：
+
+- 审查 diff
+- 创建 PR
+- 继续追加反馈
+
+这个模式最适合：
+
+- 你不需要本地专属环境
+- 任务本身可以完全在云端仓库副本中完成
+- 你希望“规划”和“实现”都留在同一个远端 session 内串起来
+
+## 方案二：把计划传回终端本地执行
+
+选择：
+
+```text
+Approve plan and teleport back to terminal
+```
+
+该选项只会在以下条件满足时出现：
+
+- 这次 Ultraplan 是**从 CLI 发起**的
+- 本地终端当前仍在等待结果
+
+选择后：
+
+- Web session 会被归档
+- 它不会和本地并行继续干活
+- 计划会送回到终端中的一个批准对话框
+
+终端里会出现标题为 **Ultraplan approved** 的对话框，并提供三种选择：
+
+| 选项 | 含义 |
+|---|---|
+| Implement here | 把计划注入当前对话上下文，在原会话里继续实现 |
+| Start new session | 清空当前对话，用这份计划作为唯一核心上下文启动新会话 |
+| Cancel | 先把计划保存到文件，不立即执行 |
+
+如果你选择 **Start new session**，Claude 还会打印一条 `claude --resume` 命令，方便你以后随时回到之前的对话。
+
+## 什么时候更适合送回本地执行
+
+以下情况通常更适合把计划传回终端而不是留在云端：
+
+- 需要访问本地私有文件或本机数据库
+- 要用你本地安装的自定义工具链 / MCP / 凭据
+- 项目在云端环境里无法完整复现
+- 你希望保留当前终端会话的上下文与工作痕迹
+
+相反，如果项目只依赖仓库内容与云端默认能力，直接在 Web 中继续编码通常更省事。
+
+## 与本地 Plan mode 的关系
+
+Ultraplan 不是 Plan mode 的替代，而是一个更偏“云端起草 + 浏览器审阅”的增强路径：
+
+| 能力 | 本地 Plan mode | Ultraplan |
+|---|---|---|
+| 计划生成位置 | 本地 CLI session | Claude Code on the web 云端 session |
+| 审阅界面 | 终端对话 | 浏览器专用计划视图 |
+| 精准评论 | 较弱 | 更强，支持行内评论 |
+| 执行位置 | 默认本地 | 可选云端或回传本地 |
+| 占用本地终端 | 会占用 | 计划起草阶段不占用 |
+
+如果你只是想快速在当前终端里先要一份大纲，本地 Plan mode 已经足够；如果你需要更强的计划审阅界面，Ultraplan 会更合适。
+
+## 常见注意点
+
+### 需要 Claude.ai 账号登录
+
+如果你当前不是以 `claude.ai` 账号登录，而是 API key 模式，Ultraplan 无法启动。应先在 Claude Code 中完成 Claude.ai 登录。
+
+### 依赖云端默认 environment
+
+Ultraplan 会跑在默认 cloud environment 下。如果环境网络策略过严，或默认 setup 不能满足某些分析需求，可能影响计划内容质量。此时应先调整云端 environment，再重新发起。
+
+### 与 Remote Control 互斥
+
+Remote Control 和 Ultraplan 都依赖 `claude.ai/code` 这一层会话界面，因此无法同时占用。Ultraplan 启动时会断开 Remote Control。
+
+## 相关阅读
+
+- [Claude Code on the web 入门](/claude-code/platforms-and-integrations/claude-code-on-the-web/get-started/)：先完成云端会话接入
+- [Claude Code on the web 参考](/claude-code/platforms-and-integrations/claude-code-on-the-web/reference/)：深入了解云端 environment、网络访问和任务迁移
+- [Ultrareview](/claude-code/platforms-and-integrations/claude-code-on-the-web/ultrareview/)：Ultraplan 的“代码审查”对应功能
+- [Remote Control](/claude-code/platforms-and-integrations/remote-control/)：让 `claude.ai/code` 接管你自己机器上的 Claude Code session

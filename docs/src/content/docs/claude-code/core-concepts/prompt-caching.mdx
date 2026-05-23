@@ -1,0 +1,290 @@
+---
+title: Claude Code 如何使用提示缓存
+description: 理解什么会使 Claude Code 的提示缓存失效、哪些动作不会破坏缓存，以及如何检查缓存命中率与 TTL 行为。
+editUrl: false
+sidebar:
+  order: 5
+---
+
+# Claude Code 如何使用提示缓存
+
+Claude Code 会自动管理提示缓存（prompt caching）。理解这一机制可以帮助你知道：为什么切换模型后下一轮会变慢、为什么 `/compact` 会带来一次性成本、为什么中途修改 `CLAUDE.md` 不会立刻生效，以及该如何检查缓存命中率。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+提示缓存让 Claude Code 更快、也更省钱。没有缓存的话，API 每一轮都必须重新处理你的全部历史上下文；有了缓存，它就能复用已经处理过的前缀，只为新增变化做计算。
+
+Claude Code 默认会替你处理好这件事，除非你显式禁用。但你依然值得理解它，因为某些操作会让缓存部分或全部失效，导致**下一轮**请求变慢、变贵——直到新的前缀重新被写入缓存。本页会说明这些动作是什么、为什么有些设置修改需要重启后才生效，以及当你怀疑使用量异常时，应该怎样检查缓存表现。
+
+## 缓存是怎么组织的
+
+每次你在 Claude Code 里发出一条消息，它都会新发起一次 API 请求。模型本身并不会在请求之间“记住”任何东西，所以 Claude Code 每次都必须把完整上下文重新发过去：
+
+- system prompt
+- 项目上下文
+- 此前的每一条消息与工具结果
+- 你刚输入的新消息
+
+新内容总是追加在末尾，因此前后两次请求的大部分内容其实完全相同。**提示缓存的作用，就是避免 API 反复处理那一大段没变的前缀。**
+
+API 的缓存匹配方式，是拿当前请求开头那一整段内容（即 prefix）与最近处理过的内容做精确比对。正常一轮里，prefix 基本等于“上一轮的整个请求”，因此通常只有最新一轮交互是新增内容。由于匹配是**完全精确**的，所以只要 prefix 中途任何地方发生变化，后面所有内容都要重新计算。它不是“按文件缓存”或“按片段缓存”。官方底层机制可参考 Anthropic API 对 prompt caching 的说明。
+
+为了尽可能利用 prefix 匹配，Claude Code 会把每次请求排成这样一种顺序：越是不容易变化的内容，越放在前面。
+
+| 层级 | 内容 | 什么时候会变化 |
+|---|---|---|
+| System prompt | 核心说明、工具定义、output style | MCP server 连接/断开，或 Claude Code 升级时 |
+| Project context | `CLAUDE.md`、自动记忆、不带作用域的 rules | 会话启动时，或 `/clear`、`/compact` 之后 |
+| Conversation | 你的消息、Claude 的回复、工具结果 | 每一轮都会变化 |
+
+因此：
+
+- Conversation 层变化时，System prompt 和 Project context 仍可继续命中缓存；
+- 但只要 System prompt 层变化，后面所有内容都会被一并拖着失效，因为它们现在都位于一个新前缀之后。
+
+这个 prefix 规则能解释本页绝大多数现象。例如 plan mode、skill 加载等行为，通常都只是**把内容追加到对话末尾**，因此并不会破坏已经缓存的前缀。
+
+还有两个设置项并不属于 prompt 文本本身，因此它们与缓存的关系稍有不同：
+
+- **Model**：缓存是按模型分别建的。每个模型都有自己的缓存空间，所以切换模型即使请求文本完全一样，也会重算整个请求。
+- **Effort level**：它既不属于缓存 key，也不属于 prompt 本文，因此中途修改不会影响缓存。
+
+一个实用建议是：**在会话一开始就选好模型、连好 MCP servers，并把 `/compact` 留到任务之间的自然空档再用。** 你在任务进行中改动得越少，缓存命中率通常就越高。
+
+### 缓存存放在哪里
+
+缓存是发生在**服务端**的，也就是实际承接你模型请求的基础设施上。具体位置取决于你的认证和接入方式：
+
+- API key、Claude subscription、或 Claude Platform on AWS：缓存位于 Anthropic 的基础设施中，并通过 Claude API 访问。
+- Bedrock 或 Vertex AI：缓存位于云厂商自己的模型服务基础设施中。
+- Foundry：请求会路由到 Anthropic 基础设施。
+- 自定义 `ANTHROPIC_BASE_URL` 或 LLM gateway：缓存位于你的请求最终被转发到的地方，且是否真正支持缓存取决于该 gateway。
+
+关于不同 provider 对数据的存储与处理方式，可参考官方的 data usage 文档。无论缓存位于何处，它都会在一段时间没有命中后过期。TTL（生存时间）以及如何延长，会在后文的“缓存生命周期”中说明。
+
+## 会使缓存失效的动作
+
+下面这些动作会导致**下一次请求**部分或全部失去缓存命中。你通常会看到一次性的“更慢、更贵”的请求；等这次请求跑完后，新的 prefix 又会被重新缓存。大多数动作都可以在任务中途尽量避免，只要你知道它们的代价。
+
+- 切换模型
+- 连接或断开某个 MCP server
+- 拒绝整个工具
+- 对话 compact
+- 升级 Claude Code
+
+### 切换模型
+
+每个模型都有自己独立的缓存。通过 `/model` 切换模型后，尽管对话内容本身没变，下一轮仍然会完整重读整个历史，因为新模型没有旧模型的缓存。
+
+如果你使用的是 `opusplan` 这种模式：Claude 会在 plan mode 时用 Opus、执行时用 Sonnet，因此每次进出 plan mode 都等价于一次模型切换，也就意味着重新建立缓存。
+
+### 连接或断开某个 MCP server
+
+工具定义位于 system prompt 层，因此只要 Claude 可见的 MCP 工具集合发生变化，缓存就会失效。最常见场景是：
+
+- 某个 stdio server 的进程退出；
+- 某个 HTTP 会话过期；
+- server 在短暂故障后自动重连；
+- 某个已连接 server 主动推送了动态工具更新。
+
+单纯编辑 MCP 配置文件**本身**不会立刻影响缓存。新配置只有在重启后才会真正生效，也就是 server 真正连接或断开的时候，缓存才会随之变化。
+
+MCP tool search 虽然可以通过延迟加载完整工具定义来减少前缀体积，但**工具名称集合仍然必须保持稳定**，缓存才能继续有效。
+
+### 拒绝整个工具
+
+如果你把一个裸工具名（例如 `Bash` 或 `WebFetch`）添加为 deny 规则，那么这个工具会从 Claude 可见的上下文里被完全移除。由于工具定义位于 system prompt 层，所以这种变更会像 MCP server 连上/断开一样，使缓存失效。
+
+这一变更可以通过两种方式中途生效：
+
+- 在 `/permissions` 中添加；
+- 直接编辑 settings 文件。
+
+需要注意：只有“裸工具名”或者等价的 `Bash(*)` 形式才会影响工具集合。像 `Bash(rm *)` 这种**带范围的 deny 规则**，以及所有 allow/ask 规则，都不会改变 Claude 看见哪些工具；它们只是在 Claude 真正尝试调用工具时才参与检查，因此不会破坏前缀。
+
+### 对话 compact
+
+`/compact` 会用摘要替换当前消息历史。从设计上讲，这当然会让 Conversation 层失效：下一轮请求带的是一个全新的、更短的历史，它不再和旧历史共享前缀。
+
+不过，Claude Code 仍会重用 system prompt 层，并从磁盘重新加载项目上下文。只要自会话开始以来你的 `CLAUDE.md` 和记忆文件没有变化，这部分依然可以命中缓存。
+
+为了生成摘要，Claude Code 会先发送一个**一次性总结请求**：它和你当前会话共享同一个 system prompt、工具集和完整历史，只是在最后追加了一个“请总结”的用户消息。因为前缀与原对话共享，这次总结请求本身是可以利用已有缓存的；compact 最耗时的部分往往是“生成摘要”，而不是“缓存失效”。真正会重建对话层缓存的是 compact 之后紧接着的那一轮，但由于历史已经被压缩得更短，所以那一轮通常并不是最慢的部分。
+
+compact 真正适合用在：你准备丢掉一大段已经不再重要的上下文时。比较好的做法是：**在任务之间的自然停顿点手动运行 `/compact`，而不是等自动 compact 在任务中途触发。**
+
+如果你已经明确想彻底放弃某条路径，`/rewind` 往往比 `/compact` 更合适，因为 rewind 会回到一个**本来就已经缓存过的旧前缀**，而不是像 compact 那样重新构造一个新的前缀。
+
+### 升级 Claude Code
+
+新的 Claude Code 版本通常会更新 system prompt 或工具定义，因此升级后的第一轮请求，往往会从头重建缓存。
+
+自动更新虽然会在后台下载新版本，但只会在**下次启动**时应用，不会在会话中途突然切换。所以你通常感知到的是：**重启后第一轮变慢**，而不是“正在工作时突然插入一次 uncached 请求”。如果你想完全掌控升级时机，可以设置：
+
+```bash
+DISABLE_AUTOUPDATER=1
+```
+
+升级后恢复一个旧会话时，也会重新处理整个会话历史，因为它现在处在一个新的 system prompt 后面。会话越长，恢复后的第一轮请求就越贵。
+
+## 不会破坏缓存的动作
+
+下面这些动作要么只是把新内容追加到对话尾部，要么根本不修改请求内容本身，因此缓存仍能继续利用。这里面有些案例也解释了：为什么某些设置改了以后，要等重启或 `/clear` 后才真正生效。
+
+- 编辑仓库里的文件
+- 在会话中途编辑 `CLAUDE.md`
+- 改变 output style
+- 改变 permission mode
+- 调用 skills 和 commands
+- 运行 `/recap`
+- rewind 对话
+- 启动 subagent
+
+### 编辑仓库里的文件
+
+文件内容只有在 Claude **读取**它们时才会进入上下文，而这些读取都是追加到对话末尾的。你修改一个 Claude 之前读过的文件，并不会反过来改写“历史里那次读取”的内容；Claude Code 只会追加一个 `<system-reminder>`，告诉 Claude 文件已变化，如有需要请重新读取。
+
+### 在会话中途编辑 `CLAUDE.md`
+
+项目根和用户级 `CLAUDE.md` 都是在会话启动时读取一次，并保留在内存里。你在会话中途编辑它们，不会使缓存失效；但同样地，**修改内容也不会立即生效**。Claude 仍然会继续使用启动时那份版本。新的内容会在下一次 `/clear`、`/compact` 或重启后才加载。
+
+子目录中的嵌套 `CLAUDE.md`，以及带 `paths:` frontmatter 的 rules，不同一些：它们本来就是在 Claude 第一次读取匹配文件时才加载的。因此，如果你在它们**第一次被加载之前**编辑，改动是会生效的；一旦它们已经进入了对话历史，中途编辑同样也不会追溯改写历史。
+
+### 改变 output style
+
+output style 属于 system prompt 的一部分，而 system prompt 只会在会话开始时装载一次。因此，中途通过 `/config` 或 `outputStyle` 设置去改它，不会使缓存失效，但也不会马上生效。新的 style 只有在下一次 `/clear` 或重启时才会载入。
+
+### 改变 permission mode
+
+在不同 permission mode 之间切换（如从 default 切到 accept edits），本身不会改变 system prompt 或工具定义，因此对缓存是安全的。
+
+唯一例外是：如果你使用的是 `opusplan`，那么切进/切出 plan mode 会导致模型在 Opus 和 Sonnet 之间切换，而模型切换本身会导致缓存失效。
+
+### 调用 skills 和 commands
+
+Skills 与 commands 都是在调用点把它们的说明作为用户消息注入到对话末尾。前面的对话内容不变，因此缓存前缀仍然可用。
+
+### 运行 `/recap`
+
+`/recap` 会在终端里生成一个摘要供你查看。与 `/compact` 不同，它只是把摘要作为**命令输出**追加到对话，而不会替换原有消息历史，因此缓存前缀仍可保持。
+
+### Rewind 对话
+
+`/rewind` 会把对话截断回某个更早的时间点。保留下来的那段历史，本来就是当时缓存建立时使用过的那一段；同时 system prompt 和 project context 也都没变，因此下一轮请求可以继续命中那时的缓存条目。
+
+即便原始那轮距离现在比较久，只要后续对话一直都是在这个前缀基础上继续读下来的，这个前缀也一直被“续温”着，因此通常仍可命中。
+
+恢复文件 checkpoint 本身不会额外影响缓存。文件内容进入上下文的方式始终只有一种：Claude 主动读取它。
+
+## 缓存生命周期
+
+缓存前缀会在一段不活跃时间之后过期。每次请求只要命中缓存，都会重置这个计时器，因此只要你持续工作，缓存就会一直保持热状态。相反，如果中间停顿足够久，下一轮就必须重新计算完整输入、并重新建立缓存，所以“离开一阵子回来后的第一轮更慢”是很常见的。
+
+这个“不活跃多久会过期”的时间，就是 TTL（time to live）。Claude API 当前主要提供两种：
+
+- **5 分钟 TTL**
+- **1 小时 TTL**
+
+1 小时 TTL 能让你在较长暂停后仍保留缓存，但缓存写入价格也更高。Claude Code 会根据你的认证方式自动为你选择 TTL；你也可以通过环境变量手动覆盖。
+
+### 在 Claude subscription 下
+
+使用 Claude subscription 时，Claude Code 会自动请求 **1 小时 TTL**。这部分使用量已经包含在套餐里，而不是逐 token 计费，因此更长 TTL 不会额外增加你的成本，只会让缓存保持更久。
+
+但如果你已经超出套餐限额，Claude Code 开始消耗 usage credits，则它会自动退回到 **5 分钟 TTL**，以减少额外费用。
+
+### 在 API key 或第三方 provider 下
+
+如果你用的是 API key、Bedrock、Vertex、Foundry 或 Claude Platform on AWS，那么会按 token 计费，因此 Claude Code 默认会保守地选用更便宜的 **5 分钟 TTL**。
+
+如果你想主动开启 1 小时 TTL，可设置：
+
+```bash
+ENABLE_PROMPT_CACHING_1H=1
+```
+
+对于 Bedrock，需要额外注意：prompt caching 支持情况、最小可缓存前缀长度，以及是否支持 1 小时 TTL，都可能因模型而异。如果缓存 token 始终是 0，应去看 Bedrock 对模型、区域和限制的官方文档。
+
+### 覆盖 TTL
+
+若你想强制使用 5 分钟 TTL，而不管当前认证方式是什么，可以设置：
+
+```bash
+FORCE_PROMPT_CACHING_5M=1
+```
+
+这在调试缓存行为、对比两种 TTL，或覆盖组织级 `ENABLE_PROMPT_CACHING_1H` 时很有用。
+
+## 缓存作用域
+
+在 Claude Code 中，缓存实际上近似于“**同一台机器 + 同一目录**”的作用域。因为 system prompt 里会嵌入：
+
+- 当前工作目录
+- 平台信息
+- shell 信息
+- OS 版本
+- 自动记忆路径
+
+因此，哪怕是同一个仓库，只要工作目录不同，就会生成不同前缀，彼此无法命中缓存。这也包括同仓库的不同 worktree，因为每个 worktree 都有自己独立的工作目录。
+
+相反，**同一目录中并行运行的多个会话**，是可以互相读取对方缓存的。串行会话也可能共享缓存，但前提是启动时的 git status 快照也一致，因为 system prompt 里还包括了分支和近期提交信息。
+
+底层 API 的缓存作用域要更宽一些：
+
+- 组织之间彼此隔离；
+- 某些 provider 下，同一组织内不同 workspace 之间也会隔离；
+- 在这些边界之内，只要模型与 prefix 完全相同，请求就能共享缓存。
+
+如果你是通过 Agent SDK 运行大量自动化进程，并希望跨用户/跨机器共享缓存，可以参考官方关于“improve prompt caching across users and machines”的说明，它会介绍如何压制 system prompt 中那些“绑定到单机”的部分。
+
+## 检查缓存表现
+
+API 每次响应都会返回两个直接相关的 token 计数字段：
+
+| 字段 | 含义 |
+|---|---|
+| `cache_creation_input_tokens` | 本轮写入缓存的 tokens，按缓存写入费率计费 |
+| `cache_read_input_tokens` | 本轮从缓存中读出的 tokens，通常按标准输入价格约 10% 左右计费 |
+
+一个简单判断标准是：**读缓存的量相对于写缓存的量越高，说明缓存越工作良好。**
+
+如果你发现每一轮 `creation` 都很高，说明某个前缀部分一直在变。最常见原因，就是前面“会使缓存失效的动作”那一节列出的那些情况。
+
+如果要在整个组织维度观察缓存表现，官方的 OpenTelemetry exporter 也会上报每个用户、每个会话的缓存读写 token 指标。可参考官方的 Monitor usage 文档。
+
+## Subagents 与缓存
+
+Subagent 会启动**自己的独立对话**，拥有自己的 system prompt 和工具集，因此它会建立自己独立的缓存：
+
+- 第一次调用时没有缓存命中；
+- 后续轮次会在它自己的对话内逐步“热起来”。
+
+即使你使用的是 subscription，subagent 默认也使用 **5 分钟 TTL**；自动 1 小时 TTL 只适用于主对话。
+
+主会话自己的缓存不会因此受影响。从主会话视角看，subagent 只是在对话尾部追加了一次调用和一次结果，因此主会话前缀仍然保持不变。
+
+而 **fork** 与 subagent 不同：fork 会完整继承父会话的 system prompt、工具与对话历史，因此它的第一轮请求可以直接读取父会话的缓存。前文在 compact 一节中提到的“总结请求”，使用的也是这种共享前缀的思路。
+
+## 禁用提示缓存
+
+在极少数情况下，你可能会为了调试某个特定模型或 provider 的缓存行为，而显式禁用缓存。可以把下面任一环境变量设为 `1`：
+
+| 变量 | 作用 |
+|---|---|
+| `DISABLE_PROMPT_CACHING` | 对所有模型禁用 |
+| `DISABLE_PROMPT_CACHING_HAIKU` | 仅对 Haiku 禁用 |
+| `DISABLE_PROMPT_CACHING_SONNET` | 仅对 Sonnet 禁用 |
+| `DISABLE_PROMPT_CACHING_OPUS` | 仅对 Opus 禁用 |
+
+如果你要在组织级统一设置缓存策略，也可以把这些变量、或者 TTL 相关变量放进 managed settings 的 `env` 块里。对正常使用场景来说，**建议保持缓存开启**。
+
+## 相关资源
+
+- [构建 Claude Code 的经验：Prompt caching is everything](https://code.claude.com/docs/en/lessons-from-building-claude-code)：理解 plan mode、延迟工具加载和 compact 的设计动机。
+- [探索上下文窗口](/claude-code/core-concepts/explore-the-context-window/)：查看什么会进入上下文、何时进入。
+- [减少 token 使用](https://code.claude.com/docs/en/costs)：学习除了缓存之外的上下文控制策略。
+- [跟踪并降低成本](https://code.claude.com/docs/en/sdk/cost-tracking)：面向 Agent SDK 调用方的缓存 token 跟踪与 TTL 配置。
+- [Prompt caching API 参考](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching)：底层缓存机制、断点与定价说明。

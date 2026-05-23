@@ -1,0 +1,177 @@
+---
+title: 概览
+description: Claude Code 是一款代理式编程工具，可读取代码库、编辑文件、运行命令，并与开发工具集成。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Claude Code 是一款代理式编程工具，能够读取你的代码库、编辑文件、运行命令，并与你的开发工具集成。它可在终端、IDE、桌面应用和浏览器中使用。
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+Claude Code 是一个由 AI 驱动的编程助手，可帮助你构建功能、修复缺陷并自动化开发任务。它理解你的整个代码库，并且能够跨多个文件和工具协同工作，把事情真正做完。
+
+## 开始使用
+
+选择适合你的环境开始使用。大多数使用界面都需要 [Claude 订阅](https://claude.com/pricing?utm_source=claude_code&utm_medium=docs&utm_content=overview_pricing) 或 [Anthropic Console](https://console.anthropic.com/) 账户。终端 CLI 与 VS Code 也支持[第三方提供商](https://code.claude.com/docs/en/third-party-integrations)。
+
+<Tabs>
+  <TabItem label="终端" icon="terminal">
+    这是一个功能完整的 CLI，可让你直接在终端中使用 Claude Code。你可以编辑文件、运行命令，并从命令行管理整个项目。
+
+    要安装 Claude Code，可使用以下任一方式：
+
+    <Tabs>
+      <TabItem label="原生安装（推荐）" icon="rocket">
+
+      macOS、Linux、WSL：
+
+      ```bash
+      curl -fsSL https://claude.ai/install.sh | bash
+      ```
+
+      Windows PowerShell：
+
+      ```powershell
+      irm https://claude.ai/install.ps1 | iex
+      ```
+
+      Windows CMD：
+
+      ```bat
+      curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd
+      ```
+
+      如果你看到 `The token '&&' is not a valid statement separator`，说明你当前在 PowerShell 中，而不是 CMD。如果你看到 `'irm' is not recognized as an internal or external command`，说明你当前在 CMD 中，而不是 PowerShell。当提示符显示 `PS C:\` 时，你在 PowerShell 中；如果显示 `C:\` 且前面没有 `PS`，则表示你在 CMD 中。
+
+      在原生 Windows 上，推荐安装 [Git for Windows](https://git-scm.com/downloads/win)，这样 Claude Code 就可以使用 Bash 工具。如果未安装 Git for Windows，Claude Code 会改用 PowerShell 作为 shell 工具。WSL 环境不需要 Git for Windows。
+
+      原生安装会在后台自动更新，以便你始终保持在最新版本。
+      </TabItem>
+
+      <TabItem label="Homebrew" icon="box">
+
+      ```bash
+      brew install --cask claude-code
+      ```
+
+      Homebrew 提供两个 cask。`claude-code` 跟踪稳定发布通道，通常会比最新版本滞后大约一周，并会跳过存在重大回归的问题版本。`claude-code@latest` 跟踪最新通道，会在新版本发布后立即获得更新。
+
+      Homebrew 安装不会自动更新。请根据你安装的 cask 运行 `brew upgrade claude-code` 或 `brew upgrade claude-code@latest`，以获取最新功能和安全修复。
+      </TabItem>
+
+      <TabItem label="WinGet" icon="code">
+
+      ```powershell
+      winget install Anthropic.ClaudeCode
+      ```
+
+      WinGet 安装不会自动更新。请定期运行 `winget upgrade Anthropic.ClaudeCode`，以获得最新功能和安全修复。
+      </TabItem>
+    </Tabs>
+
+    你也可以在 Debian、Fedora、RHEL 和 Alpine 上使用 [apt、dnf 或 apk](https://code.claude.com/docs/en/setup#install-with-linux-package-managers) 安装。
+
+    然后在任意项目中启动 Claude Code：
+
+    ```bash
+    cd your-project
+    claude
+    ```
+
+    首次使用时，系统会提示你登录。就是这么简单！接下来可继续阅读 [Quickstart →](https://code.claude.com/docs/en/quickstart)
+
+    如需查看安装选项、手动更新或卸载说明，请参阅[高级安装](https://code.claude.com/docs/en/setup)。如果遇到问题，请访问[安装故障排查](https://code.claude.com/docs/en/troubleshoot-install)。
+  </TabItem>
+
+  <TabItem label="VS Code" icon="seti:code">
+    VS Code 扩展会直接在你的编辑器中提供内联 diff、`@` 提及、计划审阅和会话历史记录。
+
+    - [安装到 VS Code](vscode:extension/anthropic.claude-code)
+    - [安装到 Cursor](cursor:extension/anthropic.claude-code)
+
+    或者，在扩展视图中搜索 `Claude Code`（Mac 上为 `Cmd+Shift+X`，Windows/Linux 上为 `Ctrl+Shift+X`）。安装完成后，打开命令面板（`Cmd+Shift+P` / `Ctrl+Shift+P`），输入 `Claude Code`，然后选择 **Open in New Tab**。
+
+    [开始使用 VS Code →](https://code.claude.com/docs/en/vs-code#get-started)
+  </TabItem>
+
+  <TabItem label="桌面应用" icon="mobile">
+    这是一个独立应用，可让你在 IDE 或终端之外运行 Claude Code。你可以可视化审查 diff、并排运行多个会话、安排周期性任务，并启动云端会话。
+
+    下载并安装：
+
+    - [macOS（Intel 与 Apple Silicon）](https://claude.ai/api/desktop/darwin/universal/dmg/latest/redirect?utm_source=claude_code&utm_medium=docs)
+    - [Windows（x64）](https://claude.ai/api/desktop/win32/x64/setup/latest/redirect?utm_source=claude_code&utm_medium=docs)
+    - [Windows ARM64](https://claude.ai/api/desktop/win32/arm64/setup/latest/redirect?utm_source=claude_code&utm_medium=docs)
+
+    安装完成后，启动 Claude，登录，然后点击 **Code** 选项卡开始编码。需要[付费订阅](https://claude.com/pricing?utm_source=claude_code&utm_medium=docs&utm_content=overview_desktop_pricing)。
+
+    [进一步了解桌面应用 →](https://code.claude.com/docs/en/desktop-quickstart)
+  </TabItem>
+
+  <TabItem label="Web" icon="globe">
+    你可以在浏览器中运行 Claude Code，而无需本地配置。它适合启动长时间运行的任务、在完成后回来查看结果、处理本地没有的仓库，或并行运行多个任务。该方式支持桌面浏览器与 Claude iOS 应用。
+
+    前往 [claude.ai/code](https://claude.ai/code) 开始编码。
+
+    [开始使用 Web 版 →](https://code.claude.com/docs/en/web-quickstart)
+  </TabItem>
+
+  <TabItem label="JetBrains" icon="open-book">
+    这是适用于 IntelliJ IDEA、PyCharm、WebStorm 及其他 JetBrains IDE 的插件，提供交互式 diff 查看与选择上下文共享功能。
+
+    请从 [JetBrains Marketplace 中的 Claude Code 插件](https://plugins.jetbrains.com/plugin/27310-claude-code-beta-) 进行安装，然后重启你的 IDE。
+
+    [开始使用 JetBrains →](https://code.claude.com/docs/en/jetbrains)
+  </TabItem>
+</Tabs>
+
+## 你可以做什么
+
+以下是你可以使用 Claude Code 的一些方式：
+
+- 自动处理那些你一直拖着没做的工作
+- 构建功能并修复缺陷
+- 创建提交和拉取请求
+- 使用 [Model Context Protocol（MCP）](https://code.claude.com/docs/en/mcp) 连接你的工具
+- 使用指令、[技能](https://code.claude.com/docs/en/skills) 和 [Hooks](https://code.claude.com/docs/en/hooks) 进行自定义
+- 运行代理团队并构建自定义代理，包括[多个 Claude Code 代理](https://code.claude.com/docs/en/sub-agents)、[后台代理](https://code.claude.com/docs/en/agent-view) 和 [Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview)
+- 使用 [CLI 参考](https://code.claude.com/docs/en/cli-reference) 进行管道化、脚本化和自动化
+- 使用 [Routines](https://code.claude.com/docs/en/routines)、[桌面计划任务](https://code.claude.com/docs/en/desktop-scheduled-tasks) 或 [`/loop`](https://code.claude.com/docs/en/scheduled-tasks) 安排周期性任务
+- 随时随地开展工作
+
+## 在任何地方使用 Claude Code
+
+每一种使用界面都连接到同一个底层 Claude Code 引擎，因此你的 [CLAUDE.md](https://code.claude.com/docs/en/memory) 文件、设置和 MCP 服务器都可以在所有界面间共享。
+
+除了上面的终端、VS Code、JetBrains、桌面应用和 Web 环境之外，Claude Code 还与 CI/CD、聊天和浏览器工作流集成：
+
+| 我想要…… | 最佳方式 |
+| --- | --- |
+| 从手机或另一台设备继续本地会话 | [Remote Control](https://code.claude.com/docs/en/remote-control) |
+| 将来自 Telegram、Discord、iMessage 或我自己的 Webhook 的事件推送到会话中 | [Channels](https://code.claude.com/docs/en/channels) |
+| 在本地启动任务，再到移动端继续 | [Web](https://code.claude.com/docs/en/claude-code-on-the-web) 或 [Claude iOS 应用](https://apps.apple.com/app/claude-by-anthropic/id6473753684) |
+| 按周期运行 Claude | [Routines](https://code.claude.com/docs/en/routines) 或 [桌面计划任务](https://code.claude.com/docs/en/desktop-scheduled-tasks) |
+| 自动化 PR 审查和 Issue 分流 | [GitHub Actions](https://code.claude.com/docs/en/github-actions) 或 [GitLab CI/CD](https://code.claude.com/docs/en/gitlab-ci-cd) |
+| 在每个 PR 上获得自动代码审查 | [GitHub Code Review](https://code.claude.com/docs/en/code-review) |
+| 将 Slack 中的缺陷报告路由到拉取请求 | [Slack](https://code.claude.com/docs/en/slack) |
+| 调试在线 Web 应用 | [Chrome](https://code.claude.com/docs/en/chrome) |
+| 为自己的工作流构建自定义代理 | [Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) |
+
+## 下一步
+
+安装好 Claude Code 后，下面这些指南可以帮助你进一步深入：
+
+- [Quickstart](https://code.claude.com/docs/en/quickstart)：从探索代码库到提交修复，带你完成第一个真实任务
+- [存储指令与记忆](https://code.claude.com/docs/en/memory)：使用 `CLAUDE.md` 文件和[自动记忆](https://code.claude.com/docs/en/memory#auto-memory) 为 Claude 提供持久指令
+- [常见工作流](https://code.claude.com/docs/en/common-workflows) 与 [最佳实践](https://code.claude.com/docs/en/best-practices)：帮助你最大化 Claude Code 价值的模式
+- [设置](https://code.claude.com/docs/en/settings)：按你的工作流自定义 Claude Code
+- [故障排查](https://code.claude.com/docs/en/troubleshooting)：常见问题的解决方案
+- [code.claude.com](https://code.claude.com/)：演示、定价和产品详情

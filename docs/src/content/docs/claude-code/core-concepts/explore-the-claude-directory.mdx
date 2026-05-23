@@ -1,0 +1,266 @@
+---
+title: 探索 .claude 目录
+description: 了解 Claude Code 会从项目目录和 ~/.claude 中读取哪些文件，包括 CLAUDE.md、settings.json、skills、subagents、rules 与自动记忆。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+# 探索 `.claude` 目录
+
+了解 Claude Code 会从项目目录和 `~/.claude` 中读取哪些文件，包括 `CLAUDE.md`、`settings.json`、hooks、skills、commands、subagents、rules 与自动记忆。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code 会从你的项目目录，以及你家目录中的 `~/.claude` 读取说明、设置、skills、subagents 和记忆。**项目内的文件**适合提交到 git、与团队共享；**`~/.claude` 下的文件**则更适合放个人配置，让它跨所有项目生效。
+
+在 Windows 上，`~/.claude` 对应的是 `%USERPROFILE%\.claude`。如果你设置了 `CLAUDE_CONFIG_DIR`，那么本页所有 `~/.claude` 路径都应理解为该目录下的对应位置。
+
+大多数用户真正会频繁编辑的只有两个文件：
+
+- `CLAUDE.md`
+- `settings.json`
+
+其余内容都是按需选配：只有在你需要 skills、rules、subagents 或更细粒度控制时，才需要逐步加上它们。
+
+## 浏览目录
+
+官方页面在这里提供了一个交互式目录树，可以在 **Project** 与 **Global (`~/`)** 两个视图之间切换，并点击每个文件查看其用途、加载时机和示例。
+
+项目级目录中常见的结构大致如下：
+
+```text
+CLAUDE.md
+.mcp.json
+.worktreeinclude
+.claude/
+  settings.json
+  settings.local.json
+  rules/
+    testing.md
+    api-design.md
+  skills/
+    security-review/
+      SKILL.md
+      checklist.md
+  commands/
+    fix-issue.md
+  output-styles/
+  agents/
+    code-reviewer.md
+  agent-memory/
+    <agent-name>/
+      MEMORY.md
+```
+
+其中，官方示例选中的 `CLAUDE.md` 会展示如下定位：
+
+- **路径：** `your-project / CLAUDE.md`
+- **作用：** Claude 每次会话都会读取的项目说明
+- **提交方式：** 建议提交到仓库
+- **加载时机：** 每个会话开始时加载进上下文
+
+### `CLAUDE.md` 示例的几个关键提示
+
+官方交互示例特别强调了这些实践建议：
+
+- 尽量控制在 **200 行以内**。更长当然也能全部加载，但可能降低 Claude 的遵循度。
+- `CLAUDE.md` 会进入**每一个会话**。如果某些内容只和特定任务有关，最好移动到 skill 或 path-scoped rule 中，只在需要时才加载。
+- 把最常用的命令（例如 build、test、format）直接写进去，让 Claude 无需你每次重复说明。
+- 你可以在会话中运行 `/memory` 来打开并编辑 `CLAUDE.md`。
+- 如果你不想把它放在项目根目录，也可以改放到 `.claude/CLAUDE.md`。
+
+官方给出的示例是一个 TypeScript + React 项目，里面会写明构建和测试命令、框架约定，以及像导出风格和文件布局这样的项目特有规则：
+
+```md
+# Project conventions
+
+## Commands
+- Build: `npm run build`
+- Test: `npm test`
+- Lint: `npm run lint`
+
+## Stack
+- TypeScript with strict mode
+- React 19, functional components only
+
+## Rules
+- Named exports, never default exports
+- Tests live next to source: `foo.ts` -> `foo.test.ts`
+- All API routes return `{ data, error }` shape
+```
+
+## 这里没有展示但和它相关的内容
+
+目录浏览器主要展示的是你**会主动编写和编辑**的文件。但还有一些相关文件存在于其他位置：
+
+| 文件 | 位置 | 作用 |
+|---|---|---|
+| `managed-settings.json` | 系统级，位置因 OS 而异 | 企业级强制设置，你无法覆盖。参见官方的 server-managed settings。 |
+| `CLAUDE.local.md` | 项目根目录 | 当前项目的私有偏好，会与 `CLAUDE.md` 一起加载。需要你手动创建，并加入 `.gitignore`。 |
+| 已安装插件 | `~/.claude/plugins` | 存放克隆下来的 marketplaces、已安装的插件版本和每个插件的数据，由 `claude plugin` 命令管理。插件更新或卸载后，孤立版本会在 7 天后被删除。 |
+
+此外，`~/.claude` 里还会保存 Claude Code 在你工作过程中自动写入的数据：会话转录、提示历史、文件快照、缓存和日志等。后文会单独展开。
+
+## 该改哪个文件
+
+不同类型的定制，应该放在不同文件里。下面这张表可以帮你快速定位：
+
+| 你想做什么 | 应编辑哪个文件 | 作用范围 | 参考 |
+|---|---|---|---|
+| 给 Claude 提供项目上下文和约定 | `CLAUDE.md` | project 或 global | Memory |
+| 允许或阻止特定工具调用 | `settings.json` 中的 `permissions` 或 `hooks` | project 或 global | Permissions、Hooks |
+| 在工具调用前后运行脚本 | `settings.json` 中的 `hooks` | project 或 global | Hooks |
+| 为会话设置环境变量 | `settings.json` 中的 `env` | project 或 global | Settings |
+| 保存不进 git 的个人覆盖项 | `settings.local.json` | 仅 project | Settings scopes |
+| 添加一个通过 `/name` 调用的提示词或能力 | `skills/<name>/SKILL.md` | project 或 global | Skills |
+| 定义一个拥有独立工具集的专用 subagent | `agents/*.md` | project 或 global | Subagents |
+| 通过 MCP 连接外部工具 | `.mcp.json` | 仅 project | MCP |
+| 改变 Claude 的响应格式 | `output-styles/*.md` | project 或 global | Output styles |
+
+## 文件参考表
+
+下面这张表列出了目录浏览器覆盖到的全部文件。项目级文件通常位于你的仓库中：要么在根目录（`CLAUDE.md`、`.mcp.json`、`.worktreeinclude`），要么在 `.claude/` 下；全局级文件则位于 `~/.claude/`，并作用于所有项目。
+
+需要注意的是，这些文件中的设置并不总是最终生效值，因为还有其他优先级更高的来源：
+
+- 组织下发的 managed settings 高于一切。
+- 像 `--permission-mode` 或 `--settings` 这样的 CLI 参数，会覆盖该次会话中的 `settings.json`。
+- 某些环境变量会覆盖对应设置项，但不是所有项都如此，需按具体变量说明确认。
+
+完整顺序可参见官方的 settings precedence 文档。
+
+| 文件 | 作用域 | 适合提交 | 它做什么 | 参考 |
+|---|---|---|---|---|
+| `CLAUDE.md` | Project 与 global | ✓ | 每次会话都会加载的说明 | Memory |
+| `rules/*.md` | Project 与 global | ✓ | 按主题划分、可选路径门控的说明 | Rules |
+| `settings.json` | Project 与 global | ✓ | 权限、hooks、环境变量、模型默认值 | Settings |
+| `settings.local.json` | 仅 project |  | 你的个人覆盖项，会自动 gitignore | Settings scopes |
+| `.mcp.json` | 仅 project | ✓ | 团队共享的 MCP servers | MCP scopes |
+| `.worktreeinclude` | 仅 project | ✓ | 新建 worktree 时要复制进去的 gitignored 文件 | Worktrees |
+| `skills/<name>/SKILL.md` | Project 与 global | ✓ | 通过 `/name` 调用或自动调用的可复用提示词 | Skills |
+| `commands/*.md` | Project 与 global | ✓ | 单文件 prompt；机制上与 skills 相同 | Skills |
+| `output-styles/*.md` | Project 与 global | ✓ | 自定义 system prompt 片段 | Output styles |
+| `agents/*.md` | Project 与 global | ✓ | 拥有自己 prompt 和工具的 subagent 定义 | Subagents |
+| `agent-memory/<name>/` | Project 与 global | ✓ | subagent 的持久记忆 | Persistent memory |
+| `~/.claude.json` | 仅 global |  | 应用状态、OAuth、UI 开关、个人 MCP servers | Global config |
+| `projects/<project>/memory/` | 仅 global |  | 自动记忆：Claude 跨会话写给自己的笔记 | Auto memory |
+| `keybindings.json` | 仅 global |  | 自定义键盘快捷键 | Keybindings |
+| `themes/*.json` | 仅 global |  | 自定义主题配色 | Custom themes |
+
+## 排查配置问题
+
+如果某个设置、hook 或文件没有生效，请参考官方的 **Debug your configuration** 页面。那里提供了检查命令，以及按症状组织的问题定位表。
+
+## 应用数据
+
+除了你自己写的配置之外，`~/.claude` 还会保存 Claude Code 在会话期间自动写入的数据。这些文件都是**纯文本**。任何经过工具链流转的内容——文件内容、命令输出、粘贴文本——都会落盘到会话转录里。
+
+### 会自动清理的内容
+
+下面这些路径下的文件，如果超过 `cleanupPeriodDays` 指定的时间，就会在 Claude Code 启动时自动删除。默认值是 **30 天**。
+
+| `~/.claude/` 下路径 | 内容 |
+|---|---|
+| `projects/<project>/<session>.jsonl` | 完整会话转录：每条消息、每次工具调用、每个工具结果 |
+| `projects/<project>/<session>/subagents/` | subagent 的会话转录；会随着父会话一起过期删除 |
+| `projects/<project>/<session>/tool-results/` | 被拆分到单独文件中的大型工具输出 |
+| `file-history/<session>/` | Claude 编辑文件前的快照，用于 checkpoint 恢复 |
+| `plans/` | plan mode 期间写入的计划文件 |
+| `debug/` | 每个会话的调试日志；仅在 `--debug` 或运行 `/debug` 时生成 |
+| `paste-cache/`、`image-cache/` | 大段粘贴内容与附加图片的缓存 |
+| `session-env/` | 每个会话的环境元数据 |
+| `tasks/` | 任务工具写入的每会话任务列表 |
+| `shell-snapshots/` | Bash 工具捕获的 shell 环境快照；正常退出会删掉，崩溃遗留的会在清理阶段移除 |
+| `backups/` | 配置迁移前为 `~/.claude.json` 创建的带时间戳备份 |
+| `feedback-bundles/` | 第三方 provider 下由 `/feedback` 生成的已脱敏转录归档，用于发给 Anthropic 客户团队 |
+
+### 会一直保留、直到你手动删除的内容
+
+下面这些路径**不属于自动清理范围**，会持续存在：
+
+| `~/.claude/` 下路径 | 内容 |
+|---|---|
+| `history.jsonl` | 你输入过的每一条 prompt，含时间戳和项目路径；用于向上箭头回忆 |
+| `stats-cache.json` | `/usage` 展示的聚合 token 与成本统计 |
+| `remote-settings.json` | 组织级 server-managed settings 的缓存副本；若组织配置了才会出现；每次启动刷新 |
+| `todos/` | 旧版遗留的每会话任务列表；当前版本已不再写入，安全可删 |
+
+除此之外，还可能出现一些与具体特性相关的小型缓存文件和锁文件，通常都可以安全删除。
+
+### 明文存储
+
+会话转录和历史记录**不会在磁盘上静态加密**。唯一保护主要来自操作系统的文件权限。
+
+这意味着：如果某个工具读到了 `.env` 文件，或某个命令输出了凭据，这些值就会被写入 `projects/<project>/<session>.jsonl` 中。
+
+若你想降低风险，可以：
+
+- 调低 `cleanupPeriodDays`，缩短转录保留时间；
+- 设置 `CLAUDE_CODE_SKIP_PROMPT_HISTORY` 环境变量，跳过写入会话转录和 prompt 历史；
+- 在非交互模式中，改用 `-p --no-session-persistence`，或在 Agent SDK 中设置 `persistSession: false`；
+- 用权限规则阻止读取凭据文件。
+
+## 清理本地数据
+
+你可以运行 `claude project purge`，删除 Claude Code 为某个项目保存的本地状态，包括：
+
+- `projects/` 下的转录和自动记忆；
+- 每会话的 `tasks/`、`debug/` 和 `file-history/` 条目；
+- `history.jsonl` 中对应项目的 prompt 历史；
+- `~/.claude.json` 里该项目的记录。
+
+执行时，命令会先打印完整删除计划，并在真正删除前请求你确认。
+
+### 仅预览删除计划
+
+```bash
+claude project purge ~/work/my-repo --dry-run
+```
+
+### 删除，并只进行一次确认
+
+```bash
+claude project purge ~/work/my-repo
+```
+
+### 省略路径，从交互式列表中选择项目
+
+如果不传路径，Claude Code 会先展示一个可选项目列表，供你手动选择。
+
+### 在脚本里跳过确认
+
+```bash
+claude project purge ~/work/my-repo --yes
+```
+
+### 一次清理全部项目
+
+你也可以传 `--all` 而不是某个路径，这会一次性清理所有项目状态；此时 `history.jsonl` 会被整文件删除，而不是只过滤某个项目的条目。若再加 `-i`，则会按删除计划逐项确认。
+
+这个命令**不会删除** `shell-snapshots/` 和 `backups/`，因为它们不是项目作用域的数据；它只会在计划输出里提醒你这些目录的存在。若给定路径没有匹配到任何状态，命令会以状态码 `1` 退出。
+
+当然，你也可以手动删除前文列出的任一应用数据路径。新的会话不会受影响。下表总结了删除后你会失去什么：
+
+| 删除路径 | 你会失去 |
+|---|---|
+| `~/.claude/projects/` | 过去会话的恢复、继续与 rewind 能力 |
+| `~/.claude/history.jsonl` | 向上箭头召回历史 prompt |
+| `~/.claude/file-history/` | 过去会话的 checkpoint 恢复能力 |
+| `~/.claude/stats-cache.json` | `/usage` 中显示的历史总量 |
+| `~/.claude/remote-settings.json` | 不会失去任何用户侧功能；下次启动会重新拉取 |
+| `~/.claude/debug/`、`~/.claude/plans/`、`~/.claude/paste-cache/`、`~/.claude/image-cache/`、`~/.claude/session-env/`、`~/.claude/tasks/`、`~/.claude/shell-snapshots/`、`~/.claude/backups/` | 没有明显的用户侧损失 |
+| `~/.claude/todos/` | 不会失去任何东西；它已是遗留目录 |
+
+**不要删除** `~/.claude.json`、`~/.claude/settings.json` 或 `~/.claude/plugins/`：这些位置保存的是你的认证信息、偏好设置和已安装插件。
+
+## 相关资源
+
+- [管理 Claude 的记忆](https://code.claude.com/docs/en/memory)：编写和组织 `CLAUDE.md`、rules 与自动记忆。
+- [配置 settings](https://code.claude.com/docs/en/settings)：设置权限、hooks、环境变量与模型默认值。
+- [创建 skills](https://code.claude.com/docs/en/skills)：构建可复用提示词与工作流。
+- [配置 subagents](https://code.claude.com/docs/en/sub-agents)：定义拥有独立上下文的专用 agents。

@@ -1,0 +1,53 @@
+---
+title: App Server
+description: 使用 App Server 协议将 Codex 嵌入到你的产品中。
+sidebar:
+  order: 14
+---
+
+import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+
+# Codex App Server
+
+> 将 Codex 嵌入到你的产品中
+
+Codex App Server 是 Codex 用于支持丰富客户端（如 VS Code 扩展）的接口。当你需要在产品中深度集成 Codex 时使用它。
+
+如果你是在 CI 中自动化任务或运行 Codex，请使用 [Codex SDK](/codex/automation/sdk)。
+
+## 协议
+
+与 MCP 类似，Codex App Server 使用 JSON-RPC 2.0 消息进行双向通信。
+
+### 支持的传输协议
+
+| 传输方式 | 说明 |
+| --- | --- |
+| **stdio**（默认） | 换行符分隔的 JSON（JSONL） |
+| **WebSocket**（实验性） | 每个 WebSocket 帧一条 JSON-RPC 消息 |
+| **Unix socket** | 通过 Codex 默认控制 socket 的 WebSocket 连接 |
+| **off** | 不暴露本地传输 |
+
+## 消息格式
+
+**请求：**
+```json
+{ "method": "thread/start", "id": 10, "params": { "model": "gpt-5.4" } }
+```
+
+**响应：**
+```json
+{ "id": 10, "result": { "thread": { "id": "thr_123" } } }
+```
+
+## 核心功能
+
+- **认证与会话** — 管理用户认证和对话历史
+- **审批流程** — 处理命令执行前的审批
+- **流式智能体事件** — 实时流式传输智能体执行事件
+- **模型切换** — 支持多种模型
+- **线程管理** — 创建、恢复和管理线程
+
+<LinkButton href="https://developers.openai.com/codex/automation/app-server" variant="secondary">
+  查看官方完整 App Server 文档 →
+</LinkButton>

@@ -1,0 +1,99 @@
+---
+title: Windows 指南
+description: 在 Windows 上运行 Codex 的实用技巧——原生沙箱、WSL2 和故障排除。
+sidebar:
+  order: 17
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Windows 指南
+
+> 在 Windows 上运行 Codex 的实用技巧
+
+在 Windows 上使用 Codex 桌面应用、CLI 或 IDE 扩展。
+
+Codex 桌面应用支持 Windows 上的核心工作流：并行智能体线程、工作树、自动化、Git 功能、应用内浏览器、产物预览、插件和技能。
+
+![Codex 桌面应用（Windows）](/images/codex/administration/windows/codex-banner-icon.webp)
+
+## 运行模式
+
+<Tabs>
+  <TabItem label="原生 Windows 沙箱">
+
+    推荐。使用专用低权限沙箱用户、文件系统权限边界、防火墙规则和本地策略更改。
+
+    ```toml
+    [windows]
+    sandbox = "elevated"
+    ```
+
+    如果 `elevated` 不可用，使用降级模式：
+
+    ```toml
+    [windows]
+    sandbox = "unelevated"
+    ```
+
+    ### Windows 版本矩阵
+
+    | 版本 | 支持等级 | 说明 |
+    | --- | --- | --- |
+    | **Windows 11** | ✅ 推荐 | 最佳基线 |
+    | **Windows 10（最新更新）** | ⚠️ 尽力支持 | 需 1809 或更新版本 |
+    | **旧版 Windows 10** | ❌ 不推荐 | 缺少所需控制台组件 |
+  </TabItem>
+
+  <TabItem label="WSL2">
+
+    当需要 Linux 原生环境时使用。Codex 在 WSL2 中运行，使用 Linux 沙箱。
+
+    :::caution
+    WSL1 自 Codex 0.115 起不再受支持（Linux 沙箱已迁移到 bubblewrap）。
+    :::
+
+    **安装 WSL：**
+    ```powershell
+    # 以管理员身份运行 PowerShell
+    wsl --install
+    ```
+
+    **从 VS Code 连接 WSL：**
+    ```bash
+    # 在 WSL 终端中
+    cd ~/code/your-project
+    code .
+    ```
+
+    **在 WSL 中安装 Codex：**
+    ```bash
+    # 安装 nvm 和 Node.js
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+    nvm install 22
+
+    # 安装 Codex
+    npm i -g @openai/codex
+    codex
+    ```
+
+    :::tip[性能建议]
+    将仓库放在 Linux 主目录下（如 `~/code/my-app`），而非 `/mnt/c/...`。WSL 访问 Windows 挂载路径较慢。
+    :::
+  </TabItem>
+</Tabs>
+
+## 沙箱权限
+
+在完全访问模式下运行 Codex 意味着 Codex 不受项目目录限制，可能执行意外破坏性操作。为更安全的自动化，保持沙箱边界并使用规则处理特定例外。
+
+## 故障排除
+
+| 问题 | 建议 |
+| --- | --- |
+| 原生沙箱设置失败 | 检查 Windows 版本、策略错误和沙箱设置 |
+| Codex 切换到降级沙箱 | 以管理员身份运行设置 |
+| Windows 错误 1385 | 检查登录权限 |
+| 沙箱命令无法访问网络 | 检查防火墙规则 |
+| VS Code 在 WSL 中找不到 Codex | 确保在 WSL 中全局安装了 Codex |
+| WSL 中大仓库运行缓慢 | 将仓库放在 Linux 目录，而非 `/mnt/c` |

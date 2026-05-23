@@ -1,0 +1,440 @@
+---
+title: Agent 审批与安全
+description: 如何使用沙箱、审批和网络控制来安全地运行 Codex
+sidebar:
+  order: 18
+---
+
+Codex 帮助你保护代码和数据，降低被滥用的风险。
+
+本页面涵盖如何安全地运行 Codex，包括沙箱、审批和网络访问。如果你在寻找 Codex Security（用于扫描已连接的 GitHub 仓库的产品），请参阅 [Codex Security](/codex/security/setup)。
+
+默认情况下，Agent 以关闭网络访问的方式运行。在本地，Codex 使用操作系统强制执行的沙箱来限制其可触碰的范围（通常仅限于当前工作区），同时配合审批策略来控制何时必须在执行操作前停下来询问你。
+
+关于沙箱在 Codex App、IDE 扩展和 CLI 中的工作原理概述，请参阅[沙箱](/codex/getting-started/concepts/sandboxing)。有关更广泛的企业安全概述，请参阅 Codex 安全白皮书。
+
+## 沙箱与审批
+
+Codex 的安全控制来自两个协同工作的层次：
+
+**沙箱模式**：当 Codex 执行模型生成的命令时，它在技术上能做什么（例如，可以在哪里写入以及是否可以访问网络）。
+**审批策略**：Codex 在执行操作之前何时必须询问你（例如，离开沙箱、使用网络或运行受信任集合之外的命令）。
+
+Codex 根据运行位置使用不同的沙箱模式：
+
+**Codex Cloud**：在 OpenAI 管理的隔离容器中运行，阻止访问你的主机系统或无关数据。使用两阶段运行时模型：setup 阶段在 Agent 阶段之前运行，可以访问网络以安装指定的依赖项；之后 Agent 阶段默认离线运行，除非你为该环境启用了互联网访问。为云环境配置的密钥仅在 setup 期间可用，并在 Agent 阶段开始前被移除。
+
+**Codex CLI / IDE 扩展**：操作系统级机制强制执行沙箱策略。默认包括无网络访问和写入权限仅限于当前工作区。你可以根据风险承受能力配置沙箱、审批策略和网络设置。
+
+在自动预设（例如 `--sandbox workspace-write --ask-for-approval on-request`）下，Codex 可以自动读取文件、进行编辑并在工作目录中运行命令。
+
+Codex 会在编辑工作区外的文件或运行需要网络访问的命令时请求审批。如果你只想聊天或规划而不进行更改，请使用 `/permissions` 命令切换到只读模式。
+
+Codex 还会对声明了副作用的 App（连接器）工具调用触发审批，即使该操作不是 shell 命令或文件更改。当工具声明了破坏性注解时，破坏性的 App/MCP 工具调用始终需要审批，即使它也声明了其他提示（例如只读提示）。
+
+## 网络访问
+
+:::caution[高风险]
+:::
+
+对于 Codex Cloud，请参阅 [Agent 互联网访问](/codex/cloud/internet-access) 以启用完整的互联网访问或域名允许列表。
+
+对于 Codex App、CLI 或 IDE 扩展，默认的 `workspace-write` 沙箱模式保持网络访问关闭，除非你在配置中启用它：
+
+```toml
+[sandbox_workspace_write]
+network_access = true
+```
+
+### 网络隔离
+
+网络访问通过目标规则进行控制，这些规则适用于命令生成的脚本、程序和子进程。当命令网络访问已启用时，打开 `network_proxy` 功能以将该流量约束到你配置的网络策略。
+
+```toml
+[features.network_proxy]
+enabled = true
+domains = { "api.openai.com" = "allow", "example.com" = "deny" }
+```
+
+对于一次性 CLI 会话，当你只需要开关时使用布尔简写，当你还需要设置策略选项时使用表格形式：
+
+```bash
+codex \
+  -c 'features.network_proxy=true' \
+  -c 'sandbox_workspace_write.network_access=true'
+
+codex \
+  -c 'features.network_proxy.enabled=true' \
+  -c 'features.network_proxy.domains={ "api.openai.com" = "allow", "example.com" = "deny" }' \
+  -c 'sandbox_workspace_write.network_access=true'
+```
+
+该功能改变了已启用的网络访问的执行方式；它本身并不会授予网络访问权限。使用 `sandbox_workspace_write.network_access` 与 workspace-write 配置来决定命令是否具有网络访问权限：
+
+- **网络关闭 + network_proxy 开启**：网络保持关闭，该功能不起作用。
+- **网络开启 + network_proxy 关闭**：网络保持开启，具有不受限制的直接出站访问。
+- **网络开启 + network_proxy 开启**：网络保持开启，出站流量受配置的网络策略约束。
+
+管理员管理的 `experimental_network` requirements 与用户功能开关是分开的。它们可以在没有 `features.network_proxy` 的情况下配置和启动沙箱网络，但当活动沙箱保持网络关闭时，它们不会打开网络访问。有关管理员端 requirements.toml 的格式，请参阅[托管配置](#托管配置)。
+
+### 网络策略
+
+域名规则以允许列表优先：
+
+- 精确主机名仅匹配自身。
+- `*.example.com` 匹配子域名（如 `api.example.com`），但不匹配 `example.com`。
+- `**.example.com` 同时匹配顶级域名和子域名。
+- 全局 `*` 允许规则匹配任何未被拒绝的公共主机。将 `*` 视为广泛的网络访问，尽可能优先使用有范围的规则。
+- `deny` 始终优先于 `allow`，全局 `*` 仅对 allow 规则有效。
+
+### 本地和私有目标
+
+默认情况下，`allow_local_binding = false` 会阻止环回地址、链路本地地址和私有地址：
+
+- **特定例外**：当命令需要一个本地目标时，添加精确的本地 IP 字面量或 localhost allow 规则。
+- **更广泛的访问**：仅当你刻意需要更广泛的本地/私有范围时，才设置 `allow_local_binding = true`。
+- **通配符**：通配符规则不算作显式的本地例外。
+- **解析地址**：解析为本地/私有 IP 的主机名即使匹配允许列表也会被阻止。
+
+### DNS 重绑定保护
+
+在允许主机名之前，Codex 会执行尽力而为的 DNS 和 IP 分类检查：
+
+- 失败或超时的查找会被阻止。
+- 解析为非公共地址的主机名会被阻止。
+
+该检查降低了 DNS 重绑定风险，但并不能消除它。要完全防止重绑定，需要在传输层固定解析的 IP。
+
+如果你的威胁模型中包含恶意 DNS，也应在更低层执行出口控制。
+
+### 危险设置
+
+有两个设置会刻意扩大信任边界：
+
+- `dangerously_allow_non_loopback_proxy = true` 可能将代理监听器暴露在环回地址之外。
+- `dangerously_allow_all_unix_sockets = true` 绕过 Unix socket 允许列表。
+
+仅在严格控制的环境中使用它们。当启用 Unix socket 代理时，即使请求了非环回绑定，监听器也只保持在环回地址，因此沙箱网络不会成为进入本地守护进程的远程桥梁。
+
+### network_proxy 参考
+
+`network_proxy` 默认关闭。启用时的各项设置：
+
+| 设置 | 默认值 | 行为 |
+|------|--------|------|
+| `enabled` | `false` | 仅在命令网络访问已启用时启动沙箱网络。 |
+| `domains` | 未设置 | 使用允许列表行为，因此在添加 allow 规则之前不允许任何外部目标。支持精确主机、范围通配符和全局 `*` allow 规则；deny 始终优先。 |
+| `unix_sockets` | 未设置 | 在添加显式 allow 规则之前，不允许任何 Unix socket 目标。 |
+| `allow_local_binding` | `false` | 阻止本地和私有网络目标，除非添加精确的本地 IP 字面量或 localhost allow 规则，或显式选择更广泛的本地/私有访问。 |
+| `enable_socks5` | `true` | 当策略允许时公开 SOCKS5 支持。 |
+| `enable_socks5_udp` | `true` | 当 SOCKS5 可用时允许通过 SOCKS5 使用 UDP。 |
+| `allow_upstream_proxy` | `true` | 让沙箱网络遵循环境中的上游代理。 |
+| `dangerously_allow_non_loopback_proxy` | `false` | 保持监听器端点在环回地址上，除非你刻意将其暴露在 localhost 之外。 |
+| `dangerously_allow_all_unix_sockets` | `false` | 保持 Unix socket 访问基于允许列表，除非你刻意绕过该保护。 |
+
+### Web 搜索
+
+你还可以在不授予生成命令完整网络访问权限的情况下控制 Web 搜索工具。Codex 默认使用 Web 搜索缓存来访问结果。该缓存是 OpenAI 维护的 Web 结果索引，因此缓存模式返回预索引的结果，而不是获取实时页面。这减少了来自任意实时内容的提示注入风险，但你仍应将 Web 结果视为不可信的。如果你使用 `--yolo` 或其他完全访问沙箱设置，Web 搜索默认使用实时结果。使用 `--search` 或设置 `web_search = "live"` 允许实时浏览，或将其设置为 `"disabled"` 关闭该工具：
+
+```toml
+web_search = "cached"  # 默认
+# web_search = "disabled"
+# web_search = "live"  # 等同于 --search
+```
+
+:::caution
+在 Codex 中启用网络访问或 Web 搜索时请谨慎。提示注入可能导致 Agent 获取并遵循不可信的指令。
+:::
+
+## 默认值与建议
+
+启动时，Codex 会检测文件夹是否受版本控制并推荐：
+
+- **受版本控制的文件夹**：自动（workspace write + on-request 审批）
+- **未受版本控制的文件夹**：只读
+
+根据你的设置，Codex 也可能以只读模式启动，直到你显式信任工作目录（例如，通过引导提示或 `/permissions`）。
+
+工作区包括当前目录和临时目录（如 `/tmp`）。使用 `/status` 命令查看工作区中包含哪些目录。
+
+要接受默认值，运行 `codex`。
+
+你也可以显式设置：
+
+```bash
+codex --sandbox workspace-write --ask-for-approval on-request
+codex --sandbox read-only --ask-for-approval on-request
+```
+
+### 可写根目录中的受保护路径
+
+在默认的 workspace-write 沙箱策略中，可写根目录仍包含受保护的路径：
+
+- `<writable_root>/.git` 被保护为只读，无论它是目录还是文件。
+- 如果 `<writable_root>/.git` 是指针文件（`gitdir: ...`），解析后的 Git 目录路径也被保护为只读。
+- `<writable_root>/.agents` 在作为目录存在时被保护为只读。
+- `<writable_root>/.codex` 在作为目录存在时被保护为只读。
+
+保护是递归的，因此这些路径下的所有内容都是只读的。
+
+### 无审批提示运行
+
+你可以使用 `--ask-for-approval never` 或 `-a never`（简写）禁用审批提示。
+
+此选项适用于所有 `--sandbox` 模式，因此你仍然可以控制 Codex 的自主程度。Codex 在你设置的约束范围内尽力而为。
+
+如果你需要 Codex 在没有审批提示的情况下读取文件、进行编辑和运行带网络访问的命令，请使用 `--sandbox danger-full-access`（或 `--dangerously-bypass-approvals-and-sandbox` 标志）。使用前请谨慎。
+
+对于中间方案，`approval_policy = { granular = { ... } }` 允许你保持特定审批提示类别为交互式，同时自动拒绝其他类别。细粒度策略涵盖沙箱审批、execpolicy-rule 提示、MCP 提示、request_permissions 提示和 skill-script 审批。
+
+### 自动审批审查
+
+默认情况下，审批请求会路由到你：
+
+```toml
+approvals_reviewer = "user"
+```
+
+自动审批审查在审批为交互式时适用，例如 `approval_policy = "on-request"` 或细粒度审批策略。设置 `approvals_reviewer = "auto_review"` 可在 Codex 运行请求之前将符合条件的审批请求路由通过审查 Agent：
+
+```toml
+approval_policy = "on-request"
+approvals_reviewer = "auto_review"
+```
+
+有关完整的审查生命周期、触发条件、配置优先级和失败行为，请参阅[自动审查](/codex/getting-started/concepts/auto-review)。
+
+审查器仅评估已需要审批的操作，例如沙箱升级、被阻止的网络请求、request_permissions 提示或具有副作用的 App 和 MCP 工具调用。保持在沙箱内的操作无需额外的审查步骤即可继续。
+
+审查策略检查数据泄露、凭证探测、持久性安全削弱和破坏性操作。低风险和中风险操作在策略允许时可以继续。策略会拒绝关键风险操作。高风险操作需要足够的用户授权且没有匹配的 deny 规则。提示构建、审查会话和解析失败会以安全方式失败（fail closed）。超时会单独显示，但操作仍不会运行。
+
+默认的审查策略位于开源 Codex 仓库中。企业可以用托管 requirements 中的 `guardian_policy_config` 替换其租户特定部分。也支持本地 `[auto_review].policy` 文本，但托管 requirements 优先。有关设置详情，请参阅[托管配置](#托管配置)。
+
+在 Codex App 中，这些审查显示为自动审查项，状态如 Reviewing（审查中）、Approved（已批准）、Denied（已拒绝）、Aborted（已中止）或 Timed out（已超时）。它们还可以包含被审查请求的风险级别和用户授权评估。
+
+自动审查使用额外的模型调用，因此可能增加 Codex 用量。管理员可以使用 `allowed_approvals_reviewers` 对其进行约束。
+
+### 常见沙箱与审批组合
+
+| 意图 | 标志 / 配置 | 效果 |
+|------|-------------|------|
+| 自动（预设） | 无需标志 或 `--sandbox workspace-write --ask-for-approval on-request` | Codex 可以读取文件、进行编辑并在工作区中运行命令。在工作区外编辑或访问网络时需要审批。 |
+| 安全只读浏览 | `--sandbox read-only --ask-for-approval on-request` | Codex 可以读取文件并回答问题。进行编辑、运行命令或访问网络时需要审批。 |
+| 只读非交互式（CI） | `--sandbox read-only --ask-for-approval never` | Codex 只能读取文件；从不请求审批。 |
+| 自动编辑但运行不受信任命令时请求审批 | `--sandbox workspace-write --ask-for-approval untrusted` | Codex 可以读取和编辑文件，但在运行不受信任的命令之前请求审批。 |
+| 自动审查模式 | `--sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review` 或 `approvals_reviewer = "auto_review"` | 与标准 on-request 模式相同的沙箱边界，但符合条件的审批请求由 Auto-review 审查，而不是呈现给用户。 |
+| 危险完全访问 | `--dangerously-bypass-approvals-and-sandbox`（别名：`--yolo`） | **高风险** 无沙箱；无审批（不推荐） |
+
+对于非交互式运行，请使用 `codex exec --sandbox workspace-write`；Codex 保留较旧的 `codex exec --full-auto` 调用作为已弃用的兼容路径并会打印警告。
+
+使用 `--ask-for-approval untrusted` 时，Codex 仅自动运行已知安全的读取操作。可能改变状态或触发外部执行路径的命令（例如，破坏性 Git 操作或 Git 输出/配置覆盖标志）需要审批。
+
+### config.toml 中的配置
+
+有关更广泛的配置工作流程，请参阅[配置基础](/codex/configuration/config-basic)、[高级配置](/codex/configuration/config-advanced)和[配置参考](/codex/configuration/config-reference)。
+
+```toml
+# 始终请求审批模式
+approval_policy = "untrusted"
+sandbox_mode    = "read-only"
+allow_login_shell = false # 可选加固：禁止 shell 类工具使用登录 shell
+
+# 可选：在 workspace-write 模式中允许网络
+[sandbox_workspace_write]
+network_access = true
+
+# 可选：细粒度审批策略
+# approval_policy = { granular = {
+#   sandbox_approval = true,
+#   rules = true,
+#   mcp_elicitations = true,
+#   request_permissions = false,
+#   skill_approval = false
+# } }
+```
+
+你还可以将预设保存为配置文件，然后使用 `codex --profile <name>` 选择它们：
+
+```toml
+[profiles.full_auto]
+approval_policy = "on-request"
+sandbox_mode    = "workspace-write"
+
+[profiles.readonly_quiet]
+approval_policy = "never"
+sandbox_mode    = "read-only"
+```
+
+### 在本地测试沙箱
+
+要查看命令在 Codex 沙箱下运行时的效果，请使用以下 Codex CLI 命令：
+
+```bash
+# macOS
+codex sandbox macos [--permissions-profile <name>] [--log-denials] [COMMAND]...
+
+# Linux
+codex sandbox linux [--permissions-profile <name>] [COMMAND]...
+
+# Windows
+codex sandbox windows [--permissions-profile <name>] [COMMAND]...
+```
+
+sandbox 命令也可作为 `codex debug` 使用，平台辅助命令也有别名（例如 `codex sandbox seatbelt` 和 `codex sandbox landlock`）。
+
+## 操作系统级沙箱
+
+Codex 根据你的操作系统以不同方式强制执行沙箱：
+
+- **macOS** 使用 Seatbelt 策略，并使用与你选择的 `--sandbox` 模式对应的配置文件（`-p`）通过 `sandbox-exec` 运行命令。当受限的读取访问启用平台默认值时，Codex 会附加一个精心策选的 macOS 平台策略（而不是广泛允许 `/System`）以保持常用工具的兼容性。
+- **Linux** 默认使用 bwrap 加 seccomp。
+- **Windows** 在 Windows Subsystem for Linux 2（WSL2）中运行时使用 Linux 沙箱实现。WSL1 在 Codex 0.114 之前受支持；从 0.115 开始，Linux 沙箱迁移到 bwrap，因此 WSL1 不再受支持。在 Windows 上原生运行时，Codex 使用 Windows 沙箱实现。
+
+如果你在 Windows 上使用 Codex IDE 扩展，它直接支持 WSL2。在 VS Code 设置中设置以下内容，以在 WSL2 可用时始终将 Agent 保持在 WSL2 中：
+
+```json
+{
+  "chatgpt.runCodexInWindowsSubsystemForLinux": true
+}
+```
+
+这确保了即使主机操作系统是 Windows，IDE 扩展也能继承 Linux 沙箱语义来处理命令、审批和文件系统访问。在 [Windows 设置指南](/codex/app/windows) 中了解更多。
+
+在 Windows 上原生运行时，在 `config.toml` 中配置原生沙箱模式：
+
+```toml
+[windows]
+sandbox = "unelevated" # 或 "elevated"
+# sandbox_private_desktop = true  # 默认；仅为兼容性设置为 false
+```
+
+详情请参阅 [Windows 设置指南](/codex/app/windows)。
+
+当你在容器化环境（如 Docker）中运行 Linux 时，如果主机或容器配置阻止了 Codex 所需的 namespace、setuid bwrap 或 seccomp 操作，沙箱可能无法工作。
+
+在这种情况下，配置你的 Docker 容器以提供你所需的隔离，然后在容器内使用 `--sandbox danger-full-access`（或 `--dangerously-bypass-approvals-and-sandbox` 标志）运行 codex。
+
+### 在 Dev Container 中运行 Codex
+
+如果你的主机无法直接运行 Linux 沙箱，或者你的组织已经标准化了容器化开发，可以使用 Dev Container 运行 Codex 并让 Docker 提供外部隔离边界。这适用于 Visual Studio Code Dev Containers 及兼容工具。
+
+使用 [Codex 安全 devcontainer 示例](https://github.com/openai/codex/tree/main/.devcontainer)作为参考实现。该示例安装了 Codex、常用开发工具、bubblewrap 以及基于防火墙的出站控制。
+
+Dev Container 提供了实质性保护，但并不能防止所有攻击。如果你在容器内使用 `--sandbox danger-full-access` 或 `--dangerously-bypass-approvals-and-sandbox` 运行 Codex，恶意项目可能泄露 devcontainer 内的任何内容，包括 Codex 凭证。仅在受信任的仓库中使用此模式，并像在任何其他提权环境中一样监控 Codex 活动。
+
+参考实现包括：
+
+- 安装了 Codex 和常用开发工具的 Ubuntu 24.04 基础镜像；
+- 基于允许列表的出站访问防火墙配置文件；
+- 用于在容器中重新打开工作区的 VS Code 设置和扩展推荐；
+- 命令历史和 Codex 配置的持久挂载；
+- bubblewrap，使 Codex 在容器授予所需能力时仍能使用其 Linux 沙箱。
+
+尝试步骤：
+
+1. 安装 Visual Studio Code 和 Dev Containers 扩展。
+2. 将 Codex 示例 `.devcontainer` 设置复制到你的仓库，或直接从 Codex 仓库开始。
+3. 在 VS Code 中，运行 **Dev Containers: Open Folder in Container…** 并选择 `.devcontainer/devcontainer.secure.json`。
+4. 容器启动后，打开终端并运行 `codex`。
+
+你也可以从 CLI 启动容器：
+
+```bash
+devcontainer up --workspace-folder . --config .devcontainer/devcontainer.secure.json
+```
+
+该示例有三个主要部分：
+
+- `.devcontainer/devcontainer.secure.json` 控制容器设置、能力、挂载、环境变量和 VS Code 扩展。
+- `.devcontainer/Dockerfile.secure` 定义了基于 Ubuntu 的镜像和已安装的工具。
+- `.devcontainer/init-firewall.sh` 应用出站网络策略。
+
+参考防火墙仅是一个起点。如果你依赖域名允许列表进行隔离，请实现适合你环境的 DNS 重绑定和 DNS 刷新保护，例如 TTL 感知刷新或 DNS 感知防火墙。
+
+在容器内，选择以下模式之一：
+
+- 如果 Dev Container 配置文件授予了 bwrap 创建内部沙箱所需的能力，则保持 Codex 的 Linux 沙箱启用。
+- 如果容器是你预期的安全边界，在容器内使用 `--sandbox danger-full-access` 运行 Codex，这样 Codex 不会尝试创建第二层沙箱。
+
+## 版本控制
+
+Codex 在版本控制工作流中表现最佳：
+
+- 在功能分支上工作，并在委托之前保持 git 状态干净。这使得 Codex 补丁更容易隔离和回滚。
+- 优先使用基于补丁的工作流（例如 `git diff`/`git apply`），而不是直接编辑已跟踪的文件。频繁提交，以便可以小步回滚。
+- 将 Codex 建议像其他 PR 一样对待：运行有针对性的验证、审查差异，并在提交消息中记录决策以供审计。
+
+## 监控与遥测
+
+Codex 支持通过 OpenTelemetry（OTel）进行可选的监控，帮助团队审计使用情况、调查问题并满足合规要求，同时不削弱本地安全默认值。遥测默认关闭；在配置中显式启用。
+
+### 概述
+
+- Codex 默认关闭 OTel 导出，以保持本地运行自包含。
+- 启用后，Codex 会发出涵盖对话、API 请求、SSE/WebSocket 流活动、用户提示（默认脱敏）、工具审批决策和工具结果的结构化日志事件。
+- Codex 用 `service.name`（发起者）、CLI 版本和环境标签标记导出的事件，以区分 dev/staging/prod 流量。
+
+### 启用 OTel（可选加入）
+
+在你的 Codex 配置中（通常为 `~/.codex/config.toml`）添加 `[otel]` 块，选择导出器以及是否记录提示文本。
+
+```toml
+[otel]
+environment = "staging"   # dev | staging | prod
+exporter = "none"          # none | otlp-http | otlp-grpc
+log_user_prompt = false     # 脱敏提示文本，除非策略允许
+```
+
+`exporter = "none"` 保持检测活动但不向任何地方发送数据。
+
+要将事件发送到你自己的收集器，选择以下之一：
+
+```toml
+[otel]
+exporter = { otlp-http = {
+  endpoint = "https://otel.example.com/v1/logs",
+  protocol = "binary",
+  headers = { "x-otlp-api-key" = "${OTLP_TOKEN}" }
+}}
+```
+
+```toml
+[otel]
+exporter = { otlp-grpc = {
+  endpoint = "https://otel.example.com:4317",
+  headers = { "x-otlp-meta" = "abc123" }
+}}
+```
+
+Codex 会批量处理事件并在关闭时刷新。Codex 仅导出由其 OTel 模块生成的遥测数据。
+
+### 事件类别
+
+代表性事件类型包括：
+
+- `codex.conversation_starts`（模型、推理设置、沙箱/审批策略）
+- `codex.api_request`（尝试、状态/成功、持续时间及错误详情）
+- `codex.sse_event`（流事件类型、成功/失败、持续时间，以及 `response.completed` 上的 token 计数）
+- `codex.websocket_request` 和 `codex.websocket_event`（请求持续时间以及每条消息的类型/成功/错误）
+- `codex.user_prompt`（长度；内容脱敏，除非显式启用）
+- `codex.tool_decision`（批准/拒绝，来源：配置 vs. 用户）
+- `codex.tool_result`（持续时间、成功、输出片段）
+
+相关的 OTel 指标（计数器加持续时间直方图对）包括 `codex.api_request`、`codex.sse_event`、`codex.websocket.request`、`codex.websocket.event` 和 `codex.tool.call`（带有相应的 `.duration_ms` 仪器）。
+
+有关完整的事件目录和配置参考，请参阅 GitHub 上的 [Codex 配置文档](https://github.com/openai/codex)。
+
+### 安全与隐私指南
+
+- 除非策略明确允许存储提示内容，否则保持 `log_user_prompt = false`。提示可能包含源代码和敏感数据。
+- 仅将遥测路由到你控制的收集器；应用与合规要求一致的保留限制和访问控制。
+- 将工具参数和输出视为敏感数据。尽可能在收集器或 SIEM 处进行脱敏。
+- 如果你不希望 Codex 将会话记录保存在 `CODEX_HOME` 下，请检查本地数据保留设置（例如 `history.persistence` / `history.max_bytes`）。请参阅[高级配置](/codex/configuration/config-advanced)和[配置参考](/codex/configuration/config-reference)。
+- 如果你在关闭网络访问的情况下运行 CLI，OTel 导出无法到达你的收集器。要导出，请在 workspace-write 模式下允许 OTel 端点的网络访问，或从 Codex Cloud 导出并将收集器域名添加到你的批准列表中。
+- 定期审查事件以发现审批/沙箱更改和意外的工具执行。
+
+OTel 是可选的，旨在补充而非替代上述的沙箱和审批保护。
+
+## 托管配置
+
+企业管理员可以在[托管配置](/codex/administration/enterprise/index)中为其工作区配置 Codex 安全设置。请参阅该页面了解设置和策略详情。

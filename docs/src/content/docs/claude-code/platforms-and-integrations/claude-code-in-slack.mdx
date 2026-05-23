@@ -1,0 +1,274 @@
+---
+title: Claude Code in Slack
+description: 在 Slack 工作区中通过 @Claude 直接发起 Claude Code 任务，把团队讨论上下文转成 Web 会话、代码修改与 PR 创建流程。
+editUrl: false
+sidebar:
+  order: 14
+---
+
+# Claude Code in Slack
+
+Claude Code in Slack 让团队成员可以直接在 Slack 频道里 `@Claude` 发起编码任务。Claude 会自动判断这是不是一个“代码任务”，如果是，就把请求路由到 **Claude Code on the web**，创建真实的编码会话，并在 Slack 线程里持续回报进度。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+它建立在现有 **Claude for Slack** 应用之上，但增加了面向开发任务的智能路由能力。
+
+## 典型使用场景
+
+Slack 集成最适合“问题先发生在团队讨论里”的场景：
+
+- **Bug 报告刚在频道里出现**：直接让 Claude 去调查并修复
+- **小改动 / 小重构**：在讨论串里发起实现，不必离开聊天窗口
+- **协作式调试**：线程里已经有复现步骤、日志、用户反馈，Claude 可以直接利用这些上下文
+- **并行执行任务**：你在 Slack 中交代任务，Claude 异步工作，完成后再回来提醒你
+
+## 使用前提
+
+根据官方文档，需要同时满足下面几项：
+
+| 条件 | 说明 |
+| --- | --- |
+| Claude 计划 | Pro、Max、Team 或 Enterprise，且有 Claude Code 访问权限 |
+| Claude Code on the web | 必须已启用 |
+| GitHub 账号 | 需要已连接到 Claude Code on the web，并至少认证一个仓库 |
+| Slack 认证 | Slack 账号要通过 Claude app 绑定到同一个 Claude 账号 |
+
+## 如何接入 Slack
+
+### 1. 在工作区安装 Claude App
+
+需要由 **Slack workspace 管理员**从 Slack App Marketplace 安装 Claude app。
+
+### 2. 个人连接 Claude 账号
+
+安装后，每个用户还需要在 Slack 中完成个人绑定：
+
+1. 打开 Slack 里的 **Claude** 应用
+2. 进入 **App Home**
+3. 点击 **Connect**
+4. 在浏览器里完成认证流程
+
+### 3. 确认 Claude Code on the web 已配置好
+
+还要检查：
+
+- 已登录 `claude.ai/code`
+- GitHub 账号已连接
+- 至少有一个仓库已完成授权
+
+### 4. 选择路由模式
+
+在 Slack 的 Claude App Home 里，可以配置消息如何分流：
+
+| 模式 | 行为 |
+| --- | --- |
+| Code only | 所有 `@Claude` 都进入 Claude Code，会话型开发优先 |
+| Code + Chat | Claude 自动判断：编码任务走 Code，普通问答走 Chat |
+
+如果在 **Code + Chat** 模式下分流不符合预期：
+
+- 本来想进 Code，却被路由到 Chat：点击 **Retry as Code**
+- 本来想走 Chat，却被建成了 Code 会话：可在对应线程里切回
+
+### 5. 把 Claude 邀请进具体频道
+
+Claude 安装后**不会自动加入任何频道**。你需要在目标频道执行：
+
+```text
+/invite @Claude
+```
+
+只有被邀请进频道后，Claude 才能响应该频道中的 `@Claude` 提及。
+
+## 它是怎么工作的
+
+### 自动检测编码意图
+
+当你在频道或线程里 `@Claude` 时，Claude 会分析消息内容，判断这是不是编码任务。
+
+如果识别为编码任务，它会：
+
+- 不再作为普通聊天助手回复
+- 改为启动一个 **Claude Code on the web** 会话
+- 在 Slack 线程中同步状态更新
+
+:::note[DM 不支持]
+Claude Code in Slack **只支持频道**（公开或私有），**不支持私聊 DM**。
+:::
+
+### 上下文收集
+
+Claude 会从 Slack 对话中提取上下文：
+
+- **在线程中提及**：读取该线程所有消息
+- **在频道里直接提及**：读取最近的频道消息
+
+这些上下文会帮助它：
+
+- 理解真实问题背景
+- 选择正确仓库
+- 判断应该如何开始实现
+
+因此官方特别提醒：Claude 可能会受到同一上下文中其他消息的影响，所以应尽量只在**可信的 Slack 对话**里使用它。
+
+### 会话流程
+
+完整流程通常如下：
+
+1. 你在 Slack 中 `@Claude` 提出编码任务
+2. Claude 判断这是代码任务
+3. 在 `claude.ai/code` 创建会话
+4. 随工作进展在 Slack 线程里发送状态更新
+5. 完成后 `@` 你并给出总结
+6. 你可点击 **View Session** 或 **Create PR** 继续后续动作
+
+## Slack 里会看到哪些交互元素
+
+### App Home
+
+显示连接状态，并允许你连接 / 断开 Slack 与 Claude 账号。
+
+### Message actions
+
+常见按钮包括：
+
+- **View Session**：在浏览器中打开完整 Claude Code 会话
+- **Create PR**：把当前会话改动直接做成 PR
+- **Retry as Code**：本来被当成聊天回复时，强制改走 Code 会话
+- **Change Repo**：Claude 选错仓库时手动改仓库
+
+### 仓库选择
+
+Claude 会根据 Slack 对话上下文自动猜测仓库。如果多个仓库都可能匹配，可能会出现下拉框让你手动选。
+
+## 权限模型
+
+Slack 集成的权限分为三层理解最清楚：
+
+### 用户级权限
+
+| 访问类型 | 说明 |
+| --- | --- |
+| Claude Code Sessions | 每个用户都在**自己的 Claude 账号**下启动会话 |
+| Usage & Rate Limits | 计入**个人**套餐额度与速率限制 |
+| Repository Access | 只能访问该用户自己已连接的仓库 |
+| Session History | 会话会出现在该用户的 `claude.ai/code` 历史中 |
+
+### 工作区级权限
+
+Slack 管理员决定 Claude app 是否在工作区可用：
+
+- 是否安装 app
+- Enterprise Grid 下哪些 workspace 可分发
+- 一旦移除 app，工作区内所有用户立即失去访问
+
+### 频道级权限
+
+这是 Slack 场景最关键的一层：
+
+- Claude 默认不在任何频道中
+- 只有被 `/invite @Claude` 的频道才能使用它
+- 团队可以通过“哪些频道允许 Claude 存在”来额外控制使用范围
+- 私有频道同样支持
+
+## Slack 和 Web 分别能看到什么
+
+### Slack 里
+
+你主要会看到：
+
+- 状态更新
+- 完成摘要
+- 操作按钮
+
+### Web 里
+
+你可以看到完整的 Claude Code 会话，包括：
+
+- 全部对话历史
+- 文件操作与代码改动
+- 继续对话的能力
+- 创建 PR 的入口
+
+对于 Team / Enterprise，Slack 发起的会话也会按组织策略在 Claude Code on the web 中可见。
+
+## 最佳实践
+
+### 怎样写请求更有效
+
+官方建议尽量做到：
+
+- **具体**：给出文件名、函数名、错误信息
+- **补足上下文**：如果仓库不明显，直接写明仓库名
+- **说明完成标准**：要不要写测试、文档、PR
+- **善用线程**：把 bug / feature 的完整上下文放在线程里，让 Claude 一次读全
+
+### 什么时候用 Slack，什么时候直接去 Web
+
+适合用 Slack 的情况：
+
+- 背景信息本来就在 Slack 讨论中
+- 你想异步发起任务后继续做别的事
+- 你希望团队里其他人也能看到进展
+
+更适合直接用 Web 的情况：
+
+- 需要上传文件
+- 希望实时高频交互
+- 任务很长、很复杂、需要连续多轮操作
+
+## 故障排查
+
+### 会话没有启动
+
+检查：
+
+- Claude App Home 中账号是否已连接
+- 是否已启用 Claude Code on the web
+- 是否已至少连接一个 GitHub 仓库
+
+### 仓库没有显示出来
+
+检查：
+
+- 是否在 `claude.ai/code` 里先连接了该仓库
+- GitHub 对该仓库的权限是否足够
+- 尝试断开并重新连接 GitHub 账号
+
+### 选错仓库
+
+可点击 **Change Repo** 手动切换；也建议在请求中直接写出仓库名。
+
+### 认证错误
+
+- 在 App Home 里断开并重新连接 Claude 账号
+- 确认浏览器里登录的是正确的 Claude 账号
+- 确认你的 Claude 计划已包含 Claude Code 权限
+
+### 会话过期了吗
+
+会话仍会保留在 `claude.ai/code` 历史中，可以继续打开或引用旧会话。
+
+## 当前限制
+
+目前文档明确提到的限制包括：
+
+- **仅支持 GitHub 仓库**
+- **每个会话一次只创建一个 PR**
+- **受个人套餐速率限制约束**
+- **必须有 Claude Code on the web 权限**；没有的用户只会得到普通 Claude Chat 响应
+
+## 什么时候选 Slack 集成
+
+如果你的团队协作模式是“需求、报错、复现信息先在 Slack 中形成”，那 Slack 集成非常自然。它特别适合：
+
+- 把讨论线程直接变成工程任务
+- 保留团队可见性
+- 用最小切换成本发起异步编码工作
+
+如果你需要的是更长、更重、更连续的交互，还是直接进入 [Claude Code on the web](/claude-code/platforms-and-integrations/claude-code-on-the-web/get-started/) 更合适。

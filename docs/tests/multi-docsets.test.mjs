@@ -8,16 +8,6 @@ const configPath = path.join(docsRoot, 'astro.config.mjs');
 const registryPath = path.join(docsRoot, 'src', 'data', 'docsets.mjs');
 const docsPortalPath = path.join(docsRoot, 'src', 'content', 'docs', 'docs.mdx');
 const docsPortalComponentPath = path.join(docsRoot, 'src', 'components', 'home', 'DocsPortal.astro');
-const sdkIndexPath = path.join(docsRoot, 'src', 'content', 'docs', 'sdk', 'index.mdx');
-const sdkInstallPath = path.join(
-    docsRoot,
-    'src',
-    'content',
-    'docs',
-    'sdk',
-    'getting-started',
-    'installation.mdx'
-);
 const sidebarPath = path.join(
     process.cwd(),
     'packages',
@@ -75,9 +65,7 @@ test('multi-docset registry defines product docsets for the docs portal', () => 
     assert.match(registrySource, /export const docsets = \[/);
     assert.match(registrySource, /id:\s*'hermes-agent'/);
     assert.match(registrySource, /landing:\s*'\/hermes-agent\/'/);
-    assert.match(registrySource, /id:\s*'sdk'/);
-    assert.match(registrySource, /landing:\s*'\/sdk\/'/);
-    assert.match(registrySource, /directory:\s*'sdk\/getting-started'/);
+    assert.doesNotMatch(registrySource, /id:\s*'sdk'/);
 });
 
 test('docs navigation points to a docs portal instead of a single product quickstart', () => {
@@ -101,17 +89,6 @@ test('docs portal page exists and renders a dedicated multi-docset landing compo
     assert.match(portalSource, /<DocsPortal\s*\/>/);
 });
 
-test('sample sdk docset content exists for the second product space', () => {
-    assert.equal(fs.existsSync(sdkIndexPath), true, 'expected sdk docset landing page to exist');
-    assert.equal(fs.existsSync(sdkInstallPath), true, 'expected sdk getting started page to exist');
-
-    const sdkIndexSource = fs.readFileSync(sdkIndexPath, 'utf8');
-    assert.match(sdkIndexSource, /title:\s+SDK 概览/);
-
-    const sdkInstallSource = fs.readFileSync(sdkInstallPath, 'utf8');
-    assert.match(sdkInstallSource, /title:\s+Installation/);
-});
-
 test('docs portal registry and overview pages expose Chinese-facing copy', () => {
     const registrySource = fs.readFileSync(registryPath, 'utf8');
     const portalSource = fs.readFileSync(docsPortalComponentPath, 'utf8');
@@ -119,13 +96,11 @@ test('docs portal registry and overview pages expose Chinese-facing copy', () =>
         path.join(docsRoot, 'src', 'content', 'docs', 'hermes-agent', 'index.mdx'),
         'utf8'
     );
-    const sdkIndexSource = fs.readFileSync(sdkIndexPath, 'utf8');
 
     assert.match(registrySource, /cardLabel:\s*'Hermes Agent 文档集'/);
     assert.match(registrySource, /ctaLabel:\s*'进入 Hermes 文档'/);
     assert.match(registrySource, /label:\s*'概览'/);
     assert.match(registrySource, /label:\s*'快速上手'/);
-    assert.match(registrySource, /label:\s*'客户端配置'/);
 
     assert.match(portalSource, /文档中心/);
     assert.match(portalSource, /选择你要查看的产品文档/);
@@ -135,9 +110,18 @@ test('docs portal registry and overview pages expose Chinese-facing copy', () =>
     assert.match(hermesIndexSource, /title:\s+Hermes Agent 概览/);
     assert.match(hermesIndexSource, /## 从这里开始/);
     assert.match(hermesIndexSource, /## 这个文档集包含什么/);
+});
 
-    assert.match(sdkIndexSource, /## 从这里开始/);
-    assert.match(sdkIndexSource, /查看 SDK 安装说明/);
+test('Claude Code card only exposes overview and quickstart links on the docs portal', () => {
+    const registrySource = fs.readFileSync(registryPath, 'utf8');
+    const claudeFeaturedLinks =
+        registrySource.match(/id:\s*'claude-code'[\s\S]*?featuredLinks:\s*\[(.*?)\]\s*,\s*sections:/s)?.[1] ?? '';
+
+    assert.match(claudeFeaturedLinks, /\/claude-code\/getting-started\/overview\//);
+    assert.match(claudeFeaturedLinks, /\/claude-code\/getting-started\/quickstart\//);
+    assert.equal((claudeFeaturedLinks.match(/href:/g) ?? []).length, 2);
+    assert.doesNotMatch(claudeFeaturedLinks, /\/claude-code\/getting-started\/changelog\//);
+    assert.doesNotMatch(claudeFeaturedLinks, /\/claude-code\/platforms-and-integrations\/overview\//);
 });
 
 test('sidebar and drawer filter docs navigation down to the active docset', () => {
@@ -172,11 +156,9 @@ test('portal and docset landing pages suppress the duplicate markdown title cont
         path.join(docsRoot, 'src', 'content', 'docs', 'hermes-agent', 'index.mdx'),
         'utf8'
     );
-    const sdkIndexSource = fs.readFileSync(sdkIndexPath, 'utf8');
 
     assert.match(portalSource, /\[data-slot='doc-title'\]/);
     assert.doesNotMatch(hermesIndexSource, /^#\s+Hermes Agent/m);
-    assert.doesNotMatch(sdkIndexSource, /^#\s+SDK/m);
 });
 
 test('footer respects per-page editUrl frontmatter when rendering edit links', () => {

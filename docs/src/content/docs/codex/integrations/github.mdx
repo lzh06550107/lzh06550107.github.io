@@ -2,7 +2,7 @@
 title: GitHub 代码审查
 description: 为 GitHub Pull Request 配置 Codex 代码审查，使用 @codex review 请求审查，启用自动审查，以及自定义审查指南。
 sidebar:
-  order: 6
+  order: 1
 ---
 
 > **在 GitHub Pull Request 中获得高信号量的代码审查**
@@ -15,14 +15,14 @@ sidebar:
 
 请确保你已具备以下条件：
 
-- 为要审查的仓库设置了 Codex Cloud。
-- 拥有 Codex 代码审查设置的访问权限。
+- 为要审查的仓库设置了 [Codex Cloud](/codex/cloud)。
+- [拥有 Codex 代码审查](/codex/settings/code-review)设置的访问权限。
 - 如果希望 Codex 遵循仓库特定的审查指导，请准备好 `AGENTS.md` 文件。
 
 ## 配置 Codex 代码审查
 
-1. 设置 Codex Cloud。
-2. 前往 Codex 设置页面。
+1. 设置 [Codex Cloud](/codex/cloud)。
+2. 前往 [Codex 设置](https://chatgpt.com/codex/settings/code-review)页面。
 3. 为你的仓库开启 **Code review**。
 
 ![代码审查设置](/images/codex/code-review/code-review-settings.png)
@@ -40,7 +40,7 @@ Codex 会像团队成员一样在 Pull Request 上发布审查结果。在 GitHu
 
 ## 启用自动审查
 
-如果你希望 Codex 自动审查每一个 Pull Request，请在 Codex 设置中开启 **Automatic reviews**。
+如果你希望 Codex 自动审查每一个 Pull Request，请在 [Codex 设置](https://chatgpt.com/codex/settings/code-review) 中开启 **Automatic reviews**。
 
 开启后，每当有人提交新的 Pull Request 等待审查时，Codex 会自动发布审查结果，无需手动输入 `@codex review` 评论。
 
@@ -79,7 +79,7 @@ Codex 会以该 Pull Request 为上下文启动一个云端任务，并在拥有
 
 ## 让 Codex 执行其他任务
 
-如果你在评论中提及 `@codex` 并附上 `review` 以外的其他指令，Codex 会以你的 Pull Request 为上下文启动一个云端任务。
+如果你在评论中提及 `@codex` 并附上 `review` 以外的其他指令，Codex 会以你的 Pull Request 为上下文启动一个[云端任务](https://developers.openai.com/codex/cloud)。
 
 ```
 @codex fix the CI failures
@@ -93,3 +93,4 @@ Codex 会以该 Pull Request 为上下文启动一个云端任务，并在拥有
 - 确认该 Pull Request 所属仓库已设置了 Codex Cloud。
 - 确保在 Pull Request 评论中使用了准确的触发短语 `@codex review`。
 - 对于自动审查，请检查是否已开启 **Automatic reviews**，并确认 Pull Request 事件符合你的审查触发设置。
+

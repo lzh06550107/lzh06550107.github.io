@@ -1,0 +1,299 @@
+---
+title: Computer use（预览）
+description: 在 Claude Code CLI 中启用 computer-use，让 Claude 在 macOS 上看到你的屏幕、打开应用、点击与输入，处理原生 GUI、模拟器与无 API 工具。
+editUrl: false
+sidebar:
+  order: 7
+---
+
+# Computer use（预览）
+
+**Computer use** 让 Claude Code 不再局限于终端：在满足条件时，Claude 可以像人一样操作你的桌面应用，看到屏幕、点击按钮、输入文字、滚动界面，并把这些 GUI 操作与写代码、跑命令、截图验证放在同一条会话里完成。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+## 适用范围与前提
+
+当前 computer use 的 CLI 版本有这些限制：
+
+- 属于 **research preview**
+- 仅支持 **macOS**
+- 需要 **Pro** 或 **Max** 计划
+- 需要 **Claude Code v2.1.85** 或更高版本
+- 只能用于**交互式会话**，不能用于 `-p` 这样的非交互模式
+
+如果你想在 Desktop 图形界面里使用类似能力，应改看 Desktop 相关文档；本文聚焦 **CLI 中的 computer-use**。
+
+## 它适合解决什么问题
+
+Computer use 适合处理那些**必须经过 GUI**、终端和 API 都触达不到的任务，例如：
+
+- 构建并验证原生应用界面
+- 对本地 Electron / 桌面应用做端到端交互测试
+- 复现和修复视觉 / 布局类 Bug
+- 操作没有 CLI 或 API 的工具，如设计软件、硬件控制面板、iOS Simulator 等
+
+它的核心价值不是“替代所有自动化”，而是把**本来只能手点完成的步骤**也纳入 Claude 的工作回路里。
+
+## Claude 什么时候会用 computer use
+
+Claude 并不会优先走屏幕控制。官方策略是先尝试更精确、更结构化的工具：
+
+1. 如果某个服务有 MCP server，优先用 MCP
+2. 如果任务本质上是命令行操作，优先用 Bash
+3. 如果是浏览器任务且你已配置 Chrome 集成，优先用浏览器能力
+4. 只有前三种都不适用时，才会退到 computer use
+
+所以 computer use 更像是**最后一层兜底能力**，专门处理：
+
+- 原生桌面应用
+- 模拟器
+- 没有 API 的 GUI 工具
+
+## 如何启用
+
+Computer use 以一个内置 MCP server 的形式提供，名称是 **`computer-use`**，默认关闭。
+
+### 1. 打开 MCP 菜单
+
+在交互式 Claude Code 会话中运行：
+
+```text
+/mcp
+```
+
+你会在 server 列表里看到 `computer-use`，初始状态通常是 disabled。
+
+### 2. 启用 `computer-use`
+
+选中它并选择 **Enable**。
+
+这个设置会**按项目持久化**，因此同一个项目通常只需启用一次。
+
+### 3. 授予 macOS 权限
+
+Claude 第一次真的要操作你的电脑时，macOS 会要求授予两类权限：
+
+- **Accessibility**：允许点击、输入、滚动
+- **Screen Recording**：允许读取屏幕内容
+
+两者都需要开启。授予之后，通常在弹窗里点 **Try again** 即可；某些情况下 macOS 还会要求你重启 Claude Code 才会生效。
+
+## 启用后如何使用
+
+完成设置后，可以直接给 Claude 下达需要 GUI 的任务，例如：
+
+```text
+Build the app target, launch it, and click through each tab to make
+sure nothing crashes. Screenshot any error states you find.
+```
+
+此时 Claude 可以把以下动作串起来完成：
+
+- 写代码
+- 编译
+- 启动应用
+- 点击界面
+- 观察结果
+- 截图记录异常
+
+## 每个 session 都要单独批准应用
+
+启用 `computer-use` server 并不等于你已经授权 Claude 控制所有应用。
+
+在**某个具体 session** 中，Claude 第一次需要接管某个应用时，终端里会出现权限提示，告诉你：
+
+- 它想控制哪些应用
+- 是否还请求了额外权限（如剪贴板）
+- 当 Claude 工作时，会隐藏多少其他应用
+
+你可以选择：
+
+- **Allow for this session**
+- **Deny**
+
+这些批准只在**当前 session** 内有效。
+
+### 某些应用会显示额外风险提示
+
+官方特别标记了几个“权限外延很大”的应用类别：
+
+| 警告 | 典型应用 |
+|---|---|
+| 等同于 shell access | Terminal、iTerm、VS Code、Warp 等终端和 IDE |
+| 可读写任意文件 | Finder |
+| 可改系统设置 | System Settings |
+
+这些应用并不会被系统直接封禁，但批准前会提醒你“你正在给出多大的权限面”。
+
+另外，不同应用类别的控制级别也不同：
+
+- 浏览器、交易平台：通常只读或只看
+- 终端、IDE：通常偏 click-only
+- 其他应用：一般可获得更完整控制
+
+## Claude 在屏幕上是怎么工作的
+
+理解它的运行模型，有助于你判断什么时候该让它继续、什么时候该中断。
+
+### 一次只能有一个 session 控制电脑
+
+Computer use 会持有一个**整机级锁**。如果另一个 Claude session 已在使用 computer use，新 session 会直接失败，并提示当前是谁占用了锁。
+
+也就是说，同一时刻只能有**一个** Claude session 控制你的电脑。
+
+### Claude 工作时，其他应用会被隐藏
+
+当 Claude 开始接管屏幕时：
+
+- 其他可见应用会被隐藏
+- 只有已批准的应用会留给 Claude 操作
+- 你的终端窗口会保持可见，但**不会被截图**
+
+这样做有两个目的：
+
+- 降低 Claude 点错目标的概率
+- 防止 Claude 在截图里看到自己终端输出，形成反馈回路
+
+一旦这一轮操作结束，被隐藏的应用会自动恢复。
+
+### 截图会自动降采样
+
+Claude Code 会在发送截图前自动做 downscale，因此通常不需要手动降低 Retina 分辨率。
+
+如果你发现某些控件或文字在下采样后太小，正确做法通常不是改显示器分辨率，而是：
+
+- 放大应用内字号
+- 调整窗口尺寸
+- 放大目标区域
+
+### 你可以随时停止
+
+当 Claude 获取控制权时，macOS 会提示：
+
+> Claude is using your computer · press Esc to stop
+
+你有两种常见中断方式：
+
+- 直接按 **Esc**
+- 在终端里按 **Ctrl+C**
+
+中止后 Claude 会：
+
+- 立即释放锁
+- 取消隐藏应用
+- 把控制权交还给你
+
+完成时还会再弹一次系统通知。
+
+## 安全边界与信任模型
+
+Computer use 和 Bash 沙箱的风险模型并不一样。
+
+Bash 工具通常受沙箱、文件系统和网络规则限制；而 computer use 面对的是真实桌面，因此安全边界取决于：
+
+- 你允许它控制哪些应用
+- 当前桌面出现了什么内容
+- 会话中 prompt injection 风险是否被你识别
+
+官方内置了几层保护：
+
+- **Per-app approval**：每个 session 里只控制你明确批准的应用
+- **Sentinel warnings**：对高风险应用给出额外告警
+- **Terminal excluded from screenshots**：终端不会出现在截图中
+- **Global escape**：Esc 可全局中断
+- **Lock file**：同一时间只允许一个 session 控制机器
+
+尽管如此，computer use 仍应视为**高权限能力**。涉及系统设置、生产环境、敏感账号或财务界面时，需要更谨慎。
+
+## 典型工作流示例
+
+### 验证原生应用构建
+
+适合 macOS / iOS 应用：
+
+```text
+Build the MenuBarStats target, launch it, open the preferences window,
+and verify the interval slider updates the label. Screenshot the
+preferences window when you're done.
+```
+
+Claude 可以从构建一路走到界面验证。
+
+### 复现布局问题
+
+适合那些只有特定窗口尺寸下才出现的 UI Bug：
+
+```text
+The settings modal clips its footer on narrow windows. Resize the app
+window down until you can reproduce it, screenshot the clipped state,
+then check the CSS for the modal container.
+```
+
+### 驱动模拟器流程
+
+适合 iOS Simulator 等需要实际点击的场景：
+
+```text
+Open the iOS Simulator, launch the app, tap through the onboarding
+screens, and tell me if any screen takes more than a second to load.
+```
+
+## 与 Desktop 版本的差异
+
+CLI 和 Desktop 背后共用同一套 computer use 引擎，但使用方式不同：
+
+| 特性 | Desktop | CLI |
+|---|---|---|
+| 支持平台 | macOS、Windows | 仅 macOS |
+| 启用方式 | Settings > General 中打开 | `/mcp` 里启用 `computer-use` |
+| 拒绝应用列表 | 可在设置中管理 | 暂未提供 |
+| 自动取消隐藏开关 | 可选 | 始终开启 |
+| Dispatch 集成 | 可用于 Dispatch 派生 session | 不适用 |
+
+## 常见问题
+
+### “Computer use is in use by another Claude session”
+
+说明另一条 Claude Code session 正在持有 computer use 锁。
+
+解决方式：
+
+- 先结束那个 session 的任务
+- 或退出那个 session
+- 如果对方已经崩溃，Claude 通常会在检测到对应进程消失后自动释放锁
+
+### macOS 权限弹窗反复出现
+
+常见原因是 macOS 在授予 **Screen Recording** 后要求发起进程重启。
+
+可尝试：
+
+1. 完全退出 Claude Code
+2. 新开一个 session
+3. 在 `System Settings > Privacy & Security > Screen Recording` 中确认你的终端应用已被勾选
+
+### `/mcp` 里看不到 `computer-use`
+
+通常要逐项检查：
+
+- 你是否在 **macOS** 上（CLI 版不支持 Linux / Windows）
+- Claude Code 是否至少为 **v2.1.85**：
+
+```bash
+claude --version
+```
+
+- 当前账号是否是 **Pro / Max**
+- 是否通过 **claude.ai** 认证，而不是只走 Amazon Bedrock、Google Vertex AI、Microsoft Foundry 等第三方 provider
+- 当前是否是**交互式 session**，而不是 `-p` 非交互模式
+
+## 相关阅读
+
+- [Claude Code Desktop 参考](/claude-code/platforms-and-integrations/claude-code-on-desktop/reference/)：Desktop 图形界面中的相关能力
+- [Chrome 扩展（Beta）](/claude-code/platforms-and-integrations/chrome-extension-beta/)：如果任务是网页而不是原生 GUI，更适合走浏览器集成
+- [Remote Control](/claude-code/platforms-and-integrations/remote-control/)：从浏览器或手机继续本地 Claude 会话

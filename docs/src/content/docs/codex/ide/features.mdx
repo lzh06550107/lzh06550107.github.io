@@ -1,7 +1,7 @@
 ---
 title: Codex IDE 扩展功能
 sidebar:
-  order: 5
+  order: 2
 ---
 
 Codex IDE 扩展让你可以直接在 VS Code、Cursor、Windsurf 以及其他兼容 VS Code 的编辑器中使用 Codex。它使用与 Codex CLI 相同的智能代理，并共享相同的配置。
@@ -12,7 +12,9 @@ Codex IDE 扩展让你可以直接在 VS Code、Cursor、Windsurf 以及其他�
 
 你可以在提示词中通过 `@` 标记来引用编辑器中的任何文件，例如：
 
-> 以 `@example.tsx` 为参考，向应用添加一个名为 "Resources" 的新页面，其中包含 `@resources.ts` 中定义的资源列表。
+```text
+以 `@example.tsx` 为参考，向应用添加一个名为 "Resources" 的新页面，其中包含 `@resources.ts` 中定义的资源列表。
+```
 
 ## 切换模型
 
@@ -26,17 +28,18 @@ Codex IDE 扩展让你可以直接在 VS Code、Cursor、Windsurf 以及其他�
 
 ## 选择审批模式
 
-默认情况下，Codex 在 **Agent** 模式下运行。在此模式下，Codex 可以自动读取文件、进行编辑并在工作目录中运行命令。但 Codex 仍然需要你的批准才能在工作目录之外工作或访问网络。
+默认情况下，Codex 在 `Agent` 模式下运行。在此模式下，Codex 可以自动读取文件、进行编辑并在工作目录中运行命令。但 Codex 仍然需要你的批准才能在工作目录之外工作或访问网络。
 
-当你只想聊天，或者想在做更改之前进行规划时，可以通过聊天输入框下方的切换器切换到 **Chat** 模式。
+当你只想聊天，或者想在做更改之前进行规划时，可以通过聊天输入框下方的切换器切换到 `Chat` 模式。
 
-如果你需要 Codex 在没有批准的情况下读取文件、进行编辑并运行带网络访问的命令，请使用 **Agent (Full Access)** 模式。请谨慎操作。
+如果你需要 Codex 在没有批准的情况下读取文件、进行编辑并运行带网络访问的命令，请使用 `Agent (Full Access)` 模式。请谨慎操作。
 
 ## 云端委托
 
 你可以将较大的任务委派给云端 Codex，然后在不离开 IDE 的情况下跟踪进度并查看结果。
 
-为 Codex 设置云端环境。选择你的环境并选择**在云端运行**。
+1. 为 [Codex 设置云端环境](https://chatgpt.com/codex/settings/environments)。
+2. 选择你的环境并选择**在云端运行**。
 
 你可以让 Codex 从 `main` 分支运行（适用于开始新想法），或从本地更改运行（适用于完成任务）。
 
@@ -46,7 +49,7 @@ Codex IDE 扩展让你可以直接在 VS Code、Cursor、Windsurf 以及其他�
 
 Codex 扩展使预览云端更改变得简单直接。你可以要求后续操作在云端运行，但通常你会希望在本地应用更改以进行测试和完成。当你在本地继续对话时，Codex 也会保留上下文以节省你的时间。
 
-你也可以在 Codex 云端界面中查看云端任务。
+你也可以在 [Codex 云端界面](https://chatgpt.com/codex) 中查看云端任务。
 
 ## 网页搜索
 
@@ -58,7 +61,7 @@ Codex 内置了一个第一方网页搜索工具。对于 Codex IDE 扩展中的
 
 你可以将图片拖放到提示输入框中，将其作为上下文包含进来。
 
-拖放图片时请按住 Shift 键。否则 VS Code 会阻止扩展接受拖放操作。
+拖放图片时请按住 `Shift` 键。否则 VS Code 会阻止扩展接受拖放操作。
 
 ## 图片生成
 
@@ -66,7 +69,7 @@ Codex 内置了一个第一方网页搜索工具。对于 Codex IDE 扩展中的
 
 你可以用自然语言要求，也可以通过提示中包含 `$imagegen` 来显式调用图片生成技能。
 
-内置图片生成使用 `gpt-image-2`，计入你的通用 Codex 使用额度，并且根据图片质量和大小，平均消耗额度的速度比不含图片生成的类似回合快 3—5 倍。详情请参阅[定价](/codex/pricing)。提示技巧和模型细节请参阅[图片生成指南](/docs/image-generation)。
+内置图片生成使用 `gpt-image-2`，计入你的通用 Codex 使用额度，并且根据图片质量和大小，平均消耗额度的速度比不含图片生成的类似回合快 3—5 倍。详情请参阅[定价](/codex/getting-started/pricing)。提示技巧和模型细节请参阅[图片生成指南](/docs/image-generation)。
 
 对于大批量的图片生成，请在环境变量中设置 `OPENAI_API_KEY`，并让 Codex 通过 API 生成图片，这样将适用 API 定价。
 

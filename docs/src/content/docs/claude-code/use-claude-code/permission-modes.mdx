@@ -1,0 +1,638 @@
+---
+title: 权限模式与权限配置
+description: 了解 Claude Code 的权限系统、权限模式、规则语法、hooks 扩展方式，以及权限与沙箱、托管策略之间的关系。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+# 权限模式与权限配置
+
+了解 Claude Code 的权限系统、权限模式、规则语法、hooks 扩展方式，以及权限与沙箱、托管策略之间的关系。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code 支持细粒度权限控制，因此你可以精确指定：Agent **可以做什么**、**不能做什么**。权限设置既可以被纳入版本控制并分发给整个组织，也可以由个人开发者自行定制。
+
+## 权限系统
+
+Claude Code 用一个分层权限系统，在能力与安全之间做平衡：
+
+| 工具类型 | 示例 | 是否需要审批 | “Yes, don’t ask again” 的行为 |
+|---|---|---|---|
+| 只读 | 文件读取、Grep | 否 | 不适用 |
+| Bash 命令 | Shell 执行 | 是 | 按项目目录和命令长期记住 |
+| 文件修改 | 编辑 / 写入文件 | 是 | 仅持续到当前会话结束 |
+
+## 管理权限
+
+你可以通过 `/permissions` 查看和管理 Claude Code 的工具权限。这个界面会列出所有权限规则，以及这些规则来源于哪个 `settings.json` 文件。
+
+规则分三类：
+
+- **Allow**：允许 Claude Code 无需手动确认就使用指定工具
+- **Ask**：每次使用指定工具时都先提示确认
+- **Deny**：阻止 Claude Code 使用指定工具
+
+规则的求值顺序是：
+
+```text
+deny -> ask -> allow
+```
+
+第一个匹配成功的规则就会生效，因此 deny 总是优先级最高。
+
+Deny 规则还有一个关键差异：
+
+- 若写的是**裸工具名**，例如 `Bash`，则该工具会从 Claude 的上下文中被完全移除，Claude 根本看不到它。
+- 若写的是**作用于工具内部某种模式的规则**，例如 `Bash(rm *)`，则工具本身仍然存在，只是在 Claude 尝试发起匹配调用时被拦截。
+
+权限规则是由 **Claude Code 客户端强制执行** 的，不是由模型自己决定的。你的 prompt 或 `CLAUDE.md` 只会影响 Claude “想做什么”，但不会改变 Claude Code “允许它做什么”。如果你要真正授权或撤销访问权，应使用：
+
+- `/permissions`
+- 本页介绍的规则
+- 某种 permission mode
+- `PreToolUse` hook
+
+## 权限模式
+
+Claude Code 支持多种权限模式，用来控制工具调用如何审批。你可以在 settings 里通过 `defaultMode` 设置默认模式。
+
+| 模式 | 说明 |
+|---|---|
+| `default` | 标准行为：第一次使用每种工具时提示授权 |
+| `acceptEdits` | 自动接受文件编辑，以及工作目录或 `additionalDirectories` 下常见文件系统命令（如 `mkdir`、`touch`、`mv`、`cp`） |
+| `plan` | Plan Mode：Claude 可以读文件、执行只读 shell 命令进行探索，但不能编辑源码 |
+| `auto` | 通过后台安全检查自动批准工具调用，并验证动作是否与你的请求一致；当前仍是 research preview |
+| `dontAsk` | 除非通过 `/permissions` 或 `permissions.allow` 预先批准，否则自动拒绝所有工具 |
+| `bypassPermissions` | 跳过所有权限提示；但像 `rm -rf /` 或删除家目录这类操作仍会触发熔断式确认 |
+
+### `bypassPermissions` 的注意事项
+
+`bypassPermissions` 会跳过几乎所有权限提示，包括对以下目录的写入：
+
+- `.git`
+- `.claude`
+- `.vscode`
+- `.idea`
+- `.husky`
+
+但针对**文件系统根目录**或**用户家目录**的删除操作，例如：
+
+- `rm -rf /`
+- `rm -rf ~`
+
+仍然会触发确认，作为防止模型严重误操作的最后一道断路器。
+
+这个模式只应在隔离环境中使用，例如：
+
+- 容器
+- 虚拟机
+
+因为在这些环境中，Claude Code 造成实际破坏的风险更可控。管理员可以通过在 managed settings 中设置：
+
+```json
+permissions.disableBypassPermissionsMode = "disable"
+```
+
+来完全禁止该模式。
+
+### 禁止 bypass 或 auto 模式
+
+如果你不希望用户使用 `bypassPermissions` 或 `auto` 模式，可以在任意 settings 文件中设置：
+
+- `permissions.disableBypassPermissionsMode`
+- `permissions.disableAutoMode`
+
+最适合把它们放在 **managed settings** 中，因为那样无法被用户覆盖。
+
+## 权限规则语法
+
+权限规则格式如下：
+
+```text
+Tool
+```
+
+或：
+
+```text
+Tool(specifier)
+```
+
+### 匹配某个工具的全部使用场景
+
+如果你想匹配某个工具的**全部使用**，只写工具名即可，不需要括号：
+
+| 规则 | 效果 |
+|---|---|
+| `Bash` | 匹配所有 Bash 命令 |
+| `WebFetch` | 匹配所有 Web 请求 |
+| `Read` | 匹配所有文件读取 |
+
+`Bash(*)` 与 `Bash` 等价，也匹配所有 Bash 命令。若作为 deny 规则，它们都会把该工具从 Claude 上下文中彻底移除。
+
+### 使用 specifier 细粒度控制
+
+你可以在括号中加入 specifier，只匹配某些用法：
+
+| 规则 | 效果 |
+|---|---|
+| `Bash(npm run build)` | 只匹配精确命令 `npm run build` |
+| `Read(./.env)` | 匹配读取当前目录中的 `.env` |
+| `WebFetch(domain:example.com)` | 只匹配发往 `example.com` 的请求 |
+
+### 通配符规则
+
+Bash 规则支持使用 `*` 作为 glob 通配符，且通配符可以出现在命令的任意位置。下面这个配置允许 `npm` 和 `git commit`，但阻止 `git push`：
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git commit *)",
+      "Bash(git * main)",
+      "Bash(* --version)",
+      "Bash(* --help *)"
+    ],
+    "deny": [
+      "Bash(git push *)"
+    ]
+  }
+}
+```
+
+这里有几个很容易踩坑的细节：
+
+- `Bash(ls *)` 中 `*` 前面的空格是有意义的：它会匹配 `ls -la`，但不会匹配 `lsof`
+- `Bash(ls*)` 则会同时匹配 `ls -la` 与 `lsof`
+- `:*` 后缀与“尾部通配符”是等价写法，因此 `Bash(ls:*)` 和 `Bash(ls *)` 效果相同
+- 权限对话框在你选择 “Yes, don’t ask again” 时，写回的是**带空格的前缀形式**
+- `:*` 只在 pattern 末尾才有特殊含义；例如 `Bash(git:* push)` 里的 `:` 会被当成普通字符，而不是通配语法
+
+## 工具特定的权限规则
+
+### Bash
+
+Bash 权限规则允许 `*` 出现在命令开头、中间或结尾：
+
+- `Bash(npm run build)`：精确匹配 `npm run build`
+- `Bash(npm run test *)`：匹配所有以 `npm run test` 开头的命令
+- `Bash(npm *)`：匹配所有以 `npm` 开头的命令
+- `Bash(* install)`：匹配所有以 `install` 结尾的命令
+- `Bash(git * main)`：匹配如 `git checkout main`、`git log --oneline main` 等命令
+
+单个 `*` 可以跨越任意字符，包括空格，因此一个 wildcard 可以覆盖多个参数。例如：
+
+- `Bash(git *)` 可以匹配 `git log --oneline --all`
+- `Bash(git * main)` 也能匹配 `git push origin main` 和 `git merge main`
+
+若 `*` 位于尾部且前面带空格（如 `Bash(ls *)`），它会强制一个“词边界”，要求前缀后面是空格或字符串结束，因此能区分 `ls` 与 `lsof`。
+
+### 复合命令
+
+Claude Code 识别 shell 运算符，因此一条规则如 `Bash(safe-cmd *)` **不会**因为前半段匹配，就自动授权 `safe-cmd && other-cmd` 这种复合命令。
+
+Claude Code 识别的分隔符包括：
+
+- `&&`
+- `||`
+- `;`
+- `|`
+- `|&`
+- `&`
+- 换行
+
+因此，规则必须能**分别匹配每个子命令**。
+
+当你对一个复合命令选择 “Yes, don’t ask again” 时，Claude Code 不会保存整串命令的单一规则，而是会为其中每个需要授权的子命令分别写规则。比如：
+
+```bash
+git status && npm test
+```
+
+批准后，保存的可能是 `npm test` 对应的规则，而不是整个组合串。像 `cd` 进子目录这样的子命令，还会生成单独的 `Read` 规则。一个复合命令最多可以生成 5 条规则。
+
+### 进程包装器
+
+在匹配 Bash 规则之前，Claude Code 会先剥离一组固定的“进程包装器”，因此像 `Bash(npm test *)` 也能匹配：
+
+```bash
+timeout 30 npm test
+```
+
+内建会剥离的包装器包括：
+
+- `timeout`
+- `time`
+- `nice`
+- `nohup`
+- `stdbuf`
+
+裸 `xargs` 也会被剥离，因此 `Bash(grep *)` 能匹配 `xargs grep pattern`。但只有在 `xargs` **没有 flag** 时才会这样处理；像 `xargs -n1 grep pattern` 会被视作 `xargs` 本身的命令，内层命令规则不再生效。
+
+需要注意：这个包装器列表是内建的，**不可配置**。一些开发环境 runner 不在其中，例如：
+
+- `direnv exec`
+- `devbox run`
+- `mise exec`
+- `npx`
+- `docker exec`
+
+因此，像 `Bash(devbox run *)` 这样的规则其实风险很高，因为它会放行 `run` 后面的任意命令，包括危险命令。若你要批准某个 runner 环境内的操作，应该写出**包含 runner + 内部命令**的精确规则，例如：
+
+```text
+Bash(devbox run npm test)
+```
+
+对于 `watch`、`setsid`、`ionice`、`flock` 这类 exec wrapper，前缀规则无法自动批准；`find` 带 `-exec` 或 `-delete` 也是一样。此时应写完整命令的 exact match 规则。
+
+### 只读命令
+
+Claude Code 内建识别一批 Bash 只读命令，因此它们在所有模式下都可以**无需提示**直接执行，例如：
+
+- `ls`
+- `cat`
+- `echo`
+- `pwd`
+- `head`
+- `tail`
+- `grep`
+- `find`
+- `wc`
+- `which`
+- `diff`
+- `stat`
+- `du`
+- `cd`
+- 只读形式的 `git`
+
+这个集合不可配置。如果你反而想让某个只读命令也要求确认，就需要为它显式添加 `ask` 或 `deny` 规则。
+
+对于“所有 flag 都只读”的命令，未加引号的 glob 也会被允许，例如：
+
+- `ls *.ts`
+- `wc -l src/*.py`
+
+但像 `find`、`sort`、`sed`、`git` 这类带有写入能力或执行能力 flag 的命令，即使携带 glob，也仍然会触发提示，因为 glob 可能展开成危险 flag（例如 `-delete`）。
+
+另外：
+
+- `cd` 到工作目录或 `additionalDirectories` 内路径时，属于只读行为
+- 如果 `cd packages/api && ls` 两部分分别都满足只读条件，则整个复合命令也无需提示
+- 但把 `cd` 与 `git` 放在同一个复合命令中，总会触发提示，无论目标目录是不是安全目录
+
+### 关于 Bash URL 约束的脆弱性
+
+试图通过 Bash permission pattern 精确限制 URL 参数，往往并不可靠。例如：
+
+```text
+Bash(curl http://github.com/ *)
+```
+
+你本意可能是“只允许 curl 访问 GitHub”，但它很容易被如下变体绕开或错过：
+
+- URL 前面多了参数：`curl -X GET http://github.com/...`
+- 改成了 `https`：`curl https://github.com/...`
+- 使用重定向：`curl -L http://bit.ly/xyz`
+- 使用变量：`URL=http://github.com && curl $URL`
+- 多余空格等格式变化
+
+更可靠的做法是：
+
+1. **限制 Bash 网络工具**：对 `curl`、`wget` 等加 deny，然后对允许的域名使用 `WebFetch(domain:github.com)`
+2. **用 `PreToolUse` hook**：在 hook 中解析并校验 Bash 命令中的 URL
+3. **在 `CLAUDE.md` 写明允许模式**：这只能影响 Claude 的倾向，不能形成真正边界，因此最好和前两种之一配合
+
+单独允许 `WebFetch` 并不能阻止 Bash 访问网络。如果 Bash 被允许，Claude 仍可通过 `curl`、`wget` 或其他工具触达任意 URL。
+
+### PowerShell
+
+PowerShell 权限规则与 Bash 形状相同：
+
+- `*` 可出现在任意位置
+- `:*` 等价于尾部通配符
+- 裸 `PowerShell` 或 `PowerShell(*)` 匹配所有 PowerShell 命令
+
+例如：
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(git commit *)"
+    ],
+    "deny": [
+      "PowerShell(Remove-Item *)"
+    ]
+  }
+}
+```
+
+常见 alias 会在匹配前被规范化，因此写给 cmdlet 名的规则也会匹配其别名，比如 `PowerShell(Get-ChildItem *)` 同时匹配：
+
+- `gci`
+- `ls`
+- `dir`
+
+而且匹配是大小写不敏感的。
+
+Claude Code 会解析 PowerShell AST，并独立检查复合命令中的每一个命令。管道 `|`、语句分隔符 `;`，以及 PowerShell 7+ 中的 `&&`、`||`，都会把命令拆成多个子命令；每个子命令都必须被规则覆盖。
+
+### Read 与 Edit
+
+Edit 规则会作用于所有内建文件编辑工具。Read 规则则会尽力应用到：
+
+- Claude 的内建读文件工具
+- `Grep`、`Glob`
+- prompt 中的 `@file` 引用
+- 连接 IDE 后由 IDE 共享给 Claude 的选中内容与打开文件上下文
+
+Read / Edit 的 deny 规则也会作用于 Claude 已识别的 Bash 文件命令，例如：
+
+- `cat`
+- `head`
+- `tail`
+- `sed`
+
+但它们**不会**自动拦截任意子进程中的间接文件访问，例如 Python 或 Node 脚本自己打开文件。若你需要 OS 级别的强制阻断，应启用 sandbox。
+
+Read / Edit 都采用 gitignore 风格模式，并支持 4 类路径锚点：
+
+| Pattern | 含义 | 示例 | 匹配 |
+|---|---|---|---|
+| `//path` | 从文件系统根开始的绝对路径 | `Read(//Users/alice/secrets/**)` | `/Users/alice/secrets/**` |
+| `~/path` | 从家目录开始 | `Read(~/Documents/*.pdf)` | `/Users/alice/Documents/*.pdf` |
+| `/path` | 相对于项目根 | `Edit(/src/**/*.ts)` | `<project root>/src/**/*.ts` |
+| `path` 或 `./path` | 相对于当前目录 | `Read(*.env)` | `<cwd>/*.env` |
+
+要特别注意：
+
+- `/Users/alice/file` **不是绝对路径**，而是相对项目根
+- 真正绝对路径应写成 `//Users/alice/file`
+
+在 Windows 上，路径会先被规范化为 POSIX 形式，例如：
+
+```text
+C:\Users\alice -> /c/Users/alice
+```
+
+因此若你想匹配某盘符下任意 `.env`，可以写：
+
+- `//c/**/.env`
+- 若想跨所有盘符：`//**/.env`
+
+一些示例：
+
+- `Edit(/docs/**)`：匹配 `<project>/docs/`
+- `Read(~/.zshrc)`：匹配家目录下 `.zshrc`
+- `Edit(//tmp/scratch.txt)`：匹配绝对路径 `/tmp/scratch.txt`
+- `Read(src/**)`：匹配 `<current-directory>/src/`
+
+一个规则只会匹配其 anchor 之下的文件，因此 anchor 决定了 deny 的覆盖范围。裸文件名遵循 gitignore 语义，会匹配任意深度，因此：
+
+- `Read(.env)` 与 `Read(**/.env)` 等价
+- `Read(//**/.env)` 会阻止整个文件系统中的所有 `.env`
+
+若想允许所有文件访问，直接写裸工具名即可：
+
+- `Read`
+- `Edit`
+- `Write`
+
+#### symlink 情况
+
+当 Claude 访问一个 symlink 时，权限规则会同时检查两条路径：
+
+- symlink 本身
+- 它最终解析到的目标文件
+
+Allow 与 deny 的语义不同：
+
+- **Allow**：只有 symlink 路径和目标路径都匹配时才放行，否则回退到提示
+- **Deny**：只要 symlink 路径或目标路径有一个匹配，就直接阻止
+
+例如：
+
+- 允许：`Read(./project/**)`
+- 拒绝：`Read(~/.ssh/**)`
+- symlink：`./project/key -> ~/.ssh/id_rsa`
+
+则该 symlink 会被阻止：因为目标不满足 allow，而且命中了 deny。
+
+### WebFetch
+
+```text
+WebFetch(domain:example.com)
+```
+
+只匹配发往 `example.com` 的抓取请求。
+
+### MCP
+
+示例：
+
+- `mcp__puppeteer`：匹配 puppeteer server 提供的任意工具
+- `mcp__puppeteer__*`：同样匹配该 server 的全部工具
+- `mcp__puppeteer__puppeteer_navigate`：只匹配其 `puppeteer_navigate` 工具
+
+### Agent（subagents）
+
+你可以用 `Agent(AgentName)` 规则来控制 Claude 能否使用某个 subagent：
+
+- `Agent(Explore)`：匹配 Explore subagent
+- `Agent(Plan)`：匹配 Plan subagent
+- `Agent(my-custom-agent)`：匹配名为 `my-custom-agent` 的自定义 subagent
+
+例如，若要禁用 Explore：
+
+```json
+{
+  "permissions": {
+    "deny": ["Agent(Explore)"]
+  }
+}
+```
+
+你也可以用 `--disallowedTools` CLI 参数达到类似效果。
+
+## 用 hooks 扩展权限
+
+Claude Code hooks 提供了一种方式，让你在运行时通过自定义 shell 命令参与权限判断。当 Claude Code 发起工具调用时，`PreToolUse` hook 会先于权限提示运行。Hook 的输出可以：
+
+- 拒绝此次工具调用
+- 强制弹出提示
+- 跳过提示，允许调用继续
+
+但要特别注意：**hook 的决定不会绕过权限规则本身。**
+
+- deny 和 ask 规则仍然会照常执行
+- 即使 hook 返回 `allow`，若某条 deny 匹配，该调用依然会被拦截
+- 若 ask 匹配，依然会弹出提示
+
+这保证了前文提到的 deny-first 优先级始终成立，包括来自 managed settings 的 deny。
+
+同时，一个“阻断型 hook”甚至会优先于 allow：
+
+- 如果 hook 以退出码 `2` 结束，工具调用会在权限规则求值前就被中止
+
+因此，如果你的目标是“除了少数几类命令，其他 Bash 命令都不要提示”，可以：
+
+1. 在 allow 中加入 `Bash`
+2. 再注册一个 `PreToolUse` hook，专门拦截你想阻止的命令
+
+## 工作目录
+
+默认情况下，Claude 只能访问你启动它时所在目录中的文件。你可以这样扩展：
+
+- 启动时：使用 `--add-dir <path>`
+- 会话中：使用 `/add-dir`
+- 持久配置：在 settings 里设置 `additionalDirectories`
+
+附加目录中的文件会遵循与原工作目录相同的权限规则：
+
+- 它们可在无需提示的情况下被读取
+- 文件编辑权限则遵循当前 permission mode
+
+### 额外目录只扩展文件访问，不等于完整配置根
+
+把一个目录通过 `--add-dir` 加进来，只表示 Claude 可以在那里**读写文件**；它并不会把那个目录视为完整的 `.claude/` 配置根。只有少数配置类型会作为例外被加载。
+
+来自 `--add-dir` 的加载情况如下：
+
+| 配置 | 是否从 `--add-dir` 加载 |
+|---|---|
+| `.claude/skills/` 下的 skills | 是，且支持 live reload |
+| `.claude/settings.json` 中的插件设置 | 仅 `enabledPlugins` 与 `extraKnownMarketplaces` |
+| `CLAUDE.md`、`.claude/rules/`、`CLAUDE.local.md` | 只有设置 `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` 时才加载；若再排除 `local` setting source，则 `CLAUDE.local.md` 也不会加载 |
+
+以下这些配置，仍然只会从当前工作目录及其父目录、`~/.claude/` 和 managed settings 中发现：
+
+- subagents
+- commands
+- output styles
+
+hooks 和其他 `settings.json` 键，则只会从：
+
+- 当前工作目录的 `.claude/`
+- 用户目录 `~/.claude/settings.json`
+- managed settings
+
+中读取，不会沿父目录回溯。
+
+若你想在多个项目之间共享这些配置，推荐方式有三种：
+
+- **用户级配置**：放到 `~/.claude/agents/`、`~/.claude/output-styles/` 或 `~/.claude/settings.json`
+- **插件化**：打包成 plugin 发给团队
+- **从配置所在目录启动 Claude Code**
+
+## 权限与沙箱如何协同
+
+权限（permissions）与沙箱（sandboxing）是互补的两层安全机制：
+
+- **Permissions**：控制 Claude Code 能使用哪些工具、能访问哪些文件或域名；适用于所有工具（Bash、Read、Edit、WebFetch、MCP 等）
+- **Sandboxing**：提供 OS 级的文件系统与网络约束；只作用于 Bash 及其子进程
+
+最佳实践是两者一起用，形成 defense-in-depth：
+
+- deny 规则阻止 Claude **尝试访问**敏感资源
+- sandbox 限制 Bash 即使发生 prompt injection 或决策错误，也无法跨越定义边界去访问资源
+
+具体合并方式：
+
+- 文件系统限制：由 `sandbox.filesystem` 设置与 Read / Edit deny 规则共同决定
+- 网络限制：由 `WebFetch(domain:...)` 权限规则与 sandbox 的 `allowedDomains` / `deniedDomains` 共同决定
+
+当启用 sandbox 且 `autoAllowBashIfSandboxed: true`（默认值）时：
+
+- 被 sandbox 包裹的 Bash 命令会直接运行，不再单独弹出权限提示
+- 即使你配置了 `ask: Bash(*)` 也是如此
+
+因为此时 sandbox 边界本身已经替代了逐命令确认。
+
+但以下情况仍然例外：
+
+- 显式 deny 规则仍然生效
+- 指向 `/`、家目录或关键系统路径的 `rm` / `rmdir` 依然会触发提示
+
+若你希望调整这个行为，可参考官方的 sandbox modes 文档。
+
+## 托管设置
+
+对于需要集中控制 Claude Code 配置的组织，管理员可以部署 **managed settings**。这些策略不能被用户或项目设置覆盖。它们与普通 settings 采用相同格式，可以通过：
+
+- MDM / OS 级策略
+- managed settings files
+- server-managed settings
+
+等方式下发。
+
+### 仅在 managed settings 中生效的设置
+
+下面这些设置只有出现在 managed settings 中才会被读取，放到 user / project settings 里没有效果：
+
+- `allowedChannelPlugins`
+- `allowManagedHooksOnly`
+- `allowManagedMcpServersOnly`
+- `allowManagedPermissionRulesOnly`
+- `blockedMarketplaces`
+- `channelsEnabled`
+- `forceRemoteSettingsRefresh`
+- `pluginTrustMessage`
+- `sandbox.filesystem.allowManagedReadPathsOnly`
+- `sandbox.network.allowManagedDomainsOnly`
+- `strictKnownMarketplaces`
+- `strictPluginOnlyCustomization`
+- `wslInheritsWindowsSettings`
+
+`disableBypassPermissionsMode` 虽然常放在 managed settings 中，但它其实可在任意层级工作；用户也可以自行在个人 settings 里把自己锁出 bypass mode。
+
+对于 Team / Enterprise 计划，组织管理员还可以在 Claude Code admin settings 中统一启用或禁用：
+
+- Remote Control
+- Web sessions
+
+其中 Remote Control 还可通过 `disableRemoteControl` 进行设备级关闭；Web sessions 没有对应的设备级 managed key。
+
+## 设置优先级
+
+权限规则与其他 Claude Code settings 共享同一套优先级体系：
+
+1. Managed settings（任何层都不能覆盖，包括 CLI）
+2. Command line arguments（当前会话临时覆盖）
+3. Local project settings：`.claude/settings.local.json`
+4. Shared project settings：`.claude/settings.json`
+5. User settings：`~/.claude/settings.json`
+
+如果某个工具在任意层被 deny，其他层都无法再 allow 它。例如：
+
+- managed settings 的 deny，不能被 `--allowedTools` 覆盖
+- `--disallowedTools` 则可以在现有策略之上再加限制
+
+嵌入式宿主还可以通过 SDK 的 `managedSettings` 选项额外注入 managed policy；当 `parentSettingsBehavior` 为 `merge` 时，embedder 只能**收紧**策略，不能放松它。
+
+举例：
+
+- 用户设置 allow 了某权限
+- 项目设置 deny 了同一权限
+
+最终结果仍然是 deny 生效。反过来也一样：用户级 deny 也会压过项目级 allow，因为所有来源的 deny 都会先于 allow 被评估。
+
+## 示例配置
+
+官方仓库中提供了一些常见部署场景的 starter settings 配置，可作为起点，再根据你的组织需求调整。
+
+## 另请参阅
+
+- [Settings](https://code.claude.com/docs/en/settings)：完整配置参考，包括权限相关设置项。
+- [Configure auto mode](https://code.claude.com/docs/en/auto-mode)：告诉 auto mode 分类器哪些基础设施是组织可信的。
+- [Sandboxing](https://code.claude.com/docs/en/sandbox)：针对 Bash 的 OS 级文件系统与网络隔离。
+- [Authentication](https://code.claude.com/docs/en/auth)：设置 Claude Code 的用户访问方式。
+- [Security](https://code.claude.com/docs/en/security)：安全防护与最佳实践。
+- [Hooks](https://code.claude.com/docs/en/hooks)：自动化工作流并扩展权限判断。

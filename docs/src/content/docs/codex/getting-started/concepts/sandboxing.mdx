@@ -2,44 +2,335 @@
 title: 沙箱
 description: Codex 如何在 Codex 应用、IDE 和 CLI 中使用沙箱
 sidebar:
-  order: 5
+  order: 4
 ---
 
-沙箱是一个边界，让 Codex 能够自主行动，同时避免对其赋予对您机器的无限制访问权限。
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
-当 Codex 运行本地命令时，这些命令会在一个受限环境中执行。该环境定义了 Codex 可以自主做什么——它可以修改哪些文件，命令是否可以使用网络。
+Sandbox（沙盒）是一个边界，它让 Codex 能够自主运行，同时又不会让它获得对你机器的无限制访问权限。当 Codex 在 Codex 应用、IDE 扩展或 CLI 中运行本地命令时，这些命令会在一个受限环境中执行，而不是默认以完全访问权限运行。
 
+这个环境定义了 Codex 可以自主完成哪些事情，例如它可以修改哪些文件，以及命令是否能够使用网络。当任务保持在这些边界之内时，Codex 可以持续执行而无需停下来请求确认。当它需要超出这些边界时，Codex 会回退到审批流程（approval flow）。
+
+:::notee
 沙箱和审批是两种不同的控制机制，协同工作。沙箱定义技术边界。审批策略决定 Codex 何时必须停下来并在跨越边界前请求许可。
+:::
 
-## 沙箱的作用
+## 沙箱能做什么
 
-- 适用于生成的命令，而不仅仅是文件操作
-- 使用平台原生的强制机制（macOS Seatbelt、Windows 沙箱、Linux/WSL2 bubblewrap）
+Sandbox（沙盒）适用于所生成（spawned）的命令，而不仅仅是 Codex 内置的文件操作。如果 Codex 运行 git、包管理器或测试运行器等工具，这些命令也会继承相同的 sandbox 边界。 
 
-## 为什么重要
+Codex 在每个操作系统上使用平台原生的强制执行机制。macOS、Linux、WSL2 和原生 Windows 上的实现方式不同，但所有平台的核心思想一致：为 agent 提供一个受限的工作空间，使常规任务能够在明确边界内自主运行。 
 
-- 减少审批疲劳
-- 为智能体工作提供更清晰的信任模型
+## 为什么很重要
 
-## 前提条件
+Sandbox 能减少 approval fatigue（审批疲劳）。Codex 不需要对每一个低风险命令都请求你的确认，而是可以在你已经批准的边界内读取文件、修改内容以及运行常规项目命令。 
 
-- **macOS**：开箱即用
-- **Windows**：使用原生 Windows 沙箱（PowerShell）或 Linux 沙箱（WSL2）
-- **Linux/WSL2**：先安装 bubblewrap（`sudo apt install bubblewrap`）
+它还为 agentic work（代理式工作）提供了更清晰的信任模型。你不仅是在信任 agent 的意图，还在信任 agent 运行于受强制约束的边界之内。这使你更容易让 Codex 独立工作，同时仍然知道它何时会停下来请求帮助。 
 
-## 如何控制
+## 入门
 
-- Codex 应用和 IDE 中的权限选择器
-- CLI 中的 `/permissions` 命令
+当你使用默认权限模式时，Codex 会自动启用 sandboxing（沙盒化）。 
 
-## 沙箱模式
+### 先决条件
 
-- `read-only`（只读）
-- `workspace-write`（工作区写入，默认）
-- `danger-full-access`（危险-完全访问）
+在 macOS 上，sandboxing 可直接通过内置的 Seatbelt framework 工作，无需额外配置。 
 
-## 审批策略
+在 Windows 上，当你在 PowerShell 中运行时，Codex 使用原生 [Windows sandbox](https://developers.openai.com/codex/windows#windows-sandbox)；当你在 WSL2 中运行时，则使用 Linux sandbox 实现。 
 
-- `untrusted`（不信任）
-- `on-request`（按需请求，默认）
-- `never`（从不）
+在 Linux 和 WSL2 上，请先使用包管理器安装 `bubblewrap`： 
+
+<Tabs>
+  <TabItem label="Ubuntu/Debian">
+```bash
+sudo apt install bubblewrap
+```
+  </TabItem>
+  <TabItem label="Fedora">
+```bash  
+sudo dnf install bubblewrap
+```
+  </TabItem>
+</Tabs>
+
+Codex 会使用 `PATH` 中找到的第一个 `bwrap` 可执行文件。如果系统中不存在 `bwrap` 可执行文件，Codex 会退回到一个内置 helper，但该 helper 需要支持非特权用户命名空间（unprivileged user namespace creation）。安装提供 `bwrap` 的发行版软件包可以确保该配置可靠工作。 
+
+当缺少 `bwrap`，或 helper 无法创建所需的用户命名空间时，Codex 会在启动时显示警告。在那些限制该 AppArmor 设置的发行版上，推荐加载 `bwrap` 的 AppArmor profile，这样 `bwrap` 就能继续工作，而无需全局禁用该限制。 
+
+:::note
+Ubuntu AppArmor note：在 Ubuntu 25.04 上，从 Ubuntu 软件仓库安装 bubblewrap 后，通常无需额外的 AppArmor 配置即可正常工作。`bwrap-userns-restrict` profile 包含在 apparmor 包中的：
+
+`/etc/apparmor.d/bwrap-userns-restrict`。 
+
+在 Ubuntu 24.04 上，即使安装了 bubblewrap，Codex 仍可能警告无法创建所需的用户命名空间。请复制并加载额外 profile： 
+
+```bash
+sudo apt update
+sudo apt install apparmor-profiles apparmor-utils
+sudo install -m 0644 \
+  /usr/share/apparmor/extra-profiles/bwrap-userns-restrict \
+  /etc/apparmor.d/bwrap-userns-restrict
+sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
+```
+
+`apparmor_parser -r` 会在无需重启的情况下将 profile 加载到内核中。你也可以重新加载所有 AppArmor profiles： 
+
+```bash
+sudo systemctl reload apparmor.service
+```
+
+如果该 profile 不可用，或无法解决问题，你可以通过以下方式禁用 AppArmor 对非特权用户命名空间的限制： 
+
+```bash
+sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+```
+:::
+
+## 如何控制它
+
+大多数人会从产品中的权限控制开始。 
+
+在 Codex app 和 IDE 中，你可以通过 composer 或聊天输入框下方的权限选择器来选择模式。该选择器允许你使用 Codex 的默认权限、切换到 full access（完全访问），或者使用你的自定义配置。 
+
+
+
+### Default permissions
+
+Codex 可以读取并编辑当前 workspace（工作区）中的文件，并运行常规本地命令。在使用互联网或超出 workspace 边界前，它会先请求确认。 
+
+* Sandbox：workspace-write
+* Approvals policy：on-request
+* Reviewer：user
+
+### Auto-review
+
+Auto-review 保持与 Default permissions 相同的 `workspace-write` sandbox（沙盒），但符合条件的 `on-request` approval request（审批请求）会被路由到 auto-reviewer，而不是弹出 UI 窗口进行手动审批。有关 auto-review 的更多细节，请参阅 [相关说明](/codex/concepts/sandboxing/auto-review)。
+
+* Sandbox：workspace-write
+* Approvals policy：on-request
+* Reviewer：auto_review
+
+### Full access
+
+Codex 可以在不请求批准的情况下编辑 workspace（工作区）之外的文件，并使用互联网。仅当你希望 Codex 拥有完整机器访问权限时才使用此模式。
+
+* Sandbox：danger-full-access
+* Approvals policy：never
+* Reviewer：不适用
+
+### Custom (config.toml)
+
+Codex 使用你本地配置中的 permissions profile（权限配置文件）和 sandbox 设置。这是你定义比内置预设更严格或更宽松默认行为的地方。
+
+* Sandbox：Configured in profile
+* Approvals policy：Configured in profile
+* Reviewer：Configured in profile
+
+常见的自定义设置包括 `default_permissions`、`sandbox_mode`、`approval_policy` 以及命名的 `[permissions.<name>]` profiles。
+
+:::note
+在 CLI 中，可以使用 `/permissions` 在会话期间切换模式。 
+:::
+
+## Configure defaults
+
+如果你希望 Codex 每次都以相同方式启动，可以使用自定义配置。Codex 会将这些默认设置保存在 `config.toml`（本地设置文件）中。`Config basics` 说明了它的工作方式，而 `Configuration reference` 文档则记录了 `sandbox_mode`、`approval_policy`、`approvals_reviewer` 和 `sandbox_workspace_write.writable_roots` 等配置项的具体键值。使用这些设置，你可以决定：Codex 默认拥有多少自主性、它可以写入哪些目录、何时应暂停以请求批准，以及由谁审核符合条件的批准请求。 
+
+从高层次来看，常见的 sandbox 模式包括： 
+
+* `read-only`：Codex 可以检查文件，但不能编辑文件，也不能在未经批准的情况下运行命令。
+* `workspace-write`：Codex 可以读取文件、在 workspace 内编辑文件，并在该边界内运行常规本地命令。这是本地工作的默认低摩擦模式。
+* `danger-full-access`：Codex 在无 sandbox 限制的情况下运行。这会移除文件系统与网络边界，仅应在你希望 Codex 拥有完全访问权限时使用。 
+
+常见的 approval policy（审批策略）包括： 
+
+* `untrusted`：Codex 在运行不属于其 trusted set（可信集合）的命令前会请求批准。
+* `on-request`：Codex 默认在 sandbox 内工作，并在需要超出边界时请求批准。
+* `never`：Codex 不会停下来请求批准。 
+
+当 approvals 是交互式时，你还可以通过 `approvals_reviewer` 选择由谁审核： 
+
+* `user`：审批提示会展示给用户。这是默认值。
+* `auto_review`：符合条件的审批提示会交由 reviewer agent 自动审核（参见 Auto-review）。 
+
+Full access 指的是同时使用： 
+
+```toml
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
+```
+
+相比之下，风险较低的本地自动化预设是： 
+
+```toml
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+```
+
+或者使用对应的 CLI 参数：
+
+```bash
+--sandbox workspace-write --ask-for-approval on-request
+```
+
+然后你可以保持：
+
+```toml
+approvals_reviewer = "user"
+```
+
+用于手动审批，或者设置：
+
+```toml
+approvals_reviewer = "auto_review"
+```
+
+用于自动审批审核。 
+
+如果你需要 Codex 在多个目录之间工作，writable roots（可写根目录）允许你扩展它可以修改的位置，而无需完全移除 sandbox。如果你需要更宽或更窄的信任边界，应该调整默认 sandbox 模式与 approval policy，而不是依赖一次性的例外。 
+
+当某个工作流需要特定例外时，请使用 rules（规则）。Rules 允许你对 sandbox 外部的命令前缀进行 allow（允许）、prompt（提示）或 forbid（禁止），这通常比广泛扩展访问权限更合适。关于 app 中 approvals 与 sandbox 行为的高级概览，请参阅 Codex app features；关于 IDE 特定设置入口，请参阅 Codex IDE extension settings。 
+
+Automatic review（自动审核）即使可用，也不会改变 sandbox 边界。它只是该边界上 approval request（审批请求）的一种 `approvals_reviewer`，例如 sandbox 升级、被阻止的网络访问，或仍需批准的有副作用工具调用。已经被 sandbox 允许的操作无需额外审核即可运行。关于 reviewer 生命周期、触发类型、拒绝语义及配置细节，请参阅 Auto-review。 
+
+平台细节位于各平台专属文档中。关于原生 Windows 的设置、行为与故障排查，请参阅 Windows。关于 sandboxing 与 approvals 的管理员要求及组织级限制，请参阅 [Agent approvals & security](/codex/administration/agent-approvals-security)。 
+
+## Auto-review
+
+Auto-review 用一个独立的 reviewer agent（审核代理）替代了 sandbox 边界上的手动审批。主 Codex agent 仍然运行在相同的 sandbox 中，具有相同的 approval policy（审批策略）以及相同的网络与文件系统限制。不同之处在于：是谁来审核符合条件的 escalation request（权限提升请求）。 
+
+:::note
+Auto-review 仅在 approvals（审批）是交互式时生效。实际上，这意味着 `approval_policy = "on-request"`，或者使用仍会显示相关 prompt category（提示类别）的细粒度审批策略。当 `approval_policy = "never"` 时，没有任何内容需要审核。 
+:::
+
+## Auto-review 的工作方式
+
+从高层次来看，其流程如下： 
+
+1. 主 agent 在 `read-only` 或 `workspace-write` 中工作。
+2. 当它需要跨越 sandbox 边界时，会请求批准。
+3. 如果 `approvals_reviewer = "auto_review"`，Codex 会将该 approval request 路由到一个独立 reviewer agent，而不是暂停等待人工审批。
+4. reviewer 决定该操作是否应被执行，并返回理由（rationale）。
+5. 如果操作被批准，则继续执行；如果被拒绝，则会指示主 agent 找到一个实质上更安全的路径，或者停止并询问用户。 
+
+Auto-review 是 reviewer 的替换，而不是权限授予。它不会扩展 `writable_roots`、启用网络访问或削弱受保护路径。它只改变 Codex 处理那些本来就需要批准的操作的方式。 
+
+## 何时触发
+
+Auto-review 会审核那些原本需要暂停等待人工审批的 approval requests。这些包括： 
+
+* 请求提升 sandbox 权限的 shell 或 exec 工具调用。
+* 被当前 sandbox 或 policy 阻止的网络请求。
+* 超出允许 writable roots 的文件编辑。
+* 基于其 tool annotations（工具注解）或配置审批模式而需要批准的 MCP 或 app 工具调用。
+* Browser Use 访问新的站点或域名。 
+
+Auto-review 不会用于 sandbox 内已经允许的常规操作。如果某个命令可以在当前 `sandbox_mode` 下运行，或者某个工具调用符合允许的 policy，则主 agent 会继续执行而无需审核。 
+
+Computer Use 是一个单独情况。Computer Use 的 app approvals 仍然会直接展示给用户，因此 Auto-review 不会替代这些应用级提示。 
+
+## Auto-review 会阻止什么
+
+从高层次来看，Auto-review 被设计为阻止如下操作： 
+
+* 将私有数据、敏感信息或凭据发送到不可信目标
+* 探测凭据、token、cookie 或 session 信息
+* 大范围或持久性的安全削弱
+* 具有重大不可逆损害风险的破坏性操作 
+
+具体策略位于开源 Codex 仓库中：
+
+* [policy_template.md](https://github.com/openai/codex/blob/main/codex-rs/core/src/guardian/policy_template.md)
+* [policy.md](https://github.com/openai/codex/blob/main/codex-rs/core/src/guardian/policy.md)
+
+该策略可以通过企业级 `guardian_policy_config` 或用户本地的 `[auto_review].policy` 进行自定义。 
+
+## Reviewer 能看到什么
+
+Reviewer 本身也是一个 Codex agent，但它的任务比主 agent 更窄：判断某个具体的 boundary-crossing action（跨越边界的操作）是否应该执行。 
+
+Reviewer 能看到一个紧凑版 transcript（记录）以及精确的 approval request。这通常包括用户消息、assistant 更新、相关工具调用及其输出，以及当前被提议进行审批的操作。它也可以执行只读检查来收集缺失上下文，但这种情况较少。 
+
+隐藏的 assistant reasoning（推理）不会包含在内。Auto-review 看到的是保留的 conversation items 与 tool evidence，而不是私有 chain-of-thought。 
+
+## 拒绝与失败行为
+
+明确的拒绝不会被当作普通 sandbox 错误处理。Codex 会将审核理由返回给主 agent，并附加更强的指令： 
+
+* 不要通过变通方法、间接执行或绕过 policy 来追求相同结果。
+* 仅在存在实质上更安全替代方案时继续。
+* 否则，停止并询问用户。 
+
+Codex 还会在每个 turn 上应用 rejection circuit breaker（拒绝熔断机制）。在当前开源实现中：
+
+* 连续 `3` 次拒绝
+  或
+* 在同一 turn 最近 `50` 次审核中累计 `10` 次拒绝
+
+都会中断该 turn。 
+
+任何非拒绝结果都会重置连续拒绝计数器。当熔断器触发时，Codex 会发出警告，并通过 interrupt（中断）终止当前 turn，而不是让 agent 不断循环尝试更多 escalation。 
+
+Timeout（超时）会与显式拒绝分开处理，并且主 agent 会被告知：单独的 timeout 并不意味着该操作不安全。 
+
+对于被拒绝的操作，还存在一个显式 override path（覆盖路径）。在当前开源 TUI 中，运行 `/approve` 可打开 **Auto-review Denials** 选择器，然后可以选择一个最近被拒绝的操作，为其授予一次重试批准。Codex 每个线程最多记录最近 10 次拒绝。该批准范围非常狭窄：
+
+* 仅适用于该被拒绝的精确操作，而不是类似未来操作；
+* 仅在同一上下文中记录一次重试；
+* 重试仍然会经过 Auto-review。 
+
+在底层，Codex 会为该精确操作注入一个 developer-scoped approval marker（开发者范围审批标记）。Reviewer 随后会将这个显式用户 override 作为上下文，但仍然会遵循 policy；如果 policy 认为用户不能覆盖该类拒绝，则仍然可能再次拒绝。 
+
+## 配置
+
+有关设置细节，请参阅：[Managed configuration](https://developers.openai.com/codex/administration/enterprise/managed-configuration#configure-automatic-review-policy)。 
+
+默认 reviewer policy 位于开源 Codex 仓库：`core/src/guardian/policy.md`。企业可以使用 managed requirements 中的 `guardian_policy_config` 替换其中的 tenant-specific section（租户专属部分）。个人用户也可以在自己的 `config.toml` 中设置本地：
+
+```toml
+[auto_review]
+policy = """
+YOUR POLICY GOES HERE
+"""
+```
+
+但 managed requirements 的优先级更高。 
+
+如果你想自定义 policy，请先复制完整默认 policy 文本，然后根据自身风险模型逐步修改。 
+
+## 在不削弱安全性的情况下减少审核量
+
+当 sandbox 已经覆盖你的常见安全工作流时，Auto-review 效果最佳。如果太多普通操作都需要审核，应该先修正边界，而不是不断让 reviewer 批准这些噪声 escalation。 
+
+实践中，收益最高的改动包括： 
+
+* 为 scratch 目录或你有意使用的相邻 repo 添加狭窄范围的 `writable_roots`
+* 添加精细范围的 [prefix rules（前缀规则）](https://developers.openai.com/codex/configuration/rules)
+
+优先使用精确命令前缀，例如：
+
+```text
+["cargo", "test"]
+["pnpm", "run", "lint"]
+```
+
+而不是使用宽泛模式，例如：
+
+```text
+["python"]
+["curl"]
+```
+
+宽泛规则往往会抹除 Auto-review 本应保护的边界。 
+
+默认情况下，Auto-review session transcripts 会保存在：`~/.codex/sessions`。因此你可以先让 Codex 分析过去的流量，再调整 policy 或 permissions。 
+
+## 限制
+
+Auto-review 改进了长时间 agentic work（代理式工作）的默认运行模式，但它并不是确定性的安全保证。 
+
+* 它只会审核那些请求跨越边界的操作。
+* 它仍然可能出错，特别是在对抗性或异常场景下。
+* 它应作为良好 sandbox 设计、监控以及组织级 policy 的补充，而不是替代品。 
+
+有关研究背景与公开评测结果，请参阅：`Alignment Research post on Auto-review`。 
+

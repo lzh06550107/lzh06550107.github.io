@@ -1,6 +1,8 @@
 ---
 title: Codex 模型
 description: 了解驱动 Codex 的 AI 模型
+sidebar:
+  order: 7
 ---
 
 ## Codex 模型
@@ -11,7 +13,7 @@ description: 了解驱动 Codex 的 AI 模型
 
 ### gpt-5.5
 
-![gpt-5.5](/images/codex/models/gpt-5.5.jpg)
+![gpt-5.5](/images/codex/getting-started/concepts/models/gpt-5.5.jpg)
 
 最新的前沿模型，适用于复杂编程、计算机使用、知识工作和研究。
 
@@ -21,7 +23,7 @@ codex -m gpt-5.5
 
 ### gpt-5.4
 
-![gpt-5.4](/images/codex/models/gpt-5.4.jpg)
+![gpt-5.4](/images/codex/getting-started/concepts/models/gpt-5.4.jpg)
 
 旗舰前沿模型，拥有业界领先的编码能力。
 
@@ -31,7 +33,7 @@ codex -m gpt-5.4
 
 ### gpt-5.4-mini
 
-![gpt-5.4-mini](/images/codex/models/gpt-5.4-mini.jpg)
+![gpt-5.4-mini](/images/codex/getting-started/concepts/models/gpt-5.4-mini.jpg)
 
 快速高效的模型，适用于响应式编码任务和子代理。
 
@@ -41,7 +43,7 @@ codex -m gpt-5.4-mini
 
 ### gpt-5.3-codex
 
-![gpt-5.3-codex](/images/codex/models/gpt-5.3-codex.jpg)
+![gpt-5.3-codex](/images/codex/getting-started/concepts/models/gpt-5.3-codex.jpg)
 
 业界领先的编码模型，适用于复杂软件工程。
 
@@ -51,7 +53,7 @@ codex -m gpt-5.3-codex
 
 ### gpt-5.3-codex-spark
 
-![gpt-5.3-codex-spark](/images/codex/models/gpt-5.3-codex-spark.jpg)
+![gpt-5.3-codex-spark](/images/codex/getting-started/concepts/models/gpt-5.3-codex-spark.jpg)
 
 纯文本研究预览版，针对近乎实时的编码迭代进行了优化。需要 ChatGPT Pro。
 
@@ -59,32 +61,47 @@ codex -m gpt-5.3-codex
 codex -m gpt-5.3-codex-spark
 ```
 
-## 其他模型
+:::note
+对于 Codex 中的大多数任务，建议从 gpt-5.5 开始。它在复杂编码、计算机操作、知识工作以及研究工作流方面表现最强。当前，当你使用 ChatGPT 登录或通过 API-key 认证时，可以在 Codex 中使用 GPT-5.5。
 
-### gpt-5.2
+当你需要更快、更低成本的轻量编码任务或子代理时，可以使用
 
-![gpt-5.2](/images/codex/models/gpt-5.2.jpg)
+gpt-5.4-mini
 
-上一代通用模型，适用于编码和智能体任务。
+对于 ChatGPT Pro 订阅用户，gpt-5.3-codex-spark 模型以研究预览形式提供，针对接近即时的实时编码迭代进行了优化。
+:::
 
-```bash
-codex -m gpt-5.2
-```
+## 其它模型
 
-## 配置默认模型
+当你使用 ChatGPT 登录时，Codex 在上述列出的模型上表现最佳。
 
-在 `config.toml` 中配置默认本地模型：
+你也可以将 Codex 指向任何支持 [Chat Completions](https://platform.openai.com/docs/api-reference/chat) 或 [Responses API](https://platform.openai.com/docs/api-reference/responses) 的模型和提供商，以满足你的特定使用场景。
 
-```toml
+:::note
+对 Chat Completions API 的支持已被弃用，并将在未来的 Codex 版本中移除。
+:::
+
+## 配置模型
+
+### 配置你的默认本地模型
+
+Codex CLI 和 IDE 扩展使用相同的 `config.toml` [配置文件](https://developers.openai.com/codex/configuration/config-basic)。要指定模型，请在配置文件中添加一个 model 条目。如果你未指定模型，Codex app、CLI 或 IDE 扩展将默认使用推荐模型。
+
+```text
 model = "gpt-5.5"
 ```
 
-## 临时切换模型
+### 临时选择不同的本地模型
 
-- **CLI**：使用 `/model` 命令
-- **IDE**：使用模型选择器
-- **命令行标志**：使用 `--model` 或 `-m` 标志
+在 Codex CLI 中，你可以在一个活动线程中使用 `/model` 命令来更改模型。在 IDE 扩展中，你可以使用输入框下方的模型选择器来选择模型。
 
-```bash
+要使用特定模型启动一个新的 Codex CLI 线程，或为 `codex exec` 指定模型，可以使用 `--model` / `-m` 参数：
+
+```text
 codex -m gpt-5.5
 ```
+
+### 为云端任务选择模型
+
+目前，你无法更改 Codex 云端任务的默认模型。
+

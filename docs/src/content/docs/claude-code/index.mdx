@@ -1,0 +1,184 @@
+---
+title: Claude Code 文档
+description: Claude Code 文档入口，包含概览、快速上手、核心概念、使用指南与平台集成内容（含 Web 入门/参考/Routines/Ultrareview、Desktop 入门/参考/Scheduled tasks/更新日志、Chrome 扩展、Computer use、VS Code、JetBrains IDEs、Code Review、GitHub Actions、GitHub Enterprise Server、GitLab CI/CD 与 Slack）。
+editUrl: false
+sidebar:
+  hidden: true
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Claude Code 是 Anthropic 提供的代理式编程工具，可在终端、IDE、桌面应用和浏览器中工作。
+
+<CardGrid>
+  <Card title="概览" icon="star">
+    了解 Claude Code 是什么、能做什么，以及如何在不同环境中开始使用。
+
+    [查看概览](/claude-code/getting-started/overview/)
+  </Card>
+  <Card title="快速开始" icon="rocket">
+    按步骤完成安装、登录、首次提问、代码修改与 Git 工作流。
+
+    [开始上手](/claude-code/getting-started/quickstart/)
+  </Card>
+  <Card title="更新日志" icon="open-book">
+    查看 Claude Code 最近版本的新功能、改进与问题修复记录。
+
+    [查看更新日志](/claude-code/getting-started/changelog/)
+  </Card>
+  <Card title="工作原理" icon="code">
+    了解代理式循环、工具、上下文窗口、会话机制与权限模式如何协同工作。
+
+    [查看核心概念](/claude-code/core-concepts/how-claude-code-works/)
+  </Card>
+  <Card title="扩展能力" icon="plus">
+    理解 CLAUDE.md、skills、MCP、subagents、hooks、插件与插件市场分别适合什么场景。
+
+    [查看扩展能力](/claude-code/core-concepts/extend-claude-code/)
+  </Card>
+  <Card title=".claude 目录" icon="box">
+    浏览 Claude Code 会从项目目录和 ~/.claude 中读取哪些文件，以及哪些数据会落盘保存。
+
+    [查看目录结构](/claude-code/core-concepts/explore-the-claude-directory/)
+  </Card>
+  <Card title="上下文窗口" icon="starlight">
+    了解会话中哪些内容会进入上下文、compact 后什么会保留，以及如何检查上下文占用。
+
+    [查看上下文窗口](/claude-code/core-concepts/explore-the-context-window/)
+  </Card>
+  <Card title="提示缓存" icon="setting">
+    理解哪些动作会使缓存失效、哪些不会，以及如何查看缓存命中与 TTL 行为。
+
+    [查看提示缓存](/claude-code/core-concepts/prompt-caching/)
+  </Card>
+  <Card title="存储说明与记忆" icon="document">
+    学会组织 CLAUDE.md、.claude/rules 与自动记忆，让 Claude 跨会话持续保留项目知识。
+
+    [查看说明与记忆](/claude-code/use-claude-code/store-instructions-and-memories/)
+  </Card>
+  <Card title="权限模式" icon="shield">
+    了解 allow / ask / deny、默认模式、规则语法、hooks 与沙箱之间如何协同工作。
+
+    [查看权限配置](/claude-code/use-claude-code/permission-modes/)
+  </Card>
+  <Card title="管理会话" icon="list">
+    学会恢复、命名、分叉、切换与导出 Claude Code 会话，提升多任务并行效率。
+
+    [查看会话管理](/claude-code/use-claude-code/manage-sessions/)
+  </Card>
+  <Card title="常见工作流" icon="pencil">
+    查看探索代码库、修 Bug、重构、测试、PR、文档与自动化任务的常用操作配方。
+
+    [查看常见工作流](/claude-code/use-claude-code/common-workflows/)
+  </Card>
+  <Card title="Prompt 库" icon="open-book">
+    复制现成 prompts 作为起点，按发现、设计、构建、调试、发布和自动化等场景快速上手。
+
+    [查看 Prompt 库](/claude-code/use-claude-code/prompt-library/)
+  </Card>
+  <Card title="最佳实践" icon="star">
+    系统理解验证、计划、上下文控制、CLAUDE.md、subagents、并行会话与自动化扩展策略。
+
+    [查看最佳实践](/claude-code/use-claude-code/best-practices/)
+  </Card>
+  <Card title="平台与集成概览" icon="globe">
+    比较 CLI、Desktop、VS Code、JetBrains、Web、Mobile 与 Chrome、Slack、CI/CD 等连接方式。
+
+    [查看平台与集成概览](/claude-code/platforms-and-integrations/overview/)
+  </Card>
+  <Card title="Remote Control" icon="mobile">
+    了解如何从手机或浏览器继续本地会话，以及它的连接方式、安全模型与限制。
+
+    [查看 Remote Control](/claude-code/platforms-and-integrations/remote-control/)
+  </Card>
+  <Card title="Claude Code on the web 入门" icon="rocket">
+    从 `claude.ai/code` 开始连接 GitHub、创建云环境、提交首个任务，并处理常见初始化问题。
+
+    [查看 Web 入门](/claude-code/platforms-and-integrations/claude-code-on-the-web/get-started/)
+  </Card>
+  <Card title="Claude Code on the web 参考" icon="globe">
+    了解云端会话的 GitHub 接入、环境缓存、网络访问、任务迁移与 Auto-fix PR。
+
+    [查看 Web 参考](/claude-code/platforms-and-integrations/claude-code-on-the-web/reference/)
+  </Card>
+  <Card title="Routines" icon="setting">
+    把 prompt、仓库、连接器与触发器封装成自动化工作流，按计划、API 或 GitHub 事件运行。
+
+    [查看 Routines](/claude-code/platforms-and-integrations/claude-code-on-the-web/routines/)
+  </Card>
+  <Card title="Plan in the cloud" icon="open-book">
+    用 Ultraplan 在云端起草计划、行内审阅方案，再决定留在网页执行还是回传终端。
+
+    [查看云端规划](/claude-code/platforms-and-integrations/claude-code-on-the-web/plan-in-the-cloud/)
+  </Card>
+  <Card title="Ultrareview" icon="warning">
+    在合并前用云端多智能体深度审查发现并验证真实 Bug，获得更高置信度的 review 结果。
+
+    [查看 Ultrareview](/claude-code/platforms-and-integrations/claude-code-on-the-web/ultrareview/)
+  </Card>
+  <Card title="Desktop 入门" icon="rocket">
+    安装 Claude Desktop、进入 Code 标签页，并启动第一个 Local、Remote 或 SSH 编程会话。
+
+    [查看 Desktop 入门](/claude-code/platforms-and-integrations/claude-code-on-desktop/get-started/)
+  </Card>
+  <Card title="Desktop 参考" icon="box">
+    查看 Desktop Code 标签页中的并行会话、预览、diff 审查、SSH / Remote 环境与企业配置。
+
+    [查看 Desktop 参考](/claude-code/platforms-and-integrations/claude-code-on-desktop/reference/)
+  </Card>
+  <Card title="Scheduled tasks" icon="setting">
+    让 Claude Desktop 在本机按计划自动启动新会话，执行代码审查、依赖巡检与定时报表。
+
+    [查看 Scheduled tasks](/claude-code/platforms-and-integrations/claude-code-on-desktop/scheduled-tasks/)
+  </Card>
+  <Card title="Desktop 更新日志" icon="open-book">
+    追踪 Desktop 中 Claude Code 相关能力的版本变化、修复项与 scheduled tasks / SSH 等功能演进。
+
+    [查看 Desktop 更新日志](/claude-code/platforms-and-integrations/claude-code-on-desktop/desktop-changelog/)
+  </Card>
+  <Card title="Chrome 扩展（Beta）" icon="code">
+    把 Claude Code 接到 Chrome / Edge，直接测试网页、读控制台、填表和抓取数据。
+
+    [查看 Chrome 扩展](/claude-code/platforms-and-integrations/chrome-extension-beta/)
+  </Card>
+  <Card title="Computer use（预览）" icon="warning">
+    让 Claude 在 macOS CLI 中直接看到屏幕、点击应用、驱动模拟器与复现 GUI 问题。
+
+    [查看 Computer use](/claude-code/platforms-and-integrations/computer-use-preview/)
+  </Card>
+  <Card title="Visual Studio Code" icon="code">
+    用官方扩展把 Claude Code 深度嵌入 VS Code，获得图形面板、@ 引用、diff 审查与多会话标签页。
+
+    [查看 VS Code 集成](/claude-code/platforms-and-integrations/visual-studio-code/)
+  </Card>
+  <Card title="JetBrains IDEs" icon="box">
+    在 IntelliJ、PyCharm、WebStorm 等 JetBrains IDE 中使用插件，实现 diff、选区与诊断共享。
+
+    [查看 JetBrains 集成](/claude-code/platforms-and-integrations/jetbrains-ides/)
+  </Card>
+  <Card title="Code Review" icon="warning">
+    在 GitHub PR 中启用 Claude 的多智能体自动审查，发现逻辑错误、安全问题与回归风险。
+
+    [查看 Code Review](/claude-code/platforms-and-integrations/code-review/)
+  </Card>
+  <Card title="GitHub Actions" icon="setting">
+    用 `@claude`、prompt 与 skills 把 GitHub issue、PR 与定时任务转成自动化编码工作流。
+
+    [查看 GitHub Actions](/claude-code/platforms-and-integrations/github-actions/)
+  </Card>
+  <Card title="GitHub Enterprise Server" icon="box">
+    将 Claude Code 接到自托管 GHES，支持 Web 会话、Code Review 与内部插件市场。
+
+    [查看 GHES 集成](/claude-code/platforms-and-integrations/github-enterprise-server/)
+  </Card>
+  <Card title="GitLab CI/CD" icon="setting">
+    在 GitLab runner 中运行 Claude Code，把 issue、MR 评论和企业云凭据接入自动化流水线。
+
+    [查看 GitLab CI/CD](/claude-code/platforms-and-integrations/gitlab-ci-cd/)
+  </Card>
+  <Card title="Claude Code in Slack" icon="globe">
+    在 Slack 频道中 `@Claude` 直接发起编码任务，把讨论上下文路由成 Claude Code Web 会话。
+
+    [查看 Slack 集成](/claude-code/platforms-and-integrations/claude-code-in-slack/)
+  </Card>
+</CardGrid>

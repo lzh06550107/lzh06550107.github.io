@@ -1,0 +1,474 @@
+---
+title: 常见工作流
+description: 使用 Claude Code 进行代码库探索、排查 Bug、重构、测试、文档编写、并行会话与自动化处理的常见工作方式。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+# 常见工作流
+
+使用 Claude Code 进行代码库探索、排查 Bug、重构、测试、文档编写、并行会话与自动化处理的常见工作方式。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+本页整理了一组适用于日常开发的简短配方。如果你想看更高层的提示方式和上下文管理方法，请参见 [最佳实践](/claude-code/use-claude-code/best-practices/)。
+
+本页涵盖：
+
+- 用于探索代码、修 Bug、重构、测试、PR 和文档工作的 prompt recipes
+- 如何恢复之前的对话，让任务跨多次坐席连续进行
+- 如何结合 worktree 运行并行会话，避免并发修改互相冲突
+- 如何先做计划再落盘修改
+- 如何把研究工作委托给 subagent，保持主上下文干净
+- 如何把 Claude 接入脚本、CI 和批处理流程
+
+## Prompt recipes
+
+下面这些 prompt 模式适用于日常任务：探索陌生代码、调试、重构、写测试、创建 PR 等。它们在任何 Claude Code 使用界面里都适用，你只需要把措辞换成自己项目的上下文。
+
+### 理解新的代码库
+
+#### 快速获得代码库概览
+
+假设你刚加入一个新项目，需要快速理解它的结构。
+
+1. 进入项目根目录
+
+```bash
+cd /path/to/project
+```
+
+2. 启动 Claude Code
+
+```bash
+claude
+```
+
+3. 请求一个高层概览
+
+```text
+give me an overview of this codebase
+```
+
+4. 继续深入具体组件
+
+```text
+explain the main architecture patterns used here
+
+what are the key data models?
+
+how is authentication handled?
+```
+
+**提示：**
+
+- 先从宽泛问题开始，再逐步缩小到具体模块
+- 可以询问项目中的编码约定和常见模式
+- 也可以让 Claude 帮你整理一份项目术语表
+
+#### 找到相关代码
+
+假设你需要定位与某个功能有关的代码。
+
+1. 让 Claude 找相关文件
+
+```text
+find the files that handle user authentication
+```
+
+2. 询问这些组件如何协作
+
+```text
+how do these authentication files work together?
+```
+
+3. 追踪执行流程
+
+```text
+trace the login process from front-end to database
+```
+
+**提示：**
+
+- 明确告诉 Claude 你在找什么
+- 尽量使用项目内部已经存在的领域语言
+- 为你的语言安装 code intelligence plugin，可以让 Claude 更精确地进行“跳转到定义”和“查找引用”
+
+#### 高效修复 Bug
+
+假设你遇到了错误信息，需要找到并修复其根源。
+
+1. 把错误告诉 Claude
+
+```text
+I'm seeing an error when I run npm test
+```
+
+2. 让它提出修复思路
+
+```text
+suggest a few ways to fix the @ts-ignore in user.ts
+```
+
+3. 要求它应用修复
+
+```text
+update user.ts to add the null check you suggested
+```
+
+**提示：**
+
+- 告诉 Claude 复现问题的命令，并尽量附上 stack trace
+- 说明重现步骤
+- 告诉它这个错误是偶发性的还是稳定复现的
+
+#### 重构代码
+
+假设你需要把老代码升级为现代模式与实践。
+
+1. 识别要重构的旧代码
+
+```text
+find deprecated API usage in our codebase
+```
+
+2. 获取重构建议
+
+```text
+suggest how to refactor utils.js to use modern JavaScript features
+```
+
+3. 安全应用修改
+
+```text
+refactor utils.js to use ES2024 features while maintaining the same behavior
+```
+
+4. 验证重构结果
+
+```text
+run tests for the refactored code
+```
+
+**提示：**
+
+- 可以让 Claude 顺便解释现代写法的好处
+- 如果需要兼容旧行为，明确要求保持向后兼容
+- 重构应尽量拆成小步、可测试的增量
+
+#### 处理测试
+
+假设你需要为尚未覆盖的代码补测试。
+
+1. 找出未被测试覆盖的代码
+
+```text
+find functions in NotificationsService.swift that are not covered by tests
+```
+
+2. 生成测试脚手架
+
+```text
+add tests for the notification service
+```
+
+3. 补充有意义的测试场景
+
+```text
+add test cases for edge conditions in the notification service
+```
+
+4. 运行并验证测试
+
+```text
+run the new tests and fix any failures
+```
+
+Claude 可以生成与你项目现有测试风格一致的测试。当你提测试需求时，尽量明确你希望验证的行为。Claude 会检查现有测试文件，以匹配当前项目的风格、框架和断言模式。
+
+如果你想提升覆盖质量，也可以让 Claude 主动帮你识别容易遗漏的 edge cases。它可以分析代码路径，并建议补充错误条件、边界值和异常输入的测试。
+
+#### 创建 Pull Request
+
+你可以直接要求 Claude 创建 PR（例如：`create a pr for my changes`），也可以一步一步引导它完成：
+
+1. 让它总结你的修改
+
+```text
+summarize the changes I've made to the authentication module
+```
+
+2. 让它创建 PR
+
+```text
+create a pr
+```
+
+3. 审查并继续润色
+
+```text
+enhance the PR description with more context about the security improvements
+```
+
+当你用 `gh pr create` 创建 PR 时，当前会话会自动与该 PR 关联。之后你可以通过：
+
+```bash
+claude --from-pr <number>
+```
+
+回到同一个会话，或者把 PR URL 粘贴进 `/resume` 选择器搜索框中。
+
+提交前记得审查 Claude 生成的 PR，也可以让它提前标出潜在风险或注意事项。
+
+#### 处理文档
+
+假设你需要为代码补文档或更新文档。
+
+1. 找出缺文档的代码
+
+```text
+find functions without proper JSDoc comments in the auth module
+```
+
+2. 生成文档
+
+```text
+add JSDoc comments to the undocumented functions in auth.js
+```
+
+3. 审查并增强文档
+
+```text
+improve the generated documentation with more context and examples
+```
+
+4. 验证文档质量
+
+```text
+check if the documentation follows our project standards
+```
+
+**提示：**
+
+- 指明你想要的文档风格，例如 JSDoc、docstring 等
+- 可以要求文档中加入示例
+- 对公共 API、接口和复杂逻辑，优先补文档
+
+#### 在笔记或非代码目录中工作
+
+Claude Code 不只适合代码目录。你可以把它运行在：
+
+- 笔记仓库
+- 文档目录
+- 任意 Markdown 文件集合
+
+然后像处理代码一样对内容进行搜索、编辑和重组。
+
+`.claude/` 目录和 `CLAUDE.md` 可以与其他工具的配置目录并存而不冲突。Claude 每次工具调用都会重新读取文件，因此你如果在其他应用里改了文件，它下次再读取时就能看到最新内容。
+
+#### 处理图片
+
+假设你需要处理代码库中的图片，并希望 Claude 帮你分析图片内容。
+
+1. 把图片加入对话
+
+你可以用以下任一方式：
+
+- 直接把图片拖进 Claude Code 窗口
+- 复制图片后在 CLI 中用 `ctrl+v` 粘贴（**不要用 `cmd+v`**）
+- 直接告诉 Claude 图片路径，例如：`Analyze this image: /path/to/your/image.png`
+
+2. 让 Claude 分析图片
+
+```text
+What does this image show?
+
+Describe the UI elements in this screenshot
+
+Are there any problematic elements in this diagram?
+```
+
+3. 把图片作为上下文
+
+```text
+Here's a screenshot of the error. What's causing it?
+
+This is our current database schema. How should we modify it for the new feature?
+```
+
+4. 从视觉内容生成代码建议
+
+```text
+Generate CSS to match this design mockup
+
+What HTML structure would recreate this component?
+```
+
+**提示：**
+
+- 当文字描述不清晰或表达成本太高时，优先用图片
+- 错误截图、UI 设计稿、结构图都很适合直接提供给 Claude
+- 同一次对话可以处理多张图片
+- 图片分析适用于图表、截图、设计稿等多种内容
+- 当 Claude 提到图片引用（如 `[Image #1]`）时，可以用 `Cmd+Click`（Mac）或 `Ctrl+Click`（Windows / Linux）在默认查看器中打开它
+
+#### 引用文件和目录
+
+你可以使用 `@` 快速把文件或目录引入对话，而无需等待 Claude 先去读它们。
+
+1. 引用单个文件
+
+```text
+Explain the logic in @src/utils/auth.js
+```
+
+这会把该文件的完整内容加入对话。
+
+2. 引用目录
+
+```text
+What's the structure of @src/components?
+```
+
+这会提供目录列表和文件信息，而不是所有文件内容。
+
+3. 引用 MCP 资源
+
+```text
+Show me the data from @github:repos/owner/repo/issues
+```
+
+这会按 `@server:resource` 格式，从已连接的 MCP server 拉取数据。详情可参见 MCP resources 文档。
+
+**提示：**
+
+- 文件路径既可以是相对路径，也可以是绝对路径
+- `@` 文件引用还会把该文件所在目录及其父目录中的 `CLAUDE.md` 一并加入上下文
+- 目录引用展示的是文件列表，不是文件内容
+- 你可以在一条消息里同时引用多个文件，例如：`@file1.js and @file2.js`
+
+#### 定时运行 Claude
+
+假设你希望 Claude 周期性地自动处理某个任务，例如：
+
+- 每天早上审查开放中的 PR
+- 每周做一次依赖审计
+- 夜间检查 CI 失败情况
+
+可以根据你希望任务运行的位置选择调度方式：
+
+| 方式 | 运行位置 | 适用场景 |
+|---|---|---|
+| Routines | Anthropic 托管基础设施 | 即使你的电脑关机也能继续运行的任务；也可由 API 调用或 GitHub 事件触发。配置地址：`claude.ai/code/routines` |
+| Desktop scheduled tasks | 你的本机，由桌面应用执行 | 需要直接访问本地文件、工具或未提交改动的任务 |
+| GitHub Actions | 你的 CI 流水线 | 与 repo 事件或 cron 调度绑定、并希望与工作流配置一起版本化的任务 |
+| `/loop` | 当前 CLI 会话 | 会话打开时的快速轮询任务；启动新会话后任务会停止，但 `--resume` / `--continue` 可恢复未过期任务 |
+
+为定时任务编写 prompt 时，要明确说明：成功标准是什么、结果该如何处理。因为任务是自主运行的，它无法回来问你澄清问题。
+
+例如：
+
+```text
+Review open PRs labeled needs-review, leave inline comments on any issues, and post a summary in the #eng-reviews Slack channel.
+```
+
+#### 询问 Claude 自己能做什么
+
+Claude 内建可访问自己的文档，因此能回答关于其能力和限制的问题。
+
+##### 示例问题
+
+```text
+can Claude Code create pull requests?
+
+how does Claude Code handle permissions?
+
+what skills are available?
+
+how do I use MCP with Claude Code?
+
+how do I configure Claude Code for Amazon Bedrock?
+
+what are the limitations of Claude Code?
+```
+
+Claude 会基于文档回答这些问题。若你想看动手演示，可以运行 `/powerup` 体验带动画演示的交互式课程，或直接参考上面各个工作流小节。
+
+**提示：**
+
+- Claude 始终可访问最新的 Claude Code 文档，无论你当前在用哪个版本
+- 问得越具体，回答通常越详细
+- 像 MCP 集成、企业级配置和高级工作流这类复杂功能，它也能做解释
+
+## 恢复之前的对话
+
+当一个任务需要跨多次工作时，不要每次都重新解释上下文。Claude Code 会把每次对话都保存在本地。
+
+```bash
+claude --continue
+```
+
+这会恢复当前目录中最近的一次会话；如果还没有可继续的会话，它会输出 `No conversation found to continue` 并退出。
+
+你也可以用：
+
+- `claude --resume` 从列表里选
+- 在会话内部用 `/resume`
+
+有关命名、分叉和完整选择器说明，请参见 [管理会话](/claude-code/use-claude-code/manage-sessions/)。
+
+## 结合 worktree 运行并行会话
+
+你可以在一个终端里处理功能开发，同时让 Claude 在另一个终端里修 Bug，而不会让修改互相打架。每个 worktree 都是独立分支上的独立 checkout。
+
+```bash
+claude --worktree feature-auth
+```
+
+你还可以在第二个终端里用不同名字再次执行相同命令，创建另一个隔离并行会话。
+
+有关清理、`.worktreeinclude` 以及非 git 版本控制支持，请参见 [Worktrees](https://code.claude.com/docs/en/worktrees)。
+
+如果你不想开很多终端，也可以参考 background agents，在一个界面中监控并行会话。
+
+## 先计划，再编辑
+
+对于那些你希望在真正写入磁盘前先审查变更的任务，可以切换到 plan mode。此时 Claude 会读取文件并提出计划，但在你批准前不会进行任何编辑。
+
+```bash
+claude --permission-mode plan
+```
+
+你也可以在会话中按 `Shift+Tab` 随时切换到 plan mode。关于审批流程和如何在文本编辑器中编辑计划，可参见 [Plan mode](https://code.claude.com/docs/en/plan-mode)。
+
+## 把研究工作委托给 subagent
+
+在大型代码库里做探索会消耗大量上下文，因为会读很多文件。你可以把探索工作委托出去，只把调查结论带回主会话。
+
+```text
+use a subagent to investigate how our auth system handles token refresh
+```
+
+subagent 会在它自己的上下文窗口里读文件，并把结果总结回来。详情请参见 [Subagents](https://code.claude.com/docs/en/sub-agents)，你还可以为 subagent 定义自己的工具和提示词。
+
+## 把 Claude 接到脚本中
+
+你可以用非交互方式运行 Claude，让它服务于 CI、pre-commit hook 或批处理。它的 stdin/stdout 行为与 Unix 工具一致。
+
+```bash
+git log --oneline -20 | claude -p "summarize these recent commits"
+```
+
+有关输出格式、权限标志和 fan-out 模式，请参见 [Non-interactive mode](https://code.claude.com/docs/en/non-interactive-mode)。
+
+## 下一步
+
+- [最佳实践](/claude-code/use-claude-code/best-practices/)：学习如何最大化发挥 Claude Code 的效果
+- [管理会话](/claude-code/use-claude-code/manage-sessions/)：恢复、命名与分叉对话
+- [Worktrees](https://code.claude.com/docs/en/worktrees)：运行相互隔离的并行会话
+- [扩展 Claude Code](/claude-code/core-concepts/extend-claude-code/)：添加 skills、hooks、MCP、subagents 和 plugins

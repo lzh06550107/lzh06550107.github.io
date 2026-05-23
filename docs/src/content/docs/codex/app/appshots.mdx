@@ -1,0 +1,68 @@
+---
+title: Appshots
+description: 让 Codex 查看 Appshots
+sidebar:
+  order: 11
+---
+
+Appshots 允许你将当前最前端的应用窗口发送到 Codex 线程。当你在计算机上使用另一个应用进行工作，并希望为 Codex 提供你当前的上下文以帮助完成任务时，可以使用 Appshots。
+
+:::note
+Appshots 在 macOS 的 Codex app 中可用。按下两个 Command 键，或使用你自定义的 Appshots 快捷键，即可创建一个 Appshot。
+:::
+
+## Appshots 捕获内容
+
+Appshot 只会捕获最前端的窗口。它可以包括：
+
+* 可见窗口的图像。
+* 窗口中可用的文本，包括可见文本以及应用提供的可见滚动区域之外的文本。
+
+将 appshot 添加到线程后，它的行为类似 Codex 附件。Codex 会将 appshots 存储在本地的会话文件中，就像你手动附加的文件或图像一样。
+
+## 何时使用 Appshots
+
+当 Codex 在采取操作前需要获取 Mac 应用的上下文时，请使用 Appshots。
+
+示例：
+
+* 分享 API 参考页面，并让 Codex 编写使用它的脚本。
+* 分享邮件或日历视图，并让 Codex 草拟下一步操作。
+* 分享图像编辑器、设计或预览窗口，并让 Codex 修订相关资产或代码。
+* 分享错误、设置面板或应用状态，这些内容通过显示比描述更易理解。
+
+## 创建 Appshot
+
+1. 在 Mac 上打开 Codex app。
+2. 打开你想要共享的应用和窗口。
+3. 按下两个 Command 键，或使用你在 Codex 设置中配置的自定义快捷键。
+4. 如果 Codex 提示，请允许 macOS 权限。
+5. 让 Codex 使用 appshot 执行任务。
+
+默认情况下，Codex 会为 appshot 启动一个新线程。如果你在过去 60 秒内与某个 Codex 线程交互，Codex 会将 appshot 添加到最近的线程中。连续拍摄的 appshots 会添加到同一线程中。
+
+你可以在 Codex 设置中更改 Appshots 快捷键。
+
+## 权限与安全
+
+在创建 appshots 前，Codex 可能会请求以下权限：
+
+* **屏幕与系统音频录制（Screen & System Audio Recording）** 允许 Codex 捕获最前端窗口的图像。
+* **辅助功能（Accessibility）** 允许 Codex 读取最前端窗口中的可用文本。
+
+创建 appshot 会将捕获的图像和可用文本共享给 Codex。除非任务需要，否则避免拍摄敏感内容的 appshots。
+
+以与审查共享截图和文档相同的方式审查 appshots。
+
+## 限制与故障排查
+
+Appshots 是 Codex app 的功能。请在 macOS 的 Codex app 中创建它们。如果你在 CLI 中恢复了已经包含 appshot 的线程，该附件会成为线程历史的一部分，但 CLI 无法创建新的 appshot。
+
+对于某些应用和网站，包括 Google Docs、Gmail、Google Sheets 和 Google Slides，Codex 可能只能接收可见截图，而无法获取完整文档或屏幕外的文本。如果你安装了匹配插件，Codex 可以使用该插件访问相关应用内容并帮助完成请求。
+
+如果 Appshots 无法工作：
+
+1. 打开 **系统设置 > 隐私与安全（System Settings > Privacy & Security）**。
+2. 为 Codex Computer Use 检查 **屏幕与系统音频录制** 和 **辅助功能**。
+3. 重启 Codex 并重试。
+

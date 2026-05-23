@@ -1,0 +1,295 @@
+---
+title: 使用 Remote Control 从任意设备继续本地会话
+description: 了解如何通过浏览器或 Claude 手机应用继续你机器上运行的 Claude Code 会话，以及其安全模型、限制与排障方式。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+# 使用 Remote Control 从任意设备继续本地会话
+
+了解如何通过浏览器或 Claude 手机应用继续你机器上运行的 Claude Code 会话，以及其安全模型、限制与排障方式。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Remote Control 目前处于 **research preview**，并且对所有计划开放。在 Team 与 Enterprise 计划中，它默认关闭，只有管理员在 Claude Code admin settings 中启用 Remote Control 开关后才能使用。
+
+Remote Control 会把 `claude.ai/code` 或 iOS / Android Claude app 连接到**运行在你自己机器上的 Claude Code 会话**。你可以在办公桌前启动一个任务，然后在沙发上用手机继续，或在另一台电脑的浏览器中接着处理。
+
+当你在自己的机器上启动 Remote Control 会话时，Claude 会始终在本地继续运行，所以**不会把执行迁移到云端**。通过 Remote Control，你可以：
+
+- **远程使用完整的本地环境**：你的文件系统、MCP servers、工具和项目配置都仍然可用；输入 `@` 时还会自动补全本地项目中的文件路径
+- **同时在多个界面工作**：终端、浏览器和手机上的对话会实时同步，你可以在任意一个界面发送消息
+- **抵御中断**：如果笔记本睡眠或网络中断，只要机器重新上线，会话就会自动重连
+
+这和 [Claude Code on the web](https://code.claude.com/docs/en/web) 不同。后者运行在云端基础设施中，而 Remote Control 会话直接运行在你的机器上，并访问你的本地文件系统；网页端与移动端只是观察和操控这个本地会话的窗口。
+
+Remote Control 要求 **Claude Code v2.1.51 或更高版本**。你可以用下面的命令检查版本：
+
+```bash
+claude --version
+```
+
+本页将介绍：
+
+- 前置要求
+- 如何启动并连接会话
+- Remote Control 与 Claude Code on the web 的区别
+- 推送通知、限制与排障方式
+
+## 使用前要求
+
+在使用 Remote Control 之前，请确认你的环境满足以下条件：
+
+- **订阅计划**：仅适用于 Pro、Max、Team 和 Enterprise。**不支持 API keys**。对于 Team 与 Enterprise，管理员必须先在 Claude Code admin settings 中开启 Remote Control 开关。
+- **认证方式**：如果你还未登录，运行 `claude`，然后使用 `/login` 通过 `claude.ai` 登录。
+- **工作区信任**：至少在你的项目目录中运行过一次 `claude`，并接受 workspace trust 对话框。
+
+## 启动一个 Remote Control 会话
+
+你既可以从 CLI 启动，也可以从 VS Code 扩展启动。CLI 提供三种调用方式；VS Code 使用 `/remote-control` 命令。
+
+- Server mode
+- Interactive session
+- From an existing session
+- VS Code
+
+### Server mode
+
+进入你的项目目录后，运行：
+
+```bash
+claude remote-control
+```
+
+该进程会以 **server mode** 在你的终端中持续运行，并等待远程连接。它会显示一个会话 URL，你可以从其他设备用它直接连接；你还可以按空格键显示二维码，方便在手机上快速进入。
+
+当远程会话处于活动状态时，终端会显示：
+
+- 连接状态
+- 工具活动
+
+#### 可用参数
+
+| 参数 | 说明 |
+|---|---|
+| `--name "My Project"` | 设置一个自定义会话标题，在 `claude.ai/code` 的会话列表中可见 |
+| `--remote-control-session-name-prefix <prefix>` | 当未显式指定名称时，为自动生成的会话名添加前缀。默认使用你的机器 hostname，生成如 `myhost-graceful-unicorn` 这样的名字。也可以通过 `CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX` 环境变量实现相同效果 |
+| `--spawn <mode>` | 控制 server 如何创建会话。`same-dir`（默认）：所有会话共享当前工作目录，因此若编辑同一文件可能冲突；`worktree`：每个按需会话使用独立 git worktree，需要项目本身是 git 仓库；`session`：单会话模式，只服务一个会话并拒绝额外连接，只能在启动时设定 |
+| `--capacity <N>` | 最大并发会话数，默认是 `32`。不能与 `--spawn=session` 一起使用 |
+| `--verbose` | 显示更详细的连接与会话日志 |
+| `--sandbox` / `--no-sandbox` | 启用或关闭文件系统与网络隔离的 sandboxing。默认关闭 |
+
+你还可以在运行时按 `w`，在 `same-dir` 与 `worktree` 之间切换。
+
+### 从另一台设备连接
+
+当 Remote Control 会话已经启动后，你可以通过几种方式从另一台设备连入：
+
+- 在任意浏览器中打开会话 URL，直接进入 `claude.ai/code` 上的该会话
+- 扫描和会话 URL 一起显示的二维码，直接在 Claude app 中打开；运行 `claude remote-control` 时可按空格键切换二维码显示
+- 打开 `claude.ai/code` 或 Claude app，在会话列表中按名称找到该会话。在 Claude mobile app 中，点击导航里的 **Code** 即可进入会话列表。Remote Control 会话在线时会显示电脑图标与绿色状态点
+
+远程会话的标题按以下优先级决定：
+
+1. 你通过 `--name`、`--remote-control` 或 `/remote-control` 显式传入的名称
+2. 你用 `/rename` 设置的名称
+3. 当前会话历史中最后一条有意义的消息
+4. 自动生成的名字，例如 `myhost-graceful-unicorn`；其中 `myhost` 是你的机器 hostname，或你通过 `--remote-control-session-name-prefix` 设置的前缀
+
+如果你没有明确指定名称，那么在你发送 prompt 之后，会话标题会自动更新为反映该 prompt 的内容。
+
+如果当前环境里已经存在一个活动会话，系统会询问你：
+
+- 继续这个已有会话
+- 还是创建一个新会话
+
+如果你还没有 Claude app，可以在 Claude Code 中运行 `/mobile`，显示 iOS 或 Android 的下载二维码。
+
+### 为所有会话自动启用 Remote Control
+
+默认情况下，只有在你显式运行以下任一命令时，Remote Control 才会启用：
+
+- `claude remote-control`
+- `claude --remote-control`
+- `/remote-control`
+
+如果你希望**每个交互式会话都自动启用**，可以在 Claude Code 中运行 `/config`，把 **Enable Remote Control for all sessions** 设为 `true`。需要关闭时，再改回 `false`。
+
+在 Desktop app 中，你也可以从以下路径切换该设置：
+
+- `Settings → Claude Code → Enable remote control by default`
+
+开启后，每个交互式 Claude Code 进程都会注册一个远程会话。如果你同时运行多个实例，每个实例都会拥有自己的环境与会话。若你希望在**单个进程中**承载多个并发会话，应改用 **server mode**。
+
+## 连接与安全性
+
+你的本地 Claude Code 会话只会发起**出站 HTTPS 请求**，不会在你的机器上开放入站端口。
+
+当你启动 Remote Control 后，它会向 Anthropic API 注册，并轮询工作请求。当你从另一台设备连入时，服务器会通过一个流式连接，在网页端 / 手机端客户端与本地会话之间转发消息。
+
+所有流量都会通过 TLS 经过 Anthropic API 传输，传输层安全性与普通 Claude Code 会话相同。这个连接会使用多个短期有效的凭据，每个凭据只用于单一目的，并且独立过期。
+
+## Remote Control 与 Claude Code on the web 的区别
+
+Remote Control 与 Claude Code on the web 使用的是同一个 `claude.ai/code` 界面，但核心差异在于：**会话到底运行在哪里。**
+
+- **Remote Control**：运行在你的机器上，因此你的本地 MCP servers、工具和项目配置都可继续使用
+- **Claude Code on the web**：运行在 Anthropic 托管的云端基础设施中
+
+适用建议：
+
+- 当你已经在本地工作中途，只是想换一台设备继续接力时，用 **Remote Control**
+- 当你不想做任何本地设置、想处理一个你本地还没 clone 的仓库，或者想并行启动多个任务时，用 **Claude Code on the web**
+
+## 手机推送通知
+
+当 Remote Control 处于活动状态时，Claude 可以向你的手机发送推送通知。
+
+Claude 会自行判断何时发送。通常在以下场景下，它更可能推送：
+
+- 一个长时间运行的任务完成时
+- 它需要你做出某个决定才能继续时
+
+你也可以在 prompt 中明确要求，例如：
+
+```text
+notify me when the tests finish
+```
+
+除了页面中提到的总开关外，**没有按事件类型分别配置的能力**。
+
+手机推送通知要求 **Claude Code v2.1.110 或更高版本**。
+
+### 设置步骤
+
+1. **安装 Claude mobile app**  
+   下载适用于 iOS 或 Android 的 Claude app。
+
+2. **用 Claude Code 所使用的账号登录**  
+   使用与你在终端里运行 Claude Code 时相同的账号与组织。
+
+3. **允许通知权限**  
+   接受来自操作系统的通知授权提示。
+
+4. **在 Claude Code 中启用推送**  
+   在终端中运行 `/config`，启用 **Push when Claude decides**。
+
+### 如果通知没有到达
+
+- 如果 `/config` 显示 **No mobile registered**，请先在手机上打开 Claude app，以便它刷新推送 token。下一次 Remote Control 连接时，这个警告通常就会消失。
+- 在 iOS 上，Focus modes 和通知摘要可能会抑制或延迟推送。请检查：`Settings → Notifications → Claude`
+- 在 Android 上，过于激进的电池优化可能会延迟通知送达。请在系统设置中将 Claude app 排除出电池优化范围。
+
+## 限制
+
+- **每个交互式进程仅支持一个远程会话**：在非 server mode 下，每个 Claude Code 实例同一时间只能支持一个 Remote Control 会话。如果你要在单一进程中运行多个并发会话，请使用 server mode。
+- **本地进程必须保持运行**：Remote Control 本质上仍是本地进程。如果你关闭终端、退出 VS Code，或以其他方式终止 `claude` 进程，会话就会结束。
+- **长时间网络中断**：如果你的机器保持唤醒，但超过约 10 分钟都无法访问网络，那么该会话会超时，进程也会退出。此时需要重新运行 `claude remote-control` 来启动新会话。
+- **Ultraplan 会断开 Remote Control**：启动 ultraplan 会话时，会断开任何当前活跃的 Remote Control 会话，因为这两个功能都占用 `claude.ai/code` 界面，且同一时间只能连接一个。
+- **部分命令仅能在本地使用**：那些会在终端中打开交互式选择器的命令，例如 `/mcp`、`/plugin`、`/resume`，只能从本地 CLI 使用。输出纯文本的命令，例如 `/compact`、`/clear`、`/context`、`/usage`、`/exit`、`/usage-credits`、`/recap`、`/reload-plugins`，则可以从手机端和网页端使用。
+
+## 故障排查
+
+### “Remote Control requires a claude.ai subscription”
+
+你当前并不是用 `claude.ai` 账号认证的。请运行：
+
+```bash
+claude auth login
+```
+
+然后选择 `claude.ai` 登录方式。如果你的环境中设置了 `ANTHROPIC_API_KEY`，请先把它取消。
+
+### “Remote Control requires a full-scope login token”
+
+你当前使用的是来自 `claude setup-token` 或 `CLAUDE_CODE_OAUTH_TOKEN` 环境变量的长期 token。这类 token 仅适用于 inference-only，不能建立 Remote Control 会话。
+
+请改用：
+
+```bash
+claude auth login
+```
+
+通过完整权限范围的 session token 重新认证。
+
+### “Unable to determine your organization for Remote Control eligibility”
+
+你本地缓存的账号信息已经过期或不完整。重新运行：
+
+```bash
+claude auth login
+```
+
+刷新即可。
+
+### “Remote Control is not yet enabled for your account”
+
+某些环境变量可能会导致资格检查失败：
+
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`
+- `DISABLE_TELEMETRY`
+- `CLAUDE_CODE_USE_BEDROCK`
+- `CLAUDE_CODE_USE_VERTEX`
+- `CLAUDE_CODE_USE_FOUNDRY`
+
+前两个需要先 unset 再重试。后三个说明你当前使用的是第三方 provider，而 Remote Control 要求 `claude.ai` 认证，不能与第三方 provider 一起工作。
+
+如果这些变量都不存在，可尝试先 `/logout`，再 `/login` 刷新状态。
+
+### “Remote Control is disabled by your organization’s policy”
+
+这个错误可能来自四种不同原因。请先运行 `/status` 查看你当前使用的是哪种登录方式和订阅。
+
+1. **你当前用的是 API key 或 Console account**  
+   Remote Control 需要 `claude.ai` OAuth。请运行 `/login` 并选择 `claude.ai`；如果环境中有 `ANTHROPIC_API_KEY`，先取消它。
+
+2. **你的 Team / Enterprise 管理员尚未启用它**  
+   在这些计划中，Remote Control 默认关闭。管理员可前往 `claude.ai/admin-settings/claude-code` 打开 Remote Control 开关。这个开关是组织级、服务端配置。
+
+3. **管理员开关是灰色不可点的**  
+   说明你的组织存在与 Remote Control 不兼容的数据保留或合规配置。这无法在管理面板中自行修改，需要联系 Anthropic support 讨论选项。
+
+4. **错误信息里提到 `disableRemoteControl`**  
+   说明你的 IT 管理员通过受管设置，在这台设备上禁用了 Remote Control；这与组织级开关是独立的限制。
+
+### “Remote credentials fetch failed”
+
+Claude Code 无法从 Anthropic API 获取一个短期凭据来建立连接。你可以带上 `--verbose` 重新运行，以查看完整错误：
+
+```bash
+claude remote-control --verbose
+```
+
+常见原因包括：
+
+- **尚未登录**：运行 `claude` 并使用 `/login`，以 `claude.ai` 账号认证。Remote Control 不支持 API key 认证。
+- **网络或代理问题**：防火墙或代理阻止了出站 HTTPS 请求。Remote Control 需要访问 443 端口上的 Anthropic API。
+- **会话创建失败**：如果你还看到 `Session creation failed — see debug log`，说明失败发生在更早的初始化阶段。请确认你的订阅当前处于有效状态。
+
+## 选择合适的方法
+
+Claude Code 提供了多种在你离开终端时继续工作的机制。它们在触发方式、Claude 运行位置和配置复杂度上各不相同。
+
+| 方式 | 触发方式 | Claude 运行在 | 配置方式 | 最适合 |
+|---|---|---|---|---|
+| Dispatch | 在 Claude mobile app 中发一条任务消息 | 你的机器（Desktop） | 将 mobile app 与 Desktop 配对 | 离开电脑时委派任务，配置最少 |
+| Remote Control | 从 `claude.ai/code` 或 Claude mobile app 驱动一个正在运行的会话 | 你的机器（CLI 或 VS Code） | 运行 `claude remote-control` | 从另一台设备继续接管进行中的任务 |
+| Channels | 由 Telegram、Discord 等聊天应用或你自己的服务器推送事件 | 你的机器（CLI） | 安装 channel plugin 或自行实现 | 对 CI 失败、聊天消息等外部事件做反应 |
+| Slack | 在团队频道中 `@Claude` | Anthropic 云端 | 安装 Slack app，并启用 Claude Code on the web | 从团队聊天发起 PR 和 review |
+| Scheduled tasks | 按计划周期触发 | CLI、Desktop 或云端 | 设定执行频率 | 例如每日审查等周期性自动化 |
+
+## 相关资源
+
+- Claude Code on the web：在 Anthropic 托管的云环境中运行会话，而不是在你的机器上运行
+- Ultraplan：从终端发起一个云端规划会话，并在浏览器中审阅计划
+- Channels：把 Telegram、Discord 或 iMessage 转发进一个会话，让 Claude 在你离开时也能对消息做出反应
+- Dispatch：从手机发一条任务消息，它可以拉起一个 Desktop 会话来处理
+- Authentication：配置 `/login` 并管理 `claude.ai` 凭据
+- CLI reference：查看包括 `claude remote-control` 在内的完整 flags 与命令列表
+- Security：了解 Remote Control 会话如何嵌入 Claude Code 的安全模型
+- Data usage：了解本地与远程会话中，哪些数据会通过 Anthropic API 传输

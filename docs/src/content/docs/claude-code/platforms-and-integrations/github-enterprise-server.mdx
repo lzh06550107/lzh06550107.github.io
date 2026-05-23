@@ -1,0 +1,231 @@
+---
+title: GitHub Enterprise Server
+description: 将 Claude Code 连接到自托管的 GitHub Enterprise Server，支持 Web 会话、Code Review、插件市场与贡献分析等能力。
+editUrl: false
+sidebar:
+  order: 12
+---
+
+# GitHub Enterprise Server
+
+如果你的组织代码仓库不在 `github.com`，而是托管在自建的 **GitHub Enterprise Server（GHES）** 上，Claude Code 也可以接入。管理员完成一次性连接后，开发者便能像平时一样使用 Claude Code on the web、Code Review、插件市场和会话 teleport，而不需要对每个仓库单独配置。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+:::note[适用计划]
+GitHub Enterprise Server 支持目前适用于 **Team** 与 **Enterprise** 计划。
+:::
+
+## GHES 下哪些能力可用
+
+官方文档给出了明确的支持矩阵：
+
+| 功能 | GHES 支持情况 | 说明 |
+| --- | --- | --- |
+| Claude Code on the web | ✅ | 管理员连接一次 GHES 实例后，开发者可继续使用 `claude --remote` 或 `claude.ai/code` |
+| Code Review | ✅ | 与 github.com 上的自动 PR 审查能力相同 |
+| Teleport sessions | ✅ | 可用 `--teleport` 在 web 与本地终端之间切换会话 |
+| Plugin marketplaces | ✅ | 需要使用完整 Git URL，而不是 `owner/repo` 简写 |
+| Contribution metrics | ✅ | 通过 webhook 上报到分析仪表板 |
+| GitHub Actions | ✅ | 但需要**手动**编排 workflow，`/install-github-app` 只适用于 github.com |
+| GitHub MCP server | ❌ | 当前不支持 GHES |
+
+## 管理员如何接入 GHES
+
+这部分是一次性的组织级配置。需要同时具备：
+
+- Claude 组织管理员权限
+- 在 GHES 上创建 GitHub App 的权限
+
+典型流程如下：
+
+1. 打开 `claude.ai/admin-settings/claude-code`
+2. 找到 **GitHub Enterprise Server** 区域
+3. 点击 **Connect**
+4. 输入：
+   - 显示名称
+   - GHES 主机名（如 `github.example.com`）
+   - 如有自签 CA，可额外粘贴证书
+5. 跳转到 GHES 创建 GitHub App
+6. 安装到目标组织 / 仓库
+7. 回到 Claude 管理页启用对应功能
+
+如果你的网络环境阻止跳转式引导，也可以选 **Add manually** 走手动录入。
+
+## GitHub App 会请求哪些权限
+
+Claude 需要一个 GitHub App 来支持 Web 会话、Code Review 与贡献分析。文档中列出的主要权限如下：
+
+| 权限 | 访问级别 | 用途 |
+| --- | --- | --- |
+| Contents | Read & write | clone 仓库、推送分支 |
+| Pull requests | Read & write | 创建 PR、发布审查评论 |
+| Issues | Read & write | 响应 issue 提及 |
+| Checks | Read & write | 发布 Code Review check run |
+| Actions | Read | 读取 CI 状态，支持 auto-fix 等场景 |
+| Repository hooks | Read & write | 接收贡献指标 webhook |
+| Metadata | Read | GitHub App 基础要求 |
+
+订阅的 webhook 事件通常包括：
+
+- `pull_request`
+- `issue_comment`
+- `pull_request_review_comment`
+- `pull_request_review`
+- `check_run`
+
+## 手动接入需要准备什么
+
+如果无法走自动引导，手动模式下通常需要录入：
+
+- hostname
+- OAuth client ID / secret
+- GitHub App ID
+- client ID / client secret
+- webhook secret
+- private key
+
+## 网络要求
+
+GHES 实例必须能被 Anthropic 基础设施访问到，否则：
+
+- web 会话无法 clone 仓库
+- Code Review 无法回写评论
+- 一些基于 webhook 的统计能力也无法工作
+
+如果 GHES 处在防火墙后，需要对 Anthropic API IP 做 allowlist。
+
+## 开发者侧如何使用
+
+一旦管理员完成接入，开发者基本不需要额外配置。Claude Code 会根据当前仓库的 git remote 自动识别 GHES 主机。
+
+例如：
+
+```bash
+git clone git@github.example.com:platform/api-service.git
+cd api-service
+```
+
+然后就可以像平时一样启动远程会话：
+
+```bash
+claude --remote "Add retry logic to the payment webhook handler"
+```
+
+Claude 会：
+
+- 在 Anthropic 基础设施上启动会话
+- 从 GHES clone 仓库
+- 把改动推回分支
+- 让你在 `/tasks` 或 `claude.ai/code` 中查看进度
+
+## Teleport：把云端会话拉回本地终端
+
+如果你先在 web 上启动了 GHES 仓库会话，也可以回到本地仓库目录中使用：
+
+```bash
+claude --teleport
+```
+
+Teleport 会校验：
+
+- 你当前所在 checkout 是否属于同一个 GHES 仓库
+- 目标分支与会话历史是否能正确对应
+
+通过后才会把会话与分支状态拉到本地。
+
+## GHES 上的插件市场
+
+如果你希望在组织内部通过 GHES 分发插件市场，结构与 github.com 上一致，但**引用方式不同**。
+
+### 添加 GHES 托管的 marketplace
+
+要使用完整 Git URL：
+
+```bash
+/plugin marketplace add git@github.example.com:platform/claude-plugins.git
+```
+
+也可以用 HTTPS：
+
+```bash
+/plugin marketplace add https://github.example.com/platform/claude-plugins.git
+```
+
+### 在 managed settings 里放行 GHES 市场
+
+如果组织启用了受控市场白名单，可用 `hostPattern` 一次性放行整台 GHES：
+
+```json
+{
+  "strictKnownMarketplaces": [
+    {
+      "source": "hostPattern",
+      "hostPattern": "^github\\.example\\.com$"
+    }
+  ]
+}
+```
+
+也可以预注册内部市场：
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "internal-tools": {
+      "source": {
+        "source": "git",
+        "url": "git@github.example.com:platform/claude-plugins.git"
+      }
+    }
+  }
+}
+```
+
+## 与 github.com 相比的差异与限制
+
+文档里明确提到几处差异：
+
+- `/install-github-app` 不适用于 GHES；要走管理后台接入
+- **GitHub MCP server** 目前不支持 GHES
+- 如果你还要在 GHES 上跑 GitHub Actions 风格的自动化，需要自己手工适配 workflow
+
+:::tip[GHES 上的 CLI 替代方案]
+当 GitHub MCP server 不可用时，官方建议直接使用 `gh` CLI，并指定 GHES 主机登录：
+
+```bash
+gh auth login --hostname github.example.com
+```
+:::
+
+## 故障排查
+
+### Web 会话 clone 失败
+
+优先检查：
+
+- 管理员是否已完成 GHES 接入
+- GitHub App 是否安装在当前仓库上
+- Claude 后台里登记的 hostname 是否与你仓库的 git remote 一致
+
+### `/plugin marketplace add` 被策略拦截
+
+说明组织启用了受限市场策略，需要管理员在 managed settings 中加入对应 `hostPattern`。
+
+### GHES 实例不可达
+
+如果 remote session 或 review 超时，大概率是 GHES 还无法从 Anthropic 基础设施访问。需要核查防火墙与 IP allowlist。
+
+## 什么时候选它
+
+当组织具有以下前提时，应优先阅读并采用这一方案：
+
+- 代码仓库在**自托管 GHES**，不在 github.com
+- 仍希望使用 Claude Code on the web / Code Review / Teleport / 内部插件市场
+- 需要兼顾企业网络边界、证书与自建权限体系
+
+如果仓库本身就在 github.com，则通常不需要这层 GHES 专用配置。

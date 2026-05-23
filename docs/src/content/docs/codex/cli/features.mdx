@@ -1,13 +1,11 @@
 ---
-title: 特性
+title: Codex CLI 功能特性
 description: Codex CLI 功能概览 — 交互模式、子智能体、图像支持、代码审查等。
 sidebar:
-  order: 5
+  order: 2
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
-
-# Codex CLI 特性
 
 > Codex 终端客户端功能概览
 
@@ -94,7 +92,7 @@ export CODEX_REMOTE_TOKEN="$(cat "$TOKEN_FILE")"
 codex --remote wss://remote-host:4500 --remote-auth-token-env CODEX_REMOTE_TOKEN
 ```
 
-对于 Codex 应用中的 SSH 远程项目，请使用**远程连接**。对于托管的远程控制客户端，`codex remote-control` 会启动一个启用了远程控制支持的应用服务器进程。
+对于 Codex 应用中的 SSH 远程项目，请使用 [远程连接](/codex/administration/remote-connections)。对于托管的远程控制客户端，`codex remote-control` 会启动一个启用了远程控制支持的应用服务器进程。
 
 ## 模型与推理
 
@@ -106,7 +104,7 @@ codex --remote wss://remote-host:4500 --remote-auth-token-env CODEX_REMOTE_TOKEN
 codex --model gpt-5.5
 ```
 
-了解有关 Codex 中可用模型的更多信息。
+[了解有关 Codex 中可用模型的更多信息](/codex/getting-started/concepts/models)。
 
 ## 功能标志
 
@@ -122,7 +120,7 @@ codex features disable shell_snapshot
 
 ## 子智能体
 
-使用 Codex 子智能体（Subagent）工作流来并行化更大的任务。有关设置、角色配置（`config.toml` 中的 `[agents]` 部分）和示例，请参阅**子智能体**文档。
+使用 Codex 子智能体（Subagent）工作流来并行化更大的任务。有关设置、角色配置（`config.toml` 中的 `[agents]` 部分）和示例，请参阅 [子智能体](/codex/configuration/subagents) 文档。
 
 Codex 只会在你明确要求时才会派生子智能体。由于每个子智能体都执行自己的模型和工具工作，子智能体工作流比同等的单智能体运行消耗更多的令牌。
 
@@ -143,7 +141,7 @@ Codex 接受常见的格式，如 PNG 和 JPEG。对于两个或更多图像，�
 
 你可以使用自然语言请求，或通过在提示中包含 `$imagegen` 来显式调用图像生成技能。
 
-内置图像生成使用 `gpt-image-2`，计入你的一般 Codex 使用限额，并且平均消耗速度比不含图像生成的类似回合快 3-5 倍（取决于图像质量和大小）。详情请参见**定价**。有关提示技巧和模型详情，请参阅**图像生成指南**。
+内置图像生成使用 `gpt-image-2`，计入你的一般 Codex 使用限额，并且平均消耗速度比不含图像生成的类似回合快 3-5 倍（取决于图像质量和大小）。详情请参见 **定价**。有关提示技巧和模型详情，请参阅**图像生成指南**。
 
 对于大批量图像生成，请在环境变量中设置 `OPENAI_API_KEY`，并让 Codex 通过 API 生成图像，这样将适用 API 定价。
 
@@ -237,7 +235,7 @@ codex cloud exec --env ENV_ID "Summarize open bugs"
 
 斜杠命令让你快速访问专门的工作流，如 `/review`、`/fork`、`/side` 或你自己的可重用提示。Codex 附带了一组精选的内置命令，你可以为团队特定任务或个人快捷方式创建自定义命令。
 
-请参阅**斜杠命令指南**浏览内置命令目录，了解如何编写自定义命令，以及它们存储在磁盘的什么位置。
+请参阅 [斜杠命令指南](/codex/guides/slash-commands) 浏览内置命令目录，了解如何编写自定义命令，以及它们存储在磁盘的什么位置。
 
 ## 提示编辑器
 
@@ -249,7 +247,7 @@ codex cloud exec --env ENV_ID "Summarize open bugs"
 
 通过配置 MCP（Model Context Protocol）服务器，将 Codex 连接到更多工具。在 `~/.codex/config.toml` 中添加 STDIO 或流式 HTTP 服务器，或使用 `codex mcp` CLI 命令进行管理——Codex 会在会话启动时自动启动它们，并将它们的工具与内置工具一起暴露。你甚至可以在另一个智能体中需要 Codex 时将其本身作为 MCP 服务器运行。
 
-请参阅**模型上下文协议**了解示例配置、支持的认证流程以及更详细的指南。
+请参阅 [模型上下文协议](/codex/configuration/mcp) 了解示例配置、支持的认证流程以及更详细的指南。
 
 ## 提示与快捷键
 
@@ -260,3 +258,4 @@ codex cloud exec --env ENV_ID "Summarize open bugs"
 - 使用 `codex --cd <path>` 从任何目录启动 Codex 来设置工作根目录，无需先运行 `cd`。当前路径显示在 TUI 标题栏中。
 - 使用 `--add-dir` 暴露更多可写根目录（例如，`codex --cd apps/frontend --add-dir ../backend --add-dir ../shared`），当你需要跨多个项目协调更改时使用。
 - 在启动 Codex 之前确保你的环境已设置完毕，这样它就不会消耗令牌来探测应该激活什么。例如，提前激活你的 Python 虚拟环境（或其他语言环境）、启动任何必需的守护进程，并导出你预期使用的环境变量。
+

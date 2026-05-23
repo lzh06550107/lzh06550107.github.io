@@ -1,0 +1,319 @@
+---
+title: GitHub Actions
+description: 在 GitHub Actions 工作流中运行 Claude Code，通过 @claude 提及、prompt 和 skills 实现 PR 自动化、issue 转代码与定时任务。
+editUrl: false
+sidebar:
+  order: 11
+---
+
+# GitHub Actions
+
+Claude Code GitHub Actions 让你把 Claude 直接接入 GitHub 工作流。最常见的使用方式，是在 issue 或 PR 评论中写 `@claude`，让它分析上下文、修改代码、提交变更，甚至创建 PR；也可以把它当成一个普通 action，用固定 prompt 做定时任务、批量审查或自定义自动化。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code GitHub Actions 底层建立在 **Claude Agent SDK** 之上，因此它不只是一个“能回评论”的机器人，也是一套可编排的自动化执行入口。
+
+## 为什么用它
+
+它适合把 Claude 放进你现有的 GitHub 工作流，而不是额外维护一套独立服务：
+
+- **一句话创建 PR**：按描述直接实现需求
+- **把 issue 变成代码**：在讨论上下文里启动开发任务
+- **遵循项目约定**：自动读取仓库里的 `CLAUDE.md`
+- **搭建简单**：几分钟内就能接好 GitHub App 与 secrets
+- **默认更安全**：代码运行在 GitHub runner 上
+
+如果你想要的是**每个 PR 自动持续审查**，而不是自定义工作流，请优先看 [Code Review](/claude-code/platforms-and-integrations/code-review/)。
+
+## Claude 能做什么
+
+常见能力包括：
+
+- 对 issue / PR 评论中的 `@claude` 自动响应
+- 基于描述实现功能并提交改动
+- 分析错误、修 Bug、起草改造方案
+- 将固定 prompt 做成定时日报、审查或维护任务
+- 在工作流里调用 repo 内 skills，做更稳定的自动化
+
+## 最快接入方式
+
+### 方式一：通过 CLI 快速安装
+
+官方推荐先在终端打开 Claude Code，然后运行：
+
+```bash
+/install-github-app
+```
+
+这个命令会引导你：
+
+- 安装 GitHub App
+- 配置必须的 secrets
+- 生成基础工作流
+
+:::note[适用范围]
+这个 quick setup 只适用于**直接使用 Claude API** 的场景。如果你走的是 **Amazon Bedrock** 或 **Google Vertex AI**，需要看文档中的企业云提供商配置方式。
+:::
+
+### 方式二：手动安装
+
+如果快速命令失败，或你更喜欢手动配置，可以这样做：
+
+1. 安装 Claude GitHub App：[https://github.com/apps/claude](https://github.com/apps/claude)
+2. 为仓库准备 secret：`ANTHROPIC_API_KEY`
+3. 把工作流文件复制到 `.github/workflows/`
+4. 在 issue 或 PR 评论中测试 `@claude`
+
+GitHub App 需要的常见权限：
+
+- **Contents**：read & write
+- **Issues**：read & write
+- **Pull requests**：read & write
+
+## 一个最基础的工作流
+
+下面是最简版示意：
+
+```yaml
+name: Claude Code
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+它会在评论中检测 `@claude`，并在合适时响应。
+
+## Action v1 的关键配置
+
+Claude Code Action v1 把配置统一成少量核心参数：
+
+| 参数 | 用途 | 必需 |
+| --- | --- | --- |
+| `prompt` | 给 Claude 的指令，可写自然语言或 skill 调用 | 否 |
+| `claude_args` | 透传 Claude Code CLI 参数 | 否 |
+| `plugin_marketplaces` | 要安装的插件市场 Git URL 列表 | 否 |
+| `plugins` | 执行前要安装的插件 | 否 |
+| `anthropic_api_key` | Claude API key | 直连 API 时必需 |
+| `github_token` | 访问 GitHub API 的 token | 否 |
+| `trigger_phrase` | 自定义触发词，默认 `@claude` | 否 |
+| `use_bedrock` | 切换到 Amazon Bedrock | 否 |
+| `use_vertex` | 切换到 Google Vertex AI | 否 |
+
+### `claude_args` 能做什么
+
+它接受任意 Claude Code CLI 参数，例如：
+
+```yaml
+claude_args: "--max-turns 5 --model claude-sonnet-4-6 --mcp-config /path/to/config.json"
+```
+
+常用项有：
+
+- `--max-turns`
+- `--model`
+- `--mcp-config`
+- `--allowedTools`
+- `--debug`
+
+## 从 Beta 升级到 v1 时要改什么
+
+如果你以前使用 Beta 版，v1 有几个关键变化：
+
+- Action 版本从 `@beta` 改为 `@v1`
+- 删除 `mode`，现在由 action 自动判断模式
+- 把 `direct_prompt` 改成 `prompt`
+- 把 `max_turns`、`model`、`custom_instructions` 等挪到 `claude_args`
+
+官方示例：
+
+```yaml
+# Beta
+- uses: anthropics/claude-code-action@beta
+  with:
+    mode: "tag"
+    direct_prompt: "Review this PR for security issues"
+    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+    custom_instructions: "Follow our coding standards"
+    max_turns: "10"
+    model: "claude-sonnet-4-6"
+```
+
+```yaml
+# GA v1
+- uses: anthropics/claude-code-action@v1
+  with:
+    prompt: "Review this PR for security issues"
+    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+    claude_args: |
+      --append-system-prompt "Follow our coding standards"
+      --max-turns 10
+      --model claude-sonnet-4-6
+```
+
+## skills、prompt 与定时自动化
+
+### 在工作流中调用 skill
+
+`prompt` 不只是普通文本，也可以直接调用 skill：
+
+- 仓库内 `.claude/skills/` 里的 skill：传 `/skill-name`
+- 插件里的 skill：传 `/plugin-name:skill-name`
+
+例如在 PR 上自动安装 code-review 插件并执行对应 skill：
+
+```yaml
+name: Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          prompt: "/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+```
+
+### 固定 prompt 的自动化任务
+
+你也可以在 `schedule` 触发器里跑日报、巡检或仓库摘要：
+
+```yaml
+name: Daily Report
+on:
+  schedule:
+    - cron: "0 9 * * *"
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "Generate a summary of yesterday's commits and open issues"
+          claude_args: "--model opus"
+```
+
+## 常见使用方式
+
+在 issue 或 PR 评论里，最典型的写法包括：
+
+```text
+@claude implement this feature based on the issue description
+@claude how should I implement user authentication for this endpoint?
+@claude fix the TypeError in the user dashboard component
+```
+
+Claude 会自动分析上下文并决定如何回应。
+
+## 与 Bedrock / Vertex AI 一起用
+
+如果企业希望把数据驻留、计费和凭据都放在自己的云提供商下，可以改用：
+
+- **Amazon Bedrock**
+- **Google Vertex AI**
+
+准备工作通常包括：
+
+### Google Cloud Vertex AI
+
+- 启用 Vertex AI
+- 为 GitHub Actions 配置 **Workload Identity Federation**
+- 准备具备所需权限的 service account
+
+### Amazon Bedrock
+
+- 启用 Amazon Bedrock
+- 为 GitHub 配置 OIDC 身份提供方
+- 创建带 Bedrock 权限的 IAM role
+
+常见 secrets 包括：
+
+- Claude API 直连：`ANTHROPIC_API_KEY`
+- 自建 GitHub App：`APP_ID`、`APP_PRIVATE_KEY`
+- Vertex：`GCP_WORKLOAD_IDENTITY_PROVIDER`、`GCP_SERVICE_ACCOUNT`
+- Bedrock：`AWS_ROLE_TO_ASSUME`
+
+## 最佳实践
+
+### 用 `CLAUDE.md` 固化项目约定
+
+在仓库根目录维护 `CLAUDE.md`，可定义：
+
+- 编码规范
+- review 标准
+- 项目特有规则
+- 推荐模式与禁用模式
+
+这样 Claude 在生成 PR、回答评论、执行自动化时都能尽量贴合仓库风格。
+
+### 安全建议
+
+- **绝不要**把 API key 直接提交进仓库
+- 一律使用 GitHub Secrets，例如：`${{ secrets.ANTHROPIC_API_KEY }}`
+- action 权限尽量最小化
+- 合并前仍要人工审查 Claude 的改动
+
+### 性能与成本优化
+
+- 让 issue 模板和 PR 模板提供更多上下文
+- 保持 `CLAUDE.md` 简洁，避免噪音提示
+- 通过 `--max-turns` 控制回合数
+- 给 workflow 配好 timeout
+- 用 concurrency 控制并发，避免平白消耗分钟数和 token
+
+## 故障排查
+
+### `@claude` 没有响应
+
+优先检查：
+
+- GitHub App 是否正确安装
+- workflow 是否启用
+- 仓库 secret 是否已配置
+- 评论中写的是 `@claude` 而不是 `/claude`
+
+### Claude 自己提交的 commit 没有触发 CI
+
+检查：
+
+- 是否使用 GitHub App / 自建 App，而不是普通 Actions user
+- 相关 workflow 事件是否覆盖到所需触发器
+- App 权限是否足够触发 CI
+
+### 认证错误
+
+- 确认 API key 可用且权限足够
+- 如果用 Bedrock / Vertex，检查 OIDC / WIF 与 secret 名称是否正确
+
+## 什么时候选 GitHub Actions
+
+优先选择它的场景是：
+
+- 你想把 Claude 嵌入 **GitHub 原生工作流**
+- 你需要比 Code Review 更自由的自动化
+- 你想用 issue / PR 评论驱动变更实现
+- 你希望通过 schedule、skills 和 prompt 组成长期任务
+
+如果你的核心需求只是“每个 PR 自动持续审查”，那 [Code Review](/claude-code/platforms-and-integrations/code-review/) 通常更直接。

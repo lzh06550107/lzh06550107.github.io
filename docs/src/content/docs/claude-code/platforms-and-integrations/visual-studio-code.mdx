@@ -1,0 +1,495 @@
+---
+title: Visual Studio Code
+description: 在 VS Code 中安装并使用 Claude Code 扩展，获得图形化会话、@ 引用、diff 审查、多会话标签页、MCP 管理与 CLI 协同能力。
+editUrl: false
+sidebar:
+  order: 8
+---
+
+# Visual Studio Code
+
+Claude Code 在 VS Code 中的**推荐使用方式**，是通过官方扩展获得原生 IDE 界面，而不是只在集成终端里运行 CLI。扩展把 Claude 直接嵌进编辑器工作流，提供图形化会话面板、diff 审查、`@` 文件引用、会话历史、多标签并行与快捷键支持。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+## 扩展带来的核心能力
+
+使用 VS Code 扩展后，你可以获得：
+
+- 在 IDE 内直接打开 Claude Code 面板
+- 审查 Claude 的 plan，并在接受前加行内评论
+- 在 diff 视图中接受、拒绝或修改提议改动
+- 使用 `@` 引用文件、文件夹和选区行号
+- 打开多个并行会话标签页或窗口
+- 访问历史对话并恢复继续
+- 通过 `/mcp` 管理已配置的 MCP servers
+- 在图形面板与 CLI 之间共享配置和会话历史
+
+## 前提条件
+
+安装前应确保：
+
+- **VS Code 1.98.0 或更高版本**
+- 可用的 Anthropic 账号
+
+如果你组织内使用的是 Amazon Bedrock、Google Vertex AI 或 Microsoft Foundry 等第三方 provider，也可以接入，但登录和配置路径会有所不同。
+
+:::note[扩展自带 CLI]
+VS Code 扩展会随附 Claude Code CLI，因此你也能在 VS Code 集成终端中继续使用 `claude`。但某些 CLI 特性在扩展 UI 中不可用，届时可直接切回终端模式。
+:::
+
+## 安装方式
+
+你可以用以下几种方式安装：
+
+### 方式一：从扩展市场安装
+
+在 VS Code 中按：
+
+- macOS：`Cmd+Shift+X`
+- Windows / Linux：`Ctrl+Shift+X`
+
+然后搜索 **Claude Code** 并点击安装。
+
+### 方式二：在其他 VS Code 分支里安装
+
+Claude Code 也可安装到其他兼容编辑器中，例如：
+
+- Cursor
+- Windsurf
+- Kiro
+- 其他支持 Open VSX 的 VS Code forks
+
+如果你的编辑器无法正确装扩展，仍可退回集成终端直接运行 `claude`。
+
+### 安装后未显示怎么办
+
+如果装完扩展没有出现：
+
+- 重启 VS Code
+- 或执行 `Developer: Reload Window`
+
+## 快速开始
+
+### 1. 打开 Claude Code 面板
+
+VS Code 中的 **Spark 图标** 就代表 Claude Code。
+
+最常见的入口有：
+
+- **Editor Toolbar**：编辑器右上角的 Spark 图标（需先打开某个文件）
+- **Activity Bar**：左侧边栏里的 Spark 图标，适合管理 sessions 列表
+- **Command Palette**：输入 `Claude Code` 并选择打开方式
+- **Status Bar**：右下角 `✱ Claude Code`
+
+你还可以像普通面板一样拖动 Claude 面板，把它放到：
+
+- 左侧边栏
+- 右侧边栏
+- 编辑器区域标签页
+
+### 2. 登录
+
+第一次打开时会出现登录界面。点击 **Sign in**，在浏览器中完成授权。
+
+如果出现：
+
+- `Not logged in · Please run /login later`
+
+扩展通常会自动重新弹出登录流程；如果没有，重新加载窗口即可。
+
+如果你明明已经在 shell 中设置了 `ANTHROPIC_API_KEY`，却仍被要求登录，常见原因是 VS Code 没有继承 shell 环境变量。可尝试：
+
+```bash
+code .
+```
+
+从终端里启动 VS Code，或直接使用 Claude 账号登录。
+
+### 3. 发送第一条 prompt
+
+登录完成后，就可以直接让 Claude：
+
+- 解释代码
+- 调试问题
+- 做改动
+- 帮你生成 `CLAUDE.md`
+- 分析选中的片段
+
+Claude 会自动看到你当前的**选中文本**。如果你想把选区变成显式 `@` 引用，可按：
+
+- macOS：`Option+K`
+- Windows / Linux：`Alt+K`
+
+这样会插入类似 `@file.ts#5-10` 的引用。
+
+### 4. 审查改动
+
+当 Claude 要编辑文件时，扩展会展示**并排 diff**，然后请求你批准。你可以：
+
+- 接受
+- 拒绝
+- 告诉 Claude 改成别的方式
+- 甚至在接受前，直接手动修改提议内容
+
+如果你手动改了 diff 中的提案，Claude 会被告知“提案已被你改写”，不会再假设最终文件仍等于它原先建议的版本。
+
+## Prompt box 支持什么能力
+
+VS Code 面板里的 prompt box 本身就集成了不少功能。
+
+### 权限模式
+
+在输入框底部可以切换权限模式：
+
+- **normal**：每一步都审批
+- **plan**：先输出计划，不直接改文件
+- **auto-accept**：直接编辑
+
+在 Plan mode 下，VS Code 会自动把计划展开成一份 markdown 文档，你可以在里面写行内评论，再让 Claude 继续执行。
+
+默认模式可通过设置项 `claudeCode.initialPermissionMode` 调整。
+
+### `/` 命令菜单
+
+输入 `/` 或点击命令菜单，可以访问：
+
+- 附件
+- 模型切换
+- extended thinking
+- `/usage`
+- `/remote-control`
+- MCP / hooks / memory / permissions / plugins 等配置入口
+
+### 上下文占用指示器
+
+Prompt 区会显示当前上下文窗口用量。需要时 Claude 会自动 compact；你也可以手动运行 `/compact`。
+
+### Extended thinking
+
+适合复杂推理任务。打开后，Claude 的思考过程会折叠显示在对话中；可单独展开，也可用快捷键统一展开/折叠。
+
+### 多行输入
+
+`Shift+Enter` 可换行而不发送。
+
+## 如何引用文件、文件夹和选区
+
+`@` 引用是 VS Code 扩展里最实用的能力之一。
+
+你可以：
+
+- `@auth`：模糊匹配文件名
+- `@src/components/`：引用整个目录
+- `@app.ts#5-10`：引用文件中明确的行区间
+
+选中文本时，Claude 默认也能直接看到高亮内容。底部会显示已选中多少行；点击该指示器，可以切换是否把选区暴露给 Claude。
+
+对于大 PDF，也可以让 Claude 只读指定页码，而不是整份文件。
+
+## 恢复历史会话与 Web 远程会话
+
+### 本地历史会话
+
+点击 Claude 面板顶部的 **Session history** 按钮，可以：
+
+- 按关键字搜索
+- 按时间浏览（Today、Yesterday、Last 7 days 等）
+- 恢复完整历史
+- 重命名会话
+- 删除会话
+
+### 恢复 Claude.ai 上的远程会话
+
+如果你同时使用 Claude Code on the web，可以直接在 VS Code 恢复远程 session。
+
+限制点：
+
+- 需要使用 **Claude.ai Subscription** 登录
+- Remote 标签页里只会显示那些**基于 GitHub 仓库启动**的 web sessions
+- 恢复后会把对话历史下载到本地继续，但**不会反向同步回 claude.ai**
+
+## 自定义工作流
+
+### 让 Claude 面板停在你喜欢的位置
+
+你可以把 Claude 放到：
+
+- 右侧侧边栏：边写代码边看 Claude
+- 左侧侧边栏：和 Explorer / Search 放在一起
+- 编辑器标签区：适合旁支任务
+
+### 开多个并行会话
+
+通过 **Open in New Tab** 或 **Open in New Window** 可以同时开多条会话。每条会话都维护自己的历史与上下文。
+
+标签页上的 Spark 小圆点还能提示状态：
+
+- 蓝色：等待你批准权限
+- 橙色：Claude 完成了任务，但该标签当前不在前台
+
+### 切换到 terminal mode
+
+如果你更喜欢 CLI 风格，而不是图形聊天面板，可以打开 **Use Terminal** 设置，让扩展改走终端模式。
+
+## Plugins 与 marketplaces
+
+在 VS Code 中输入 `/plugins`，可以直接图形化管理插件。
+
+### 安装插件时可选的作用域
+
+安装某个插件时，通常会让你选择作用域：
+
+- **Install for you**：用户级，所有项目可用
+- **Install for this project**：项目级，可与协作者共享
+- **Install locally**：仅你本人、仅此仓库可用
+
+### 管理 marketplaces
+
+在 Marketplaces 标签页中，可以：
+
+- 添加 GitHub 仓库、URL 或本地路径作为 marketplace
+- 刷新插件列表
+- 删除 marketplace
+
+插件系统与 CLI 底层共通：你在扩展中配置的 plugins / marketplaces，CLI 里也能看到，反之亦然。
+
+## 与 Chrome 配合自动化浏览器任务
+
+如果你已经安装 **Claude in Chrome** 扩展（至少 1.0.36 版本），就可以直接在 VS Code prompt 中用：
+
+```text
+@browser go to localhost:3000 and check the console for errors
+```
+
+Claude 会新开浏览器标签页，并复用你现有浏览器登录态，因此能访问你已经登录的网站。
+
+## 常用 VS Code 命令与快捷键
+
+打开命令面板并输入 `Claude Code`，可以看到扩展支持的所有 VS Code 命令。
+
+常见快捷键包括：
+
+| 命令 | 快捷键 | 说明 |
+|---|---|---|
+| Focus Input | `Cmd+Esc` / `Ctrl+Esc` | 在编辑器与 Claude 输入框之间切焦点 |
+| Open in New Tab | `Cmd+Shift+Esc` / `Ctrl+Shift+Esc` | 新开一条对话标签页 |
+| New Conversation | `Cmd+N` / `Ctrl+N` | 新建对话（需开启相关设置） |
+| Reopen Closed Session | `Cmd+Shift+T` / `Ctrl+Shift+T` | 重开最近关闭的 Claude session |
+| Insert @-Mention Reference | `Option+K` / `Alt+K` | 插入当前文件和选区引用 |
+
+## 从其他工具唤起 VS Code 会话
+
+扩展注册了一个 URI handler：
+
+```text
+vscode://anthropic.claude-code/open
+```
+
+它支持两个常见 query 参数：
+
+- `prompt`：预填 prompt，但不自动发送
+- `session`：恢复指定 session ID
+
+例如：
+
+```text
+vscode://anthropic.claude-code/open?prompt=review%20my%20changes
+```
+
+如果你想拉起的是终端会话，而不是 VS Code 标签页，应使用 CLI 的 `claude-cli://` handler。
+
+## 配置项分两层
+
+### 1. VS Code 扩展设置
+
+用于控制扩展在 VS Code 内的行为，例如：
+
+- `useTerminal`
+- `initialPermissionMode`
+- `preferredLocation`
+- `autosave`
+- `useCtrlEnterToSend`
+- `respectGitIgnore`
+- `usePythonEnvironment`
+- `disableLoginPrompt`
+- `allowDangerouslySkipPermissions`
+
+### 2. `~/.claude/settings.json`
+
+这是**扩展与 CLI 共享**的 Claude Code 设置文件，适合放：
+
+- allowed commands
+- environment variables
+- hooks
+- MCP servers
+
+如果你想要自动补全与校验，可以在该 JSON 中加入：
+
+```json
+"$schema": "https://json.schemastore.org/claude-code-settings.json"
+```
+
+## VS Code 扩展与 CLI 的区别
+
+两者底层都是 Claude Code，但能力面不完全一致。
+
+| 功能 | CLI | VS Code 扩展 |
+|---|---|---|
+| Commands / skills | 全量 | 子集 |
+| MCP server 配置 | 支持 | 部分支持 |
+| Checkpoints | 支持 | 支持 |
+| `!` bash shortcut | 支持 | 不支持 |
+| Tab completion | 支持 | 不支持 |
+
+如果你需要 CLI-only 能力，最直接的方法就是在 VS Code 集成终端里运行：
+
+```bash
+claude
+```
+
+## 扩展与 CLI 如何协作
+
+### Rewind / checkpoints
+
+扩展支持 checkpoints。你可以在任意消息上悬停并选择：
+
+- 从这里 fork 新对话
+- 把代码回滚到该节点
+- 同时 fork 对话并回滚代码
+
+### 继续到 CLI
+
+扩展和 CLI 共享会话历史，因此可在终端中运行：
+
+```bash
+claude --resume
+```
+
+继续某条在 VS Code 中开始的会话。
+
+### 在 prompt 中引用终端输出
+
+可以用：
+
+```text
+@terminal:name
+```
+
+把某个终端标签页输出直接带进 prompt，而不必手动复制日志。
+
+### 管理 MCP
+
+在 VS Code 集成终端中运行 `claude mcp add ...` 完成新增，在图形面板里输入 `/mcp` 可启停、重连与管理 OAuth。
+
+## Git 工作流支持
+
+Claude Code 能在 VS Code 里直接协助：
+
+- 提交代码
+- 生成 commit message
+- 创建 PR
+- 总结某个模块改动
+
+如果想并行处理多个任务，可以使用：
+
+```bash
+claude --worktree feature-auth
+```
+
+让不同 Claude 实例落在各自 worktree 中，互不干扰。
+
+## 第三方 provider
+
+如果你们不是直连 Anthropic API，而是走：
+
+- Amazon Bedrock
+- Google Vertex AI
+- Microsoft Foundry
+
+则通常需要：
+
+1. 在扩展设置里打开 **Disable Login Prompt**
+2. 按 provider 文档在 `~/.claude/settings.json` 中配置接入
+
+这样扩展与 CLI 会共享同一套 provider 设置。
+
+## 安全与隐私
+
+官方说明：Claude Code 会处理你的代码来提供帮助，但**不会拿你的代码训练模型**。
+
+如果开启自动编辑权限，要额外注意一点：Claude 可能修改 VS Code 配置文件（如 `settings.json`、`tasks.json`），而这些文件有机会被 VS Code 自动执行。因此在**不可信仓库**里更建议：
+
+- 使用 VS Code Restricted Mode
+- 采用手工批准模式，而不是 auto-accept
+- 认真审查配置文件改动
+
+## 内置 IDE MCP server
+
+当扩展激活时，会在本机启动一个名为 **`ide`** 的本地 MCP server。CLI 会自动连接它，因此能获得：
+
+- VS Code 原生 diff viewer
+- 当前编辑器选区
+- 活动文件路径
+- Jupyter notebook 中执行代码的能力
+
+它对模型真正暴露的可见工具主要只有两个：
+
+- `mcp__ide__getDiagnostics`
+- `mcp__ide__executeCode`
+
+其中 `mcp__ide__executeCode` **不会静默执行**：每次运行前，VS Code 都会插入一个新 notebook cell，并用原生 Quick Pick 让你选择 **Execute** 或 **Cancel**。
+
+## 常见问题
+
+### 扩展装不上
+
+检查：
+
+- VS Code 版本是否足够新
+- VS Code 是否允许安装扩展
+- 是否能直接从 VS Code Marketplace 安装
+
+### Spark 图标看不见
+
+常见原因：
+
+- 没有打开具体文件
+- VS Code 版本过低
+- 需要 `Developer: Reload Window`
+- 其他 AI 扩展冲突
+- 当前 workspace 处于 Restricted Mode
+
+### `Cmd+Esc` 在 macOS 上没反应
+
+在较新的 macOS 上，系统可能把 `Cmd+Esc` 绑定给 Game Overlay。此时可：
+
+- 去系统设置里清掉该快捷键
+- 或在 VS Code Keyboard Shortcuts 中给 `Claude Code: Focus input` 重新绑定按键
+
+### Claude Code 一直不响应
+
+可以先排查：
+
+- 网络是否稳定
+- 新开一条 conversation 是否正常
+- 终端里直接运行 `claude` 看是否有更详细报错
+
+### 卸载扩展
+
+从扩展面板里卸载即可。若还想清空扩展本地数据，可删除：
+
+```bash
+rm -rf ~/.vscode/globalStorage/anthropic.claude-code
+```
+
+## 下一步阅读
+
+- [Chrome 扩展（Beta）](/claude-code/platforms-and-integrations/chrome-extension-beta/)：把 Claude 接入浏览器任务
+- [Remote Control](/claude-code/platforms-and-integrations/remote-control/)：从手机或浏览器继续本地会话
+- [常见工作流](/claude-code/use-claude-code/common-workflows/)：看更贴近实战的用法
+- [权限模式](/claude-code/use-claude-code/permission-modes/)：理解 plan / ask / auto 模式的边界

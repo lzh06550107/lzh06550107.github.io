@@ -1,13 +1,11 @@
 ---
-title: 斜杠命令
+title: Codex IDE 扩展斜杠命令
 description: Codex IDE 扩展斜杠命令参考，用于在聊天输入中快速控制 Codex。
 sidebar:
-  order: 8
+  order: 5
 ---
 
 import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
-
-# Codex IDE 扩展斜杠命令
 
 > Codex IDE 扩展斜杠命令参考
 
@@ -29,8 +27,19 @@ import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
 | `/cloud` | 切换到云端模式，远程运行任务（需要云端访问权限）。 |
 | `/cloud-environment` | 选择要使用的云端环境（仅在云端模式下可用）。 |
 | `/feedback` | 打开反馈对话框，提交反馈并可选择包含日志。 |
+| `/goal` |为 Codex 设置一个持续性的目标，让它朝该目标持续工作。|
 | `/local` | 切换到本地模式，在工作区中运行任务。 |
 | `/review` | 启动代码审查模式，审查未提交的更改或与基准分支进行比较。 |
 | `/status` | 显示线程 ID、上下文使用情况和速率限制。 |
 
 </div>
+
+如果 `/goal` 没有出现在斜杠命令列表中，请在 `config.toml` 中启用 `features.goals`：
+
+```toml
+[features]
+goals = true
+```
+
+你也可以在 CLI 中运行 `codex features enable goals`，或者让 Codex 执行该操作。
+

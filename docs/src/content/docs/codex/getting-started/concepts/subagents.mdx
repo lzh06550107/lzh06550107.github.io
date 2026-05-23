@@ -2,28 +2,82 @@
 title: 子智能体
 description: 子智能体工作流如何让 Codex 保持专注以及如何选择模型
 sidebar:
-  order: 6
+  order: 5
 ---
 
 Codex 可以生成专门的子智能体，这些子智能体并行工作，同时进行探索、处理或分析任务。解决了上下文污染和上下文腐烂的问题。
 
-## 为什么有用
+本页面解释核心概念与权衡。有关设置、agent 配置以及示例，请参阅 [Subagents](/codex/configuration/subagents)。 
 
-- 从主会话中移除杂乱/中间输出
-- 让主智能体专注于需求、决策和最终输出
-- 并行运行专门的子智能体
-- 返回子智能体的摘要，而非原始中间输出
+## 为什么子代理工作流有帮助
+
+即使拥有较大的上下文窗口，模型仍然存在限制。如果你将大量中间输出（例如探索笔记、测试日志、堆栈跟踪、命令输出）填充到主对话中（即你定义需求、约束和决策的地方），随着时间推移，会降低会话的可靠性。 
+
+这通常被描述为： 
+
+* **上下文污染（Context pollution）**：有用信息被嘈杂的中间输出淹没。
+* **上下文腐化（Context rot）**：随着对话被不相关细节填满，性能逐渐下降。 
+
+有关背景，请参阅 Chroma 关于 [context rot](https://research.trychroma.com/context-rot) 的说明。 
+
+子代理工作流通过将噪声工作移出主线程来解决这个问题： 
+
+* 让 **主 agent** 专注于需求、决策和最终输出。
+* 并行运行专门的 **子代理（subagents）** 用于探索、测试或日志分析。
+* 返回 **摘要（summaries）**，而不是原始中间输出。 
+
+当工作可以独立并行执行时，它们还可以节省时间，并通过将大任务拆分为有界的小块，使问题更易处理。例如，Codex 可以将一个数百万 token 的文档分析拆分为更小的问题，并将提炼后的要点返回给主线程。 
+
+作为起点，可以将并行 agent 用于以读取为主的任务，例如探索、测试、分诊（triage）和摘要。对于以写入为主的并行工作流要更加谨慎，因为多个 agent 同时修改代码可能会产生冲突并增加协调成本。 
 
 ## 核心术语
 
-- **子智能体工作流**：Codex 并行运行智能体并合并结果
-- **子智能体**：Codex 为特定任务生成的委托智能体
-- **智能体线程**：智能体的 CLI 线程，可通过 `/agent` 检查和切换
+Codex 在子代理工作流中使用以下相关术语： 
 
-必须手动触发（通过直接指令）。
+* **子代理工作流（Subagent workflow）**：Codex 运行并行 agent 并组合其结果的工作流。
+* **子代理（Subagent）**：Codex 启动来处理特定任务的委派代理。
+* **Agent 线程（Agent thread）**：agent 的 CLI 线程，你可以使用 `/agent` 查看并在不同线程之间切换。 
 
-## 模型选择
+## 触发子代理工作流
 
-- **gpt-5.5**：最适合要求较高的多步骤工作
-- **gpt-5.4-mini**：快速高效，适用于速度关键型任务（探索、只读扫描、大型文件审查）
-- **gpt-5.3-codex-spark**（研究预览）：ChatGPT Pro，近乎即时的纯文本迭代
+Codex 不会自动生成子代理，只有在你明确要求使用子代理或并行 agent 工作时才会使用。 
+
+在实践中，手动触发意味着使用明确指令，例如：
+
+* “spawn two agents”（生成两个代理）、
+* “delegate this work in parallel”（并行委派该工作）、
+* “use one agent per point”（每个要点使用一个代理）。 
+
+子代理工作流比单 agent 执行消耗更多 token，因为每个子代理都会执行自己的模型和工具调用。 
+
+一个好的子代理提示应说明：如何划分工作、Codex 是否需要等待所有 agent 完成后再继续，以及最终需要返回什么摘要或输出。 
+
+```text
+Review this branch with parallel subagents. Spawn one subagent for security risks, one for test gaps, and one for maintainability. Wait for all three, then summarize the findings by category with file references.
+```
+
+## 模型与推理选择
+
+不同 agent 需要不同的模型与推理设置。 
+
+如果你没有固定模型或 `model_reasoning_effort`，Codex 会自动选择在智能性、速度与成本之间平衡的配置。它可能会在快速扫描时倾向于使用 `gpt-5.4-mini`，或在更复杂推理任务中使用更高配置的 `gpt-5.5`。当你需要更精细控制时，可以在提示中引导选择，或在 agent 文件中直接设置 `model` 与 `model_reasoning_effort`。 
+
+:::note
+对于大多数任务，建议从 `gpt-5.5` 开始。对于较轻量的子代理任务，可以使用 `gpt-5.4-mini` 以获得更快、更低成本的执行。如果你拥有 ChatGPT Pro 并需要接近实时的纯文本迭代，可以使用处于研究预览阶段的 `gpt-5.3-codex-spark`。 
+:::
+
+### 模型选择
+
+* **`gpt-5.5`**：适用于复杂、模糊、多步骤任务，尤其是需要规划、工具调用、验证以及跨较大上下文的执行。
+* **`gpt-5.4`**：适用于固定在 GPT-5.4 的工作流，具备强大的编码、推理和工具能力。
+* **`gpt-5.4-mini`**：适用于更强调速度和效率的任务，如探索、读取型扫描、大文件审查或辅助文档处理，特别适合并行子代理返回精炼结果。
+* **`gpt-5.3-codex-spark`**：适用于需要极低延迟的纯文本迭代（ChatGPT Pro 研究预览）。 
+
+### 推理强度（`model_reasoning_effort`）
+
+* **`high`**：适用于需要追踪复杂逻辑、检查假设或处理边界情况的任务（例如审查或安全类 agent）。
+* **`medium`**：大多数任务的平衡默认值。
+* **`low`**：适用于简单任务，优先考虑速度。 
+
+更高的推理强度会增加响应时间和 token 使用，但在复杂任务中可以提升质量。更多详情请参阅 [Models](/codex/getting-started/concepts/models)、[Config basics](/codex/configuration/config-basic) 和 [Configuration Reference](/codex/configuration/config-reference)。
+

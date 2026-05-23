@@ -1,57 +1,374 @@
 ---
 title: Workflows
 description: Codex 的开发使用模式
+sidebar:
+  order: 6
 ---
 
-Codex 在您将其视为拥有明确上下文和清晰"完成"定义的队友时，表现最佳。
+Codex 在你将其视为一个具有明确上下文和清晰 “完成定义” 的队友时效果最佳。本页面提供了 Codex IDE 扩展、Codex CLI 和 Codex 云端的端到端工作流示例。 
 
-每个工作流包括：何时使用、带有示例提示的步骤、上下文说明、验证方法。
+如果你是 Codex 新手，请先阅读 [Prompting](/codex/getting-started/concepts/prompting)，然后再回到这里查看具体示例。 
 
-## 可用的工作流
+## 如何阅读这些示例
 
-### 1. 解释代码库
+每个工作流包括： 
 
-适用于入职新团队、接手服务、理解协议/数据模型。
+* **何时使用** 以及适用的 Codex 场景（IDE、CLI 或 cloud）
+* **步骤**（包含示例用户提示）
+* **上下文说明（Context notes）**：Codex 自动获取的内容 vs 你需要提供的内容
+* **验证（Verification）**：如何检查输出结果
 
-- **IDE**：打开文件，选中代码，输入提示。
-- **CLI**：启动 codex，附加文件，输入提示。
+> **注意：** IDE 扩展会自动将你打开的文件作为上下文。在 CLI 中，你通常需要显式指定路径（或使用 `/mention` 和 `@` 路径自动补全附加文件）。 
 
-### 2. 修复 Bug
+## 解释一个代码库
 
-适用于您可以在本地重现的失败行为。
+当你在入门、接手一个服务，或试图理解某个协议、数据模型或请求流程时使用。 
 
-- **CLI**：在仓库根目录启动，提供复现步骤 + 可疑文件及约束条件。
-- **IDE**：打开可疑文件及其调用者，输入提示。
+### IDE 扩展工作流（本地探索最快）
 
-### 3. 编写测试
+1. 打开最相关的文件。
+2. 选择你关心的代码（可选但推荐）。
+3. 向 Codex 提示：
 
-用于明确测试范围。
+```text
+Explain how the request flows through the selected code.
 
-- **IDE**：选中函数代码行，输入提示。
-- **CLI**：使用函数名称作为提示。
+Include:
+- a short summary of the responsibilities of each module involved
+- what data is validated and where
+- one or two "gotchas" to watch for when changing this
+```
 
-### 4. 根据截图进行原型开发
+验证：
 
-适用于设计稿或 UI 参考。
+* 请求一个你可以快速验证的图或清单：
 
-- **CLI**：保存截图，附加图像，输入带约束条件的提示。
+```text
+Summarize the request flow as a numbered list of steps. Then list the files involved.
+```
 
-### 5. 通过实时更新迭代 UI
+### CLI 工作流（适合需要记录 + shell 命令）
 
-适用于紧密的设计循环。启动开发服务器，输入小的修改提示，实时验证。
+1. 启动交互会话：
 
-### 6. 将重构委托到云端
+```bash
+codex
+```
 
-适用于先精心设计再长时间实现。在本地规划，然后点击云图标进行委托。
+2. 附加文件（可选）并提示：
 
-### 7. 进行本地代码审查
+```text
+I need to understand the protocol used by this service. Read @foo.ts @schema.ts and explain the schema and request/response flow. Focus on required vs optional fields and backward compatibility rules.
+```
 
-在 CLI 中使用 `/review` 命令。可选择添加自定义关注指令。
+上下文说明：
 
-### 8. 审查 GitHub PR
+* 你可以在输入框中使用 `@` 插入工作区文件路径，或使用 `/mention` 附加特定文件。 
 
-在 GitHub PR 评论中标记 `@codex review`。
+## 修复一个 bug
 
-### 9. 更新文档
+当你有可本地复现的失败行为时使用。 
 
-识别文档文件，输入包含范围和验证要求的提示。
+### CLI 工作流（复现 + 验证的紧密循环）
+
+1. 在仓库根目录启动 Codex：
+
+```bash
+codex
+```
+
+2. 提供复现步骤和怀疑的文件：
+
+```text
+Bug: Clicking "Save" on the settings screen sometimes shows "Saved" but doesn't persist the change.
+
+Repro:
+1) Start the app: npm run dev
+2) Go to /settings
+3) Toggle "Enable alerts"
+4) Click Save
+5) Refresh the page: the toggle resets
+
+Constraints:
+- Do not change the API shape.
+- Keep the fix minimal and add a regression test if feasible.
+
+Start by reproducing the bug locally, then propose a patch and run checks.
+```
+
+上下文说明：
+
+* 你提供：复现步骤和约束（比高层描述更重要）
+* Codex 提供：命令输出、调用点分析和堆栈信息 
+
+验证：
+
+* 修复后应重新执行复现步骤
+* 可以让它运行检查流程：
+
+```text
+After the fix, run lint + the smallest relevant test suite. Report the commands and results.
+```
+
+### IDE 扩展工作流
+
+1. 打开你认为有 bug 的文件及其调用方。
+2. 提示：
+
+```text
+Find the bug causing "Saved" to show without persisting changes. After proposing the fix, tell me how to verify it in the UI.
+```
+
+## 编写测试
+
+当你希望明确测试范围时使用。 
+
+### IDE 工作流（基于选区）
+
+1. 打开函数所在文件。
+2. 选中函数代码，并通过命令面板选择 “Add to Codex Thread”。
+3. 提示：
+
+```text
+Write a unit test for this function. Follow conventions used in other tests.
+```
+
+上下文说明：
+
+* 自动提供选中代码和打开文件 
+
+### CLI 工作流
+
+1. 启动 Codex：
+
+```bash
+codex
+```
+
+2. 提示：
+
+```text
+Add a test for the invert_list function in @transform.ts. Cover the happy path plus edge cases.
+```
+
+## 从截图原型化
+
+当你有设计稿或截图，希望快速生成原型时使用。 
+
+### CLI 工作流(图片+提示词)
+
+1. 保存截图（如 `./specs/ui.png`）
+2. 运行：
+
+```bash
+codex
+```
+
+3. 拖入图片
+4. 提示：
+
+```text
+Create a new dashboard based on this image.
+
+Constraints:
+- Use react, vite, and tailwind. Write the code in typescript.
+- Match spacing, typography, and layout as closely as possible.
+
+Deliverables:
+- A new route/page that renders the UI
+- Any small components needed
+- README.md with instructions to run it locally
+```
+
+上下文说明：
+
+* 图像提供了视觉需求，但你仍然需要明确实现约束（例如框架、路由、组件风格）。
+* 为了获得最佳效果，请在文本中补充任何不明显的行为（例如悬停状态、校验规则、键盘交互）。
+
+验证：
+
+* 要求 Codex 启动开发服务器（如果允许），并明确告诉你在哪里查看结果：
+
+```text
+Start the dev server and tell me the local URL/route to view the prototype.
+```
+
+### IDE 扩展工作流(图片+现存文件)
+
+1. 拖入图片
+2. 提示：
+
+```text
+Create a new settings page. Use the attached screenshot as the target UI.
+Follow design and visual patterns from other files in this project.
+```
+
+## 实时迭代 UI
+
+当你需要“设计 → 修改 → 刷新 → 修改”的快速循环时使用。 
+
+### CLI 工作流
+
+1. 启动 Codex：
+
+```bash
+codex
+```
+
+2. 启动开发服务器：
+
+```bash
+npm run dev
+```
+
+3. 提示：
+
+```text
+Propose 2-3 styling improvements for the landing page.
+```
+
+4. 继续迭代：
+
+```text
+Go with option 2.
+
+Change only the header:
+- make the typography more editorial
+- increase whitespace
+- ensure it still looks good on mobile
+```
+
+5. 再优化：
+
+```text
+Next iteration: reduce visual noise.
+Keep the layout, but simplify colors and remove any redundant borders.
+```
+
+验证：
+
+* 在代码更新时，在浏览器中 “实时” 查看变更。
+* 提交你喜欢的更改，并回滚不喜欢的更改。
+* 如果你回滚或修改了某个更改，请告知 Codex，这样它在处理下一个提示时就不会覆盖该更改。
+
+
+## 将重构委托到云端
+
+当你希望先进行精细设计（本地上下文、快速检查），然后将耗时较长的实现任务交由可并行运行的云端任务处理时使用。
+
+### 本地规划(IDE)
+
+1. 确保你当前的工作已提交（commit），或至少已暂存（stashed），以便你可以清晰地比较变更。
+2. 让 Codex 生成一个重构计划。如果你可以使用 `$plan` 技能，请显式调用它：
+
+```text
+$plan
+
+We need to refactor the auth subsystem to:
+- split responsibilities
+- reduce circular imports
+- improve testability
+
+Constraints:
+- No user-visible behavior changes
+- Keep public APIs stable
+- Include a step-by-step migration plan
+```
+
+3. 审查该计划，并协商修改：
+
+```text
+Revise the plan to:
+- specify exactly which files move
+- include a rollback strategy
+```
+
+上下文说明：
+
+当 Codex 可以在本地扫描当前代码（入口点、模块边界、依赖图提示）时，规划效果最佳。
+
+### Cloud delegation（IDE → Cloud）
+
+1. 如果你还没有完成，请先设置一个 [Codex 云环境](/codex/cloud/environments)。
+2. 点击提示输入框下方的云图标，并选择你的云环境。
+3. 当你输入下一条提示时，Codex 会在云端创建一个新线程，并携带当前线程的上下文（包括计划以及任何本地源码变更）。
+
+```text
+Implement Milestone 1 from the plan.
+```
+
+4. 查看云端 diff，如有需要进行迭代。
+5. 直接在云端创建 PR，或将更改拉取到本地进行测试并完成收尾工作。
+6. 继续对计划中的后续里程碑进行迭代。
+
+## 本地代码审查
+
+当你希望在提交（commit）或创建 PR 之前获得第二视角时使用。
+
+### CLI 工作流(审查你的 worktree)
+
+
+1. 启动 Codex：
+
+```bash
+codex
+```
+
+2. 运行审查命令
+
+```text
+/review
+```
+
+3. 可选：提供自定义关注指令
+
+```text
+/review Focus on edge cases and security issues
+```
+
+验证：
+
+* 根据建议修复后再次运行 `/review` 
+
+## 审查 GitHub PR
+
+当你希望在不将分支拉取到本地的情况下获得审查反馈时使用。
+
+在使用之前，请在你的仓库中启用 Codex 的 **Code review**。参见 [Code review](/codex/integrations/github)。
+
+### GitHub 工作流（基于评论驱动）
+
+1. 在 GitHub 上打开该 pull request。
+2. 添加一条评论，并标记 Codex，同时明确说明关注点：
+
+```text
+@codex review
+```
+
+3. 可选：提供更具体的说明。
+
+```text
+@codex review for security vulnerabilities and security concerns
+```
+
+## 更新文档
+
+当你需要对文档进行准确且清晰的修改时使用。
+
+### IDE 或 CLI 工作流（本地编辑 + 本地验证）
+
+1. 确定需要修改的文档文件，并在 IDE 中打开它们，或在 IDE / CLI 中使用 `@` 提及它们。
+
+2. 向 Codex 提供范围和验证要求：
+
+```text
+Update the "advanced features" documentation to provide authentication troubleshooting guidance. Verify that all links are valid.
+```
+
+3. 在 Codex 生成修改草稿后，审查文档并根据需要进行迭代。
+
+Verification：
+
+* 阅读渲染后的页面。
+
+

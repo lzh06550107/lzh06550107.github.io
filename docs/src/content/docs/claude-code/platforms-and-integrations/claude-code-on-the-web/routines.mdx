@@ -1,0 +1,494 @@
+---
+title: Routines 自动化工作流
+description: 使用 Claude Code on the web 的 Routines 把提示词、仓库、连接器与触发器保存成自动化任务，按计划、API 调用或 GitHub 事件运行。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+# Routines 自动化工作流
+
+**Routines** 可以把 Claude Code 的一次云端任务固化成“可重复触发的自动化工作流”：保存 prompt、仓库、environment、connectors 与触发器，然后按计划、API 请求或 GitHub 事件自动启动。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Routines 目前处于 **research preview**，功能形态、限制和 API 都可能继续调整。
+
+## Routines 是什么
+
+一个 routine 本质上是一份保存下来的 Claude Code 云端运行配置，通常包含：
+
+- 一段自包含的 prompt
+- 一个或多个 GitHub 仓库
+- 一个 cloud environment
+- 一组 MCP connectors
+- 一个或多个触发器
+
+Routine 运行在 Anthropic 托管的云基础设施上，所以即使你的电脑关机，它也会继续执行。
+
+目前一个 routine 可以绑定三类触发器：
+
+| 触发方式 | 说明 | 典型场景 |
+|---|---|---|
+| Scheduled | 按小时、每天、每周或某个一次性时间点触发 | 每日巡检、夜间整理、周期性文档同步 |
+| API | 通过专属 HTTP POST 端点按需触发 | 报警联动、部署后校验、内部工具按钮 |
+| GitHub | 对仓库事件自动触发 | PR 审查、发布后同步、回移植流程 |
+
+一个 routine 可以同时挂多个触发器。例如同一个 PR review routine，既可以夜间定时跑，也可以每次有新 PR 时自动触发，还可以被部署脚本通过 API 手动点火。
+
+## 适合哪些自动化场景
+
+官方列出的典型案例都指向一个共同特点：**任务定义清楚、可重复、适合无人值守**。
+
+### Backlog maintenance
+
+按工作日夜间运行，通过连接器读取 issue tracker，把新 issue 分类、打标签、按代码区域分派负责人，再把摘要发到 Slack。
+
+### Alert triage
+
+监控系统在错误阈值越界时调用 API trigger，把报警正文传给 routine；Claude 拉取堆栈、对照最近提交、生成修复建议，甚至开 draft PR。
+
+### Bespoke code review
+
+在 `pull_request.opened` 时自动运行，把你团队自己的代码审查 checklist 固化进去，对安全、性能、风格等问题给出行内评论与总结。
+
+### Deploy verification
+
+CD 流水线在生产部署后调用 routine，执行 smoke tests、扫描日志回归，再往发布频道发送 go / no-go 结论。
+
+### Docs drift
+
+每周例行扫描最近合并的 PR，识别变更 API 对文档的影响，并自动向 docs 仓库发起修订 PR。
+
+### Library port
+
+在一个 SDK 仓库合并 PR 后，自动把同样改动迁移到另一门语言的平行 SDK，减少重复人工移植。
+
+## 创建 routine
+
+你可以从以下入口创建 routine：
+
+- `claude.ai/code/routines`
+- Claude Desktop 应用中的 Routines 入口
+- Claude Code CLI 中的 `/schedule`
+
+三者最终都写入同一个云端账号，因此在任一入口创建的 routine，都能在另外两个入口看到。
+
+:::note[Desktop 中的 Local / Remote 区别]
+在 Desktop 中选择 **Remote**，创建的是运行在云端的 routine；选择 **Local**，创建的是运行在你本机上的 Desktop scheduled task，两者并不相同。
+:::
+
+routine 创建表单会同时配置：
+
+- prompt
+- 仓库
+- environment
+- connectors
+- triggers
+
+### 自动运行的权限模型
+
+Routine 每次运行都会直接启动为一个**完整的 Claude Code 云端 session**：
+
+- 没有 permission mode picker
+- 不会在执行中弹人工审批框
+- 可以运行 shell 命令
+- 可以使用仓库里提交的 skills
+- 可以调用被纳入的 connector tools
+
+因此，真正决定它权限边界的是：
+
+- 选入了哪些仓库
+- 是否允许 unrestricted branch pushes
+- environment 的网络访问与环境变量
+- 连接了哪些 connectors
+
+实际设计时应尽量最小化授权范围。
+
+### 归属与身份
+
+Routine 属于你的 **个人 claude.ai 账号**，不是团队共享对象，并会计入你账号的每日 run 配额。
+
+此外，它通过 GitHub 或第三方服务执行动作时，通常也会表现为**你的身份**：
+
+- GitHub commit / PR 显示你的 GitHub 用户
+- Slack、Linear 等 connector 操作使用你绑定的账号
+
+## 在 Web 中创建 routine
+
+### 1. 打开创建表单
+
+访问 `claude.ai/code/routines`，点击 **New routine**。
+
+### 2. 命名并编写 prompt
+
+为 routine 取一个清晰名字，并写出每次运行都要执行的 prompt。
+
+这是最关键的一步：routine 是自治运行的，所以 prompt 必须：
+
+- 自包含
+- 明确目标
+- 清楚说明成功标准
+- 尽量减少依赖外部对话上下文
+
+模型选择器也在这里设置；被选中的模型会用于每一次 run。
+
+### 3. 选择仓库
+
+加入一个或多个 GitHub 仓库。每次运行都会：
+
+- 从默认分支 clone 仓库
+- 在需要时创建 `claude/` 前缀分支保存改动
+
+### 4. 选择 environment
+
+Routine 使用一个 cloud environment，决定它可以访问什么：
+
+| 环境能力 | 作用 |
+|---|---|
+| Network access | 控制外网访问范围 |
+| Environment variables | 提供 API key、token 或其他 secrets |
+| Setup script | 安装工具、依赖或系统包；结果会缓存 |
+
+默认环境采用 **Trusted** 网络访问：允许默认白名单中的包仓库、云 API、容器仓库和常见开发域名，但阻止其余任意域名。
+
+如果 routine 需要访问你自己的服务或额外域名，应先调整 environment 的网络策略。
+
+### 5. 选择触发方式
+
+在 **Select a trigger** 中可以配置：
+
+- Schedule
+- GitHub event
+- API
+
+你可以只选一种，也可以组合多种。
+
+### 6. 审查 connectors 与 permissions
+
+#### Connectors
+
+所有已连接的 MCP connectors 默认都会被纳入。若某些 connector 并非此 routine 所需，应移除它们。
+
+因为在 routine 运行期间，Claude 可以直接调用这些 connector 的全部工具，包括写操作，而不会再次征求许可。
+
+#### Permissions
+
+对某个仓库开启 **Allow unrestricted branch pushes** 后，Claude 就能推送到不只是 `claude/` 前缀的分支。除非确有需要，否则不建议随意开启。
+
+### 7. 创建并立即运行
+
+点击 **Create** 后，routine 会出现在列表里，并在下次命中触发器时执行。
+
+如果要立刻试跑，可以在详情页点击 **Run now**。
+
+每次 run 都会创建一个新的 Claude Code session，你可以像普通会话那样查看日志、审查改动并创建 PR。
+
+## 在 CLI 中创建或管理 routine
+
+在任意 Claude Code session 中运行 `/schedule`，就能用对话方式创建一个**定时** routine。
+
+例如：
+
+```text
+/schedule daily PR review at 9am
+```
+
+或一次性任务：
+
+```text
+/schedule clean up feature flag in one week
+```
+
+Claude 会追问并补全同 Web 表单里相同的核心信息，然后把 routine 保存到你的账号。
+
+需要注意：
+
+- CLI 中的 `/schedule` 目前只创建 **scheduled routines**
+- 如果你要添加 API 或 GitHub trigger，仍需去 `claude.ai/code/routines` 编辑
+
+CLI 也支持管理已存在 routine：
+
+```text
+/schedule list
+/schedule update
+/schedule run
+```
+
+## 配置三类触发器
+
+## 添加 schedule trigger
+
+Schedule trigger 用于周期性触发，或在未来某一时刻只执行一次。
+
+### 常规周期任务
+
+表单中提供常见频率：
+
+- hourly
+- daily
+- weekdays
+- weekly
+
+输入时间时使用的是**你的本地时区**，系统会自动换算，因此它会按你的本地“墙上时间”执行，而不是按云机房所在时区执行。
+
+官方还说明：例行任务启动时间可能相对计划时间**延后几分钟**，这是由于 stagger 机制造成的；对同一个 routine，这个偏移是稳定的。
+
+### 自定义 cron 周期
+
+如果你要像“每 2 小时”或“每月 1 号”这样更细的规则，可以先在 Web 里选一个近似频率，再用：
+
+```text
+/schedule update
+```
+
+改成具体 cron 表达式。
+
+最小周期是 **1 小时**；比这更频繁的表达式会被拒绝。
+
+### 一次性任务
+
+一次性 schedule 适合：
+
+- 过几天提醒自己做收尾
+- 某个 rollout 结束后自动开 cleanup PR
+- 等上游变更落地后再触发后续处理
+
+它执行一次后会自动失效，Web UI 会标记为 **Ran**。如果要再跑一次，需要重新设置新的 one-off 时间。
+
+CLI 中可以直接用自然语言创建：
+
+```text
+/schedule tomorrow at 9am, summarize yesterday's merged PRs
+```
+
+```text
+/schedule in 2 weeks, open a cleanup PR that removes the feature flag
+```
+
+:::tip[计费例外]
+一次性 run **不计入每日 routine run cap**，但仍像普通 session 一样消耗你的订阅 usage。
+:::
+
+## 添加 API trigger
+
+API trigger 会为某个 routine 分配一个专用 HTTP 端点。只要携带 bearer token 向该端点发 `POST`，就会新建一个 session 并返回 session URL。
+
+适合接入：
+
+- 报警系统
+- 部署流水线
+- 内部平台按钮
+- 任意可发认证 HTTP 请求的服务
+
+### 配置步骤
+
+1. 打开 `claude.ai/code/routines`，进入某个 routine 详情页并点击编辑
+2. 在 **Select a trigger** 中点击 **Add another trigger**，选择 **API**
+3. 复制例子里显示的 URL
+4. 点击 **Generate token** 并立即保存 token
+
+这个 token 只会显示一次，之后无法再次取回，因此应存进安全的 secret store。
+
+### 触发请求示例
+
+```bash
+curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJKLMNOPQRSTUVW/fire \
+  -H "Authorization: Bearer *** \
+  -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Sentry alert SEN-4521 fired in prod. Stack trace attached."}'
+```
+
+请求体里可选的 `text` 字段，会作为这次 run 的附加上下文，与 routine 的保存 prompt 一起交给 Claude。它只是自由文本，不会自动解析结构化 JSON 语义。
+
+成功响应会返回 session ID 与 URL：
+
+```json
+{
+  "type": "routine_fire",
+  "claude_code_session_id": "session_01HJKLMNOPQRSTUVWXYZ",
+  "claude_code_session_url": "https://claude.ai/code/session_01HJKLMNOPQRSTUVWXYZ"
+}
+```
+
+API trigger 目前依赖 beta header `experimental-cc-routine-2026-04-01`。由于还在 preview 阶段，请求/响应格式与限制未来都可能变化。
+
+## 添加 GitHub trigger
+
+GitHub trigger 会在匹配的仓库事件发生时自动启动新 session。每个匹配事件都会创建一个独立 session。
+
+### 配置步骤
+
+1. 在 `claude.ai/code/routines` 中编辑目标 routine
+2. 在 **Select a trigger** 中加入 **GitHub event**
+3. 安装 Claude GitHub App 到目标仓库
+4. 选择仓库、事件类型，并按需设置过滤器
+
+:::caution[`/web-setup` 不等于 webhook 安装]
+运行 `/web-setup` 只解决仓库 clone 访问，不会自动安装 Claude GitHub App，也不能替代 webhook 投递配置。GitHub trigger 仍然要求安装 Claude GitHub App。
+:::
+
+### 支持的事件
+
+| 事件类目 | 触发时机 |
+|---|---|
+| Pull request | PR 被打开、关闭、指派、打标签、同步更新等 |
+| Release | Release 被创建、发布、编辑或删除 |
+
+### PR 过滤器
+
+要缩小触发范围，可以为 PR 设置多条件过滤。所有条件必须同时满足才会触发。
+
+支持的字段包括：
+
+- Author
+- Title
+- Body
+- Base branch
+- Head branch
+- Labels
+- Is draft
+- Is merged
+
+操作符包括：
+
+- equals
+- contains
+- starts with
+- is one of
+- is not one of
+- matches regex
+
+如果使用 `matches regex`，要记住它匹配的是**整个字段值**，不是其中某个子串。比如要匹配标题里任意位置含 `hotfix`，应写：
+
+```text
+.*hotfix.*
+```
+
+而不是只写 `hotfix`。
+
+### GitHub 事件与 session 的映射
+
+当前 GitHub-triggered routine **不会在多个事件之间复用 session**。也就是说，同一个 PR 连续两次更新，就会创建两个独立 session。
+
+## 管理 routines 与 run 结果
+
+打开某个 routine 详情页后，可以看到：
+
+- repositories
+- connectors
+- prompt
+- schedule
+- API tokens
+- GitHub triggers
+- past runs
+
+### 查看与交互运行记录
+
+点击任意一次 run，就会进入一个完整的 Claude Code session。你可以：
+
+- 查看 Claude 做了什么
+- 审查改动
+- 创建 PR
+- 继续与它对话
+
+绿色状态只表示 session **没有基础设施级错误**，并不代表任务本身一定成功。实际是否成功，仍应进入 run transcript 中确认。
+
+### 修改、暂停或删除 routine
+
+在详情页可以：
+
+- 点击 **Run now** 立即启动一次
+- 用 **Repeats** 区域的开关暂停 / 恢复 schedule
+- 点击铅笔按钮编辑 routine 的 prompt、仓库、环境、connectors 或触发器
+- 点击删除图标彻底移除 routine
+
+删除 routine 后，它创建过的历史 session 仍会保留在你的 session 列表中。
+
+## 仓库、connector 与 environment 的边界
+
+### 仓库与分支推送规则
+
+Routine 默认只允许推送到 `claude/` 前缀分支，用于避免误改受保护或长期存在的分支。
+
+如果对某个仓库启用 **Allow unrestricted branch pushes**，Claude 才能直接推到其他现有分支。
+
+### Connectors
+
+Routine 可以使用你连接的 MCP connectors 与外部系统交互，例如：
+
+- 从 Slack 读取消息
+- 在 Linear 中创建 issue
+- 调用其他集成工具
+
+要注意：
+
+- 本地 CLI 中用 `claude mcp add` 添加的 MCP server 存在于**你的机器**，不会自动出现在 routine connectors 列表里
+- 如果想让某个能力进入 routine，可将其作为 claude.ai connector 添加，或把 `.mcp.json` 提交进仓库
+
+### Environments 与网络访问
+
+Routine 每次执行都继承所选 cloud environment 的：
+
+- network access
+- environment variables
+- setup scripts
+
+默认环境的 `Trusted` 模式允许默认白名单中的包管理器、云 API、容器仓库与常见开发域名；未在白名单里的域名会返回 `403` 与 `x-deny-reason: host_not_allowed`。
+
+而 MCP connector 的流量是通过 Anthropic 服务器中转的，因此 connector 本身通常不需要你把其域名手动加进 `Allowed domains`。
+
+若要允许额外域名：
+
+1. 编辑 routine
+2. 打开 environment 选择器
+3. 进入该 environment 设置
+4. 把 Network access 改为 `Custom` 或 `Full`
+5. 保存后在下一次 run 生效
+
+更完整的环境细节，可继续阅读 [Claude Code on the web 参考](/claude-code/platforms-and-integrations/claude-code-on-the-web/reference/)。
+
+## Usage 与限制
+
+Routines 会像普通交互式 session 一样消耗订阅 usage；除此之外，还存在一个**按账号计算的每日 routine 启动上限**。
+
+你可以在以下位置查看已用量和剩余额度：
+
+- `claude.ai/code/routines`
+- `claude.ai/settings/usage`
+
+如果 routine 碰到每日 run cap 或订阅 usage 上限：
+
+- 开启 usage credits 的组织，可继续按超额计费运行
+- 未开启 usage credits，则额外 run 会被拒绝，直到窗口重置
+
+一次性 run 不计入每日 routine cap，但仍会消耗正常订阅 usage。
+
+## 常见问题
+
+### `/schedule` 返回 “Unknown command”
+
+CLI 隐藏 `/schedule` 时，常见原因有：
+
+- 当前用的是 Console API key，或 Bedrock / Vertex / Foundry 等 provider 登录，而非 `claude.ai` 订阅账号
+- Shell 或 `settings.json` 中设置了会禁用 feature-flag 拉取的环境变量，例如 `DISABLE_TELEMETRY`、`DO_NOT_TRACK`、`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`、`DISABLE_GROWTHBOOK`
+- 当前正处于 Claude Code on the web session 中
+- CLI 版本低于 `v2.1.81`
+
+在这些情况下，你仍然可以直接去 `claude.ai/code/routines` 管理 routines。
+
+### “Routines are disabled by your organization’s policy”
+
+这通常说明 Team / Enterprise 管理员在 `claude.ai/admin-settings/claude-code` 里关闭了 **Routines** 开关。这是服务器端组织策略，本地无法绕过，只能联系管理员开启。
+
+## 相关阅读
+
+- [Claude Code on the web 入门](/claude-code/platforms-and-integrations/claude-code-on-the-web/get-started/)：先完成 Web 云端会话初始化
+- [Plan in the cloud](/claude-code/platforms-and-integrations/claude-code-on-the-web/plan-in-the-cloud/)：把计划草拟放到云端执行
+- [Ultrareview](/claude-code/platforms-and-integrations/claude-code-on-the-web/ultrareview/)：在合并前做云端深度代码审查

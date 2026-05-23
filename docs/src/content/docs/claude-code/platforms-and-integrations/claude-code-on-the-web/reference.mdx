@@ -1,0 +1,373 @@
+---
+title: Claude Code on the web 参考
+description: 在 Anthropic 托管云环境中运行 Claude Code，了解 GitHub 认证、环境配置、网络访问、会话迁移与 Auto-fix PR 等能力。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+# Claude Code on the web 参考
+
+在 **Anthropic 托管的云端环境** 中运行 Claude Code，并通过浏览器或手机持续跟进任务，即使你关掉本地电脑或断开浏览器，任务也能继续执行。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code on the web 目前处于 **research preview**。它面向 Pro、Max、Team 用户开放，也适用于拥有 premium seats 或 Chat + Claude Code seats 的 Enterprise 用户。
+
+它运行在 `claude.ai/code` 背后的云端基础设施里：
+
+- 会话在 Anthropic 管理的 VM 中执行
+- 浏览器关闭后任务仍会继续
+- 你可以在 Claude mobile app 中查看与跟进这些会话
+- 适合长任务、并行任务、远程修复与 PR 自动跟进
+
+如果你第一次使用，建议先阅读 **Get started**，完成 GitHub 连接与首次任务提交。
+
+## 这类云端会话最适合什么
+
+Claude Code on the web 适合：
+
+- **长时间运行任务**：例如大规模重构、迁移、测试修复、批量文档更新
+- **你不想占用本地机器时**：任务在云端持续跑，本机可以关机或去做别的工作
+- **需要多任务并行时**：每个云端会话互相独立，可以同时开多个任务
+- **需要从手机或浏览器随时接管时**：可直接在 `claude.ai/code` 或移动端查看与继续
+
+如果你想继续使用自己的本地工具链、文件系统与本地 MCP servers，则更适合用 **Remote Control**；如果你希望完全托管、无须本地常驻，则更适合用 **Claude Code on the web**。
+
+## GitHub 认证方式
+
+云端会话需要访问你的 GitHub 仓库，以便 clone 代码、创建分支和推送改动。官方支持两种方式：
+
+| 方式 | 工作原理 | 最适合 |
+|---|---|---|
+| GitHub App | 在网页 onboarding 中授权 Claude GitHub App | 直接从网页开始、以及想使用 Auto-fix 的团队 |
+| `/web-setup` | 在本地终端运行 `/web-setup`，把本机 `gh` 登录态同步到 Claude 账号 | 已经日常使用 `gh` 的个人开发者 |
+
+需要注意：
+
+- 云端会话可访问的是**该 GitHub 账号本身能访问的所有仓库**，而不只是安装了 GitHub App 的仓库
+- 安装 GitHub App 的意义主要在于支持 **PR webhooks**，也就是 Auto-fix 所需的事件输入
+- 如果团队要限制可访问仓库，应在 **GitHub 自身的成员与仓库权限层**做限制，而不是指望 App 安装范围本身成为会话级隔离
+- `/schedule` 会检查你是否已通过以上任一方式完成接入；若都没有，会提示你运行 `/web-setup`
+- 开启 **Zero Data Retention** 的组织不能使用 `/web-setup` 或其他云端会话能力
+
+## 云端环境是什么样的
+
+每个云端会话都会在**全新的 Anthropic 托管 VM** 中启动，并 clone 你的仓库。它和你本机的差异是：只有**被提交到仓库里的东西**会自然随 clone 带过去。
+
+### 哪些配置会带过去
+
+| 项目 | 云端可用 | 原因 |
+|---|---|---|
+| 仓库内的 `CLAUDE.md` | 是 | 属于仓库内容 |
+| 仓库内的 `.claude/settings.json` hooks | 是 | 属于仓库内容 |
+| 仓库内的 `.mcp.json` | 是 | 属于仓库内容 |
+| 仓库内的 `.claude/rules/` | 是 | 属于仓库内容 |
+| 仓库内的 `.claude/skills/`、`.claude/agents/`、`.claude/commands/` | 是 | 属于仓库内容 |
+| 在仓库设置里声明的插件 | 是 | 会在会话启动时安装 |
+| 用户级 `~/.claude/CLAUDE.md` | 否 | 只存在于你的本机 |
+| 用户级 `~/.claude/settings.json` 中启用的插件 | 否 | 属于本地用户配置 |
+| 通过 `claude mcp add` 添加到本机的 MCP server | 否 | 写入的是本地用户配置 |
+| 静态 API tokens / 凭据 | 默认无 | 还没有专门 secrets store |
+| AWS SSO 等交互式登录 | 否 | 云端会话无法完成浏览器式交互认证 |
+
+结论很简单：**如果希望配置在云端会话中可用，就提交到仓库里。**
+
+## 预装工具与资源限制
+
+云端会话预装了常见语言运行时、构建工具与数据库，例如：
+
+- Python 3.x：`pip`、`poetry`、`uv`、`pytest`、`ruff` 等
+- Node.js：20 / 21 / 22（`nvm`）以及 `npm`、`yarn`、`pnpm`、`bun`、`eslint`、`prettier`
+- Ruby / PHP / Java / Go / Rust / C/C++ 工具链
+- Docker / Docker Compose
+- PostgreSQL 16、Redis 7.0
+- 常见命令行工具：`git`、`jq`、`yq`、`ripgrep`、`tmux`、`vim`、`nano`
+
+如果你想查看精确版本，可以在云端会话里让 Claude 运行 `check-tools`。
+
+### 资源上限
+
+大致资源限制如下：
+
+- 4 vCPU
+- 16 GB RAM
+- 30 GB 磁盘
+
+因此它很适合一般开发与测试任务，但如果你要跑极重的构建、超大规模测试或高内存作业，可能会失败。这类场景更适合使用 **Remote Control**，把任务放到你自己的机器上执行。
+
+## 环境配置：环境变量、setup script 与缓存
+
+云端环境可配置三类核心内容：
+
+- **网络访问级别**
+- **环境变量**
+- **setup script**
+
+### 环境变量
+
+环境变量采用 `.env` 风格，每行一个 `KEY=value`：
+
+```text
+NODE_ENV=development
+LOG_LEVEL=debug
+DATABASE_URL=postgres://localhost:5432/myapp
+```
+
+注意：**不要给值额外加引号**，否则引号会被当作值本身保存下来。
+
+### Setup script
+
+setup script 是在**新云端会话启动前**执行的 Bash 脚本，适合做：
+
+- 安装没有预装的命令行工具
+- 安装语言依赖
+- 配置额外运行环境
+- 预先拉取 Docker 镜像
+
+例如安装 `gh`：
+
+```bash
+#!/bin/bash
+apt update && apt install -y gh
+```
+
+要点：
+
+- 脚本运行在 **Ubuntu 24.04** 上，且通常以 root 身份执行
+- 脚本**退出码非 0 会导致会话启动失败**
+- 对非关键步骤可追加 `|| true`，避免一次网络波动就让整个环境启动失败
+- 建议把总时长控制在 **5 分钟以内**
+- 对互不依赖的安装步骤可以并行执行后 `wait`
+
+### 环境缓存
+
+Anthropic 会在 setup script 完成后**快照文件系统**，并在后续会话中复用：
+
+- 已安装依赖、工具、Docker 镜像会留在磁盘缓存中
+- 后续新会话启动时可直接复用，明显加快启动速度
+- **缓存保存的是文件，不是进程**：你装好的东西会留下，但服务或容器不会自动继续运行
+
+setup script 会在以下情况重新执行：
+
+- 你修改了 setup script
+- 你改了允许访问的网络域名
+- 缓存大约 7 天后过期
+
+### Setup script vs SessionStart hook
+
+这两者常被混淆，区别如下：
+
+| 维度 | Setup script | SessionStart hook |
+|---|---|---|
+| 配置位置 | 云端环境设置 | 仓库内 `.claude/settings.json` |
+| 运行时机 | Claude Code 启动前 | Claude Code 启动后、每次 session / resume |
+| 作用范围 | 仅云端环境 | 本地与云端都可运行 |
+| 缓存支持 | 有 | 无 |
+
+经验上：
+
+- **安装重依赖 / CLI / 系统包**：优先用 setup script
+- **做项目级启动准备**：例如 `npm install`、生成代码、同步缓存，可考虑 SessionStart hook
+
+如果你只想在云端里执行某个 SessionStart hook，可以在脚本中检查：
+
+```bash
+if [ "$CLAUDE_CODE_REMOTE" != "true" ]; then
+  exit 0
+fi
+```
+
+## 网络访问控制
+
+云端环境对出站网络访问有严格控制。可配置的访问级别有：
+
+| 级别 | 出站网络访问 |
+|---|---|
+| None | 完全无外网 |
+| Trusted | 仅允许官方信任域名白名单 |
+| Full | 任意域名 |
+| Custom | 你自定义 allowlist，可选择是否包含默认白名单 |
+
+### 自定义允许域名
+
+当 Trusted 不够用时，可以切到 Custom，并逐行填写域名：
+
+```text
+api.example.com
+*.internal.example.com
+registry.example.com
+```
+
+说明：
+
+- `*.` 表示通配子域名
+- 可以勾选保留默认 package manager 白名单
+- 也可以完全只允许你手工列出的域名
+
+### GitHub 与安全代理
+
+即使你把普通网络访问收得很严，GitHub 操作依然通过**独立的 GitHub proxy** 完成，用于：
+
+- 安全处理 git 认证
+- 将沙箱内的受限凭据转换为真实 GitHub 身份
+- 限制推送范围（例如仅当前工作分支）
+
+此外，云端会话的所有普通外网访问都经由 **HTTP/HTTPS security proxy**，用于：
+
+- 恶意请求防护
+- 速率限制与滥用防控
+- 内容过滤
+
+## 从终端与网页之间迁移任务
+
+Claude Code 支持在本地 CLI 与云端网页会话之间切换。
+
+### 从终端发起云端任务
+
+使用：
+
+```bash
+claude --remote "Fix the authentication bug in src/auth/login.ts"
+```
+
+这会：
+
+- 在 `claude.ai` 上创建一个新的云端会话
+- clone 当前仓库的 GitHub remote 与当前分支
+- 在云端后台继续执行任务
+
+注意：
+
+- 如果你本地有未推送提交，**先 push**，因为云端 clone 的是 GitHub 上的代码，而不是你的硬盘内容
+- `--remote` 一次仅作用于一个仓库
+- 你可以连续发起多个 `--remote`，从而并行运行多个任务
+
+### 非 GitHub 仓库怎么办
+
+如果仓库没有连接 GitHub，Claude Code 会自动把本地仓库打包并上传到云端。这个 bundle：
+
+- 必须来自一个至少有一次提交的 git 仓库
+- 默认限制在 100 MB 内
+- **不会包含未跟踪文件**，所以重要文件请先 `git add`
+
+如果你即使连了 GitHub也想强制走本地打包，可用：
+
+```bash
+CCR_FORCE_BUNDLE=1 claude --remote "Run the test suite and fix any failures"
+```
+
+### 从网页拉回终端
+
+你可以通过 `--teleport` 把云端会话拉回本地 CLI：
+
+```bash
+claude --teleport
+```
+
+或直接指定某个会话：
+
+```bash
+claude --teleport <session-id>
+```
+
+Teleport 会检查：
+
+- 工作区是否干净（必要时会提示 stash）
+- 当前仓库是否为同一个仓库而不是 fork
+- 云端分支是否已推送到远程
+- 你是否登录了同一个 claude.ai 账号
+
+如果你使用 API key、Bedrock、Vertex AI 或 Foundry 登录，那么 `--teleport` 不可用，需要重新用 `claude.ai` 账号 `/login`。
+
+## 会话管理与上下文控制
+
+网页端会话支持与本地类似的上下文管理能力。
+
+### 可用命令
+
+在云端会话中：
+
+| 命令 | 可用性 | 说明 |
+|---|---|---|
+| `/compact` | 可用 | 压缩上下文，可附带保留重点说明 |
+| `/context` | 可用 | 查看当前上下文使用情况 |
+| `/clear` | 不可用 | 想开新会话请从侧栏新建 |
+
+自动 compact 会在接近容量上限时触发。你也可以通过环境变量调节触发阈值，例如更早在 70% 时压缩。
+
+### 分享、归档与删除
+
+网页端会话可：
+
+- 查看 diff 并做 review
+- 分享给团队或公开链接（视套餐而定）
+- 归档已完成任务
+- 永久删除会话
+
+Team / Enterprise 常见是 **Private / Team** 两种可见性；Pro / Max 常见是 **Private / Public**。分享前应注意会话可能包含私有仓库代码与敏感上下文。
+
+## Auto-fix Pull Requests
+
+Claude 可以持续监听 PR，并对以下事件做自动响应：
+
+- CI 检查失败
+- reviewer 留下 review comment
+
+Auto-fix 的工作方式：
+
+- 对明显、确定的修复：直接修改、推送并说明做了什么
+- 对含糊或架构影响较大的反馈：先询问你
+- 对重复事件或无需动作的事件：在会话中记录后跳过
+
+### Auto-fix 的前提
+
+- 你的仓库已安装 **Claude GitHub App**
+- 该 PR 已在网页会话或相关设备中被 Claude 关注
+
+可开启的方式包括：
+
+- 在网页端创建的 PR 中，打开 CI 状态栏并启用 Auto-fix
+- 在终端当前 PR 分支执行 `/autofix-pr`
+- 在移动端或网页端把 PR URL 发给 Claude 并要求它自动跟进
+
+## 安全与隔离
+
+每个云端会话都具备多层隔离：
+
+- **隔离虚拟机**：每个会话运行在独立 Anthropic 托管 VM 中
+- **网络访问控制**：默认受限，可关闭或进一步收紧
+- **凭据保护**：如 git 凭据、签名密钥不会直接暴露给 Claude 所在沙箱
+- **安全代理**：认证、网络访问和部分集成功能都经由受控代理完成
+
+需要特别理解的一点是：即使关闭普通出站网络，Claude Code 仍然需要与 Anthropic API 通信，因此并不是“完全无数据外流”的含义。
+
+## 常见问题与限制
+
+### 常见问题
+
+- **Session creation failed**：通常是云端环境分配失败、短时容量不足，或当前 GitHub 账号实际上无权访问该仓库
+- **Remote Control session expired or access denied**：`--teleport` 使用了相同的远程会话基础设施，账号或 token 过期时会出现类似提示
+- **Environment expired**：会话长期不活跃后底层环境被回收；重新打开会自动创建新环境，并恢复会话历史
+
+### 主要限制
+
+- **速率限制共享**：网页会话与其他 Claude / Claude Code 使用共享套餐额度；并行越多，消耗越快
+- **仓库平台限制**：GitHub 体验最佳；非 GitHub 仓库可上传 bundle，但通常无法直接把结果推回远程
+- **组织 IP allowlist**：如果你的组织启用了严格 IP allowlist，来自 Anthropic 托管基础设施的会话可能直接认证失败
+- **高负载任务受资源限制影响**：超大构建、极端高内存测试可能被终止
+
+## 相关资源
+
+- Get started：首次连接 GitHub 并提交云端任务
+- Routines：按计划、API 或 GitHub 事件触发自动化任务
+- Ultraplan：在云端先产出计划，再审阅与执行
+- Ultrareview：在云端沙箱里执行更深入的多智能体审查
+- Hooks configuration：了解 SessionStart hooks 等生命周期钩子
+- Settings reference：查看全部配置项
+- Security：查看隔离与安全保证
+- Data usage：了解 Anthropic 对云端会话数据的处理方式

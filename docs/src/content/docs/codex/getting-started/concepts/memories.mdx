@@ -2,39 +2,195 @@
 title: 记忆
 description: Codex 如何记住先前会话中的有用上下文
 sidebar:
-  order: 4
+  order: 3
 ---
 
-记忆（Memories）让 Codex 能够将先前会话中的有用上下文带入后续工作中。启用后，Codex 可以记住稳定的偏好设置、重复性工作流、技术栈、项目规范以及已知陷阱。
+:::note
+Memories（记忆）默认处于关闭状态，并且在欧洲经济区（EEA）、英国或瑞士的初始版本中不可用。可在 Codex 设置中启用它们，或者在 `~/.codex/config.toml` 的 `[features]` 表中设置 `memories = true`。
+:::
 
-通过 Codex 设置或 `config.toml` 启用：
+Memories 让 Codex 能够将早期线程中的有用上下文延续到未来的工作中。启用 memories 后，Codex 可以记住稳定的偏好、重复性的工作流程、技术栈、项目约定以及已知陷阱，这样你就不需要在每个线程中重复相同的上下文。
+
+请将必要的团队指导保存在 `AGENTS.md` 或已提交的文档中。应将 memories 视为一个有帮助的本地回忆层，而不是必须始终生效规则的唯一来源。
+
+[Chronicle](/codex/getting-started/concepts/memories/#chronicle) 可以帮助 Codex 从你的屏幕恢复最近的工作上下文，以构建记忆。
+
+## 启用 memories
+
+在 Codex 应用中，在设置里启用 Memories。
+
+对于基于配置文件的设置，在 `config.toml` 中添加功能标志：
 
 ```toml
 [features]
 memories = true
 ```
 
-## 工作原理
+请参阅 [Config basics](https://developers.openai.com/codex/configuration/config-basic)，了解 Codex 如何存储用户级配置以及如何加载 `~/.codex/config.toml`。
 
-- Codex 可将符合条件的先前会话内容转换为本地记忆文件
-- 跳过正在活跃对话或简短会话
-- 从生成的记忆字段中移除机密信息
-- 在后台异步更新记忆
+## memories 的工作方式
 
-## 存储位置
+启用 memories 后，Codex 可以将符合条件的历史线程中的有用上下文转换为本地 memory 文件。Codex 会跳过活跃或短生命周期的会话，从生成的 memory 字段中移除敏感信息，并在后台更新 memories，而不是在线程结束时立即更新。
 
-记忆文件存储在 `~/.codex/memories/` 目录下。
+当线程结束后，memories 可能不会立即更新。Codex 会等待线程空闲足够长时间，以避免总结仍在进行中的工作。
 
-## 逐会话控制
+当你的 Codex 速率限制剩余百分比低于配置阈值时，memory 生成也可能跳过后台处理，以避免在接近限制时消耗额度。
 
-在 Codex 应用或 TUI 中使用 `/memories` 命令控制每个会话的记忆行为。
+## memory 存储
 
-## 配置选项
+Codex 会将 memories 存储在你的 Codex 主目录下。默认情况下，该目录为 `~/.codex`。有关 Codex 如何使用 `CODEX_HOME`，请参阅 [Config and state locations](/codex/config-advanced#config-and-state-locations)。
 
-- `memories.generate_memories` — 是否将新会话用作记忆生成的输入
-- `memories.use_memories` — 是否将已有记忆注入到未来的会话中
-- `memories.min_rate_limit_remaining_percent` — 记忆生成所需的最低速率限制阈值
+主要的 memory 文件位于 `~/.codex/memories/` 下，其中包括摘要、持久化条目、最近输入以及来自历史线程的支持证据。
 
-## 注意事项
+请将这些文件视为生成状态（generated state）。在故障排查或共享 Codex 主目录之前，你可以检查它们，但不要依赖手动编辑这些文件作为主要控制方式。
 
-请将团队必要的指导规范保存在 `AGENTS.md` 中。记忆仅作为辅助性的本地缓存，**不是**规则的唯一来源。
+## 按线程控制 memories
+
+在 Codex 应用和 Codex TUI 中，使用 `/memories` 来控制当前线程的 memory 行为。线程级别的选择允许你决定当前线程是否可以使用已有 memories，以及 Codex 是否可以将当前线程用于生成未来 memories。
+
+线程级别的选择不会更改你的全局 memory 设置。
+
+## 配置
+
+在 Codex 应用设置中启用 memories，或者在 `config.toml` 的 `[features]` 部分设置 `memories = true`。
+
+有关配置文件位置以及完整的 memory 相关设置列表，请参阅 [configuration reference](/codex/configuration/config-reference)。
+
+常见的 memory 相关设置包括：
+
+* `memories.generate_memories`：控制新创建的线程是否可以作为 memory 生成输入被存储。
+* `memories.use_memories`：控制 Codex 是否会在未来会话中注入已有 memories。
+* `memories.disable_on_external_context`：当设置为 `true` 时，包含外部上下文（例如 MCP 工具调用、网页搜索或工具搜索）的线程不会被用于 memory 生成。旧的 `memories.no_memories_if_mcp_or_web_search` 键仍然作为别名被接受。
+* `memories.min_rate_limit_remaining_percent`：控制开始 memory 生成前所需的最低剩余 Codex 速率限制百分比。
+* `memories.extract_model`：覆盖用于每线程 memory 提取的模型。
+* `memories.consolidation_model`：覆盖用于全局 memory 整合的模型。
+
+## 审查 memories
+
+不要在 memories 中存储敏感信息。Codex 会从生成的 memory 字段中移除敏感信息，但在共享你的 Codex 主目录或生成的 memory 产物之前，你仍应检查 memory 文件。
+
+## Chronicle
+
+:::note
+Chronicle 是一个**需主动启用（opt-in）的研究预览功能**。目前仅面向 macOS 上的 ChatGPT Pro 订阅用户开放，暂未在欧盟、英国和瑞士提供。启用前，请先阅读 [Privacy and Security](#privacy-and-security)（隐私与安全）部分，以了解当前风险。 
+:::
+
+Chronicle 会利用你的屏幕上下文增强 Codex memories（记忆）。当你向 Codex 提示时，这些 memories 可以帮助它理解你最近在做什么，从而减少重复描述上下文的需求。 
+
+Chronicle 作为一个需主动启用的研究预览功能，提供于 macOS 版 Codex 应用中。它需要 macOS 的屏幕录制（Screen Recording）与辅助功能（Accessibility）权限。启用前，请注意 Chronicle 会快速消耗 rate limits（速率限制）、增加 prompt injection（提示注入）风险，并且会在你的设备上以未加密形式存储 memories。 
+
+### Chronicle 如何提供帮助
+
+我们设计 Chronicle 的目标，是减少你在使用 Codex 时需要重复提供的上下文。通过使用最近的屏幕上下文来改进 memory 构建，Chronicle 可以帮助 Codex 理解你正在指什么、识别应使用的正确来源，以及掌握你依赖的工具与工作流程。 
+
+### 使用屏幕上的内容
+
+借助 Chronicle，Codex 可以理解你当前正在查看的内容，从而节省时间并减少上下文切换。 
+
+(图略)
+
+### 补全缺失的上下文
+
+无需精心构造上下文并从零开始。Chronicle 可以帮助 Codex 自动补全你的上下文空缺。 
+
+(图略)
+
+### 记住工具与工作流程
+
+无需向 Codex 解释应该使用哪些工具来完成工作。Codex 会在你工作的过程中学习，从而长期节省你的时间。 
+
+(图略)
+
+在这些情况下，Codex 会使用 Chronicle 来提供额外上下文。当存在更适合的来源时，例如读取特定文件、Slack 线程、Google Doc、仪表盘或 Pull Request，Codex 会使用 Chronicle 来识别来源，然后直接使用该来源。 
+
+## 启用 Chronicle
+
+1. 在 Codex 应用中打开 Settings（设置）。
+2. 进入 **Personalization**（个性化），并确保 **Memories** 已启用。
+3. 在 Memories 设置下方开启 **Chronicle**。
+4. 查看同意对话框并选择 **Continue**（继续）。
+5. 根据提示授予 macOS 的 Screen Recording（屏幕录制）和 Accessibility（辅助功能）权限。
+6. 设置完成后，选择 **Try it out**（试用）或开始一个新线程。 
+
+如果 macOS 报告 Screen Recording 或 Accessibility 权限被拒绝，请打开：
+System Settings > Privacy & Security > Screen Recording 或 Accessibility，并启用 Codex。
+如果权限受到 macOS 或组织策略限制，则需要在限制解除并且 Codex 获得所需权限后，Chronicle 才会启动。 
+
+## 随时暂停或禁用 Chronicle
+
+你可以控制 Chronicle 何时利用屏幕上下文生成 memories。使用 Codex 菜单栏图标选择 **Pause Chronicle**（暂停 Chronicle）或 **Resume Chronicle**（恢复 Chronicle）。在开会期间或查看不希望 Codex 记住的敏感内容时，请暂停 Chronicle。若要禁用 Chronicle，请返回：
+**Settings > Personalization > Memories** 并关闭 **Chronicle**。 
+
+你也可以控制 memories 是否会在某个线程中使用。[了解更多](/codex/memories#control-memories-per-thread)。 
+
+## Rate limits（速率限制）
+
+Chronicle 通过在后台运行沙盒代理（sandboxed agents）来从捕获的屏幕图像生成 memories。这些代理目前会快速消耗 rate limits。 
+
+## 隐私与安全
+
+Chronicle 使用屏幕截图，这可能包含你屏幕上显示的敏感信息。它不会访问你的麦克风或系统音频。未经他人同意，请不要使用 Chronicle 记录会议或通信内容。在查看你不希望被记入 memories 的内容时，请暂停 Chronicle。 
+
+### Chronicle 将数据存储在哪里？
+
+屏幕截图是临时性的，仅会暂时保存在你的电脑上。当 Chronicle 运行时，临时截图文件可能会出现在：
+
+`$TMPDIR/chronicle/screen_recording/`
+
+运行期间，超过 6 小时的屏幕截图会被删除。 
+
+Chronicle 生成的 memories 与其他 Codex memories 一样：
+它们是未加密的 Markdown 文件，你可以在需要时读取和修改。你也可以让 Codex 搜索它们。如果你希望 Codex 忘记某些内容，可以删除对应文件，或者有选择地编辑 Markdown 文件以移除不希望保留的信息。你不应手动添加新的信息。
+
+生成的 Chronicle memories 会本地存储在：
+
+`$CODEX_HOME/memories_extensions/chronicle/`
+
+（通常为 `~/.codex/memories_extensions/chronicle`）。 
+
+:::warning
+你的屏幕截图目录与 memories 目录都可能包含敏感信息。请确保不要将这些内容分享给他人，并注意你电脑上的其他程序也可能访问这些文件。 
+:::
+
+### 哪些数据会共享给 OpenAI？
+
+Chronicle 会在本地捕获屏幕上下文，然后定期使用 Codex 将最近活动总结为 memories。为了生成这些 memories，Chronicle 会启动一个临时的 Codex 会话，并让其访问相关屏幕上下文。该会话可能会处理选定的截图帧、从截图中提取的 OCR 文本、时间信息以及相关时间窗口内的本地文件路径。 
+
+用于 memory 生成的屏幕截图会暂时存储在你的设备上。它们会在我们的服务器上处理以生成 memories，然后这些 memories 会本地存储在设备中。除法律要求外，我们不会在服务器上保留这些截图，也不会将其用于训练。 
+
+生成的 memories 是 Markdown 文件，保存在：
+
+`$CODEX_HOME/memories_extensions/chronicle/`
+
+下。未来会话中，当 Codex 使用这些 memories 时，相关 memory 内容可能会作为上下文被包含进会话，并且如果你的 ChatGPT 设置允许，也可能会被用于改进模型。[了解更多](https://help.openai.com/en/articles/7730893-data-controls-faq)。 
+
+## Prompt injection（提示注入）风险
+
+使用 Chronicle 会增加来自屏幕内容的 prompt injection 攻击风险。例如，如果你浏览了包含恶意 agent 指令的网站，Codex 可能会遵循这些指令。 
+
+## 故障排查
+
+### 如何启用 Chronicle？
+
+如果你没有看到 Chronicle 设置，请确认：
+
+* 你使用的是包含 Chronicle 的 Codex 应用版本。
+* 你已在 Settings > Personalization 中启用了 Memories。 
+
+Chronicle 当前仅面向 macOS 上的 ChatGPT Pro 订阅用户开放。
+Chronicle 不在欧盟、英国和瑞士提供。 
+
+如果设置无法完成：
+
+1. 确认 Codex 已获得 Screen Recording 与 Accessibility 权限。
+2. 退出并重新打开 Codex 应用。
+3. 打开 **Settings > Personalization** 并检查 Chronicle 状态。 
+
+### Chronicle memories 使用哪个模型生成？
+
+Chronicle 使用与你其他 [Memories](/codex/getting-started/concepts/memories) 相同的模型。如果你没有配置特定模型，则默认使用你的 Codex 默认模型。若要指定模型，请更新 [配置](/codex/configuration/config-basic) 中的 `consolidation_model`： 
+
+```toml
+[memories]
+consolidation_model = "gpt-5.4-mini"
+```

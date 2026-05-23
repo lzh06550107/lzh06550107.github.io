@@ -1,0 +1,291 @@
+---
+title: 扩展 Claude Code
+description: 理解何时应使用 CLAUDE.md、Skills、subagents、hooks、MCP、代码智能、插件与插件市场。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# 扩展 Claude Code
+
+理解何时应使用 `CLAUDE.md`、Skills、subagents、hooks、MCP、代码智能、插件与插件市场。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Claude Code 把能够理解代码的模型，与用于文件操作、搜索、执行命令和访问 Web 的[内置工具](/claude-code/core-concepts/how-claude-code-works/#工具)结合在一起。内置工具已经覆盖了大多数编码任务。本页讲的是**扩展层**：也就是你为了定制 Claude 已知的信息、连接外部服务、以及自动化工作流而额外添加的能力。
+
+如果你想先理解核心代理式循环，可以先看[Claude Code 的工作原理](/claude-code/core-concepts/how-claude-code-works/)。
+
+**刚开始使用 Claude Code？** 建议先从 [`CLAUDE.md`](https://code.claude.com/docs/en/memory) 开始，把项目约定写进去；只有在出现明确触发场景时，再逐步补充其他扩展。
+
+## 概览
+
+这些扩展能力会接入代理式循环的不同位置：
+
+- `CLAUDE.md`：为每次会话注入持久上下文。
+- Skills：提供可复用知识和可调用工作流。
+- 代码智能（Code intelligence）：把 Claude 连接到语言服务器，支持符号级跳转和实时类型错误。
+- MCP：把 Claude 连接到外部服务和工具。
+- Subagents：在隔离上下文中运行自己的循环，并把结果摘要返回给主会话。
+- Agent teams：协调多个相互独立的 Claude Code 会话，并允许共享任务和点对点消息。
+- Hooks：在生命周期事件上触发脚本、HTTP 请求、提示词或 subagent。
+- Plugins 与 marketplaces：把这些能力打包并进行分发。
+
+Skills 是最灵活的扩展之一。一个 skill 本质上是包含知识、工作流或说明的 Markdown 文件。你可以通过 `/deploy` 这样的命令显式调用，也可以让 Claude 在相关场景下自动加载。Skills 既可以在当前对话里运行，也可以通过 subagents 在隔离上下文中运行。
+
+## 根据目标选择能力
+
+这些能力的覆盖范围很广：有些是**每次会话都会存在的常驻上下文**，有些是**你或 Claude 按需调用的能力**，还有一些是**在特定事件上自动运行的后台自动化机制**。下面这张表展示了各自适用的场景。
+
+| 能力 | 它做什么 | 何时使用 | 示例 |
+|---|---|---|---|
+| `CLAUDE.md` | 每次对话都会加载的持久上下文 | 项目约定、“总是做 X” 一类规则 | “使用 pnpm 而不是 npm。提交前先跑测试。” |
+| Skill | Claude 可使用的说明、知识和工作流 | 可复用内容、参考资料、重复性任务 | `/deploy` 执行你的部署清单；一个包含 API 端点模式的文档 skill |
+| Subagent | 在隔离执行上下文中工作，并只返回摘要 | 上下文隔离、并行任务、专用工作线程 | 一个阅读大量文件、最后只返回关键发现的调研任务 |
+| Agent team | 协调多个独立的 Claude Code 会话 | 并行调研、新功能开发、基于竞争假设的调试 | 同时拉起安全、性能和测试审查者 |
+| 代码智能 | 基于语言服务器的导航与诊断 | 强类型语言、大型代码库、grep 不够快或不够准时 | 直接跳到符号定义，而不是手动把整个文件读完 |
+| MCP | 连接外部服务 | 需要外部数据或外部动作时 | 查询数据库、发 Slack、控制浏览器 |
+| Hook | 在事件上触发的脚本、HTTP 请求、提示词或 subagent | 每次匹配事件都必须运行的自动化 | 每次文件编辑后自动跑 ESLint |
+
+插件是**打包层**。一个 plugin 会把 skills、hooks、subagents 和 MCP servers 打包成一个可安装单元。插件 skill 会带命名空间（如 `/my-plugin:review`），从而允许多个插件并存。若你想把同一套能力复用到多个仓库，或者通过 marketplace 分发给别人，plugin 就是正确的封装方式。
+
+### 逐步构建你的配置
+
+你不需要一开始就把所有东西都配置好。每种能力都有比较明确的触发信号，大多数团队也会按类似顺序逐步增加：
+
+| 触发信号 | 应添加什么 |
+|---|---|
+| Claude 连续两次把某个约定或命令搞错 | 把它写进 `CLAUDE.md` |
+| 你总是在任务开始时手动重复输入同一段提示词 | 保存成一个可手动调用的 skill |
+| 你第三次把同一份作战手册或多步骤流程贴进聊天 | 把它固化成 skill |
+| 你总要从 Claude 看不到的浏览器标签页里复制数据给它 | 把那个系统接成 MCP server |
+| Claude 经常要读很多文件才能找到某个符号定义或引用位置 | 给对应语言安装代码智能插件 |
+| 一个支线任务的中间输出把主对话淹没了，而你以后又不会回看 | 把它改走 subagent |
+| 你希望某件事每次都自动发生，而不是靠提醒 | 写一个 hook |
+| 第二个仓库也需要同一套配置 | 打包成 plugin |
+
+同样的触发信号，也告诉你何时该**更新已有配置**。重复出现的错误，或者反复出现的审查意见，通常意味着应该修改 `CLAUDE.md`，而不是继续在聊天里一次次纠正。一个你每次都要手调的工作流，往往意味着 skill 还需要再修订。
+
+### 对比相近能力
+
+有些能力看起来相似，实际解决的问题并不一样。下面给出最常见的区分方法。
+
+#### Skill vs Subagent
+
+Skills 与 subagents 解决的是不同问题：
+
+- **Skills** 是你可以加载进任意上下文的可复用内容。
+- **Subagents** 是从主对话中独立出去、单独运行的隔离工作线程。
+
+| 维度 | Skill | Subagent |
+|---|---|---|
+| 它是什么 | 可复用的说明、知识或工作流 | 带独立上下文的隔离工作线程 |
+| 核心优势 | 在不同上下文之间复用内容 | 上下文隔离；工作单独发生，只返回摘要 |
+| 对主上下文窗口的影响 | 会增加主窗口内容 | 使用独立窗口，拥有自己的输入和输出 token |
+| 最适合 | 参考资料、可调用工作流 | 读很多文件的任务、并行工作、专用工作线程 |
+
+Skills 既可以是**参考型**，也可以是**行动型**。参考型 skill 提供的是贯穿整个会话的知识，例如你的 API 风格指南；行动型 skill 则是告诉 Claude 去做一件具体事情，例如 `/deploy` 触发部署流程。
+
+当你需要**上下文隔离**，或者主上下文快满时，就该用 subagent。它可以读几十个文件、跑大量搜索，但你的主对话只拿到最终摘要。由于 subagent 的工作不会消耗主上下文，这也适合那些你根本不需要保留中间过程的任务。自定义 subagent 还可以有自己的说明，并预加载指定 skills。
+
+二者也可以组合：
+
+- subagent 可以预加载特定 skills（`skills:` 字段）；
+- skill 也可以使用 `context: fork` 在隔离上下文中运行。
+
+更多细节可参见官方的 [Skills](https://code.claude.com/docs/en/skills) 页面。
+
+#### `CLAUDE.md` vs Skill
+
+如果某条信息应该**每次会话都默认生效**，通常放进 `CLAUDE.md`；如果它只在某类任务里才相关，或者需要你主动触发，通常应该做成 skill。
+
+- `CLAUDE.md` 适合：项目约定、常用命令、架构前提、默认行为规则。
+- Skill 适合：参考文档、可复用的任务模板、一步步执行的操作手册。
+
+一个实用判断标准是：
+
+- “Claude 总该知道这件事” → 放 `CLAUDE.md`
+- “Claude 只在某类任务里才需要这件事” → 放 skill
+
+#### `CLAUDE.md` vs Rules vs Skills
+
+这三者都是“给 Claude 额外说明”，但加载时机不同：
+
+- `CLAUDE.md`：总是加载，适合长期生效的根级规则。
+- Rules：按主题或路径匹配触发，适合只对某些文件或目录生效的规则。
+- Skills：按需加载，适合参考材料和可调用工作流。
+
+如果某条规则只对 `api/` 目录生效，就不应该塞进项目根 `CLAUDE.md`；应考虑写成 path-scoped rule。若某份内容太长、只在少数场景下才需要，就更适合做成 skill，而不是把它永远挂在上下文里。
+
+#### Subagent vs Agent team
+
+Subagent 是**单个隔离工作线程**；agent team 是**多个独立 Claude Code 会话的协同编排**。
+
+- 需要把一个子任务丢出去、收回摘要 → subagent
+- 需要多个独立会话并行工作、彼此协调 → agent team
+
+例如：
+
+- “去研究这段代码并回来总结” → subagent
+- “同时让安全、性能、测试三个角色并行审查，再互相交换结论” → agent team
+
+#### MCP vs Skill
+
+MCP 提供的是**连接能力**；skill 提供的是**使用这些连接的知识与流程**。
+
+- MCP 负责把 Claude 接到数据库、浏览器、Slack、内部系统等外部世界。
+- Skill 负责教 Claude 如何更好地使用这些能力，例如数据库模式、常用查询模板、业务约束等。
+
+#### Hook vs Skill
+
+Skill 是“需要时调用”；hook 是“事件发生时自动触发”。
+
+- Skill：更偏交互式、按需执行。
+- Hook：更偏自动化、生命周期驱动。
+
+比如：
+
+- “我想在发布前运行检查清单” → skill
+- “每次编辑完文件都自动跑 lint” → hook
+
+## 理解这些能力如何分层
+
+同一种能力可能定义在多个层级：面向整台机器的用户级、某个项目的项目级、由 plugin 提供的插件级，或者组织下发的托管策略级。你还可以在子目录里嵌套 `CLAUDE.md`，也可以在 monorepo 的特定包里放 skills。**当同名能力在多个层级同时存在时，它们的叠加/覆盖方式并不相同。**
+
+- **`CLAUDE.md` 是累加的。** 所有层级的内容都会同时进入 Claude 的上下文。启动时会加载当前工作目录及其祖先目录中的文件；随着你进入子目录工作，还会继续发现并加载子目录中的 `CLAUDE.md`。若说明冲突，Claude 会自行判断并协调，通常更具体的说明会优先生效。可参考官方的 [how `CLAUDE.md` files load](https://code.claude.com/docs/en/memory#how-claude-md-files-load)。
+- **Skills 与 subagents 按名称覆盖。** 同名项在不同层级存在时，会按优先级决出一个定义生效：skills 的优先级是 `managed > user > project`；subagents 的优先级是 `managed > CLI flag > project > user > plugin`。plugin skill 会使用命名空间避免冲突。参见 [skill discovery](https://code.claude.com/docs/en/skills#where-skills-live) 与 [subagent scope](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope)。
+- **MCP servers 按名称覆盖。** 优先级是 `local > project > user`。参见官方的 [MCP scope](https://code.claude.com/docs/en/mcp#scope-hierarchy-and-precedence)。
+- **Hooks 会合并。** 所有已注册、且匹配当前事件的 hooks 都会触发，不管它们来自哪里。参见官方的 [hooks](https://code.claude.com/docs/en/hooks)。
+
+## 组合使用这些能力
+
+每种扩展都解决不同问题：
+
+- `CLAUDE.md` 处理常驻上下文；
+- skills 处理按需知识与工作流；
+- MCP 处理外部连接；
+- subagents 处理隔离；
+- hooks 处理自动化。
+
+现实中的好用配置，通常是把它们按各自擅长的方向拼在一起。
+
+例如，你可以：
+
+- 用 `CLAUDE.md` 保存项目约定；
+- 用一个 skill 保存部署流程；
+- 用 MCP 连接数据库；
+- 再用 hook 在每次编辑后自动执行 lint。
+
+| 组合模式 | 工作方式 | 示例 |
+|---|---|---|
+| Skill + MCP | MCP 提供连接；skill 教 Claude 如何高质量地使用它 | MCP 接数据库；skill 说明数据库模式和查询模式 |
+| Skill + Subagent | 一个 skill 负责拉起多个 subagents 并行工作 | `/audit` skill 启动安全、性能和风格 subagents，在隔离上下文里并行工作 |
+| `CLAUDE.md` + Skills | `CLAUDE.md` 存常驻规则；skills 存按需加载的参考资料 | `CLAUDE.md` 写“遵循 API 约定”，skill 则保存完整 API 风格指南 |
+| Hook + MCP | hook 通过 MCP 触发外部动作 | 文件编辑后触发 hook，通过 MCP 往 Slack 发通知 |
+
+## 理解上下文成本
+
+你添加的每一种能力，都会消耗一定的上下文。上下文过多不仅会让窗口更快被填满，也会带来噪声，使 Claude 更难稳定发挥：例如 skill 触发不准确，或者忘记项目约定。理解这些取舍，能帮助你构建更有效的配置。
+
+如果你想看这些能力在真实会话中是如何一起进入上下文的，可以参考[探索上下文窗口](/claude-code/core-concepts/explore-the-context-window/)。
+
+### 各能力的上下文成本
+
+| 能力 | 何时加载 | 加载什么 | 上下文成本 |
+|---|---|---|---|
+| `CLAUDE.md` | 会话开始时 | 完整内容 | 每次请求都带着 |
+| Skills | 会话开始时 + 使用时 | 开始时只加载描述，使用时加载完整内容 | 低（描述会在每次请求里出现） |
+| MCP servers | 会话开始时 | 工具名称；完整 schema 按需延迟加载 | 低，直到真正使用工具 |
+| 代码智能 | 文件编辑后 + 按需时 | 编辑后的诊断；查询符号时的位置信息 | 低，而且还能减少其他地方的读文件开销 |
+| Subagents | 被拉起时 | 一个全新的上下文，并带上指定 skills | 与主会话隔离 |
+| Hooks | 被触发时 | 默认不加载到上下文（它在外部执行） | 0，除非 hook 返回额外上下文 |
+
+默认情况下，skill 描述会在会话开始时加载，好让 Claude 能自行判断何时使用它。若在 skill 的 frontmatter 里设置 `disable-model-invocation: true`，这个 skill 对 Claude 就完全不可见，只有你手动调用时才会加载。对于那种你只会自己手动触发的 skill，这样可以把上下文成本降为 0。若 skill 不是你自己写的，也可以通过 `skillOverrides` 在设置里达到同样效果，而不需要直接改文件。
+
+### 理解这些能力是如何加载的
+
+下表图示总结了不同能力在会话中的加载方式：
+
+![上下文加载示意图](/images/claude-code/core-concepts/context-loading.svg)
+
+另外，官方页面在这里给了一个交互式标签区域，分别展示 `CLAUDE.md`、Skills、MCP servers、代码智能、subagents 和 hooks 的加载时机。下面将其整理为文字版。
+
+<Tabs>
+  <TabItem label="CLAUDE.md" icon="open-book">
+
+  - **何时加载：** 会话启动时。
+  - **加载内容：** 所有 `CLAUDE.md` 文件的完整内容（包括 managed、user 和 project 层级）。
+  - **继承方式：** Claude 会从当前工作目录一路向上读取 `CLAUDE.md`，直到根目录；当它访问子目录文件时，也会继续发现并加载嵌套的 `CLAUDE.md`。细节可参见官方的 [How CLAUDE.md files load](https://code.claude.com/docs/en/memory#how-claude-md-files-load)。
+
+  建议把 `CLAUDE.md` 控制在 200 行以内。若参考资料过长，最好迁移到 skills，这样只会在需要时按需加载。
+  </TabItem>
+  <TabItem label="Skills" icon="star">
+
+  Skills 是 Claude 工具箱中的额外能力。它们可以是参考材料（如 API 风格指南），也可以是你用 `/&lt;name&gt;` 显式触发的工作流（如 `/deploy`）。Claude Code 还内置了 `/code-review`、`/batch`、`/debug` 等可开箱即用的 skills。你也可以创建自己的 skills。Claude 会在适合时自动使用，也可以由你显式调用。
+
+  - **何时加载：** 取决于 skill 配置。默认是在会话开始时加载描述，在使用时加载完整内容。若设置 `disable-model-invocation: true`，则在你手动调用前完全不加载。
+  - **加载内容：** 对于可由模型自动调用的 skill，Claude 会在每次请求中看到名称和描述；当你用 `/&lt;name&gt;` 调用，或者 Claude 自动决定加载它时，完整内容才会进入对话。
+  - **Claude 如何选择 skill：** Claude 会把当前任务与你写的 skill 描述做匹配，判断哪些相关。如果描述太模糊、或几个 skill 重叠过多，它可能加载错 skill，或者漏掉其实很有帮助的那个。若你想强制使用某个 skill，直接输入 `/&lt;name&gt;` 即可。`disable-model-invocation: true` 的 skill 在你调用前对 Claude 完全不可见。
+  - **上下文成本：** 未使用前很低；仅手动调用的 skill 在调用前成本为 0。
+  - **在 subagent 中：** skills 的行为不同。写在 subagent `skills:` 字段里的 skill，会在 subagent 启动时**完整预加载**进其上下文，而不是按需加载。除此之外，subagent 仍可通过 Skill 工具发现并调用未列出的 project、user 或 plugin skills。
+
+  对有副作用的 skill，建议设置 `disable-model-invocation: true`。这样既能节省上下文，也能保证只有你会主动触发它。
+  </TabItem>
+  <TabItem label="MCP servers" icon="box">
+
+  - **何时加载：** 会话启动时。
+  - **加载内容：** 连接到的服务器的工具名称。完整 JSON schema 会延迟到 Claude 真正需要某个工具时才加载。
+  - **上下文成本：** 工具搜索默认开启，因此闲置 MCP 工具通常只占用极少上下文。
+
+  **可靠性提示：** MCP 连接可能会在会话中途悄悄失效。如果某个 server 断开，它的工具会在没有明显提示的情况下从 Claude 可见范围中消失。此时 Claude 可能会尝试去调用一个已经不存在的工具。若你发现 Claude 无法再使用之前能访问的某个 MCP 工具，请用 `/mcp` 检查连接状态。
+
+  你还可以运行 `/mcp` 查看每个 server 的 token 成本，并断开当前不需要的 servers。
+  </TabItem>
+  <TabItem label="Code intelligence" icon="code">
+
+  - **何时加载：** 文件编辑后，以及 Claude 按需导航代码时。
+  - **加载内容：** 每次编辑后的类型错误与警告；查找符号时的定义、引用和类型信息。
+  - **上下文成本：** 较低。由于符号查询通常能替代大范围读文件，所以净上下文消耗反而可能下降。
+
+  在你为对应语言安装代码智能插件之前，LSP 工具并不会启用。
+  </TabItem>
+  <TabItem label="Subagents" icon="rocket">
+
+  - **何时加载：** 按需，在你或 Claude 为某个任务拉起 subagent 时。
+  - **加载内容：** 一个全新的隔离上下文，其中包含：
+    - 这个 agent 自己的 system prompt，而不是完整的 Claude Code system prompt；
+    - `skills:` 字段里列出的 skills 的完整内容；
+    - `CLAUDE.md` 和 git status（内置的 Explore 与 Plan agents 例外，它们两者都不加载）；
+    - 主 agent 通过提示词显式传入的上下文。
+  - **上下文成本：** 与主会话隔离。subagent 不会继承你的对话历史，也不会继承已经调用过的 skills。
+
+  把那些**不需要完整主对话上下文**的工作交给 subagent，通常最划算。它的隔离性可以防止主会话不断膨胀。
+  </TabItem>
+  <TabItem label="Hooks" icon="setting">
+
+  - **何时加载：** 在触发时。Hooks 会在工具执行、会话边界、提示提交、权限请求、compact 等生命周期事件上触发。完整事件列表可参见官方的 [Hooks](https://code.claude.com/docs/en/hooks) 页面。
+  - **加载内容：** 默认不向主对话加载任何内容；hooks 在主对话外部执行。
+  - **上下文成本：** 0，除非 hook 的输出会作为消息被追加到你的对话里。
+
+  Hooks 非常适合处理副作用型操作，例如 lint、日志记录等——这类事情通常不需要改变 Claude 的思考上下文。
+  </TabItem>
+</Tabs>
+
+## 进一步阅读
+
+下面这些页面分别深入讲解了各项能力的配置、示例和细节：
+
+- [`CLAUDE.md`](https://code.claude.com/docs/en/memory)：保存项目上下文、约定与说明。
+- [Skills](https://code.claude.com/docs/en/skills)：为 Claude 增加领域知识与可复用工作流。
+- [Subagents](https://code.claude.com/docs/en/sub-agents)：把工作委派到隔离上下文。
+- [Agent teams](https://code.claude.com/docs/en/agent-teams)：协调多个并行工作的会话。
+- [MCP](https://code.claude.com/docs/en/mcp)：把 Claude 连接到外部服务。
+- [Hooks](https://code.claude.com/docs/en/hooks-guide)：用 hooks 自动化工作流。
+- [Plugins](https://code.claude.com/docs/en/plugins)：打包并共享一整组能力。
+- [Marketplaces](https://code.claude.com/docs/en/plugin-marketplaces)：托管和分发插件集合。

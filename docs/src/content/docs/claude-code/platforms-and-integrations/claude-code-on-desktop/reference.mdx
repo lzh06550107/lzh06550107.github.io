@@ -1,0 +1,492 @@
+---
+title: Claude Code Desktop 参考
+description: 了解 Claude Desktop 的 Code 标签页：并行会话、diff 审查、预览、终端、SSH / 远程环境、computer use 与企业配置。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+# Claude Code Desktop 参考
+
+Claude Desktop 的 **Code** 标签页提供了 Claude Code 的图形化工作界面：你可以在一个窗口里并行管理多个会话、查看 diff、运行终端、预览应用、打开文件、连接外部工具，并在本机、云端或 SSH 远程环境中运行任务。
+
+> **文档索引**
+>
+> 完整文档索引地址：[https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
+>
+> 在继续深入前，你可以先用这个文件发现所有可用页面。
+
+Desktop app 有三个主要标签页：
+
+- **Chat**：通用对话
+- **Cowork**：Dispatch 与更长周期的 agentic 工作
+- **Code**：面向软件开发的 Claude Code 图形界面
+
+本文聚焦的是 **Code** 标签页。
+
+## 适用平台与安装说明
+
+Claude Desktop 当前支持：
+
+- **macOS**
+- **Windows x64 / ARM64**
+
+**不支持 Linux**；在 Linux 上请使用 CLI。
+
+安装后：
+
+1. 启动 Claude Desktop
+2. 登录账号
+3. 打开 **Code** 标签页
+
+Windows 上第一次进入 Code tab 时，需要先安装 **Git for Windows**，安装完成后再重启应用。
+
+## Desktop 能带来什么
+
+在 Code 标签页里，每个对话都是一个**独立 session**：
+
+- 有自己的聊天历史
+- 有自己的项目目录
+- 有自己的代码改动
+- 可以与其他 session 并行存在
+
+它适合以下工作方式：
+
+- 想在一个窗口里同时跑多个开发任务
+- 想可视化查看 diff、评论代码与监控 PR
+- 想边聊天边看预览、终端和文件
+- 想让 Claude 在本机、远程云端或 SSH 主机上运行
+- 想使用 computer use、Dispatch、connectors、plugins 等图形化能力
+
+## 开始一个会话
+
+发出第一条消息前，通常要先配置四件事：
+
+| 项目 | 说明 |
+|---|---|
+| Environment | 选择 Claude 运行位置：Local、Remote 或 SSH |
+| Project folder | 选择 Claude 工作的目录或仓库；Remote 可添加多个仓库 |
+| Model | 选择模型，可在会话中途切换 |
+| Permission mode | 选择 Claude 自主程度 |
+
+输入任务后按 Enter 即可启动。每个 session 的上下文与代码改动彼此独立。
+
+## 权限模式
+
+Desktop 支持多种权限模式，用于控制 Claude 是否需要在编辑文件或执行命令前征求你的同意。
+
+| 模式 | settings key | 行为 |
+|---|---|---|
+| Ask permissions | `default` | 编辑文件和执行命令前都会询问，适合新用户 |
+| Auto accept edits | `acceptEdits` | 自动接受文件修改与常见文件系统命令，但其他终端命令仍会询问 |
+| Plan mode | `plan` | 只探索和规划，不直接修改源码 |
+| Auto | `auto` | 自动执行并带有后台安全检查，减少审批打断 |
+| Bypass permissions | `bypassPermissions` | 完全跳过权限提示，相当于 CLI 的 `--dangerously-skip-permissions` |
+
+补充说明：
+
+- `Auto` 目前属于 **research preview**，且依赖 Anthropic API，不适用于第三方 provider
+- `Bypass permissions` 只建议在沙箱容器或 VM 中使用
+- Remote sessions 不支持 `Ask permissions` 与 `Bypass permissions`；远程环境本身已做沙箱控制
+- 企业管理员可限制用户可用的权限模式
+
+## 用 Claude 处理代码
+
+Desktop 的核心价值是把 **聊天、修改、验证与审查** 汇总在一个图形界面中。
+
+### Prompt box
+
+你可以像在 CLI 一样用自然语言下达任务。Claude 会根据权限模式：
+
+- 读取项目文件
+- 修改代码
+- 运行命令
+- 根据上下文继续迭代
+
+中途你可以：
+
+- 点击 stop 立即打断
+- 直接输入修正要求，Claude 会在当前动作完成后吸收该反馈并调整下一步
+
+`+` 按钮还能快速接入：
+
+- 文件附件
+- skills
+- connectors
+- plugins
+
+### 向 Prompt 添加上下文
+
+Desktop 主要提供两种方式：
+
+1. **`@` 提及文件**  
+   输入 `@文件名` 把某个文件加入上下文。该功能在 **remote sessions 中不可用**。
+
+2. **附加文件**  
+   可拖拽或点击按钮附加图片、PDF 等文件，适合给 Claude 提供 bug 截图、设计稿或参考资料。
+
+## 预览你的应用
+
+Claude 可自动启动 dev server，并在**内置预览浏览器**中检查修改效果。它适用于：
+
+- 前端页面
+- API / 后端服务
+- 静态 HTML
+- PDF、图片、视频等项目文件
+
+你可以在预览窗格中：
+
+- 直接操作你的运行中应用
+- 让 Claude 自动验证自己的改动：截图、检查 DOM、点击元素、填写表单并反馈问题
+- 在 Preview 下拉菜单中启动 / 停止服务
+- 选择 **Persist sessions** 保留 cookies 与 local storage，避免每次都重新登录
+
+### `.claude/launch.json`
+
+Claude 会尝试自动检测你的 dev server 配置，并把结果写到项目根目录的 `.claude/launch.json`。如果你的项目命令特殊，可以自行编辑，例如：
+
+```json
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "my-app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    }
+  ]
+}
+```
+
+常用字段包括：
+
+- `runtimeExecutable`
+- `runtimeArgs`
+- `port`
+- `cwd`
+- `env`
+- `autoPort`
+- `program`
+- `args`
+
+`autoVerify` 默认开启，表示 Claude 改完代码后会自动验证。若想关闭，可设置：
+
+```json
+{
+  "version": "0.0.1",
+  "autoVerify": false,
+  "configurations": []
+}
+```
+
+## 用 diff view 审查改动
+
+Claude 一旦改了代码，界面中会出现 diff 统计，例如 `+12 -1`。点开后可以：
+
+- 按文件查看改动
+- 对具体行添加评论
+- 让 Claude 根据评论继续修正
+
+行内评论的使用方式：
+
+- 点击某一行打开评论框
+- 输入反馈并回车
+- 多条评论可一起提交
+
+提交快捷键：
+
+- macOS：`Cmd+Enter`
+- Windows：`Ctrl+Enter`
+
+### Review code
+
+在 diff view 右上角可点击 **Review code**，让 Claude 对当前改动做一次代码审查。它重点关注：
+
+- 编译错误
+- 明显逻辑错误
+- 安全漏洞
+- 明显 bug
+
+它**不会**把 lint / formatting / 低信号风格问题当重点。
+
+### 监控 Pull Request
+
+当你创建 PR 后，session 中会出现 CI 状态栏。Claude Desktop 会借助本机 `gh`：
+
+- 轮询 CI 状态
+- 显示失败项
+- 在启用时自动尝试修复失败
+- 在启用时于全部通过后自动 squash merge
+
+前提条件：
+
+- 本机安装并登录了 `gh`
+- 仓库允许 Auto-merge（如果你想自动合并）
+
+## 工作区布局与并行会话
+
+Desktop 的强项之一是可以把多个 pane 自由拼起来。常见 pane 包括：
+
+- chat
+- diff
+- preview
+- terminal
+- file
+- plan
+- tasks
+- subagent
+
+你可以拖动面板头重新排布，也可以拖边缘调尺寸。
+
+### 并行 sessions
+
+Desktop 支持在侧边栏里同时运行多个 sessions。对 git 仓库来说，每个 session 默认使用自己的 **git worktree**，因此：
+
+- 一个 session 的改动不会直接污染另一个 session
+- 可以在同一项目里并行跑多个任务
+- session 归档后可清理其 worktree
+
+工作树默认保存在：
+
+```text
+<project-root>/.claude/worktrees/
+```
+
+如需包含 `.env` 这类 gitignored 文件到新 worktree，可在项目根创建 `.worktreeinclude`。
+
+### Side chat
+
+你可以打开 side chat，询问与当前 session 有关但**不想污染主线上下文**的问题。
+
+适合场景：
+
+- 想确认某个实现细节
+- 想问一个旁支问题
+- 想快速验证思路但不打断当前主任务
+
+快捷键：
+
+- macOS：`Cmd+;`
+- Windows：`Ctrl+;`
+
+## 终端、文件与其他本地能力
+
+### Integrated terminal
+
+内置终端可直接在 session 的工作目录执行命令，和 Claude 使用的是同一份环境。适合：
+
+- 手动跑 `npm test`
+- 看 `git status`
+- 进行并行的人工检查
+
+该终端**仅在 local sessions 中可用**。
+
+### File pane
+
+你可以点击聊天或 diff 中的文件路径，在 file pane 中打开并做小范围手改。若文件磁盘上发生变化，界面会提醒你覆盖或放弃修改。
+
+- file pane：支持 local 与 SSH sessions
+- remote sessions：通常请直接让 Claude 修改
+
+### Open in other apps
+
+右键文件路径可：
+
+- Attach as context
+- Open in VS Code / Cursor / Zed 等编辑器
+- Show in Finder / Explorer
+- Copy path
+
+## Computer use
+
+Desktop 集成了 **computer use**，让 Claude 能直接操作你的桌面应用与屏幕。
+
+适合场景：
+
+- 测试没有 CLI 的桌面工具
+- 操作移动模拟器
+- 与某些只能图形界面完成的系统交互
+
+### 基本事实
+
+- 目前是 **research preview**
+- 支持 **macOS 与 Windows**
+- 需要 **Pro 或 Max** 计划
+- Team / Enterprise 暂不可用
+- 默认关闭，需要在 Settings 中启用
+
+macOS 还需要手动授予：
+
+- Accessibility
+- Screen Recording
+
+### 权限层级
+
+Claude 对不同类型 app 的控制是分层的：
+
+| 层级 | 能力 | 常见对象 |
+|---|---|---|
+| View only | 只能看截图 | 浏览器、交易平台 |
+| Click only | 可点击和滚动，但不能输入 | 终端、IDE |
+| Full control | 可点击、输入、拖拽、快捷键 | 其他多数应用 |
+
+这套设计是为了让 Claude 优先使用更精确、更安全的专用工具：
+
+- 有 connector 时优先 connector
+- 是 shell 任务时优先 Bash
+- 是浏览器任务且已接 Chrome 时优先 Chrome integration
+- 只有前几种都不适用时才用 computer use
+
+## 运行环境：Local / Remote / SSH
+
+Desktop 在开 session 时可选三类运行位置：
+
+| 环境 | 含义 |
+|---|---|
+| Local | 在你的机器上运行 |
+| Remote | 在 Anthropic 云端运行，即使关掉 app 任务也能继续 |
+| SSH | 在你通过 SSH 连接的远程机器上运行 |
+
+### Local
+
+Local sessions 直接访问本机文件。需要注意：Desktop 并不总是完整继承你的 shell 环境。
+
+- macOS：从 Dock / Finder 启动时会读取 `~/.zshrc`、`~/.bashrc` 等以提取 PATH 和部分 Claude 变量
+- Windows：继承用户与系统环境变量，但不会读取 PowerShell profile
+
+如需稳定配置环境变量，建议通过 Local environment editor 来设置。
+
+### Remote
+
+Remote sessions 在云端持续运行，且支持一个 session 内添加多个仓库，适合跨仓库协作任务。关闭 Desktop 后它们仍会继续。
+
+### SSH
+
+SSH sessions 让你把 Desktop 作为界面，但 Claude 实际运行在远程 Linux / macOS 主机上。适合：
+
+- 云主机代码库
+- dev containers
+- 带特殊依赖或硬件的机器
+
+管理员还能预配置 `sshConfigs`，或通过 `sshHostAllowlist` 限制用户只能连到批准过的主机。
+
+## 扩展能力：Connectors、Skills、Plugins
+
+### Connectors
+
+对于 local 与 SSH sessions，你可通过 `+` 按钮接入：
+
+- GitHub
+- Slack
+- Linear
+- Notion
+- Google Calendar
+- 其他受支持服务
+
+Connectors 本质上是带图形化接入流程的 MCP servers。
+
+### Skills
+
+Skills 会在相关任务中自动加载；你也可以显式选择 slash command / skill 来执行某类工作流。
+
+### Plugins
+
+Desktop 提供图形化插件管理，可浏览、安装、启用、禁用与卸载插件。插件可以带来：
+
+- skills
+- agents
+- hooks
+- MCP servers
+- LSP 配置
+
+## 企业配置
+
+Team / Enterprise 可以通过三层方式管理 Desktop：
+
+1. **Admin console controls**
+2. **Managed settings files**
+3. **设备管理策略**（MDM / Windows 组策略）
+
+可管理内容包括：
+
+- 是否允许使用 Desktop 中的 Code
+- 是否允许 Code on the web
+- 是否允许 Remote Control
+- 是否禁用 Bypass permissions
+- 是否禁用 Auto mode
+- 是否预配置 SSH 连接
+- 是否限制 SSH 目标主机
+- 是否下发 MCP 配置
+
+## 与 CLI 的关系
+
+Desktop 与 CLI 使用同一个底层引擎，并共享很多配置来源，例如：
+
+- `CLAUDE.md`
+- `.mcp.json`
+- `~/.claude/settings.json`
+- hooks
+- skills
+- permission rules
+
+如果你已经习惯 CLI：
+
+- **想要图形化 diff、pane 布局、并行会话管理**：用 Desktop
+- **想要脚本化、自动化、非交互运行**：继续优先 CLI
+
+Desktop 没有完整等价的能力包括：
+
+- Linux 桌面支持
+- 脚本化输出模式（如 CLI 的 `--print`）
+- Agent teams / 高度自动化编排
+- 某些只在终端中弹交互选择器的命令
+
+## 常见问题
+
+### 403 或登录异常
+
+如果 Code tab 出现 `403: Forbidden` 或其他认证错误：
+
+- 先退出并重新登录 Claude Desktop
+- 确认你拥有有效付费计划：Pro / Max / Team / Enterprise
+- 如果 CLI 正常而 Desktop 异常，彻底退出 Desktop 再重开
+- 检查网络与代理设置
+
+### 空白页 / 卡住不动
+
+- 重启应用
+- 检查更新
+- Windows 可查看 Event Viewer 中的崩溃日志
+
+### Git / Git LFS 错误
+
+- Windows 本地会话必须安装 Git for Windows
+- 如果仓库依赖 Git LFS，还需安装 Git LFS 并执行 `git lfs install`
+
+### 工具找不到
+
+若 Claude 找不到 `node`、`npm` 等命令：
+
+- 先确认这些命令在你普通终端里可用
+- 检查 PATH 设置
+- 重启 Desktop 让环境变量重新生效
+
+### “Branch doesn’t exist yet”
+
+这是 remote session 创建的分支尚未存在于本地。可手动获取：
+
+```bash
+git fetch origin <branch-name>
+git checkout <branch-name>
+```
+
+## 相关资源
+
+- Get started：首次打开 Code tab 的上手文档
+- Scheduled tasks：定期执行重复任务
+- Claude Code on the web：云端会话模型与环境能力
+- Remote Control：从手机或浏览器继续你机器上的会话
+- Computer use：屏幕与桌面应用控制能力
+- Enterprise configuration：管理员与企业部署细节
+- CLI reference：与 CLI 功能的对应关系

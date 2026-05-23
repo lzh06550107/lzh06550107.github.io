@@ -2,12 +2,10 @@
 title: 云端环境
 description: 为 Codex 自定义依赖项和工具
 sidebar:
-  order: 5
+  order: 2
 ---
 
 import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
-
-# 云端环境
 
 > 为 Codex 自定义依赖项和工具
 
@@ -31,7 +29,9 @@ Codex Agent 在一个名为 `universal` 的默认容器镜像中运行，该镜�
 
 在环境设置中，选择 **设置包版本** 来固定 Python、Node.js 及其他运行时的版本。
 
+:::note
 有关已安装内容的详细信息，请参阅 [openai/codex-universal](https://github.com/openai/codex-universal)，其中包含参考 Dockerfile 以及可在本地拉取和测试的镜像。
+:::
 
 虽然 `codex-universal` 为速度和便利性预装了语言，但你也可以使用[设置脚本](#手动设置)向容器安装额外的包。
 
@@ -61,7 +61,9 @@ poetry install --with test
 pnpm install
 ```
 
+:::note
 设置脚本在与 Agent 独立的 Bash 会话中运行，因此像 `export` 这样的命令不会持久化到 Agent 阶段。要持久化环境变量，请将它们添加到 `~/.bashrc` 或在环境设置中配置它们。
+:::
 
 ## 容器缓存
 
@@ -79,10 +81,13 @@ Codex 会将容器状态缓存最多 12 小时，以加速新任务和后续任�
 
 如果你更改了设置脚本、维护脚本、环境变量或密钥，Codex 会自动使缓存失效。如果仓库的变化导致缓存状态不兼容，请在环境页面上选择 **重置缓存**。
 
+:::note
 对于 Business 和 Enterprise 用户，缓存在所有有权访问该环境的用户之间共享。使缓存失效将影响工作区中该环境的所有用户。
+:::
 
 ## 网络访问与网络代理
 
 在设置脚本阶段，网络访问可用于安装依赖项。在 Agent 阶段，网络访问默认关闭，但你可以配置受限或不受限的访问。参见 [Agent 网络访问](https://developers.openai.com/codex/cloud/internet-access)。
 
 环境在 HTTP/HTTPS 网络代理后面运行，以用于安全和防滥用目的。所有出站互联网流量都通过此代理。
+
