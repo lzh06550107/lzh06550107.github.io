@@ -285,8 +285,8 @@ export const docsets = [
             {
                 label: '基础',
                 items: [
-                    { label: 'Overview', link: '/scrapling/overview/' },
-                    { label: 'Performance Benchmarks', link: '/scrapling/benchmarks/' },
+                    { label: '概览', link: '/scrapling/overview/' },
+                    { label: '性能测试', link: '/scrapling/benchmarks/' },
                 ],
             },
             {
