@@ -1,0 +1,100 @@
+---
+title: 从 BeautifulSoup 迁移到 Scrapling
+description: 使用这份对照指南，把常见 BeautifulSoup 抓取写法迁移到速度更快、能力更强的 Scrapling。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+# 从 BeautifulSoup 迁移到 Scrapling
+
+如果你已经熟悉 BeautifulSoup，那你会很惊喜：Scrapling 速度快得多，提供了与 BS 相同的解析能力，还补充了 BS 中没有的解析功能，并为抓取与处理现代网页引入了强大的新特性。本指南将帮助你快速把现有 BeautifulSoup 代码迁移到 Scrapling。
+
+下表涵盖了抓取网页时最常见的操作。每一行都展示了如何分别用 BeautifulSoup 和 Scrapling 完成同一个任务。
+
+你会发现 BeautifulSoup 里的一些快捷写法在 Scrapling 中并不存在，这恰恰也是 BeautifulSoup 比 Scrapling 更慢的原因之一。关键点在于：如果同样的功能已经可以用简短的一行代码完成，那就没必要为了再少写几个字符而牺牲性能 :) 
+
+| 任务 | BeautifulSoup 代码 | Scrapling 代码 |
+|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| 导入解析器 | `from bs4 import BeautifulSoup` | `from scrapling.parser import Selector` |
+| 从字符串解析 HTML | `soup = BeautifulSoup(html, 'html.parser')` | `page = Selector(html)` |
+| 查找单个元素 | `element = soup.find('div', class_='example')` | `element = page.find('div', class_='example')` |
+| 查找多个元素 | `elements = soup.find_all('div', class_='example')` | `elements = page.find_all('div', class_='example')` |
+| 查找单个元素（示例 2） | `element = soup.find('div', attrs={"class": "example"})` | `element = page.find('div', {"class": "example"})` |
+| 查找单个元素（示例 3） | `element = soup.find(re.compile("^b"))` | `element = page.find(re.compile("^b"))`<br />`element = page.find_by_regex(r"^b")` |
+| 查找单个元素（示例 4） | `element = soup.find(lambda e: len(list(e.children)) > 0)` | `element = page.find(lambda e: len(e.children) > 0)` |
+| 查找单个元素（示例 5） | `element = soup.find(["a", "b"])` | `element = page.find(["a", "b"])` |
+| 按文本内容查找元素 | `element = soup.find(text="some text")` | `element = page.find_by_text("some text", partial=False)` |
+| 使用 CSS 选择器查找第一个匹配元素 | `elements = soup.select_one('div.example')` | `elements = page.css('div.example').first` |
+| 使用 CSS 选择器查找所有匹配元素 | `elements = soup.select('div.example')` | `elements = page.css('div.example')` |
+| 获取页面/元素源码的美化版本 | `prettified = soup.prettify()` | `prettified = page.prettify()` |
+| 获取页面/元素源码的非美化版本 | `source = str(soup)` | `source = page.html_content` |
+| 获取元素标签名 | `name = element.name` | `name = element.tag` |
+| 提取元素的文本内容 | `string = element.string` | `string = element.text` |
+| 提取整个文档或某个标签下的全部文本 | `text = soup.get_text(strip=True)` | `text = page.get_all_text(strip=True)` |
+| 访问属性字典 | `attrs = element.attrs` | `attrs = element.attrib` |
+| 提取属性值 | `attr = element['href']` | `attr = element['href']` |
+| 导航到父元素 | `parent = element.parent` | `parent = element.parent` |
+| 获取元素的所有父级 | `parents = list(element.parents)` | `parents = list(element.iterancestors())` |
+| 在父级中搜索元素 | `target_parent = element.find_parent("a")` | `target_parent = element.find_ancestor(lambda p: p.tag == 'a')` |
+| 获取元素的所有同级元素 | N/A | `siblings = element.siblings` |
+| 获取元素的下一个同级 | `next_element = element.next_sibling` | `next_element = element.next` |
+| 在同级元素中搜索单个元素 | `target_sibling = element.find_next_sibling("a")`<br />`target_sibling = element.find_previous_sibling("a")` | `target_sibling = element.siblings.search(lambda s: s.tag == 'a')` |
+| 在同级元素中搜索多个元素 | `target_sibling = element.find_next_siblings("a")`<br />`target_sibling = element.find_previous_siblings("a")` | `target_sibling = element.siblings.filter(lambda s: s.tag == 'a')` |
+| 在当前元素之后的元素中搜索单个元素 | `target_parent = element.find_next("a")` | `target_parent = element.below_elements.search(lambda p: p.tag == 'a')` |
+| 在当前元素之后的元素中搜索多个元素 | `target_parent = element.find_all_next("a")` | `target_parent = element.below_elements.filter(lambda p: p.tag == 'a')` |
+| 在祖先链中搜索单个元素 | `target_parent = element.find_previous("a")` ¹ | `target_parent = element.path.search(lambda p: p.tag == 'a')` |
+| 在祖先链中搜索多个元素 | `target_parent = element.find_all_previous("a")` ¹ | `target_parent = element.path.filter(lambda p: p.tag == 'a')` |
+| 获取元素的上一个同级 | `prev_element = element.previous_sibling` | `prev_element = element.previous` |
+| 导航到子元素 | `children = list(element.children)` | `children = element.children` |
+| 获取元素的所有后代 | `children = list(element.descendants)` | `children = element.below_elements` |
+| 过滤满足条件的一组元素 | `group = soup.find('p', 'story').css.filter('a')` | `group = page.find_all('p', 'story').filter(lambda p: p.tag == 'a')` |
+
+¹ **注意：** BS4 的 `find_previous` / `find_all_previous` 会按文档顺序搜索当前元素之前的所有元素，而 Scrapling 的 `path` 只返回祖先链（父级路径）。二者并不完全等价，但祖先搜索已经覆盖了最常见的使用场景。
+
+**有一个关键点要记住**：BeautifulSoup 提供了一些在解析后**修改和操作页面**的能力；而 Scrapling 更专注于**更快地帮你抓取页面**，然后你可以对提取出的数据做任何处理。它们都可以用于 Web 抓取，只不过其中一个更专精于抓取本身 :) 
+
+### 综合示例
+
+下面给出一个简单示例：分别用 BeautifulSoup 和 Scrapling 抓取网页中的所有链接。
+
+**使用 BeautifulSoup：**
+
+```python
+import requests
+from bs4 import BeautifulSoup
+
+url = 'https://example.com'
+response = requests.get(url)
+soup = BeautifulSoup(response.text, 'html.parser')
+
+links = soup.find_all('a')
+for link in links:
+    print(link['href'])
+```
+
+**使用 Scrapling：**
+
+```python
+from scrapling import Fetcher
+
+url = 'https://example.com'
+page = Fetcher.get(url)
+
+links = page.css('a::attr(href)')
+for link in links:
+    print(link)
+```
+
+如你所见，Scrapling 通过把抓取与解析合并为一步，让代码更整洁、效率也更高。
+
+:::note[补充说明]
+- **不同的解析器**：BeautifulSoup 允许你指定解析引擎，其中之一是 `lxml`。出于性能考虑，Scrapling 默认直接使用 `lxml`，不再让你在多种解析器之间切换。
+- **元素类型**：在 BeautifulSoup 中，元素是 `Tag` 对象；在 Scrapling 中，元素是 `Selector` 对象。不过二者都提供了相似的导航方法和数据提取能力。
+- **错误处理**：两个库在找不到元素时都会返回 `None`（例如 `soup.find()` 或 `page.find()`）。而在 Scrapling 中，`page.css()` 在没有匹配元素时会返回空的 `Selectors` 列表；你可以使用 `page.css('.foo').first` 安全地获取第一个匹配项或 `None`。为避免错误，请在访问属性前检查 `None` 或空结果。
+- **文本提取**：Scrapling 通过 `TextHandler` 提供了额外文本处理方法，例如 `clean()`，可帮助你去除多余空白、连续空格或其他不需要的字符。完整列表请查阅文档。
+:::
+
+文档中还提供了关于 Scrapling 特性与各方法完整参数列表的更多细节。
+
+希望这份指南能让你从 BeautifulSoup 迁移到 Scrapling 的过程顺畅而直接。祝你抓取愉快！

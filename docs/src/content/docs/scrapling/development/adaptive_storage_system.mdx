@@ -1,0 +1,75 @@
+---
+title: 编写自定义存储系统
+description: 学习如何为 Scrapling 的 adaptive 功能实现自定义存储系统，并了解 StorageSystemMixin、save 与 retrieve 的要求。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# 编写自定义存储系统
+
+Scrapling 默认使用 SQLite，但本教程会演示如何编写你自己的存储系统，用来为 `adaptive` 功能存储元素属性。
+
+例如，你可能会想使用 Firebase，并在不同机器上的多个 spider 之间共享数据库。使用这样的在线数据库是个很棒的思路，因为不同 spider 可以彼此共享 adaptive 数据。
+
+因此，若想让你的存储类正常工作，它必须完成以下 3 件大事：
+
+1. 继承抽象类 `scrapling.core.storage.StorageSystemMixin`，并接受一个字符串参数；这个参数会作为 `url` 参数传入，以保持库内部逻辑一致。
+2. 在类定义上使用装饰器 `functools.lru_cache`，遵循与其他类相同的 Singleton 设计模式。
+3. 实现 `save` 和 `retrieve` 方法，类型提示已经说明了它们的要求：
+    - `save` 方法不返回任何内容，库会向它传入两个参数。
+        * 第一个参数的类型是 `lxml.html.HtmlElement`，也就是元素本身。你必须使用子模块 `scrapling.core.utils._StorageTools` 中的 `element_to_dict` 函数，把它转换成字典，以保持一致的格式，然后再按你希望的方式存入数据库。
+        * 第二个参数是一个字符串，即用于检索的 identifier。这个 identifier 与初始化时 `url` 参数组合后的结果，必须能唯一标识每一行；否则 `adaptive` 数据会混乱。
+    - `retrieve` 方法接收一个字符串，也就是 identifier；结合初始化时传入的 `url`，从数据库中取回该元素对应的字典并返回。如果存在就返回它，否则返回 `None`。
+
+> 如果上面的说明对你来说还不够清晰，你可以查看我在 [storage_adaptors](https://github.com/D4Vinci/Scrapling/blob/main/scrapling/core/storage.py) 文件中基于 SQLite3 的实现。
+
+如果你的类满足这些条件，剩下的部分就很直接了。如果你打算在线程化应用中使用这个库，请确保你的类支持线程安全。默认使用的类就是线程安全的。
+
+抽象类中还提供了一些辅助函数，若你愿意也可以直接使用。最简单的方式还是去看看[源码](https://github.com/D4Vinci/Scrapling/blob/main/scrapling/core/storage.py)；里面有大量注释 :)
+
+## 真实场景示例：Redis Storage
+
+下面是一个更实用的示例，由 AI 生成，使用 Redis 作为存储：
+
+```python
+import redis
+import orjson
+from functools import lru_cache
+from scrapling.core.storage import StorageSystemMixin
+from scrapling.core.utils import _StorageTools
+
+@lru_cache(None)
+class RedisStorage(StorageSystemMixin):
+    def __init__(self, host='localhost', port=6379, db=0, url=None):
+        super().__init__(url)
+        self.redis = redis.Redis(
+            host=host,
+            port=port,
+            db=db,
+            decode_responses=False
+        )
+
+    def save(self, element, identifier: str) -> None:
+        # Convert element to dictionary
+        element_dict = _StorageTools.element_to_dict(element)
+
+        # Create key
+        key = f"scrapling:{self._get_base_url()}:{identifier}"
+
+        # Store as JSON
+        self.redis.set(
+            key,
+            orjson.dumps(element_dict)
+        )
+
+    def retrieve(self, identifier: str) -> dict | None:
+        # Get data
+        key = f"scrapling:{self._get_base_url()}:{identifier}"
+        data = self.redis.get(key)
+
+        # Parse JSON if exists
+        if data:
+            return orjson.loads(data)
+        return None
+```

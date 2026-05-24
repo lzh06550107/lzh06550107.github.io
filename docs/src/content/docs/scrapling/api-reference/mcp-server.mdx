@@ -1,0 +1,58 @@
+---
+title: MCP Server API 参考
+description: 查看 Scrapling MCP Server 相关响应模型、会话模型与服务类的 API 参考。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+# MCP Server API 参考
+
+**Scrapling MCP Server** 通过 Model Context Protocol (MCP) 为网页抓取提供九个强大工具。这个服务将 Scrapling 的能力直接集成到 AI 聊天机器人和 Agent 中，使你能够以对话方式进行网页抓取，并利用高级反爬绕过能力。
+
+你可以通过运行以下命令启动 MCP Server：
+
+```bash
+scrapling mcp
+```
+
+或者直接导入服务类：
+
+```python
+from scrapling.core.ai import ScraplingMCPServer
+
+server = ScraplingMCPServer()
+server.serve(http=False, host="0.0.0.0", port=8000)
+```
+
+## 响应模型
+
+这是所有 MCP Server 工具统一返回的标准响应结构：
+
+## ::: scrapling.core.ai.ResponseModel
+    handler: python
+    :docstring:
+
+## 会话模型
+
+用于会话管理的模型类：
+
+## ::: scrapling.core.ai.SessionInfo
+    handler: python
+    :docstring:
+
+## ::: scrapling.core.ai.SessionCreatedModel
+    handler: python
+    :docstring:
+
+## ::: scrapling.core.ai.SessionClosedModel
+    handler: python
+    :docstring:
+
+## MCP Server 类
+
+这是提供全部网页抓取工具的主 MCP Server 类：
+
+## ::: scrapling.core.ai.ScraplingMCPServer
+    handler: python
+    :docstring:

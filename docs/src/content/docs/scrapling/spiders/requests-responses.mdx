@@ -1,0 +1,210 @@
+---
+title: Requests 与 Responses
+description: 详细了解 Scrapling spiders 中的 Request 对象、response.follow()、回调、优先级、去重与元数据传递方式。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+# Requests 与 Responses
+
+:::tip[Prerequisites]
+1. 你已经阅读过 [快速开始](/scrapling/spiders/getting-started) 页面，并知道如何创建和运行一个基础 spider。
+:::
+
+本页会详细介绍 `Request` 对象：如何构造请求、如何在回调之间传递数据、如何控制优先级与去重，以及如何使用 `response.follow()` 跟随链接。
+
+## Request 对象
+
+`Request` 表示一个待抓取的 URL。你既可以直接创建它，也可以通过 `response.follow()` 生成：
+
+```python
+from scrapling.spiders import Request
+
+# 直接构造
+request = Request(
+    "https://example.com/page",
+    callback=self.parse_page,
+    priority=5,
+)
+
+# 通过 response.follow（推荐在回调里使用）
+request = response.follow("/page", callback=self.parse_page)
+```
+
+下面是你可以传给 `Request` 的全部参数：
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `url` | `str` | *required* | 要抓取的 URL |
+| `sid` | `str` | `""` | Session ID——把请求路由到特定 session（见 [Sessions](/scrapling/spiders/sessions)） |
+| `callback` | `callable` | `None` | 用于处理响应的异步生成器方法。默认会使用 `parse()` |
+| `priority` | `int` | `0` | 值越大越先被处理 |
+| `dont_filter` | `bool` | `False` | 如果为 `True`，则跳过去重（允许重复请求） |
+| `meta` | `dict` | `{}` | 会一路传递到 response 的任意元数据 |
+| `**kwargs` |  |  | 额外关键字参数，会传给对应 session 的抓取方法（例如 `headers`、`method`、`data`） |
+
+所有额外的关键字参数都会被直接转发给底层 session。例如，发送一个 POST 请求：
+
+```python
+yield Request(
+    "https://example.com/api",
+    method="POST",
+    data={"key": "value"},
+    callback=self.parse_result,
+)
+```
+
+## Response.follow()
+
+在回调中创建后续请求时，推荐使用 `response.follow()`。与直接构造 `Request` 对象相比，它有几个优势：
+
+- **相对 URL** 会自动基于当前页面 URL 解析
+- 默认会把 **Referer 请求头** 设置为当前页面 URL
+- 会继承原始请求中的 **session kwargs**（例如请求头、代理设置等）
+- 如果你没有显式指定，会继承原始请求的 **callback、session ID 与 priority**
+
+```python
+async def parse(self, response: Response):
+    # 最简写法：继承当前请求的 callback、sid 与 priority
+    yield response.follow("/next-page")
+
+    # 覆盖特定字段
+    yield response.follow(
+        "/product/123",
+        callback=self.parse_product,
+        priority=10,
+    )
+
+    # 传递额外元数据
+    yield response.follow(
+        "/details",
+        callback=self.parse_details,
+        meta={"category": "electronics"},
+    )
+```
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `url` | `str` | *required* | 要跟随的 URL（绝对或相对） |
+| `sid` | `str` | `""` | Session ID（若为空，则继承原始请求） |
+| `callback` | `callable` | `None` | 回调方法（若为 `None`，则继承原始请求） |
+| `priority` | `int` | `None` | 优先级（若为 `None`，则继承原始请求） |
+| `dont_filter` | `bool` | `False` | 跳过去重 |
+| `meta` | `dict` | `None` | 元数据（会与当前 response 的 meta 合并） |
+| **`referer_flow`** | `bool` | `True` | 将当前 URL 设为 Referer 请求头 |
+| `**kwargs` |  |  | 会与原始请求的 session kwargs 合并 |
+
+### 禁用 Referer Flow
+
+默认情况下，`response.follow()` 会把 `Referer` 请求头设置为当前页面 URL。若要关闭这一行为：
+
+```python
+yield response.follow("/page", referer_flow=False)
+```
+
+## 回调
+
+回调是 spider 上用于处理响应的异步生成器方法。它们必须 `yield` 以下三种类型之一：
+
+- **`dict`**：一个抓取结果项，会被加入结果集中
+- **`Request`**：一个后续请求，会被加入队列中
+- **`None`**：会被静默忽略
+
+```python
+class MySpider(Spider):
+    name = "my_spider"
+    start_urls = ["https://example.com"]
+
+    async def parse(self, response: Response):
+        # yield 抓取结果（dict）
+        yield {"url": response.url, "title": response.css("title::text").get("")}
+
+        # yield 后续请求
+        for link in response.css("a::attr(href)").getall():
+            yield response.follow(link, callback=self.parse_page)
+
+    async def parse_page(self, response: Response):
+        yield {"content": response.css("article::text").get("")}
+```
+
+:::tip[注意]
+所有回调方法都必须使用 `async def`，并通过 `yield` 返回结果，而不是 `return`。即使某个回调只产出结果项、不会继续跟随新请求，它也仍然必须是一个异步生成器。
+:::
+
+## 请求优先级
+
+优先级值更高的请求会先被处理。当某些页面比其他页面更重要，需要优先抓取时，这会很有用：
+
+```python
+async def parse(self, response: Response):
+    # 高优先级——先处理商品页
+    for link in response.css("a.product::attr(href)").getall():
+        yield response.follow(link, callback=self.parse_product, priority=10)
+
+    # 低优先级——翻页链接排在商品页之后处理
+    next_page = response.css("a.next::attr(href)").get()
+    if next_page:
+        yield response.follow(next_page, callback=self.parse, priority=0)
+```
+
+当你使用 `response.follow()` 时，如果没有显式指定优先级，它会继承原始请求的优先级。
+
+## 去重
+
+spider 会自动基于 URL、HTTP 方法、请求体和 session ID 计算请求指纹，并据此进行去重。如果两个请求生成了相同的指纹，第二个请求会被静默丢弃。
+
+如果你需要允许重复请求（例如登录后再次访问某个页面），可以设置 `dont_filter=True`：
+
+```python
+yield Request("https://example.com/dashboard", dont_filter=True, callback=self.parse_dashboard)
+
+# 或配合 response.follow
+yield response.follow("/dashboard", dont_filter=True, callback=self.parse_dashboard)
+```
+
+你还可以通过 spider 上的类属性，细化哪些内容会参与指纹计算：
+
+| Attribute | Default | Effect |
+|---|---|---|
+| `fp_include_kwargs` | `False` | 将额外请求 kwargs（传给 session 抓取方法的参数，例如 headers 等）纳入指纹 |
+| `fp_keep_fragments` | `False` | 计算指纹时保留 URL 片段（`#section`） |
+| `fp_include_headers` | `False` | 将请求头纳入指纹 |
+
+例如，如果你需要把 `https://example.com/page#section1` 和 `https://example.com/page#section2` 视为不同 URL：
+
+```python
+class MySpider(Spider):
+    name = "my_spider"
+    fp_keep_fragments = True
+    # ...
+```
+
+## Request Meta
+
+`meta` 字典允许你在回调之间传递任意数据。当你需要把一个页面中的上下文带到另一个页面进行处理时，它会非常有用：
+
+```python
+async def parse(self, response: Response):
+    for product in response.css("div.product"):
+        category = product.css("span.category::text").get("")
+        link = product.css("a::attr(href)").get()
+        if link:
+            yield response.follow(
+                link,
+                callback=self.parse_product,
+                meta={"category": category},
+            )
+
+async def parse_product(self, response: Response):
+    yield {
+        "name": response.css("h1::text").get(""),
+        "price": response.css(".price::text").get(""),
+        # 读取来自请求的 meta
+        "category": response.meta.get("category", ""),
+    }
+```
+
+当使用 `response.follow()` 时，当前 response 上的 meta 会与你新提供的 meta 合并（新值优先）。
+
+spider 系统也会自动写入一些元数据。例如，启用代理轮换时，你可以通过 `response.meta["proxy"]` 读取本次请求使用的代理。

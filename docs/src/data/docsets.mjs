@@ -269,6 +269,102 @@ export const docsets = [
                 ],
             },
         ],
+    },
+    {
+        id: 'scrapling',
+        title: 'Scrapling',
+        cardLabel: 'Scrapling 文档集',
+        description: 'Scrapling 官方文档的简体中文镜像，覆盖介绍、概览、性能基准、解析、抓取、Spiders、CLI、AI MCP Server、教程、API Reference 与开发页面。',
+        landing: '/scrapling/',
+        ctaLabel: '进入 Scrapling 文档',
+        featuredLinks: [
+            { label: '概览', href: '/scrapling/overview/' },
+            { label: '查询元素', href: '/scrapling/parsing/selection/' },
+        ],
+        sections: [
+            {
+                label: '基础',
+                items: [
+                    { label: 'Overview', link: '/scrapling/overview/' },
+                    { label: 'Performance Benchmarks', link: '/scrapling/benchmarks/' },
+                ],
+            },
+            {
+                label: 'User Guide',
+                items: [
+                    {
+                        label: 'Parsing',
+                        items: [
+                            { label: 'Querying elements', link: '/scrapling/parsing/selection/' },
+                            { label: 'Main classes', link: '/scrapling/parsing/main_classes/' },
+                            { label: 'Adaptive scraping', link: '/scrapling/parsing/adaptive/' },
+                        ],
+                    },
+                    {
+                        label: 'Fetching',
+                        items: [
+                            { label: 'Fetchers basics', link: '/scrapling/fetching/choosing/' },
+                            { label: 'HTTP requests', link: '/scrapling/fetching/static/' },
+                            { label: 'Dynamic websites', link: '/scrapling/fetching/dynamic/' },
+                            { label: 'Dynamic websites with hard protections', link: '/scrapling/fetching/stealthy/' },
+                        ],
+                    },
+                    {
+                        label: 'Spiders',
+                        items: [
+                            { label: 'Architecture', link: '/scrapling/spiders/architecture/' },
+                            { label: 'Getting started', link: '/scrapling/spiders/getting-started/' },
+                            { label: 'Requests & Responses', link: '/scrapling/spiders/requests-responses/' },
+                            { label: 'Sessions', link: '/scrapling/spiders/sessions/' },
+                            { label: 'Proxy management & Blocking', link: '/scrapling/spiders/proxy-blocking/' },
+                            { label: 'Generic crawlers', link: '/scrapling/spiders/generic-templates/' },
+                            { label: 'Advanced features', link: '/scrapling/spiders/advanced/' },
+                        ],
+                    },
+                    {
+                        label: 'Command Line Interface',
+                        items: [
+                            { label: 'Overview', link: '/scrapling/cli/overview/' },
+                            { label: 'Interactive shell', link: '/scrapling/cli/interactive-shell/' },
+                            { label: 'Extract commands', link: '/scrapling/cli/extract-commands/' },
+                        ],
+                    },
+                    {
+                        label: 'Integrations',
+                        items: [{ label: 'AI MCP server', link: '/scrapling/ai/mcp-server/' }],
+                    },
+                ],
+            },
+            {
+                label: 'Tutorials',
+                items: [
+                    { label: 'A Free Alternative to AI for Robust Web Scraping', link: '/scrapling/tutorials/replacing_ai/' },
+                    { label: 'Migrating from BeautifulSoup', link: '/scrapling/tutorials/migrating_from_beautifulsoup/' },
+                ],
+            },
+            {
+                label: 'Development',
+                items: [
+                    {
+                        label: 'API Reference',
+                        items: [
+                            { label: 'Selector', link: '/scrapling/api-reference/selector/' },
+                            { label: 'Fetchers', link: '/scrapling/api-reference/fetchers/' },
+                            { label: 'MCP Server', link: '/scrapling/api-reference/mcp-server/' },
+                            { label: 'Custom Types', link: '/scrapling/api-reference/custom-types/' },
+                            { label: 'Response', link: '/scrapling/api-reference/response/' },
+                            { label: 'Spiders', link: '/scrapling/api-reference/spiders/' },
+                            { label: 'Proxy Rotation', link: '/scrapling/api-reference/proxy-rotation/' },
+                        ],
+                    },
+                    { label: 'Writing your retrieval system', link: '/scrapling/development/adaptive_storage_system/' },
+                    { label: 'Using Scrapling\'s custom types', link: '/scrapling/development/scrapling_custom_types/' },
+                ],
+            },
+            { label: 'Support and Advertisement', link: '/scrapling/donate/' },
+            { label: 'Contributing', link: 'https://github.com/D4Vinci/Scrapling/blob/main/CONTRIBUTING.md' },
+            { label: 'Changelog', link: 'https://github.com/D4Vinci/Scrapling/releases' },
+        ],
     }
 ];
 

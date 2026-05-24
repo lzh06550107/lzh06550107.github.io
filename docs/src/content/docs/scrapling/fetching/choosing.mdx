@@ -1,0 +1,100 @@
+---
+title: Fetcher 基础
+description: 快速了解 Scrapling 提供的三类 fetcher、共享配置方式，以及所有 fetcher 返回的 Response 对象。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# Fetcher 基础
+
+## 介绍
+
+Fetcher 是一组类，能以**单行调用**的形式轻松帮你发送请求或抓取页面，附带许多特性，并最终返回一个 [Response](#response-对象) 对象。从 v0.3 开始，所有 fetcher 都有单独的 session 类来保持会话持续存在。比如，一个基于浏览器的 fetcher 会在你完成所有请求之前保持浏览器开启，而不是为每个请求都打开一个新浏览器。所以具体用哪个，取决于你的使用场景。
+
+之所以引入这个功能，是因为在 v0.2 之前，Scrapling 只是一套解析引擎。而现在的目标，是逐步成为满足所有 Web Scraping 需求的一站式工具。
+
+> Fetcher 并不是构建在其他库之上的简单包装器。更准确地说，它们只是把这些库当成请求 / 抓取页面的底层引擎来使用。为了进一步说明这一点：所有 fetcher 都具备底层引擎本身没有的能力，同时又充分利用并针对 Web Scraping 场景优化了这些引擎。
+
+## Fetcher 总览
+
+Scrapling 提供了三种不同的 fetcher 类及其各自的 session 类；每一种 fetcher 都是为特定场景设计的。
+
+下面这张表可以帮助你快速对比并做选择：
+
+| Feature | Fetcher | DynamicFetcher | StealthyFetcher |
+|---|---|---|---|
+| Relative speed | 🐇🐇🐇🐇🐇 | 🐇🐇🐇 | 🐇🐇🐇 |
+| Stealth | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Anti-Bot options | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| JavaScript loading | ❌ | ✅ | ✅ |
+| Memory Usage | ⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| Best used for | 仅靠 HTTP 请求即可完成的基础抓取 | - 动态加载的网站 <br/>- 小型自动化<br/>- 轻到中等防护 | - 动态加载的网站 <br/>- 小型自动化 <br/>- 轻到复杂防护 |
+| Browser(s) | ❌ | Chromium 和 Google Chrome | Chromium 和 Google Chrome |
+| Browser API used | ❌ | PlayWright | PlayWright |
+| Setup Complexity | 简单 | 简单 | 简单 |
+
+在接下来的页面里，我们会分别详细介绍它们。
+
+## 所有 fetcher 中的解析器配置
+
+所有 fetcher 的导入方式都是一样的，后面你会看到：
+```python
+from scrapling.fetchers import Fetcher, AsyncFetcher, StealthyFetcher, DynamicFetcher
+```
+
+然后你可以直接使用，而不需要初始化，它会采用默认解析器配置：
+```python
+page = StealthyFetcher.fetch('https://example.com') 
+```
+
+如果你想在返回响应前，先配置应用到响应上的解析器（即 [Selector 类](/scrapling/parsing/main_classes#selector)），那么请先这样做：
+```python
+from scrapling.fetchers import Fetcher
+Fetcher.configure(adaptive=True, keep_comments=False, keep_cdata=False)  # 以及其他配置
+```
+
+或者：
+```python
+from scrapling.fetchers import Fetcher
+Fetcher.adaptive=True
+Fetcher.keep_comments=False
+Fetcher.keep_cdata=False  # 以及其他配置
+```
+
+然后照常继续写你的代码。
+
+可用的配置参数包括：`adaptive`、`adaptive_domain`、`huge_tree`、`keep_comments`、`keep_cdata`、`storage` 和 `storage_args`。这些参数和你传给 [Selector](/scrapling/parsing/main_classes#selector) 类的是一样的。你也可以随时通过运行 `<fetcher_class>.display_config()` 查看当前配置。
+
+:::note[`adaptive` 参数默认是关闭的；如果你想使用该功能，必须显式启用。]
+:::
+
+### 为单次请求设置解析器配置
+
+正如你大概已经理解的，上面这种设置解析器配置的方式会**全局应用**到该类发起的所有请求 / 抓取中，这样设计是为了简化使用。
+
+如果你的场景要求每个请求 / 抓取都使用不同配置，那么你可以在请求方法（`fetch` / `get` / `post` / ...）中，通过名为 `selector_config` 的参数传入一个字典。
+
+## Response 对象
+
+`Response` 对象本质上与 [Selector](/scrapling/parsing/main_classes#selector) 类相同，但它额外包含与响应相关的信息，例如响应头、状态码、cookies 等，如下所示：
+```python
+from scrapling.fetchers import Fetcher
+page = Fetcher.get('https://example.com')
+
+page.status          # HTTP 状态码
+page.reason          # 状态消息
+page.cookies         # 字典形式的响应 cookies
+page.headers         # 响应头
+page.request_headers # 请求头
+page.history         # 重定向历史（如果有）
+page.body            # 原始响应体 bytes
+page.encoding        # 响应编码
+page.meta            # 响应元数据字典（例如使用的代理）。在 spiders 系统中尤其有用。
+page.captured_xhr    # 捕获到的 XHR/fetch 响应列表（当浏览器 session 启用了 capture_xhr 时）
+```
+
+所有 fetcher 都返回 `Response` 对象。
+
+:::note[与 [Selector](/scrapling/parsing/main_classes#selector) 类不同，从 v0.4 开始，`Response` 类的 `body` 始终是 `bytes`。]
+:::

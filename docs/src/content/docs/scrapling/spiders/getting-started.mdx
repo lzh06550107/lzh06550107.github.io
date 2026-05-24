@@ -1,0 +1,191 @@
+---
+title: 快速开始
+description: 学习如何创建、运行并扩展你的第一个 Scrapling spider，包括跟随链接、导出数据、域名过滤与 robots.txt 支持。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+# 快速开始
+
+## 介绍
+
+:::tip[Prerequisites]
+1. 你已经完成或阅读过 [Fetcher 基础](/scrapling/fetching/choosing) 页面，理解不同 fetcher 类型及其适用场景。
+2. 你已经完成或阅读过 [解析核心类](/scrapling/parsing/main_classes) 页面，理解 [Selector](/scrapling/parsing/main_classes#selector) 和 [Response](/scrapling/fetching/choosing#response-对象) 类。
+3. 你已经阅读过 [Spiders 架构](/scrapling/spiders/architecture) 页面，对 spider 系统的工作方式有一个高层概览。
+:::
+
+spider 系统让你只用几行代码就能构建并发的多页面爬虫。如果你以前用过 Scrapy，这些模式会很熟悉；如果没有，本指南也会一步步带你完成入门所需的一切。
+
+## 你的第一个 Spider
+
+spider 是一个类，用来定义如何抓取网站并提取数据。下面是一个最简单的 spider：
+
+```python
+from scrapling.spiders import Spider, Response
+
+class QuotesSpider(Spider):
+    name = "quotes"
+    start_urls = ["https://quotes.toscrape.com"]
+
+    async def parse(self, response: Response):
+        for quote in response.css("div.quote"):
+            yield {
+                "text": quote.css("span.text::text").get(""),
+                "author": quote.css("small.author::text").get(""),
+            }
+```
+
+每个 spider 都需要三样东西：
+
+1. **`name`**：spider 的唯一标识符。
+2. **`start_urls`**：开始抓取时使用的 URL 列表。
+3. **`parse()`**：一个异步生成器方法，用于处理每个响应并 `yield` 出结果。
+
+`parse()` 方法是整个过程的核心。你可以使用与 Scrapling 的 [Selector](/scrapling/parsing/main_classes#selector) / [Response](/scrapling/fetching/choosing#response-对象) 相同的选择方法，然后通过 `yield` 字典来输出抓取结果。
+
+## 运行 Spider
+
+要运行 spider，创建实例后调用 `start()` 即可：
+
+```python
+result = QuotesSpider().start()
+```
+
+`start()` 方法会在内部处理所有异步机制，因此你不需要关心事件循环。spider 运行期间，所有过程都会记录到终端日志中；在爬取结束后，你还会获得非常详细的统计信息。
+
+这些统计信息位于返回的 `CrawlResult` 对象里，它提供了你需要的所有内容：
+
+```python
+result = QuotesSpider().start()
+
+# 访问抓取结果
+for item in result.items:
+    print(item["text"], "-", item["author"])
+
+# 查看统计信息
+print(f"Scraped {result.stats.items_scraped} items")
+print(f"Made {result.stats.requests_count} requests")
+print(f"Took {result.stats.elapsed_seconds:.1f} seconds")
+
+# 确认本次爬取是完成了，还是被暂停了
+print(f"Completed: {result.completed}")
+```
+
+## 跟随链接
+
+大多数爬取任务都需要跨多个页面跟随链接。你可以使用 `response.follow()` 创建后续请求：
+
+```python
+from scrapling.spiders import Spider, Response
+
+class QuotesSpider(Spider):
+    name = "quotes"
+    start_urls = ["https://quotes.toscrape.com"]
+
+    async def parse(self, response: Response):
+        # 从当前页面提取结果
+        for quote in response.css("div.quote"):
+            yield {
+                "text": quote.css("span.text::text").get(""),
+                "author": quote.css("small.author::text").get(""),
+            }
+
+        # 跟随“下一页”链接
+        next_page = response.css("li.next a::attr(href)").get()
+        if next_page:
+            yield response.follow(next_page, callback=self.parse)
+```
+
+`response.follow()` 会自动处理相对 URL，把它与当前页面 URL 拼接起来。同时它默认还会把当前页面设置为 `Referer` 请求头。
+
+你也可以把后续请求指向不同的回调方法，以处理不同类型的页面：
+
+```python
+async def parse(self, response: Response):
+    for link in response.css("a.product-link::attr(href)").getall():
+        yield response.follow(link, callback=self.parse_product)
+
+async def parse_product(self, response: Response):
+    yield {
+        "name": response.css("h1::text").get(""),
+        "price": response.css(".price::text").get(""),
+    }
+```
+
+:::note[所有回调方法都必须是异步生成器，也就是使用 `async def` 并配合 `yield`。]
+:::
+
+## 导出数据
+
+`result.items` 中返回的 `ItemList` 自带导出方法：
+
+```python
+result = QuotesSpider().start()
+
+# 导出为 JSON
+result.items.to_json("quotes.json")
+
+# 导出为带格式化缩进的 JSON
+result.items.to_json("quotes.json", indent=True)
+
+# 导出为 JSON Lines（每行一个 JSON 对象）
+result.items.to_jsonl("quotes.jsonl")
+```
+
+这两种方法都会在目标目录不存在时自动创建父目录。
+
+## 过滤域名
+
+使用 `allowed_domains` 可以把 spider 限制在特定域名范围内，防止它意外跟随到外部网站的链接：
+
+```python
+class MySpider(Spider):
+    name = "my_spider"
+    start_urls = ["https://example.com"]
+    allowed_domains = {"example.com"}
+
+    async def parse(self, response: Response):
+        for link in response.css("a::attr(href)").getall():
+            # 指向其他域名的链接会被静默丢弃
+            yield response.follow(link, callback=self.parse)
+```
+
+子域名会自动匹配，所以设置 `allowed_domains = {"example.com"}` 时，也会允许 `sub.example.com`、`blog.example.com` 等域名。
+
+当某个请求被过滤掉时，它会计入 `stats.offsite_requests_count`，这样你就能知道有多少请求被丢弃了。
+
+## 遵守 Robots.txt
+
+把 `robots_txt_obey = True` 设为开启后，spider 会在抓取任意域名前先遵守对应的 robots.txt 规则：
+
+```python
+class PoliteSpider(Spider):
+    name = "polite"
+    start_urls = ["https://example.com"]
+    robots_txt_obey = True
+
+    async def parse(self, response: Response):
+        for link in response.css("a::attr(href)").getall():
+            yield response.follow(link, callback=self.parse)
+```
+
+启用后，spider 会：
+
+1. **预先抓取 robots.txt**：在爬取开始前，为 `start_urls` 中的所有域名并发拉取 robots.txt。
+2. **检查每一个请求**：根据该域名 robots.txt 中的 `Disallow` 规则验证请求。不被允许的请求会被静默丢弃，并计入 `stats.robots_disallowed_count`。
+3. **遵守 `Crawl-delay` 与 `Request-rate` 指令**：实际采用的延迟会在这些指令与已配置的 `download_delay` 之间取最大值。这意味着 robots.txt 只会在必要时增加你的延迟，不会降低你原本配置的延迟。
+
+robots.txt 文件会使用 spider 的默认 session 抓取，并在整个爬取期间按域名缓存。对于在爬取中途才发现的域名（不在 `start_urls` 内），会在首次请求该域名时再抓取其 robots.txt。
+
+**注意：** 默认情况下 `robots_txt_obey` 是关闭的，以避免带来意料之外的行为。如果你启用了它，它不会影响你的并发设置（`concurrent_requests`、`concurrent_requests_per_domain`）——只会调整请求之间的延迟。
+
+## 接下来读什么
+
+掌握基础后，你可以继续阅读：
+
+- [Requests & Responses](/scrapling/spiders/requests-responses)：了解请求优先级、去重、元数据等内容。
+- [Sessions](/scrapling/spiders/sessions)：在同一个 spider 中混合使用多种 fetcher 类型（HTTP、浏览器、stealth）。
+- [代理管理与拦截处理](/scrapling/spiders/proxy-blocking)：在请求之间轮换代理，以及在 spider 中处理拦截。
+- [高级特性](/scrapling/spiders/advanced)：并发控制、暂停 / 恢复、流式处理、生命周期钩子与日志。

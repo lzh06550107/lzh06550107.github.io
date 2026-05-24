@@ -1,0 +1,43 @@
+---
+title: CLI 概览
+description: 了解 Scrapling 命令行工具的三大能力：交互式 Shell、提取命令以及安装与管理工具。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# CLI 概览
+
+从 v0.3 开始，Scrapling 内置了一个功能强大的命令行界面，主要提供三类能力：
+
+1. **交互式 Shell**：基于 IPython 的交互式 Web Scraping Shell，内置许多快捷方式和实用工具。
+2. **提取命令**：无需编程，直接在终端中抓取网站内容。
+3. **实用命令**：用于安装与管理的辅助工具。
+
+```bash
+# 启动交互式 Shell
+scrapling shell
+
+# 将页面内容转换为 Markdown 并保存到文件
+scrapling extract get "https://example.com" content.md
+
+# 查看任意命令的帮助
+scrapling --help
+scrapling extract --help
+```
+
+## 使用要求
+
+本节功能需要安装额外的 `shell` 依赖组：
+
+```bash
+pip install "scrapling[shell]"
+```
+
+然后再执行下面的命令安装各类 fetcher 所需依赖：
+
+```bash
+scrapling install
+```
+
+这会下载所有浏览器，以及它们的系统依赖和指纹伪装相关依赖。

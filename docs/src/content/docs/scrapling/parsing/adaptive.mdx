@@ -1,0 +1,252 @@
+---
+title: 自适应抓取
+description: 了解 Scrapling 的 adaptive 功能如何保存元素特征，并在网站结构变化后重新定位目标元素。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+# 自适应抓取
+
+:::tip[Prerequisites]
+1. 你已经完成或阅读过[查询元素](/scrapling/parsing/selection)页面，并理解如何从 [Selector](/scrapling/parsing/main_classes#selector) 对象中查找 / 提取元素。
+2. 你已经完成或阅读过[核心类](/scrapling/parsing/main_classes)页面，并理解 [Selector](/scrapling/parsing/main_classes#selector) 类。
+:::
+
+自适应抓取（此前叫 automatch）是 Scrapling 最强大的功能之一。它能通过智能追踪和重新定位元素，让你的爬虫在网站发生变化后依然继续工作。
+
+假设你正在抓取一个结构如下的页面：
+```html
+<div class="container">
+    <section class="products">
+        <article class="product" id="p1">
+            <h3>Product 1</h3>
+            <p class="description">Description 1</p>
+        </article>
+        <article class="product" id="p2">
+            <h3>Product 2</h3>
+            <p class="description">Description 2</p>
+        </article>
+    </section>
+</div>
+```
+
+而你想抓取第一个商品，也就是 `id` 为 `p1` 的那个。你大概率会写出这样的选择器：
+```python
+page.css('#p1')
+```
+
+当网站所有者对结构做了如下修改：
+```html
+<div class="new-container">
+    <div class="product-wrapper">
+        <section class="products">
+            <article class="product new-class" data-id="p1">
+                <div class="product-info">
+                    <h3>Product 1</h3>
+                    <p class="new-description">Description 1</p>
+                </div>
+            </article>
+            <article class="product new-class" data-id="p2">
+                <div class="product-info">
+                    <h3>Product 2</h3>
+                    <p class="new-description">Description 2</p>
+                </div>
+            </article>
+        </section>
+    </div>
+</div>
+```
+
+这个选择器就不再有效了，你的代码也就需要维护。这正是 Scrapling 的 `adaptive` 功能发挥作用的地方。
+
+在 Scrapling 中，你可以在第一次选择元素时启用 `adaptive` 功能。之后当你再次选择该元素而它已经不存在时，Scrapling 会记住它的特征，并在网站中搜索与其相似度最高的元素，而且**不需要 AI** :)
+
+```python
+from scrapling import Selector, Fetcher
+# 变更之前
+page = Selector(page_source, adaptive=True, url='example.com')
+# 或者
+Fetcher.adaptive = True
+page = Fetcher.get('https://example.com')
+# 然后
+element = page.css('#p1', auto_save=True)
+if not element:  # 某一天网站变了？
+    element = page.css('#p1', adaptive=True)  # Scrapling 仍然能找到它！
+# 后面的代码...
+```
+
+下面我会先演示如何使用这个功能，然后再深入讲解它的工作方式和细节。请注意：它适用于**所有**选择方式，而不仅仅是 CSS / XPath 选择。
+
+## 真实场景示例
+
+我们用一个真实网站来举例，并通过某个 fetcher 获取其源码。要做到这点，我们得先找到一个即将更新设计 / 结构的网站，复制其源码，然后等它真的改版。当然，这几乎不可能做到，除非我认识网站所有者，不过那样就成了刻意安排的测试了，哈哈。
+
+为了解决这个问题，我会使用 [The Web Archive](https://archive.org/) 的 [Wayback Machine](https://web.archive.org/)。这里是 [2010 年的 StackOverFlow 网站快照](https://web.archive.org/web/20100102003420/http://stackoverflow.com/)，很老了吧？<br />让我们看看，自适应功能是否能用**同一个选择器**，在 2010 年旧版设计和当前新版设计中提取出同一个按钮 :)
+
+如果我想从旧设计中提取 Questions 按钮，可以使用这样的选择器：`#hmenus > div:nth-child(1) > ul > li:nth-child(1) > a`。这个选择器非常具体，因为它是由 Google Chrome 生成的。
+
+现在，我们来测试这个选择器在两个版本中是否都能工作：
+```python
+from scrapling import Fetcher
+selector = '#hmenus > div:nth-child(1) > ul > li:nth-child(1) > a'
+old_url = "https://web.archive.org/web/20100102003420/http://stackoverflow.com/"
+new_url = "https://stackoverflow.com/"
+Fetcher.configure(adaptive = True, adaptive_domain='stackoverflow.com')
+page = Fetcher.get(old_url, timeout=30)
+element1 = page.css(selector, auto_save=True)[0]
+# 在更新后的网站中使用同一个选择器
+page = Fetcher.get(new_url)
+element2 = page.css(selector, adaptive=True)[0]
+
+if element1.text == element2.text:
+    print('Scrapling found the same element in the old and new designs!')  # 剧透：它确实做到了！
+```
+
+注意这里我引入了一个新参数 `adaptive_domain`。这是因为对 Scrapling 来说，`archive.org` 和 `stackoverflow.com` 是两个不同域名，所以它会把它们的 `adaptive` 数据隔离存储。为了告诉 Scrapling 它们其实代表同一个网站，我们必须在保存两边的 `adaptive` 数据时传入同一个自定义域名，避免被隔离开来。
+
+在真实场景中，代码会和上面的例子相同，只不过两次请求会使用同一个 URL，因此你就不需要 `adaptive_domain` 参数了。这已经是我能给出的、最接近真实世界的示例了，希望没有把你绕晕 :)
+
+因此，在上面两个示例中，我分别使用了 `Selector` 和 `Fetcher` 类来说明：自适应逻辑在两者中是一致的。
+
+:::note[创建 `adaptive_domain` 参数的主要原因，是为了处理网站在改版时**同时更换 URL** 的情况。此时你可以用它继续复用之前存储的自适应数据；否则 Scrapling 会把它当成一个新网站，并丢弃旧数据。]
+:::
+
+## 自适应抓取功能如何工作
+
+自适应抓取分为两个阶段：
+
+1. **保存阶段（Save Phase）**：保存元素的唯一特征
+2. **匹配阶段（Match Phase）**：之后查找具有相似特征的元素
+
+假设你通过任意方法选中了一个元素，并希望下次抓取这个网站时，即便网站结构 / 设计发生变化，库也能再次找到它。
+
+尽量少讲技术细节的话，它的大致逻辑如下：
+
+1. 你通过我们下面将演示的某种方式，告诉 Scrapling 保存这个元素的唯一特征。
+2. Scrapling 使用它配置好的数据库（默认为 SQLite）保存每个元素的唯一特征。
+3. 接下来，因为网站所有者可能修改或移除关于该元素的一切，所以元素本身没有任何字段可以作为数据库中的唯一标识。为了解决这个问题，我让存储系统依赖于两件事：
+   1. 当前网站的域名。如果你使用的是 `Selector` 类，需要在初始化时传入；如果你使用 fetcher，域名会自动从 URL 获取。
+   2. 一个用于从数据库查询该元素特征的 `identifier`。你不一定总要自己设置这个标识符；稍后我们会讲。
+
+   这两者结合起来，就会在之后用于从数据库中取回该元素的唯一特征。
+
+4. 之后，当网站结构发生变化时，你通过启用 `adaptive` 告诉 Scrapling 去找这个元素。Scrapling 会取回它之前保存的唯一特征，并把页面中的所有元素与这些特征进行匹配，计算它们与目标元素的相似度分数。这个比较会考虑各种因素，稍后你会看到。
+5. 返回与目标元素相似度分数最高的元素。
+
+### 所谓“唯一特征”是什么？
+
+当我们说元素的所有属性都可能被移除或修改时，你可能会好奇我们到底在依赖哪些“唯一特征”。
+
+对 Scrapling 而言，这些可用来比对的关键特征包括：
+
+- 元素的标签名、文本、属性（名称和值）、兄弟元素（仅标签名）以及路径（仅标签名）。
+- 元素父节点的标签名、属性（名称和值）以及文本。
+
+但你需要理解：元素之间的比较并不是“完全相等”的比较，而更像是在判断这些值有多相似。因此会考虑各种细节，甚至包括值的顺序，比如以前 class 名的书写顺序，以及现在相同 class 名的书写顺序。
+
+## 如何使用 adaptive 功能
+
+adaptive 功能可以用于任何找到的元素。它既可以作为 CSS / XPath 选择方法的参数使用，就像前面的示例一样，不过我们稍后还会回到这一点。
+
+首先，你必须在初始化 [Selector](/scrapling/parsing/main_classes#selector) 类时传入 `adaptive=True` 来启用 adaptive 功能；或者在你使用的 fetcher 上启用它。下面会演示这两种方式。
+
+示例：
+```python
+from scrapling import Selector, Fetcher
+page = Selector(html_doc, adaptive=True)
+# OR
+Fetcher.adaptive = True
+page = Fetcher.get('https://example.com')
+```
+
+如果你使用的是 [Selector](/scrapling/parsing/main_classes#selector) 类，就需要通过 `url` 参数传入当前网站的 URL，这样 Scrapling 才能按域名区分不同元素保存的特征。
+
+如果你没有传入 URL，那么在保存元素唯一特征时会使用 `default` 这个词代替 URL 字段。因此，只有在你之后对另一个网站使用同一个 identifier、而且初始化时又没有传 URL 时，这才会成为问题。保存过程会覆盖旧数据，而 `adaptive` 功能只会使用最新保存的那份特征。
+
+除了这些参数之外，还有 `storage` 和 `storage_args`。它们都用于让类连接数据库；默认情况下，库会使用自己提供的 SQLite 类。除非你想编写自己的存储系统，否则这些参数基本不用管。我们会在开发章节的独立页面[/scrapling/development/adaptive_storage_system](/scrapling/development/adaptive_storage_system)中说明。
+
+现在，既然你已经全局启用了 `adaptive` 功能，你主要有两种使用方式。
+
+### 通过 CSS / XPath 选择使用
+
+正如你在前面的例子中看到的，第一步是在选择**当前确实存在于页面中的元素**时，使用 `auto_save` 参数，例如：
+```python
+element = page.css('#p1', auto_save=True)
+```
+
+当元素不再存在时，你就可以使用相同选择器并启用 `adaptive` 参数，让库帮你找回来：
+```python
+element = page.css('#p1', adaptive=True)
+```
+
+很简单，对吧？
+
+不过，这里面其实发生了很多事情。还记得前面提到的那个用于取回目标元素的标识符 `identifier` 吗？在这里，使用 `css` / `xpath` 方法时，库会自动把你传入的选择器当作 identifier，这样更省事 :)
+
+此外，对于这些方法，你也可以手动传入 `identifier` 参数自行设置标识符。这在某些场景下会很有用，或者你也可以配合 `auto_save` 参数来保存特征。
+
+### 手动方式
+
+你可以手动保存和取回一个元素，然后在 `adaptive` 功能内部重新定位它，如下所示。这样你就可以通过**任何方法、任何选择方式**来重新定位元素！
+
+假设你是通过文本这样拿到一个元素的：
+```python
+element = page.find_by_text('Tipping the Velvet', first_match=True)
+```
+
+你可以像下面这样用 `save` 方法保存它的唯一特征，不过这里必须由你自己设置 identifier。这个例子里我用了 `my_special_element` 作为标识符，但和变量命名一样，最好在代码中使用更有意义的标识符 :)
+```python
+page.save(element, 'my_special_element')
+```
+
+之后，当你想把它取回来并借助 `adaptive` 在页面内重新定位时，可以这样做：
+```python
+>>> element_dict = page.retrieve('my_special_element')
+>>> page.relocate(element_dict, selector_type=True)
+[<data='<a href="catalogue/tipping-the-velvet_99...' parent='<h3><a href="catalogue/tipping-the-velve...'>]
+>>> page.relocate(element_dict, selector_type=True).css('::text').getall()
+['Tipping the Velvet']
+```
+
+这里用到的是 `retrieve` 和 `relocate` 方法。
+
+如果你想把结果保持为 `lxml.etree` 对象，就不要传 `selector_type` 参数：
+```python
+>>> page.relocate(element_dict)
+[<Element a at 0x105a2a7b0>]
+```
+
+## 故障排查
+
+### 没有找到匹配项
+```python
+# 1. 检查数据是否已保存
+element_data = page.retrieve('identifier')
+if not element_data:
+    print("No data saved for this identifier")
+
+# 2. 尝试不同的 identifier
+products = page.css('.product', adaptive=True, identifier='old_selector')
+
+# 3. 使用新 identifier 再保存一次
+products = page.css('.new-product', auto_save=True, identifier='new_identifier')
+```
+
+### 匹配到了错误的元素
+```python
+# 使用更具体的选择器
+products = page.css('.product-list .product', auto_save=True)
+
+# 或在保存时携带更多上下文
+product = page.find_by_text('Product Name').parent
+page.save(product, 'specific_product')
+```
+
+## 已知问题
+
+在 `adaptive` 的保存流程中，只会保存该次选择结果中**第一个元素**的唯一特征。因此，如果你使用的选择器在页面其他位置也能选中不同元素，那么之后重新定位时，`adaptive` 只会把第一个元素返回给你。这里不包括组合 CSS 选择器（例如使用逗号组合多个选择器），因为这些选择器会被拆开并分别执行。
+
+## 最后想说
+
+想把这个功能讲细又不讲复杂，确实比我预想中更难。不过如果还有哪里不清楚，欢迎前往[discussions 区](https://github.com/D4Vinci/Scrapling/discussions)，我会尽快回复你；你也可以去 Discord 服务器，或者直接私下联系我聊聊 :)

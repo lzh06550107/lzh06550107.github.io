@@ -1,0 +1,571 @@
+---
+title: 查询元素
+description: 了解如何在 Scrapling 中使用 CSS、XPath、文本、正则与过滤器来定位元素，并生成可复用的选择器。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# 查询元素
+
+Scrapling 目前只支持解析 HTML 页面，因此**不支持 XML feed**。之所以这样设计，是因为自适应功能在 XML 上无法工作；不过这点未来可能会改变，敬请期待 :)
+
+在 Scrapling 中，查找元素主要有五种方式：
+
+1. CSS3 选择器
+2. XPath 选择器
+3. 基于过滤器 / 条件查找元素
+4. 查找内容中包含特定文本的元素
+5. 查找内容匹配特定正则表达式的元素
+
+当然，Scrapling 里还有一些间接的查找方式，但这里我们会重点详细介绍最主要的方法。我们也会提到 Scrapling 最值得一提的功能之一：**查找与你手头元素相似的元素**。你可以直接从[这里](#查找相似元素)跳到那一节。
+
+如果你刚接触 Web Scraping、几乎没有写选择器的经验，并且想快速上手，我建议你直接从[这里](#基于过滤器的搜索)开始学习 `find` / `find_all` 方法。
+
+## CSS / XPath 选择器
+
+### 什么是 CSS 选择器？
+
+[CSS](https://en.wikipedia.org/wiki/CSS) 是一种为 HTML 文档应用样式的语言。它通过定义选择器，将样式关联到特定的 HTML 元素。
+
+Scrapling 按照 [W3C 规范](http://www.w3.org/TR/2011/REC-css3-selectors-20110929/)实现了 CSS3 选择器。CSS 选择器支持来自 `cssselect`，因此最好也阅读一下 [cssselect 支持哪些选择器](https://cssselect.readthedocs.io/en/latest/#supported-selectors)以及伪函数 / 伪元素。
+
+另外，Scrapling 还实现了一些非标准伪元素，例如：
+
+- 要选择文本节点，使用 `::text`。
+- 要选择属性值，使用 `::attr(name)`，其中 `name` 是你想获取其值的属性名。
+
+简而言之，如果你来自 Scrapy / Parsel，你会发现这里的选择器逻辑完全一致，更容易上手。没必要再去适应一套让大多数人都陌生的逻辑 :)
+
+要使用 CSS 选择器选取元素，请使用 `css` 方法，它返回 `Selectors`。使用 `[0]` 可以拿到第一个元素；而在文本 / 属性伪选择器上使用 `.get()` / `.getall()` 可以提取文本值。
+
+### 什么是 XPath 选择器？
+
+[XPath](https://en.wikipedia.org/wiki/XPath) 是一种在 XML 文档中选择节点的语言，也可以用于 HTML。这个 [cheatsheet](https://devhints.io/xpath) 是学习 [XPath](https://en.wikipedia.org/wiki/XPath) 的不错资料。Scrapling 通过 [lxml](https://lxml.de/) 直接提供 XPath 选择器。
+
+简而言之，它和 CSS 选择器的情况相同：如果你来自 Scrapy / Parsel，这里的选择器逻辑同样会很熟悉。不过，Scrapling **没有**像 Scrapy / Parsel 那样实现 XPath 扩展函数 `has-class`。取而代之的是，它提供了 `has_class` 方法，可用于返回的元素上，达到同样目的。
+
+要使用 XPath 选择器选取元素，可以使用 `xpath` 方法。这个方法同样遵循上面 CSS 选择器方法的逻辑。
+
+> 请注意，`css` 和 `xpath` 方法都带有一些额外参数，不过这里没有展开，因为它们都与自适应功能有关。自适应功能会在之后的独立页面中详细介绍。
+
+### 选择器示例
+
+下面看一些 CSS 与 XPath 的共用示例。
+
+选择所有类名为 `product` 的元素。
+```python
+products = page.css('.product')
+products = page.xpath('//*[@class="product"]')
+```
+
+:::note[XPath 这种写法在元素还有其他 class 时并不准确；**按 class 选择时始终更推荐使用 CSS**。]
+:::
+
+选择第一个类名为 `product` 的元素。
+```python
+product = page.css('.product')[0]
+product = page.xpath('//*[@class="product"]')[0]
+```
+
+获取第一个 `h1` 标签元素的文本。
+```python
+title = page.css('h1::text').get()
+title = page.xpath('//h1//text()').get()
+```
+
+这等价于：
+```python
+title = page.css('h1')[0].text
+title = page.xpath('//h1')[0].text
+```
+
+获取第一个 `a` 标签元素的 `href` 属性。
+```python
+link = page.css('a::attr(href)').get()
+link = page.xpath('//a/@href').get()
+```
+
+选择位于 `.product` 元素下方、文本中包含 `Phone` 的第一个 `h1` 元素文本。
+```python
+title = page.css('.product h1:contains("Phone")::text').get()
+title = page.xpath('//*[@class="product"]//h1[contains(text(),"Phone")]/text()').get()
+```
+
+你可以任意嵌套或链式调用选择器，只要它们能返回结果：
+```python
+page.css('.product')[0].css('h1:contains("Phone")::text').get()
+page.xpath('//*[@class="product"]')[0].xpath('//h1[contains(text(),"Phone")]/text()').get()
+page.xpath('//*[@class="product"]')[0].css('h1:contains("Phone")::text').get()
+```
+
+再看一个示例。
+
+所有 `href` 属性中包含 `image` 的链接：
+```python
+links = page.css('a[href*="image"]')
+links = page.xpath('//a[contains(@href, "image")]')
+for index, link in enumerate(links):
+    link_value = link.attrib['href']  # 比 link.css('::attr(href)').get() 更简洁
+    link_text = link.text
+    print(f'Link number {index} points to this url {link_value} with text content as "{link_text}"')
+```
+
+## 按文本内容选择
+
+Scrapling 支持基于元素的**直接文本内容**来选择元素，你可以通过两种方式完成：
+
+1. 通过 `find_by_text` 方法，查找直接文本内容包含给定文本的元素，并提供多种选项。
+2. 通过 `find_by_regex` 方法，查找直接文本内容匹配给定正则模式的元素，并提供多种选项。
+
+如果你足够擅长正则表达式（regex），那么 `find_by_text` 能做的事情，`find_by_regex` 基本也都能做；不过我们仍提供了更多选项，以便所有用户都能更方便地使用它们。
+
+在 `find_by_text` 中，第一个参数是文本；在 `find_by_regex` 中，第一个参数是正则模式。两个方法共享以下参数：
+
+- **first_match**：如果为 `True`（默认值），方法会返回找到的第一个结果。
+- **case_sensitive**：如果为 `True`，则会区分大小写。
+- **clean_match**：如果为 `True`，在匹配前会把所有空白和连续空格替换成单个空格。
+
+默认情况下，Scrapling 对 `find_by_text` 传入的文本进行**完全匹配**：也就是说，目标元素的文本内容必须**只等于**你输入的文本。但它还提供了一个额外参数：
+
+- **partial**：启用后，`find_by_text` 会返回包含输入文本的元素，也就不再是完全匹配。
+
+:::note[`find_by_regex` 的第一个参数既可以是普通字符串，也可以是预编译的 regex 模式；你会在下面的示例中看到。]
+:::
+
+### 查找相似元素
+
+Scrapling 带来的一个非常亮眼的新功能，是你可以让它去查找**与当前元素相似的元素**。这个功能的灵感来自 AutoScraper，不过在 Scrapling 中，它可以用于任何方式找到的元素。它最常见的使用场景，往往是在通过文本内容找到某个元素之后，再去寻找结构相似的其他元素，这一点和 AutoScraper 很像，所以放在这里讲最方便。
+
+那么，它是如何工作的？
+
+想象这样一个场景：你通过商品标题找到了某个商品，现在你还想提取同一个表格 / 容器中的其他商品。此时，你可以对该元素调用 `.find_similar()`，Scrapling 会：
+
+1. 找出页面中所有与当前元素处于相同 DOM 树深度的元素。
+2. 检查这些元素，并丢弃那些标签名、父元素标签名、祖父元素标签名不同的元素。
+3. 现在我们大概已经能 99% 确定这些元素就是目标，但作为最后一步校验，Scrapling 会使用模糊匹配，丢弃那些属性与当前元素不够相似的元素。这个步骤可以通过一个百分比参数来控制，除非默认设置拿不到你想要的结果，否则我不建议你随意调整它。
+
+我知道这段解释有点长，但确实需要说清楚。下一节我会给出这个方法的使用示例；在那之前，先看看它支持的参数：
+
+- **similarity_threshold**：就是我们在第 3 步中讨论的属性相似度阈值。默认值是 `0.2`。换句话说，两个元素的标签属性至少要有 20% 相似。如果你想关闭这一步校验（本质上就是关闭第 3 步），可以把它设为 `0`，不过我建议你先看完后面的参数说明。
+- **ignore_attributes**：传入的属性名会在最后一步属性匹配时被忽略。默认值是 `('href', 'src',)`，因为 URL 往往在元素之间变化很大，不够可靠。
+- **match_text**：如果为 `True`，在匹配时（第 3 步）也会考虑元素的文本内容。一般情况下不推荐使用这个参数，但具体要看场景。
+
+现在来看看下面的示例。
+
+### 示例
+
+我们先看一些使用原始文本和正则查找元素的共用示例。
+
+这里我会用 `Fetcher` 类来演示，不过它稍后会单独详细介绍。
+```python
+from scrapling.fetchers import Fetcher
+page = Fetcher.get('https://books.toscrape.com/index.html')
+```
+
+查找第一个文本**完全匹配**给定内容的元素：
+```python
+>>> page.find_by_text('Tipping the Velvet')
+<data='<a href="catalogue/tipping-the-velvet_99...' parent='<h3><a href="catalogue/tipping-the-velve...'>
+```
+
+配合 `page.urljoin`，把相对 `href` 转成完整 URL。
+```python
+>>> page.find_by_text('Tipping the Velvet').attrib['href']
+'catalogue/tipping-the-velvet_999/index.html'
+>>> page.urljoin(page.find_by_text('Tipping the Velvet').attrib['href'])
+'https://books.toscrape.com/catalogue/tipping-the-velvet_999/index.html'
+```
+
+如果有多个匹配，可以拿到所有结果（注意返回的是列表）。
+```python
+>>> page.find_by_text('Tipping the Velvet', first_match=False)
+[<data='<a href="catalogue/tipping-the-velvet_99...' parent='<h3><a href="catalogue/tipping-the-velve...'>]
+```
+
+获取所有包含单词 `the` 的元素（部分匹配）：
+```python
+>>> results = page.find_by_text('the', partial=True, first_match=False)
+>>> [i.text for i in results]
+['A Light in the ...',
+ 'Tipping the Velvet',
+ 'The Requiem Red',
+ 'The Dirty Little Secrets ...',
+ 'The Coming Woman: A ...',
+ 'The Boys in the ...',
+ 'The Black Maria',
+ 'Mesaerion: The Best Science ...',
+ "It's Only the Himalayas"]
+```
+
+搜索默认不区分大小写，因此结果中也包含 `The`，而不只是小写的 `the`；下面把搜索限制为只匹配小写 `the` 的元素。
+```python
+>>> results = page.find_by_text('the', partial=True, first_match=False, case_sensitive=True)
+>>> [i.text for i in results]
+['A Light in the ...',
+ 'Tipping the Velvet',
+ 'The Boys in the ...',
+ "It's Only the Himalayas"]
+```
+
+获取第一个文本内容匹配我的价格正则的元素：
+```python
+>>> page.find_by_regex(r'£[\d\.]+')
+<data='<p class="price_color">£51.77</p>' parent='<div class="product_price"> <p class="pr...'>
+>>> page.find_by_regex(r'£[\d\.]+').text
+'£51.77'
+```
+
+如果传入预编译正则，也完全一样；Scrapling 会自动识别输入类型并处理：
+```python
+>>> import re
+>>> regex = re.compile(r'£[\d\.]+')
+>>> page.find_by_regex(regex)
+<data='<p class="price_color">£51.77</p>' parent='<div class="product_price"> <p class="pr...'>
+>>> page.find_by_regex(regex).text
+'£51.77'
+```
+
+获取所有匹配该正则的元素：
+```python
+>>> page.find_by_regex(r'£[\d\.]+', first_match=False)
+[<data='<p class="price_color">£51.77</p>' parent='<div class="product_price"> <p class="pr...'>,
+ <data='<p class="price_color">£53.74</p>' parent='<div class="product_price"> <p class="pr...'>,
+ <data='<p class="price_color">£50.10</p>' parent='<div class="product_price"> <p class="pr...'>,
+ <data='<p class="price_color">£47.82</p>' parent='<div class="product_price"> <p class="pr...'>,
+ ...]
+```
+
+以此类推……
+
+查找与当前元素在位置和属性上相似的所有元素。这里我们在匹配时忽略 `title` 属性：
+```python
+>>> element = page.find_by_text('Tipping the Velvet')
+>>> element.find_similar(ignore_attributes=['title'])
+[<data='<a href="catalogue/a-light-in-the-attic_...' parent='<h3><a href="catalogue/a-light-in-the-at...'>,
+ <data='<a href="catalogue/soumission_998/index....' parent='<h3><a href="catalogue/soumission_998/in...'>,
+ <data='<a href="catalogue/sharp-objects_997/ind...' parent='<h3><a href="catalogue/sharp-objects_997...'>,
+...]
+```
+
+注意元素数量是 19，而不是 20，因为**当前元素本身不会包含在结果中**。
+```python
+>>> len(element.find_similar(ignore_attributes=['title']))
+19
+```
+
+获取所有相似元素的 `href` 属性：
+```python
+>>> [
+    element.attrib['href']
+    for element in element.find_similar(ignore_attributes=['title'])
+]
+['catalogue/a-light-in-the-attic_1000/index.html',
+ 'catalogue/soumission_998/index.html',
+ 'catalogue/sharp-objects_997/index.html',
+ ...]
+```
+
+稍微增加一点复杂度：假设我们出于某种原因，希望以这个元素为起点，获取所有书籍的数据。
+```python
+>>> for product in element.parent.parent.find_similar():
+        print({
+            "name": product.css('h3 a::text').get(),
+            "price": product.css('.price_color')[0].re_first(r'[\d\.]+'),
+            "stock": product.css('.availability::text').getall()[-1].clean()
+        })
+{'name': 'A Light in the ...', 'price': '51.77', 'stock': 'In stock'}
+{'name': 'Soumission', 'price': '50.10', 'stock': 'In stock'}
+{'name': 'Sharp Objects', 'price': '47.82', 'stock': 'In stock'}
+...
+```
+
+### 高级示例
+
+下面是一些更高级、或更贴近真实业务场景的 `find_similar` 用法示例。
+
+电商商品提取：
+```python
+def extract_product_grid(page):
+    # 找到第一张商品卡片
+    first_product = page.find_by_text('Add to Cart').find_ancestor(
+        lambda e: e.has_class('product-card')
+    )
+
+    # 找到相似的商品卡片
+    products = first_product.find_similar()
+
+    return [
+        {
+            'name': p.css('h3::text').get(),
+            'price': p.css('.price::text').re_first(r'\d+\.\d{2}'),
+            'stock': 'In stock' in p.text,
+            'rating': p.css('.rating')[0].attrib.get('data-rating')
+        }
+        for p in products
+    ]
+```
+
+表格行提取：
+```python
+def extract_table_data(page):
+    # 找到第一行数据
+    first_row = page.css('table tbody tr')[0]
+
+    # 找到相似行
+    rows = first_row.find_similar()
+
+    return [
+        {
+            'column1': row.css('td:nth-child(1)::text').get(),
+            'column2': row.css('td:nth-child(2)::text').get(),
+            'column3': row.css('td:nth-child(3)::text').get()
+        }
+        for row in rows
+    ]
+```
+
+表单字段提取：
+```python
+def extract_form_fields(page):
+    # 找到第一个表单字段容器
+    first_field = page.css('input')[0].find_ancestor(
+        lambda e: e.has_class('form-field')
+    )
+
+    # 找到相似字段容器
+    fields = first_field.find_similar()
+
+    return [
+        {
+            'label': f.css('label::text').get(),
+            'type': f.css('input')[0].attrib.get('type'),
+            'required': 'required' in f.css('input')[0].attrib
+        }
+        for f in fields
+    ]
+```
+
+从网站中提取评论：
+```python
+def extract_reviews(page):
+    # 找到第一条评论
+    first_review = page.find_by_text('Great product!')
+    review_container = first_review.find_ancestor(
+        lambda e: e.has_class('review')
+    )
+    
+    # 找到相似评论
+    all_reviews = review_container.find_similar()
+    
+    return [
+        {
+            'text': r.css('.review-text::text').get(),
+            'rating': r.attrib.get('data-rating'),
+            'author': r.css('.reviewer::text').get()
+        }
+        for r in all_reviews
+    ]
+```
+
+## 基于过滤器的搜索
+
+可以说，这是 Scrapling 中查找元素的最佳方式之一：它既强大，又比直接编写选择器更容易让 Web Scraping 新手掌握。
+
+它受到 BeautifulSoup 的 `find_all` 函数启发。你可以通过 `find_all` 和 `find` 方法来查找元素。两个方法都可以接收多个过滤器，并返回页面中**同时满足这些过滤条件**的所有元素。
+
+更具体地说：
+
+- 任何传入的字符串都会被视为标签名。
+- 任何可迭代对象（如 List / Tuple / Set）都会被视为标签名集合。
+- 任何字典都会被视为 HTML 元素属性名与属性值的映射。
+- 任何传入的 regex 模式都会用于按内容过滤元素，类似 `find_by_regex` 方法。
+- 任何传入的函数都会被用作过滤函数。
+- 任何关键字参数都会被视为 HTML 元素属性及其值。
+
+它会把所有传入的位置参数和关键字参数收集起来，并采用一种类似瀑布流的过滤系统：每一个过滤器的结果都会传给下一个过滤器。
+
+它会按以下顺序过滤当前页面 / 元素中的所有元素：
+
+1. 收集所有匹配给定标签名的元素。
+2. 收集所有匹配给定属性的元素；如果前面已经有过滤器，则在前一轮结果上继续过滤。
+3. 收集所有匹配给定 regex 模式的元素；如果前面已经有过滤器，则在前一轮结果上继续过滤。
+4. 收集所有满足给定函数条件的元素；如果前面已经有过滤器，则在前一轮结果上继续过滤。
+
+:::note[1. 正如你可能已经看出来的，过滤过程总是从上面顺序中**第一个出现的过滤器类型**开始。所以，如果没有传入标签名，但传入了属性，那么流程会从第 2 步开始，以此类推。]
+2. 你传入参数的先后顺序并不重要。真正生效的只有上面说明的过滤顺序。
+:::
+
+看下面的示例会更清晰 :)
+
+### 示例
+
+```python
+from scrapling.fetchers import Fetcher
+page = Fetcher.get('https://quotes.toscrape.com/')
+```
+
+查找所有标签名为 `div` 的元素。
+```python
+>>> page.find_all('div')
+[<data='<div class="container"> <div class="row...' parent='<body> <div class="container"> <div clas...'>,
+ <data='<div class="row header-box"> <div class=...' parent='<div class="container"> <div class="row...'>,
+...]
+```
+
+查找所有类名等于 `quote` 的 `div` 元素。
+```python
+>>> page.find_all('div', class_='quote')
+[<data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>,
+ <data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>,
+...]
+```
+
+与上面相同：
+```python
+>>> page.find_all('div', {'class': 'quote'})
+[<data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>,
+ <data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>,
+...]
+```
+
+查找所有类名等于 `quote` 的元素。
+```python
+>>> page.find_all({'class': 'quote'})
+[<data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>,
+ <data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>,
+...]
+```
+
+查找所有类名等于 `quote` 的 `div` 元素，并且其内部 `.text` 元素内容中包含单词 `world`。
+```python
+>>> page.find_all('div', {'class': 'quote'}, lambda e: "world" in e.css('.text::text').get())
+[<data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>]
+```
+
+查找所有有子元素的元素。
+```python
+>>> page.find_all(lambda element: len(element.children) > 0)
+[<data='<html lang="en"><head><meta charset="UTF...'>,
+ <data='<head><meta charset="UTF-8"><title>Quote...' parent='<html lang="en"><head><meta charset="UTF...'>,
+ <data='<body> <div class="container"> <div clas...' parent='<html lang="en"><head><meta charset="UTF...'>,
+...]
+```
+
+查找所有文本内容中包含 `world` 的元素。
+```python
+>>> page.find_all(lambda element: "world" in element.text)
+[<data='<span class="text" itemprop="text">“The...' parent='<div class="quote" itemscope itemtype="h...'>,
+ <data='<a class="tag" href="/tag/world/page/1/"...' parent='<div class="tags"> Tags: <meta class="ke...'>]
+```
+
+查找所有匹配给定正则的 `span` 元素。
+```python
+>>> page.find_all('span', re.compile(r'world'))
+[<data='<span class="text" itemprop="text">“The...' parent='<div class="quote" itemscope itemtype="h...'>]
+```
+
+查找所有类名为 `quote` 的 `div` 和 `span` 元素（实际上没有这样的 `span`，所以只会返回 `div`）。
+```python
+>>> page.find_all(['div', 'span'], {'class': 'quote'})
+[<data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>,
+ <data='<div class="quote" itemscope itemtype="h...' parent='<div class="col-md-8"> <div class="quote...'>,
+...]
+```
+
+混合使用多种过滤条件：
+```python
+>>> page.find_all({'itemtype':"http://schema.org/CreativeWork"}, 'div').css('.author::text').getall()
+['Albert Einstein',
+ 'J.K. Rowling',
+...]
+```
+
+额外的专业小技巧：查找所有 `href` 属性值以 `Einstein` 结尾的元素。
+```python
+>>> page.find_all({'href$': 'Einstein'})
+[<data='<a href="/author/Albert-Einstein">(about...' parent='<span>by <small class="author" itemprop=...'>,
+ <data='<a href="/author/Albert-Einstein">(about...' parent='<span>by <small class="author" itemprop=...'>,
+ <data='<a href="/author/Albert-Einstein">(about...' parent='<span>by <small class="author" itemprop=...'>]
+```
+
+另一个小技巧：查找所有 `href` 属性值中包含 `/author/` 的元素。
+```python
+>>> page.find_all({'href*': '/author/'})
+[<data='<a href="/author/Albert-Einstein">(about...' parent='<span>by <small class="author" itemprop=...'>,
+ <data='<a href="/author/J-K-Rowling">(about)</a...' parent='<span>by <small class="author" itemprop=...'>,
+ <data='<a href="/author/Albert-Einstein">(about...' parent='<span>by <small class="author" itemprop=...'>,
+...]
+```
+
+以此类推……
+
+## 生成选择器
+
+你始终可以为任意元素生成可复用的 CSS / XPath 选择器，最棒的是：**不管你最初是通过什么方式找到这个元素的都没关系**。
+
+为 `url_element` 生成一个简短 CSS 选择器（如果可能则生成简短版本，否则会退化为完整选择器）。
+```python
+>>> url_element = page.find({'href*': '/author/'})
+>>> url_element.generate_css_selector
+'body > div > div:nth-of-type(2) > div > div > span:nth-of-type(2) > a'
+```
+
+为 `url_element` 从页面起点生成完整 CSS 选择器。
+```python
+>>> url_element.generate_full_css_selector
+'body > div > div:nth-of-type(2) > div > div > span:nth-of-type(2) > a'
+```
+
+为 `url_element` 生成一个简短 XPath 选择器（如果可能则生成简短版本，否则会退化为完整选择器）。
+```python
+>>> url_element.generate_xpath_selector
+'//body/div/div[2]/div/div/span[2]/a'
+```
+
+为 `url_element` 从页面起点生成完整 XPath 选择器。
+```python
+>>> url_element.generate_full_xpath_selector
+'//body/div/div[2]/div/div/span[2]/a'
+```
+
+:::note[当你让 Scrapling 生成“短选择器”时，它会尝试找到一个唯一元素作为生成时的停止点，比如带有 `id` 属性的元素。但在我们的例子里并没有这样的元素，所以短选择器和完整选择器才会相同。]
+:::
+
+## 在选择器中使用正则表达式
+
+和 `parsel` / `scrapy` 类似，Scrapling 提供了 `re` 与 `re_first` 方法，用于借助正则表达式提取数据。不过与前者不同，这些方法存在于几乎所有类中，例如 `Selector` / `Selectors` / `TextHandler` / `TextHandlers`。这意味着，即便你没有显式选择文本节点，也能直接在元素上调用它们。
+
+我们会在介绍 [TextHandler](/scrapling/parsing/main_classes#texthandler) 类时深入讲解，不过一般来说它的工作方式如下：
+
+```python
+>>> page.css('.price_color')[0].re_first(r'[\d\.]+')
+'51.77'
+
+>>> page.css('.price_color').re_first(r'[\d\.]+')
+'51.77'
+
+>>> page.css('.price_color').re(r'[\d\.]+')
+['51.77',
+ '53.74',
+ '50.10',
+ '47.82',
+ '54.23',
+...]
+
+>>> page.css('.product_pod h3 a::attr(href)').re(r'catalogue/(.*)/index.html')
+['a-light-in-the-attic_1000',
+ 'tipping-the-velvet_999',
+ 'soumission_998',
+ 'sharp-objects_997',
+...]
+
+>>> filtering_function = lambda e: e.parent.tag == 'h3' and e.parent.parent.has_class('product_pod')  # 与上面选择器等价
+>>> page.find('a', filtering_function).attrib['href'].re(r'catalogue/(.*)/index.html')
+['a-light-in-the-attic_1000']
+
+>>> page.find_by_text('Tipping the Velvet').attrib['href'].re(r'catalogue/(.*)/index.html')
+['tipping-the-velvet_999']
+```
+
+以此类推。你已经掌握大意了。下一页我们会结合 [TextHandler](/scrapling/parsing/main_classes#texthandler) 类更详细地说明这一点。

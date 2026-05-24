@@ -1,0 +1,31 @@
+---
+title: 使用 Scrapling 的自定义类型
+description: 了解如何在库外部使用 Scrapling 的 TextHandler 与 AttributesHandler，并理解它们与 Python 内建类型的关系。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+# 使用 Scrapling 的自定义类型
+
+> 你也可以利用 Scrapling 专门实现的自定义类型，并在库外部使用它们。总比直接复制它们的代码要更好，对吧 :)
+
+### 当前所有类型都可以单独导入，例如：
+
+```python
+from scrapling.core.custom_types import TextHandler, AttributesHandler
+
+somestring = TextHandler('{}')
+somestring.json()  # '{}'
+somedict_1 = AttributesHandler({'a': 1})
+somedict_2 = AttributesHandler(a=1)
+```
+
+请注意，`TextHandler` 是 Python `str` 的子类，因此所有适用于 Python 字符串的标准操作 / 方法同样都适用于它。
+如果你想在自己的代码里检查类型，最好使用 Python 内建的 `issubclass` 函数。
+
+`AttributesHandler` 类是 `collections.abc.Mapping` 的子类，因此它是 immutable（只读）的，所有操作也都继承自该类型。传入的数据之后可以通过 `_data` 属性访问，但要小心：它的类型是 `types.MappingProxyType`，因此它同样是 immutable（只读）的（而且在性能上会比 `collections.abc.Mapping` 快上零点几秒）。
+
+所以，简单来说，如果你是 Python 新手，那么 Python 标准 `dict` 类型的大多数相同操作与方法，在 `AttributesHandler` 上也都能工作；唯一的例外是那些试图直接修改实际数据的方法。
+
+如果你确实想修改 `AttributesHandler` 里的数据，就必须先把它转换成字典，例如使用 `dict` 函数，然后在外部再进行修改。

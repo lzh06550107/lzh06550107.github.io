@@ -1,0 +1,109 @@
+---
+title: Spiders 架构
+description: 了解 Scrapling spiders 系统的数据流、核心组件，以及它与 Scrapy 在概念上的对应关系。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# Spiders 架构
+
+:::tip[Prerequisites]
+1. 你已经完成或阅读过 [Fetcher 基础](/scrapling/fetching/choosing) 页面，理解不同 fetcher 类型及其适用场景。
+2. 你已经完成或阅读过 [解析核心类](/scrapling/parsing/main_classes) 页面，理解 [Selector](/scrapling/parsing/main_classes#selector) 和 [Response](/scrapling/fetching/choosing#response-对象) 类。
+:::
+
+Scrapling 的 spider 系统是一个受 Scrapy 启发的异步爬取框架，专为并发、多会话抓取而设计，并内置了暂停 / 恢复支持。它把 Scrapling 的解析引擎与各类 fetcher 整合到统一的爬取 API 中，同时提供调度、并发控制和检查点能力。
+
+如果你熟悉 Scrapy，会很快上手；如果不熟悉也没关系，这套系统的设计目标就是足够直观。
+
+## 数据流
+
+下图展示了爬虫运行时，数据如何在 spider 系统中流转：
+
+<img src="/images/scrapling/assets/spider_architecture.png" title="Spider architecture diagram by @TrueSkills" alt="Spider architecture diagram by @TrueSkills" style="width: 70%;" />
+
+下面是不展开太多细节时，运行一个 spider 的整体流程：
+
+1. **Spider** 产生第一批 `Request` 对象。默认情况下，它会为 `start_urls` 中的每个 URL 创建一个请求；但你也可以重写 `start_requests()` 来实现自定义逻辑。
+2. **Scheduler** 接收这些请求，将它们放入优先级队列，并为它们生成指纹。优先级更高的请求会先出队。
+3. **Crawler Engine** 会向 **Scheduler** 请求下一个待处理请求，并在此过程中遵守并发限制（全局与单域名）以及下载延迟。如果启用了 `robots_txt_obey`，引擎会在继续之前检查目标域名的 robots.txt 规则——不被允许的请求会被静默丢弃。**Crawler Engine** 拿到请求后，会把它交给 **Session Manager**，后者根据请求的 `sid`（session ID）将它路由到正确的 session。
+4. **session** 抓取页面，并将一个 [Response](/scrapling/fetching/choosing#response-对象) 对象返回给 **Crawler Engine**。引擎会记录统计信息，并检查响应是否被拦截。如果响应被判定为已拦截，引擎会最多重试 `max_blocked_retries` 次。当然，拦截检测逻辑以及针对被拦截请求的重试逻辑都可以自定义。
+5. **Crawler Engine** 将 [Response](/scrapling/fetching/choosing#response-对象) 传给该请求的回调函数。回调函数要么 `yield` 一个字典（会被视为抓取结果项），要么 `yield` 一个后续请求（会被送回调度器排队）。
+6. 这个循环会从第 2 步持续重复，直到调度器为空且没有活动任务，或者 spider 被暂停。
+7. 如果在启动 spider 时设置了 `crawldir`，**Crawler Engine** 会定期把检查点（待处理请求 + 已见 URL 集合）保存到磁盘。在优雅关闭（Ctrl+C）时，也会保存最后一个检查点。下次使用同一个 `crawldir` 运行 spider 时，它会从上次中断的位置继续，跳过 `start_requests()`，并恢复调度器状态。
+
+## 组件
+
+### Spider
+
+这是你直接交互的核心类。你需要继承 `Spider`，定义 `start_urls` 和 `parse()` 方法，并且可以按需配置 sessions 或重写生命周期钩子。
+
+```python
+from scrapling.spiders import Spider, Response, Request
+
+class MySpider(Spider):
+    name = "my_spider"
+    start_urls = ["https://example.com"]
+
+    async def parse(self, response: Response):
+        for link in response.css("a::attr(href)").getall():
+            yield response.follow(link, callback=self.parse_page)
+
+    async def parse_page(self, response: Response):
+        yield {"title": response.css("h1::text").get("")}
+```
+
+### Crawler Engine
+
+引擎负责编排整个爬取过程。它管理主循环、执行并发限制、通过 Session Manager 分发请求，并处理回调返回的结果。你通常不会直接与它交互——`Spider.start()` 和 `Spider.stream()` 方法已经帮你处理好了这些事情。
+
+### Scheduler
+
+这是一个带内置 URL 去重能力的优先级队列。请求会基于 URL、HTTP 方法、请求体和 session ID 生成指纹。调度器支持 `snapshot()` 和 `restore()`，用于检查点系统，从而让爬取状态可以被保存和恢复。
+
+### Session Manager
+
+它负责管理一个或多个具名 session 实例。每个 session 都属于以下类型之一：
+
+- [FetcherSession](/scrapling/fetching/static)
+- [AsyncDynamicSession](/scrapling/fetching/dynamic)
+- [AsyncStealthySession](/scrapling/fetching/stealthy)
+
+当有请求进入时，Session Manager 会根据请求的 `sid` 字段，把请求路由到正确的 session。sessions 可以在 spider 启动时一并启动（默认行为），也可以延迟启动（在第一次使用时再启动）。
+
+### 检查点系统
+
+这是一个可选系统。启用后，它会把爬虫状态（待处理请求 + 已见 URL 指纹）保存到磁盘上的 pickle 文件中。写入采用原子方式（临时文件 + 重命名）以避免损坏。检查点会按可配置的时间间隔定期保存，也会在优雅关闭时保存。如果爬取成功完成（而不是被暂停），检查点文件会被自动清理。
+
+### 响应缓存
+
+这是一个可选缓存。当启用开发模式时，它会把每一个抓取到的响应存到磁盘，并在后续运行时重放。每个响应都以请求指纹作为键，并序列化为 JSON（其中响应体会做 base64 编码，以保留二进制内容）。它的用途是在不重复请求目标站点的前提下迭代 `parse()` 逻辑，而不是用于生产环境。
+
+### 输出
+
+抓取结果会被收集到 `ItemList` 中（它是 `list` 的子类，并提供 `to_json()` 和 `to_jsonl()` 导出方法）。爬取统计信息则保存在 `CrawlStats` 数据类中，里面包含大量实用信息。
+
+## 与 Scrapy 的对比
+
+如果你是从 Scrapy 迁移过来的，可以参考下面这张对照表，了解 Scrapling 的 spider 系统如何映射到 Scrapy 的概念：
+
+| Concept | Scrapy | Scrapling |
+|---|---|---|
+| Spider definition | `scrapy.Spider` subclass | `scrapling.spiders.Spider` subclass |
+| Initial requests | `start_requests()` | `async start_requests()` |
+| Callbacks | `def parse(self, response)` | `async def parse(self, response)` |
+| Following links | `response.follow(url)` | `response.follow(url)` |
+| Item output | `yield dict` or `yield Item` | `yield dict` |
+| Request scheduling | Scheduler + Dupefilter | 内置去重功能的 Scheduler |
+| Downloading | Downloader + Middlewares | 支持多 session 的 Session Manager |
+| Item processing | Item Pipelines | `on_scraped_item()` hook |
+| Blocked detection | 通过自定义 middlewares | 内置 `is_blocked()` + `retry_blocked_request()` hooks |
+| Concurrency | `CONCURRENT_REQUESTS` setting | `concurrent_requests` class attribute |
+| Domain filtering | `allowed_domains` | `allowed_domains` |
+| Robots.txt | `ROBOTSTXT_OBEY` setting | `robots_txt_obey` class attribute |
+| Pause/Resume | `JOBDIR` setting | `crawldir` constructor argument |
+| Export | Feed exports | `result.items.to_json()` / `to_jsonl()` 或通过 hooks 自定义 |
+| Running | `scrapy crawl spider_name` | `MySpider().start()` |
+| Streaming | N/A | `async for item in spider.stream()` |
+| Multi-session | N/A | 每个 spider 可使用多种不同类型的 sessions |

@@ -1,0 +1,670 @@
+---
+title: 解析核心类
+description: 了解 Scrapling 中 Selector、Selectors、TextHandler、TextHandlers 与 AttributesHandler 的职责和常用能力。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+# 解析核心类
+
+:::tip[Prerequisites]
+- 你已经完成或阅读过[查询元素](/scrapling/parsing/selection)页面，并理解如何从 [Selector](#selector) 对象中查找 / 提取元素。
+:::
+
+在了解了 Scrapling 中各种选择元素的方式及其相关功能之后，我们先退一步，从整体上看看 [Selector](#selector) 类以及其他对象，以便更好地理解解析引擎。
+
+[Selector](#selector) 类是 Scrapling 的核心解析引擎，提供 HTML 解析与元素选择能力。你始终可以使用下面任意一种方式导入它：
+
+```python
+from scrapling import Selector
+from scrapling.parser import Selector
+```
+
+然后像你在[概览](/scrapling/overview)页面中已经学到的那样直接使用：
+```python
+page = Selector(
+    '<html>...</html>',
+    url='https://example.com'
+)
+
+# 然后随意选择元素
+elements = page.css('.product')
+```
+
+在 Scrapling 中，无论是传入 HTML 源码还是抓取网站之后，你最终主要打交道的对象当然都是 [Selector](#selector)。你执行的任何操作，例如选择、遍历等，只要结果是页面中的元素 / 元素集合，而不是文本或类似内容，返回值都会是 [Selector](#selector) 对象或 [Selectors](#selectors) 对象。
+
+换句话说，主页面本身是一个 [Selector](#selector) 对象，页面中的元素也是 [Selector](#selector) 对象，以此类推。而任何文本——例如元素内的文本内容，或元素属性中的文本——都会是 [TextHandler](#texthandler) 对象；每个元素的属性则存储为 [AttributesHandler](#attributeshandler)。后面我们会再回到这两个对象，现在先专注于 [Selector](#selector) 对象。
+
+## Selector
+
+### 参数说明
+
+最重要的参数是 `content`，用于传入你要解析的 HTML 代码，支持 `str` 或 `bytes` 类型的 HTML 内容。
+
+除此之外，还有 `url`、`adaptive`、`storage` 和 `storage_args` 参数。这些参数都用于自适应功能，如果你不打算使用该功能，它们不会产生区别，所以现在先忽略即可；我们会在[/scrapling/parsing/adaptive](/scrapling/parsing/adaptive)页面中讲解。
+
+接下来是一些用于调整解析行为，或在库解析 HTML 内容时对其进行调整 / 处理的参数：
+
+- **encoding**：解析 HTML 时使用的编码，默认是 `UTF-8`。
+- **keep_comments**：告诉库在解析页面时是否保留 HTML 注释。默认关闭，因为注释可能会在多种情况下干扰爬取。
+- **keep_cdata**：与 HTML 注释相同的逻辑。[cdata](https://stackoverflow.com/questions/7092236/what-is-cdata-in-html) 默认会被移除，以得到更干净的 HTML。
+
+我有意先不介绍 `huge_tree` 和 `root` 这两个参数，以免让这一页比实际需要更复杂。
+你可能会注意到我经常这么做，因为它们涉及一些高级功能，而在使用这个库时并不是必须知道的内容。如果你特别深入，开发章节会覆盖这些暂时略过的部分。
+
+之后，主页面及其元素上的大多数属性都是**懒加载**的。这意味着它们不会在初始化时立即创建，而是在你真正使用它们时才初始化，比如访问页面 / 元素的文本内容。这也是 Scrapling 速度快的原因之一 :)
+
+### 属性
+
+你可能已经在[概览](/scrapling/overview)页面中看过很多内容，不过即便你没看过也没关系。我们会用更高级的方法 / 用法再系统复习一遍。为了更清楚，与遍历相关的属性会在下方的[遍历](#遍历)章节中单独说明。
+
+为了简单起见，假设我们正在解析下面这个 HTML 页面：
+
+```html
+<html>
+  <head>
+    <title>Some page</title>
+  </head>
+  <body>
+    <div class="product-list">
+      <article class="product" data-id="1">
+        <h3>Product 1</h3>
+        <p class="description">This is product 1</p>
+        <span class="price">$10.99</span>
+        <div class="hidden stock">In stock: 5</div>
+      </article>
+    
+      <article class="product" data-id="2">
+        <h3>Product 2</h3>
+        <p class="description">This is product 2</p>
+        <span class="price">$20.99</span>
+        <div class="hidden stock">In stock: 3</div>
+      </article>
+    
+      <article class="product" data-id="3">
+        <h3>Product 3</h3>
+        <p class="description">This is product 3</p>
+        <span class="price">$15.99</span>
+        <div class="hidden stock">Out of stock</div>
+      </article>
+    </div>
+
+    <script id="page-data" type="application/json">
+      {
+        "lastUpdated": "2024-09-22T10:30:00Z",
+        "totalProducts": 3
+      }
+    </script>
+  </body>
+</html>
+```
+
+像前面那样直接加载页面：
+```python
+from scrapling import Selector
+page = Selector(html_doc)
+```
+
+递归获取页面中的所有文本内容：
+```python
+>>> page.get_all_text()
+'Some page\n\n    \n\n      \nProduct 1\nThis is product 1\n$10.99\nIn stock: 5\nProduct 2\nThis is product 2\n$20.99\nIn stock: 3\nProduct 3\nThis is product 3\n$15.99\nOut of stock'
+```
+
+获取第一个 `article`，正如前面解释过的；接下来我们就用它作为示例：
+```python
+article = page.find('article')
+```
+
+用同样逻辑，递归获取该元素内的所有文本内容：
+```python
+>>> article.get_all_text()
+'Product 1\nThis is product 1\n$10.99\nIn stock: 5'
+```
+
+但如果你尝试获取它的直接文本内容，会发现是空字符串，因为在上面的 HTML 代码里，它没有直接文本：
+```python
+>>> article.text
+''
+```
+
+`get_all_text` 方法支持以下可选参数：
+
+1. **separator**：所有收集到的字符串会使用这个分隔符拼接，默认值是 `\n`。
+2. **strip**：启用后，在拼接前会先对每个字符串执行 strip。默认关闭。
+3. **ignore_tags**：一个元组，包含你希望在最终结果中忽略的所有标签名，以及它们内部嵌套的元素。默认值是 `('script', 'style',)`。
+4. **valid_values**：启用后，该方法只会收集真正有值的元素，因此空文本或只有空白字符的元素会被忽略。默认启用。
+
+顺带一提，这里返回的文本并不是普通字符串，而是 [TextHandler](#texthandler)；稍后我们会详细讲。如果文本内容可以被序列化为 JSON，那么可以对它调用 `.json()`：
+```python
+>>> script = page.find('script')
+>>> script.json()
+{'lastUpdated': '2024-09-22T10:30:00Z', 'totalProducts': 3}
+```
+
+继续，获取元素的标签名：
+```python
+>>> article.tag
+'article'
+```
+
+如果你直接在页面对象上使用它，会发现你操作的是根 `html` 元素：
+```python
+>>> page.tag
+'html'
+```
+
+现在我想我已经把“`page` / `element`”这个概念强调得足够多了，所以后面就不再反复说明。
+
+获取元素属性：
+```python
+>>> print(article.attrib)
+{'class': 'product', 'data-id': '1'}
+```
+
+使用以下任一方式访问指定属性：
+```python
+article.attrib['class']
+article.attrib.get('class')
+article['class']  # v0.3 新增
+```
+
+用下面任一方式检查属性中是否包含指定属性名：
+```python
+'class' in article.attrib
+'class' in article  # v0.3 新增
+```
+
+获取元素的 HTML 内容：
+```python
+>>> article.html_content
+'<article class="product" data-id="1"><h3>Product 1</h3>\n        <p class="description">This is product 1</p>\n        <span class="price">$10.99</span>\n        <div class="hidden stock">In stock: 5</div>\n      </article>'
+```
+
+获取元素 HTML 的美化版本：
+```python
+print(article.prettify())
+```
+
+```html
+<article class="product" data-id="1"><h3>Product 1</h3>
+    <p class="description">This is product 1</p>
+    <span class="price">$10.99</span>
+    <div class="hidden stock">In stock: 5</div>
+</article>
+```
+
+使用 `.body` 属性获取页面的原始内容。从 v0.4 开始，当它用于 fetcher 返回的 `Response` 对象时，`.body` 始终返回 `bytes`。
+```python
+>>> page.body
+'<html>\n  <head>\n    <title>Some page</title>\n  </head>\n  ...'
+```
+
+获取该元素在 DOM 树中的所有祖先：
+```python
+>>> article.path
+[<data='<div class="product-list"> <article clas...' parent='<body> <div class="product-list"> <artic...'>,
+ <data='<body> <div class="product-list"> <artic...' parent='<html><head><title>Some page</title></he...'>,
+ <data='<html><head><title>Some page</title></he...'>]
+```
+
+尽量生成一个简短 CSS 选择器；如果不行，就生成完整选择器：
+```python
+>>> article.generate_css_selector
+'body > div > article'
+>>> article.generate_full_css_selector
+'body > div > article'
+```
+
+XPath 也是同样逻辑：
+```python
+>>> article.generate_xpath_selector
+"//body/div/article"
+>>> article.generate_full_xpath_selector
+"//body/div/article"
+```
+
+### 遍历
+
+接下来，我们基于前面找到的元素，详细看看在页面中移动时会用到的属性 / 方法。
+
+如果你对 DOM 树或树形数据结构本身不熟悉，下面这部分可能会有点绕。我建议你先在线查一下这些概念，会更容易理解。
+
+如果你懒得去搜，这里有个快速解释，能让你建立直觉。<br/>
+简单来说，`html` 元素是网站树结构的根节点，因为每个页面都以一个 `html` 元素开始。<br/>
+这个元素下面会直接挂着像 `head` 和 `body` 这样的元素。它们被视为 `html` 元素的“子元素（children）”，而 `html` 元素被视为它们的“父元素（parent）”。元素 `body` 是元素 `head` 的“兄弟元素（sibling）”，反之亦然。
+
+访问元素的父元素：
+```python
+>>> article.parent
+<data='<div class="product-list"> <article clas...' parent='<body> <div class="product-list"> <artic...'>
+>>> article.parent.tag
+'div'
+```
+
+你可以任意链式调用，这同样适用于我们接下来会看到的所有类似属性 / 方法。
+```python
+>>> article.parent.parent.tag
+'body'
+```
+
+获取元素的子元素：
+```python
+>>> article.children
+[<data='<h3>Product 1</h3>' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<p class="description">This is product 1...' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<span class="price">$10.99</span>' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<div class="hidden stock">In stock: 5</d...' parent='<article class="product" data-id="1"><h3...'>]
+```
+
+获取元素下方的所有元素。它可以理解为 `children` 属性的递归版：
+```python
+>>> article.below_elements
+[<data='<h3>Product 1</h3>' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<p class="description">This is product 1...' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<span class="price">$10.99</span>' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<div class="hidden stock">In stock: 5</d...' parent='<article class="product" data-id="1"><h3...'>]
+```
+
+这里之所以与 `children` 返回相同结果，是因为它的子元素本身没有再包含子元素。
+
+再看一个使用 `product-list` 类元素的例子，就能更清楚 `children` 与 `below_elements` 的区别：
+```python
+>>> products_list = page.css('.product-list')[0]
+>>> products_list.children
+[<data='<article class="product" data-id="1"><h3...' parent='<div class="product-list"> <article clas...'>,
+ <data='<article class="product" data-id="2"><h3...' parent='<div class="product-list"> <article clas...'>,
+ <data='<article class="product" data-id="3"><h3...' parent='<div class="product-list"> <article clas...'>]
+
+>>> products_list.below_elements
+[<data='<article class="product" data-id="1"><h3...' parent='<div class="product-list"> <article clas...'>,
+ <data='<h3>Product 1</h3>' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<p class="description">This is product 1...' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<span class="price">$10.99</span>' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<div class="hidden stock">In stock: 5</d...' parent='<article class="product" data-id="1"><h3...'>,
+ <data='<article class="product" data-id="2"><h3...' parent='<div class="product-list"> <article clas...'>,
+...]
+```
+
+获取元素的兄弟元素：
+```python
+>>> article.siblings
+[<data='<article class="product" data-id="2"><h3...' parent='<div class="product-list"> <article clas...'>,
+ <data='<article class="product" data-id="3"><h3...' parent='<div class="product-list"> <article clas...'>]
+```
+
+获取当前元素的下一个元素：
+```python
+>>> article.next
+<data='<article class="product" data-id="2"><h3...' parent='<div class="product-list"> <article clas...'>
+```
+
+`previous` 属性同理：
+```python
+>>> article.previous  # 它是第一个子元素，所以没有前一个元素
+>>> second_article = page.css('.product[data-id="2"]')[0]
+>>> second_article.previous
+<data='<article class="product" data-id="1"><h3...' parent='<div class="product-list"> <article clas...'>
+```
+
+你还可以很方便、而且很快地检查元素是否具有某个类名：
+```python
+>>> article.has_class('product')
+True
+```
+
+如果你的场景需要的不只是父元素，还可以遍历任意元素的整条祖先链，如下所示：
+```python
+for ancestor in article.iterancestors():
+    # do something with it...
+```
+
+你也可以搜索满足某个条件的特定祖先元素；只需要传入一个函数，该函数接收一个 [Selector](#selector) 对象作为参数，如果条件满足则返回 `True`，否则返回 `False`，如下：
+```python
+>>> article.find_ancestor(lambda ancestor: ancestor.has_class('product-list'))
+<data='<div class="product-list"> <article clas...' parent='<body> <div class="product-list"> <artic...'>
+
+>>> article.find_ancestor(lambda ancestor: ancestor.css('.product-list'))  # 同样结果，不同写法
+<data='<div class="product-list"> <article clas...' parent='<body> <div class="product-list"> <artic...'>
+```
+
+## Selectors
+
+`Selectors` 类是 [Selector](#selector) 类的“列表版”。它继承自 Python 标准 `List` 类型，因此拥有 `List` 的所有属性和方法，同时又增加了一些方法，使你对其中 [Selector](#selector) 实例进行操作时更加方便。
+
+在 [Selector](#selector) 类中，所有应该返回“多个元素”的方法 / 属性，都会以 [Selectors](#selectors) 实例的形式返回。
+
+从 v0.4 开始，所有选择方法都会一致地返回 [Selector](#selector) / [Selectors](#selectors) 对象，即使是文本节点和属性值也是如此。通过 `::text`、`/text()`、`::attr()`、`/@attr` 选中的文本节点，会被包装成 [Selector](#selector) 对象。这些文本节点选择器的 `tag` 为 `"#text"`，它们的 `text` 属性返回对应文本值。你仍然可以直接访问文本值，而其他属性也都会优雅地返回空值 / 默认值。
+
+```python
+page.css('a::text')              # -> Selectors（由文本节点 Selector 组成）
+page.xpath('//a/text()')         # -> Selectors
+page.css('a::text').get()        # -> TextHandler（第一个文本值）
+page.css('a::text').getall()     # -> TextHandlers（所有文本值）
+page.css('a::attr(href)')        # -> Selectors
+page.xpath('//a/@href')          # -> Selectors
+page.css('.price_color')         # -> Selectors
+```
+
+### 数据提取方法
+
+从 v0.4 开始，[Selector](#selector) 和 [Selectors](#selectors) 都提供了 `get()`、`getall()`，以及它们的别名 `extract_first` 和 `extract`（遵循 Scrapy 的命名习惯）。旧的 `get_all()` 方法已被移除。
+
+**在 [Selector](#selector) 对象上：**
+
+- `get()` 返回一个 `TextHandler`：对于文本节点选择器，它返回文本值；对于 HTML 元素选择器，它返回序列化后的外层 HTML。
+- `getall()` 返回一个 `TextHandlers` 列表，里面包含这个单一序列化字符串。
+- `extract_first` 是 `get()` 的别名，`extract` 是 `getall()` 的别名。
+
+```python
+>>> page.css('h3')[0].get()        # 元素的 outer HTML
+'<h3>Product 1</h3>'
+
+>>> page.css('h3::text')[0].get()  # 文本节点的文本值
+'Product 1'
+```
+
+**在 [Selectors](#selectors) 对象上：**
+
+- `get(default=None)` 返回**第一个**元素的序列化字符串；如果列表为空，则返回 `default`。
+- `getall()` 会序列化**所有**元素，并返回一个 `TextHandlers` 列表。
+- `extract_first` 是 `get()` 的别名，`extract` 是 `getall()` 的别名。
+
+```python
+>>> page.css('.price::text').get()      # 第一个价格文本
+'$10.99'
+
+>>> page.css('.price::text').getall()   # 所有价格文本
+['$10.99', '$20.99', '$15.99']
+
+>>> page.css('.price::text').get('')    # 带默认值
+'$10.99'
+```
+
+这些方法可无缝适用于所有选择方式（CSS、XPath、`find` 等），也是推荐的、与 Scrapy 风格兼容的文本与属性值提取方式。
+
+现在，在这些基础之上，我们看看 [Selectors](#selectors) 类还提供了什么。
+
+### 属性
+
+除了 Python 列表的标准操作，例如迭代和切片，你还可以做下面这些事：
+
+可以直接在它内部持有的 [Selector](#selector) 实例上执行 CSS 与 XPath 选择器，而返回类型与 [Selector](#selector) 的 `css` 和 `xpath` 方法相同。参数基本一致，只是这里不能使用 `adaptive` 参数。这当然会让方法链式调用变得非常顺手。
+
+```python
+>>> page.css('.product_pod a')
+[<data='<a href="catalogue/a-light-in-the-attic_...' parent='<div class="image_container"> <a href="c...'>,
+ <data='<a href="catalogue/a-light-in-the-attic_...' parent='<h3><a href="catalogue/a-light-in-the-at...'>,
+ <data='<a href="catalogue/tipping-the-velvet_99...' parent='<div class="image_container"> <a href="c...'>,
+ <data='<a href="catalogue/tipping-the-velvet_99...' parent='<h3><a href="catalogue/tipping-the-velve...'>,
+ <data='<a href="catalogue/soumission_998/index....' parent='<div class="image_container"> <a href="c...'>,
+ <data='<a href="catalogue/soumission_998/index....' parent='<h3><a href="catalogue/soumission_998/in...'>,
+...]
+
+>>> page.css('.product_pod').css('a')  # 返回相同结果
+[<data='<a href="catalogue/a-light-in-the-attic_...' parent='<div class="image_container"> <a href="c...'>,
+ <data='<a href="catalogue/a-light-in-the-attic_...' parent='<h3><a href="catalogue/a-light-in-the-at...'>,
+ <data='<a href="catalogue/tipping-the-velvet_99...' parent='<div class="image_container"> <a href="c...'>,
+ <data='<a href="catalogue/tipping-the-velvet_99...' parent='<h3><a href="catalogue/tipping-the-velve...'>,
+ <data='<a href="catalogue/soumission_998/index....' parent='<div class="image_container"> <a href="c...'>,
+ <data='<a href="catalogue/soumission_998/index....' parent='<h3><a href="catalogue/soumission_998/in...'>,
+...]
+```
+
+还可以直接运行 `re` 和 `re_first` 方法。它们接收的参数与 [Selector](#selector) 类中的同名方法一致。关于这两个方法的细节，我会把说明留到下面的 [TextHandler](#texthandler) 小节。
+
+不过在这个类里，`re_first` 的行为略有不同：它会在每个内部 [Selector](#selector) 上运行 `re`，并返回第一个有结果的值。`re` 方法则会像平常一样返回一个 [TextHandlers](#texthandlers) 对象，它会把所有 [TextHandler](#texthandler) 实例合并成一个 [TextHandlers](#texthandlers) 实例。
+
+```python
+>>> page.css('.price_color').re(r'[\d\.]+')
+['51.77',
+ '53.74',
+ '50.10',
+ '47.82',
+ '54.23',
+...]
+
+>>> page.css('.product_pod h3 a::attr(href)').re(r'catalogue/(.*)/index.html')
+['a-light-in-the-attic_1000',
+ 'tipping-the-velvet_999',
+ 'soumission_998',
+ 'sharp-objects_997',
+...]
+```
+
+使用 `search` 方法，你可以在内部持有的 [Selector](#selector) 实例中快速查找。你传入的函数必须接收一个 [Selector](#selector) 实例作为第一个参数，并返回 True / False。该方法会返回**第一个**满足条件的 [Selector](#selector) 实例；否则返回 `None`。
+
+```python
+# 找到价格为 53.23 的商品。
+>>> search_function = lambda p: float(p.css('.price_color').re_first(r'[\d\.]+')) == 54.23
+>>> page.css('.product_pod').search(search_function)
+<data='<article class="product_pod"><div class=...' parent='<li class="col-xs-6 col-sm-4 col-md-3 co...'>
+```
+
+你也可以使用 `filter` 方法。它接收与 `search` 相同形式的函数，但返回的是一个 `Selectors` 实例，其中包含所有满足条件的 [Selector](#selector) 实例。
+
+```python
+# 找到所有价格高于 $50 的商品
+>>> filtering_function = lambda p: float(p.css('.price_color').re_first(r'[\d\.]+')) > 50
+>>> page.css('.product_pod').filter(filtering_function)
+[<data='<article class="product_pod"><div class=...' parent='<li class="col-xs-6 col-sm-4 col-md-3 co...'>,
+ <data='<article class="product_pod"><div class=...' parent='<li class="col-xs-6 col-sm-4 col-md-3 co...'>,
+ <data='<article class="product_pod"><div class=...' parent='<li class="col-xs-6 col-sm-4 col-md-3 co...'>,
+...]
+```
+
+你还可以安全地访问第一个或最后一个元素，而不用担心索引错误：
+```python
+>>> page.css('.product').first   # 第一个 Selector 或 None
+<data='<article class="product" data-id="1"><h3...'>
+>>> page.css('.product').last    # 最后一个 Selector 或 None
+<data='<article class="product" data-id="3"><h3...'>
+>>> page.css('.nonexistent').first  # 返回 None，而不是抛出 IndexError
+```
+
+如果你也像我一样懒，只想知道一个 [Selectors](#selectors) 实例中有多少个 [Selector](#selector) 实例，那么可以这样做：
+```python
+page.css('.product_pod').length
+```
+
+它等价于：
+```python
+len(page.css('.product_pod'))
+```
+
+没错，就像 JavaScript 一样 :)
+
+## TextHandler
+
+这个类必须理解，因为所有**本该返回字符串**的方法 / 属性，都会返回 `TextHandler`；而所有**本该返回字符串列表**的方法 / 属性，则会返回 [TextHandlers](#texthandlers)。
+
+TextHandler 是 Python 标准字符串的子类，因此你能对它做的事情，与普通 Python 字符串基本一致。那么，为什么还需要单独起一个名字？
+
+当然是因为 TextHandler 提供了标准字符串做不到的额外方法与属性。我们现在就来看看它们。不过请记住：库里所有返回字符串的地方，几乎都会返回 TextHandler，这给了你更大的灵活性，也能让代码更短、更干净，稍后你就会看到。你也可以直接导入它并用于任意字符串，这部分我们会在之后的[/scrapling/development/scrapling_custom_types](/scrapling/development/scrapling_custom_types)中解释。
+
+### 用法
+
+首先，在讨论新增方法之前，你需要知道：对它执行的所有操作，例如切片、按索引访问，以及 `split`、`replace`、`strip` 等方法，都会再次返回一个 `TextHandler`，因此你可以任意链式调用。如果你发现某个方法或属性返回的是普通字符串而不是 `TextHandler`，欢迎提 issue，我们也会把它重写掉。
+
+先从 `re` 和 `re_first` 方法开始。这两个方法与其他类中的同名方法（[Selector](#selector)、[Selectors](#selectors) 和 [TextHandlers](#texthandlers)）是相同的，因此接收的参数也一样。
+
+- `re` 方法的第一个参数是字符串 / 预编译 regex 模式。它会在数据中搜索所有匹配该正则的字符串，并将结果作为 [TextHandlers](#texthandlers) 实例返回。`re_first` 接收相同的参数并执行类似操作，但正如名字所示，它只返回第一个结果，类型为 `TextHandler`。
+    
+    此外，它还支持一些实用参数：
+    
+    - **replace_entities**：默认启用。它会把字符实体引用替换为对应字符。
+    - **clean_match**：默认关闭。启用后，方法会在匹配时忽略所有空白，包括连续空格。
+    - **case_sensitive**：默认启用。顾名思义，关闭后正则在编译时将忽略字母大小写。
+  
+    你之前已经见过这些例子；因为我们用的是 `re` 方法，所以返回结果是 [TextHandlers](#texthandlers)。
+    ```python
+    >>> page.css('.price_color').re(r'[\d\.]+')
+    ['51.77',
+     '53.74',
+     '50.10',
+     '47.82',
+     '54.23',
+    ...]
+    
+    >>> page.css('.product_pod h3 a::attr(href)').re(r'catalogue/(.*)/index.html')
+    ['a-light-in-the-attic_1000',
+     'tipping-the-velvet_999',
+     'soumission_998',
+     'sharp-objects_997',
+    ...]
+    ```
+    为了更好说明这些额外参数，下面每个例子都会使用一段自定义字符串：
+    ```python
+    >>> from scrapling import TextHandler
+    >>> test_string = TextHandler('hi  there')  # 注意这里有两个空格
+    >>> test_string.re('hi there')
+    >>> test_string.re('hi there', clean_match=True)  # 使用 `clean_match` 会在正则匹配前先清洗字符串
+    ['hi there']
+    
+    >>> test_string2 = TextHandler('Oh, Hi Mark')
+    >>> test_string2.re_first('oh, hi Mark')
+    >>> test_string2.re_first('oh, hi Mark', case_sensitive=False)  # 这里关闭了 `case_sensitive`
+    'Oh, Hi Mark'
+    
+    # 混合使用参数
+    >>> test_string.re('hi there', clean_match=True, case_sensitive=False)
+    ['hi There']
+    ```
+    之所以库里几乎到处都把字符串替换成 `TextHandler`，还有一个好处：像 `html_content` 这样的属性也会返回 `TextHandler`，所以如果你愿意，你甚至可以直接对 HTML 内容运行正则：
+    ```python
+    >>> page.html_content.re('div class=".*">(.*)</div')
+    ['In stock: 5', 'In stock: 3', 'Out of stock']
+    ```
+
+- 你还可以使用 `.json()` 方法，它会尽可能快速地把内容转换成 JSON 对象；如果做不到，就抛出错误。
+  ```python
+  >>> page.css('#page-data::text').get()
+    '\n      {\n        "lastUpdated": "2024-09-22T10:30:00Z",\n        "totalProducts": 3\n      }\n    '
+  >>> page.css('#page-data::text').get().json()
+    {'lastUpdated': '2024-09-22T10:30:00Z', 'totalProducts': 3}
+  ```
+  因此，如果你在选择元素时没有显式指定文本节点（例如文本内容或属性值文本），那么文本内容会被自动选中，就像这样：
+  ```python
+  >>> page.css('#page-data')[0].json()
+  {'lastUpdated': '2024-09-22T10:30:00Z', 'totalProducts': 3}
+  ```
+  [Selector](#selector) 类在这里也额外做了一件事。假设这是我们正在处理的页面：
+  ```html
+  <html>
+      <body>
+          <div>
+            <script id="page-data" type="application/json">
+              {
+                "lastUpdated": "2024-09-22T10:30:00Z",
+                "totalProducts": 3
+              }
+            </script>
+          </div>
+      </body>
+  </html>
+  ```
+  [Selector](#selector) 类提供了你现在应该已经很熟悉的 `get_all_text` 方法。这个方法返回的当然也是一个 `TextHandler`。<br/><br/>
+  所以，正如你已经知道的，如果你这样做：
+  ```python
+  >>> page.css('div::text').get().json()
+  ```
+  你会得到一个错误，因为 `div` 标签没有任何可以序列化为 JSON 的直接文本内容；实际上它根本就没有直接文本内容。<br/><br/>
+  在这种情况下，`get_all_text` 方法就能派上用场，所以你可以这样做：
+  ```python
+  >>> page.css('div')[0].get_all_text(ignore_tags=[]).json()
+    {'lastUpdated': '2024-09-22T10:30:00Z', 'totalProducts': 3}
+  ```
+  我这里使用了 `ignore_tags` 参数，是因为它的默认值是 `('script', 'style',)`，这一点你已经知道了。<br/><br/>
+  还有一种相关行为也需要知道，我们稍后在讲 fetcher 时会提到。假设你有一个 JSON 响应，如下例：
+  ```python
+  >>> page = Selector("""{"some_key": "some_value"}""")
+  ```
+  因为 [Selector](#selector) 类本身是针对 HTML 页面优化的，所以它会把这段内容当成损坏的 HTML 响应并修复它。因此如果你使用 `html_content` 属性，得到的会是：
+  ```python
+  >>> page.html_content
+  '<html><body><p>{"some_key": "some_value"}</p></body></html>'
+  ```
+  在这里，你可以直接使用 `json` 方法，它仍然会正常工作：
+  ```python
+  >>> page.json()
+  {'some_key': 'some_value'}
+  ```
+  你可能会疑惑这是怎么做到的，因为 `html` 标签本身并不包含直接文本。<br/>
+  对于 JSON 响应这类情况，我让 [Selector](#selector) 类保留了一份它收到内容的原始副本。这样当你调用 `.json()` 时，它会先检查那份原始副本，然后再尝试转成 JSON。如果原始副本不可用（比如在普通元素上），它就会检查当前元素的文本内容；否则就直接使用 `get_all_text` 方法。<br/>
+
+- 另一个很方便的方法是 `.clean()`，它会帮你移除所有空白和连续空格，并返回一个新的 `TextHandler` 实例：
+```python
+>>> TextHandler('\n wonderful  idea, \reh?').clean()
+'wonderful idea, eh?'
+```
+另外，你还可以传入 `remove_entities` 参数，让 `clean` 把 HTML 实体替换成对应字符。
+
+- 在某些场景下另一个有用的方法是 `.sort()`，它会像处理列表那样帮你排序字符串：
+```python
+>>> TextHandler('acb').sort()
+'abc'
+```
+也可以反向排序：
+```python
+>>> TextHandler('acb').sort(reverse=True)
+'cba'
+```
+
+未来还会逐步为这个类添加其他方法和属性，但请记住：在整个库中，几乎任何本该返回字符串的地方，都会返回这个类。
+
+## TextHandlers
+
+你大概已经猜到了：这个类和 [Selectors](#selectors)、[Selector](#selector) 的关系类似，不过它继承的是标准列表的逻辑与方法，并且只额外新增了 `re` 和 `re_first` 两个方法。
+
+这里唯一的区别是，`re_first` 的逻辑会对每一个 [TextHandler](#texthandler) 运行 `re`，然后返回第一个结果，或者 `None`。这里没有太多新的概念需要解释，不过未来也会继续添加更多方法。
+
+## AttributesHandler
+
+这是 Python 标准字典 `dict` 的只读版本，专门用于存储每个元素 / [Selector](#selector) 实例的属性。
+```python
+>>> print(page.find('script').attrib)
+{'id': 'page-data', 'type': 'application/json'}
+>>> type(page.find('script').attrib).__name__
+'AttributesHandler'
+```
+
+因为它是只读的，所以比标准字典更省资源。尽管如此，它仍保留了与字典相同的方法和属性，只是不包含那些允许你修改 / 覆盖数据的操作。
+
+它目前额外增加了两个简单方法：
+
+- `search_values` 方法
+
+    在标准字典中，你可以通过 `dict.get("key_name")` 检查某个 key 是否存在。但如果你想根据**值**而不是 key 来搜索，就需要多写几行代码。这个方法正是帮你做这件事的。它允许你按值搜索当前属性，并返回每一项匹配结果组成的字典。
+    
+    一个简单示例如下：
+    ```python
+    >>> for i in page.find('script').attrib.search_values('page-data'):
+            print(i)
+    {'id': 'page-data'}
+    ```
+    不过这个方法还支持 `partial` 参数，允许你按值的一部分进行搜索：
+    ```python
+    >>> for i in page.find('script').attrib.search_values('page', partial=True):
+            print(i)
+    {'id': 'page-data'}
+    ```
+    这些例子在真实场景中可能不太常见；更贴近真实使用的例子，通常是把它和 `find_all` 方法一起用，找出所有属性中包含某个值的元素：
+    ```python
+    >>> page.find_all(lambda element: list(element.attrib.search_values('product')))
+    [<data='<article class="product" data-id="1"><h3...' parent='<div class="product-list"> <article clas...'>,
+     <data='<article class="product" data-id="2"><h3...' parent='<div class="product-list"> <article clas...'>,
+     <data='<article class="product" data-id="3"><h3...' parent='<div class="product-list"> <article clas...'>]
+    ```
+    这些元素都在 `class` 属性中包含值 `product`。
+    
+    这里之所以使用 `list` 函数，是因为 `search_values` 返回的是生成器，否则对所有元素都会被视为 `True`。
+
+- `json_string` 属性
+
+    这个属性会把当前属性转换为 JSON 字符串；如果这些属性不能被 JSON 序列化，就会抛出错误。
+  
+    ```python
+    >>>page.find('script').attrib.json_string
+    b'{"id":"page-data","type":"application/json"}'
+    ```

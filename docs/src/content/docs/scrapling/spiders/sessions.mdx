@@ -1,0 +1,228 @@
+---
+title: Spider 会话
+description: 了解如何在 Scrapling Spider 中配置、复用与切换多个会话，并为不同请求传递会话参数。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+# Spider 会话
+
+:::tip[先决条件]
+1. 你已经阅读过[快速开始](/scrapling/spiders/getting-started)页面，并知道如何创建和运行一个基础 spider。
+2. 你已经熟悉[Fetcher 基础](/scrapling/fetching/choosing)，并理解 HTTP、Dynamic 与 Stealthy 会话之间的差异。
+:::
+
+一个 spider 可以同时使用多个 fetcher 会话。例如，用一个快速的 HTTP 会话抓取简单页面，再用一个隐身浏览器会话处理受保护页面。本页将说明如何配置并使用这些会话。
+
+## 什么是会话？
+
+如你所知，会话就是一个为整个爬取周期保持存活的、预先配置好的 fetcher 实例。与其为每个请求都新建连接或浏览器，不如复用会话；这样更快，也更节省资源。
+
+默认情况下，每个 spider 都会创建一个 [FetcherSession](/scrapling/fetching/static)。你可以通过重写 `configure_sessions()` 方法来添加更多会话，或替换默认会话；但你必须使用每种会话的**异步版本**，如下表所示：
+
+| 会话类型 | 适用场景 |
+|---|---|
+| [FetcherSession](/scrapling/fetching/static) | 快速 HTTP 请求，不执行 JavaScript |
+| [AsyncDynamicSession](/scrapling/fetching/dynamic) | 浏览器自动化、JavaScript 渲染 |
+| [AsyncStealthySession](/scrapling/fetching/stealthy) | 绕过反爬、Cloudflare 等 |
+
+## 配置会话
+
+在 spider 上重写 `configure_sessions()` 来设置会话。参数 `manager` 是一个 `SessionManager` 实例。使用 `manager.add()` 注册会话：
+
+```python
+from scrapling.spiders import Spider, Response
+from scrapling.fetchers import FetcherSession
+
+class MySpider(Spider):
+    name = "my_spider"
+    start_urls = ["https://example.com"]
+
+    def configure_sessions(self, manager):
+        manager.add("default", FetcherSession())
+
+    async def parse(self, response: Response):
+        yield {"title": response.css("title::text").get("")}
+```
+
+`manager.add()` 接收以下参数：
+
+| 参数 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `session_id` | `str` | *必填* | 在请求中引用该会话时使用的名称 |
+| `session` | `Session` | *必填* | 会话实例 |
+| `default` | `bool` | `False` | 是否将其设为默认会话 |
+| `lazy` | `bool` | `False` | 仅在首次使用时启动该会话 |
+
+:::note[说明]
+1. 在所有请求中，如果你没有明确指定要使用哪个会话，就会使用默认会话。默认会话的确定方式有两种：
+   1. 你添加到 manager 的**第一个**会话会自动成为默认会话。
+   2. 某个会话在 `manager.add()` 时显式传入 `default=True`。
+2. 传给 manager 的会话实例不需要由你手动提前启动；spider 会检查会话是否尚未启动，并自动启动它们。
+3. 如果你希望某个会话只在真正使用时才启动，请在 `manager.add()` 时使用 `lazy` 参数。例如：只有需要时才启动浏览器，而不是在 spider 启动时就启动。
+:::
+
+## 多会话 Spider
+
+下面是一个实际例子：列表页使用快速 HTTP 会话，详情页则使用带反爬能力的隐身浏览器：
+
+```python
+from scrapling.spiders import Spider, Response
+from scrapling.fetchers import FetcherSession, AsyncStealthySession
+
+class ProductSpider(Spider):
+    name = "products"
+    start_urls = ["https://shop.example.com/products"]
+
+    def configure_sessions(self, manager):
+        # 列表页走快速 HTTP（默认）
+        manager.add("http", FetcherSession())
+
+        # 受保护的商品页走隐身浏览器
+        # capture_xhr 会捕获匹配该正则的后台 API 请求
+        manager.add("stealth", AsyncStealthySession(
+            headless=True,
+            network_idle=True,
+            capture_xhr=r"https://api\.shop\.example\.com/.*",
+        ))
+
+    async def parse(self, response: Response):
+        for link in response.css("a.product::attr(href)").getall():
+            # 商品页通过 stealth 会话请求
+            yield response.follow(link, sid="stealth", callback=self.parse_product)
+
+        next_page = response.css("a.next::attr(href)").get()
+        if next_page:
+            yield response.follow(next_page)
+
+    async def parse_product(self, response: Response):
+        # 访问捕获到的 XHR/fetch API 请求（前提是该会话设置了 capture_xhr）
+        for xhr in response.captured_xhr:
+            self.logger.info(f"Captured API call: {xhr.url} ({xhr.status})")
+
+        yield {
+            "name": response.css("h1::text").get(""),
+            "price": response.css(".price::text").get(""),
+        }
+```
+
+关键点在于 `sid` 参数：它告诉 spider 每个请求应该使用哪个会话。当你调用 `response.follow()` 而不传 `sid` 时，原始请求的会话 ID 会被继承。
+
+还要注意：多个会话并不一定要来自不同类；它们也可以是**同一种会话类型的不同实例**，只要配置不同即可，例如：
+
+```python
+from scrapling.spiders import Spider, Response
+from scrapling.fetchers import FetcherSession
+
+class ProductSpider(Spider):
+    name = "products"
+    start_urls = ["https://shop.example.com/products"]
+
+    def configure_sessions(self, manager):
+        chrome_requests = FetcherSession(impersonate="chrome")
+        firefox_requests = FetcherSession(impersonate="firefox")
+
+        manager.add("chrome", chrome_requests)
+        manager.add("firefox", firefox_requests)
+
+    async def parse(self, response: Response):
+        for link in response.css("a.product::attr(href)").getall():
+            yield response.follow(link, callback=self.parse_product)
+
+        next_page = response.css("a.next::attr(href)").get()
+        if next_page:
+            yield response.follow(next_page, sid="firefox")
+
+    async def parse_product(self, response: Response):
+        yield {
+            "name": response.css("h1::text").get(""),
+            "price": response.css(".price::text").get(""),
+        }
+```
+
+或者你也可以进一步拆分职责，让某个会话专门保存特定请求所需的 cookies / 状态等。
+
+## 会话参数
+
+传给 `Request` 的额外关键字参数，或者通过 `response.follow(**kwargs)` 传入的参数，都会继续传递给会话的 fetch 方法。这样你就能在**不修改会话全局配置**的前提下，自定义单个请求：
+
+```python
+async def parse(self, response: Response):
+    # 仅为这个请求传入额外请求头
+    yield Request(
+        "https://api.example.com/data",
+        headers={"Authorization": "Bearer token123"},
+        callback=self.parse_api,
+    )
+
+    # 使用不同的 HTTP 方法
+    yield Request(
+        "https://example.com/submit",
+        method="POST",
+        data={"field": "value"},
+        sid="firefox",
+        callback=self.parse_result,
+    )
+```
+
+:::caution[通常情况下，当你直接使用 `FetcherSession`、`Fetcher` 或 `AsyncFetcher` 时，会通过 `.get()`、`.post()` 之类的方法来决定 HTTP 方法。但在 spider 中使用 `FetcherSession` 时不能这样做。默认请求始终是 *HTTP GET*；如果你想使用其他 HTTP 方法，就必须像上面示例那样，把它传给 `method` 参数。这样设计的原因，是为了统一所有会话类型下的 `Request` 接口。]
+:::
+
+对于浏览器会话（`AsyncDynamicSession`、`AsyncStealthySession`），你还可以传入浏览器专属参数，例如 `wait_selector`、`page_action` 或 `extra_headers`：
+
+```python
+async def parse(self, response: Response):
+    # 使用我们上面配置的 AsyncStealthySession 处理 Cloudflare
+    yield Request(
+        "https://nopecha.com/demo/cloudflare",
+        sid="stealth",
+        callback=self.parse_result,
+        solve_cloudflare=True,
+        block_webrtc=True,
+        hide_canvas=True,
+        google_search=True,
+    )
+
+    yield response.follow(
+        "/dynamic-page",
+        sid="browser",
+        callback=self.parse_dynamic,
+        wait_selector="div.loaded",
+        network_idle=True,
+    )
+```
+
+:::caution[从原始请求传入的会话参数（`**kwargs`）会被 `response.follow()` 继承；如果新请求中提供了新的 kwargs，则新的值优先生效。]
+:::
+
+```python
+from scrapling.spiders import Spider, Response
+from scrapling.fetchers import FetcherSession
+
+class ProductSpider(Spider):
+    name = "products"
+    start_urls = ["https://shop.example.com/products"]
+
+    def configure_sessions(self, manager):
+        manager.add("http", FetcherSession(impersonate='chrome'))
+
+    async def parse(self, response: Response):
+        # 我不希望 follow 出去的请求继续伪装桌面版 Chrome，而是想改成移动版
+        # 所以这样覆盖
+        for link in response.css("a.product::attr(href)").getall():
+            yield response.follow(link, impersonate="chrome131_android", callback=self.parse_product)
+
+        next_page = response.css("a.next::attr(href)").get()
+        if next_page:
+            yield Request(next_page)
+
+    async def parse_product(self, response: Response):
+        yield {
+            "name": response.css("h1::text").get(""),
+            "price": response.css(".price::text").get(""),
+        }
+```
+
+:::note[无需你手动处理：当 spider 关闭时，manager 会自动检查是否仍有会话在运行，并在 spider 真正关闭前先将它们关闭。]
+:::

@@ -1,0 +1,191 @@
+---
+title: 通用 Spider 模板
+description: 了解 Scrapling 提供的 CrawlSpider、SitemapSpider 与 LinkExtractor，快速搭建常见的链接跟随与站点地图抓取流程。
+editUrl: false
+sidebar:
+  order: 6
+---
+
+# 通用 Spider 模板
+
+大多数爬取任务基本都可以归为两种模式之一：
+
+1. “跟随所有匹配这个模式的链接”
+2. “抓取站点 sitemap 中列出的每个 URL”
+
+Scrapling 为这两种模式都提供了现成模板，这样你就不必每次都手写相同的 `parse()` 样板代码。
+
+所有模板都建立在 `LinkExtractor` 之上：它能从 `Response` 中提取 URL，也能通过 `matches()` 对单个 URL 进行过滤。`SitemapSpider` 还会在内部解析 sitemap.xml / sitemap_index.xml 的内容，无论它们是否经过 gzip 压缩。
+
+你也可以直接在普通 `Spider.parse()` 中使用 `LinkExtractor`。这些模板只是帮你省掉接线工作。
+
+## CrawlSpider
+
+`CrawlSpider` 会基于声明式规则自动跟随链接。
+
+```python
+from scrapling.spiders import CrawlSpider, CrawlRule, LinkExtractor
+
+class QuotesSpider(CrawlSpider):
+    name = "blog"
+    start_urls = ["https://quotes.toscrape.com/"]
+
+    def rules(self):
+        return [
+            CrawlRule(LinkExtractor(allow=r"/author/"), callback=self.parse_author),
+            CrawlRule(LinkExtractor(allow=r"/page/\d+/")),  # 跟随分页，不指定回调
+        ]
+
+    async def parse_author(self, response):
+        yield {
+            '.author-title': response.css('.author-title::text').get(),
+            "birthday": response.css('.author-born-date::text').get(),
+            "url": response.url,
+        }
+
+result = QuotesSpider().start()
+```
+
+一个 `CrawlRule` 会把 `LinkExtractor` 与以下配置绑定在一起：
+
+- 可选的 `callback`：spider 上的绑定方法
+- 可选的 `priority`：覆盖派发出去的 `Request` 优先级
+- 可选的 `process_request`：spider 上的绑定方法，在 `Request` 被 yield 前对其进行修改
+
+默认的 `parse()` 会对每个响应依次运行所有规则，并为每个匹配到的 URL yield 一个 `Request`。
+
+如果某条规则没有回调函数，那么匹配到的 URL 会回落到 spider 默认的 `parse()`。这对分页很方便：你只需提取“下一页”链接来继续爬取，而不必额外写一个处理函数。
+
+### 将规则与自定义逻辑组合使用
+
+你可以重写 `parse()`，并调用 `super().parse(response)`，在保留规则行为的同时追加自己的产出：
+
+```python
+class MySpider(CrawlSpider):
+    def rules(self):
+        return [CrawlRule(LinkExtractor(allow=r"/posts/"), callback=self.parse_post)]
+
+    async def parse(self, response):
+        yield {"page_url": response.url}
+        async for req in super().parse(response):
+            yield req
+```
+
+### 使用 `process_request` 修改请求
+
+```python
+def add_priority(self, request, response):
+    request.priority = 10
+    return request
+
+def rules(self):
+    return [CrawlRule(
+        LinkExtractor(allow=r"/posts/"),
+        callback=self.parse_post,
+        process_request=self.add_priority,
+    )]
+```
+
+## SitemapSpider
+
+`SitemapSpider` 会从 sitemap.xml 中提供的 URL 作为种子开始爬取。它与 `CrawlSpider` 使用相同的 `rules()` API，因此理解成本是一致的。
+
+```python
+from scrapling.spiders import SitemapSpider, CrawlRule, LinkExtractor
+
+class MySitemap(SitemapSpider):
+    name = "sm"
+    sitemap_urls = ["https://example.com/sitemap.xml"]
+
+    def rules(self):
+        return [
+            CrawlRule(LinkExtractor(allow=r"/posts/"), callback=self.parse_post),
+            CrawlRule(LinkExtractor(allow=r"/products/"), callback=self.parse_product),
+        ]
+
+    async def parse_post(self, response):
+        yield {"title": response.css("h1::text").get()}
+
+    async def parse_product(self, response):
+        yield {"sku": response.css(".sku::text").get()}
+
+result = MySitemap().start()
+```
+
+### URL 是如何被派发的
+
+对于 sitemap 中的每个 URL，`SitemapSpider` 会按顺序检查每条规则的 `LinkExtractor.matches(url)`。**第一个匹配成功的规则胜出**，并产出一个绑定该规则回调的 `Request`。
+
+如果没有规则匹配，而 `rules()` 又不是空列表，则该 URL 会被丢弃。
+
+如果 `rules()` 返回空列表，那么每个 URL 都会被路由到 spider 的 `parse()` 方法；而如果你没有重写它，默认实现会抛出 `NotImplementedError`。
+
+### Sitemap 索引
+
+当 `SitemapSpider` 遇到 `<sitemapindex>`（也就是“sitemap 的 sitemap”）时，它会自动深入到每个子 sitemap 中继续处理。如果你只想跟进某些子 sitemap，可以把 `sitemap_follow` 设为一个 `LinkExtractor`：
+
+```python
+class MySitemap(SitemapSpider):
+    name = "sm"
+    sitemap_urls = ["https://example.com/sitemap.xml"]
+    sitemap_follow = LinkExtractor(allow=r"/posts-sitemap-\d+\.xml")  # 仅跟进文章 sitemap
+```
+
+### robots.txt 支持
+
+你可以把 `robots.txt` 的 URL 直接放进 `sitemap_urls`，`SitemapSpider` 会自动识别它，提取其中声明的所有 sitemap，并逐个跟进：
+
+```python
+class MySitemap(SitemapSpider):
+    name = "sm"
+    sitemap_urls = ["https://example.com/robots.txt"]
+```
+
+### 多语言备用 URL
+
+将 `sitemap_alternate_links = True` 后，`<xhtml:link rel="alternate" hreflang="...">` 里的备用语言 URL 也会通过你的规则进行派发。
+
+## 直接使用 `LinkExtractor`
+
+你并不一定非要使用这些模板。`LinkExtractor` 在普通 `Spider` 中同样可用：
+
+```python
+from scrapling.spiders import Spider, LinkExtractor
+
+class CustomSpider(Spider):
+    name = "custom"
+    start_urls = ["https://example.com"]
+
+    def __init__(self):
+        super().__init__()
+        self._links = LinkExtractor(allow=r"/posts/", deny_domains="ads.example.com")
+
+    async def parse(self, response):
+        for url in self._links.extract(response):
+            yield response.follow(url, callback=self.parse_post)
+
+    async def parse_post(self, response):
+        yield {"title": response.css("h1::text").get()}
+```
+
+## `LinkExtractor` 参数参考
+
+| 参数 | 默认值 | 说明 |
+|---|---|---|
+| `allow` | `()` | 允许保留的 URL 模式。为空时表示“全部匹配”。可传字符串、编译好的 `Pattern`，或它们的可迭代对象。 |
+| `deny` | `()` | 需要丢弃的 URL 模式。其优先级始终高于 `allow`。 |
+| `allow_domains` | `()` | 允许保留的主机名。子域名会自动匹配（例如 `example.com` 也会匹配 `api.example.com`）。 |
+| `deny_domains` | `()` | 需要丢弃的主机名。 |
+| `restrict_css` | `()` | 用 CSS 选择器把 DOM 提取范围限制在某个区域内。 |
+| `restrict_xpath` | `()` | 用 XPath 选择器把 DOM 提取范围限制在某个区域内。 |
+| `tags` | `("a", "area")` | 从哪些标签里查找链接。 |
+| `attrs` | `("href",)` | 从这些标签的哪些属性中读取 URL。 |
+| `canonicalize` | `True` | 对查询参数排序，并规范化路径。 |
+| `strip` | `True` | 去掉提取出的 URL 两端空白。 |
+| `keep_fragment` | `False` | 规范化时是否保留 `#fragment`。 |
+| `deny_extensions` | `IGNORED_EXTENSIONS` | 需要丢弃的文件扩展名（pdf、zip、图片、视频等）。 |
+| `process` | `None` | 可选回调，会在过滤前应用到每个提取出的 URL。返回假值则丢弃该 URL。 |
+
+`LinkExtractor.extract(response)` 会返回一个 `list[str]`：其中的 URL 均为绝对路径、已过滤且已去重。
+
+`LinkExtractor.matches(url)` 会返回一个 `bool`：它只做 URL 级别的过滤（allow / deny / domain / extension），`SitemapSpider` 会用它在没有 `Response` 对象时派发 URL。

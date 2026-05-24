@@ -317,7 +317,7 @@ const hasTracks = tracks.length > 0;
             // If autoplay is enabled and the audio element is paused (e.g. user
             // navigated to the home page from a page without music), start playback.
             const root = document.getElementById('music-player-root');
-            if (root && root.dataset.autoplay === 'true') {
+            if (root && root.dataset.autoplay === 'true' && shouldAutoplayInSession()) {
                 const audio = document.getElementById('music-player-audio');
                 if (audio && audio.src && audio.paused && !audio.ended) {
                     audio.play().catch(() => {});
@@ -352,6 +352,7 @@ const hasTracks = tracks.length > 0;
         const iconMute = volumeBtn?.querySelector('.icon-mute');
 
         const STORAGE_KEY = 'music-player-state';
+        const AUTOPLAY_PREFERENCE_KEY = 'music-player-autoplay-preference';
 
         let currentIndex = 0;
         let isPlaying = false;
@@ -394,6 +395,24 @@ const hasTracks = tracks.length > 0;
             }
         }
 
+        function setAutoplayPreference(enabled) {
+            try {
+                if (enabled) {
+                    sessionStorage.setItem(AUTOPLAY_PREFERENCE_KEY, 'enabled');
+                } else {
+                    sessionStorage.setItem(AUTOPLAY_PREFERENCE_KEY, 'disabled');
+                }
+            } catch (_) {}
+        }
+
+        function shouldAutoplayInSession() {
+            try {
+                return sessionStorage.getItem(AUTOPLAY_PREFERENCE_KEY) !== 'disabled';
+            } catch (_) {
+                return true;
+            }
+        }
+
         function updatePlayIcon() {
             if (!iconPlay || !iconPause) return;
             if (isPlaying) {
@@ -428,26 +447,32 @@ const hasTracks = tracks.length > 0;
             durationEl.textContent = '0:00';
         }
 
-        function play() {
+        function play(updateAutoplayPreference = false) {
             audio.play().then(() => {
                 isPlaying = true;
+                if (updateAutoplayPreference) {
+                    setAutoplayPreference(true);
+                }
                 updatePlayIcon();
                 saveState();
             }).catch(() => {});
         }
 
-        function pause() {
+        function pause(updateAutoplayPreference = false) {
             audio.pause();
             isPlaying = false;
+            if (updateAutoplayPreference) {
+                setAutoplayPreference(false);
+            }
             updatePlayIcon();
             saveState();
         }
 
         function togglePlay() {
             if (isPlaying) {
-                pause();
+                pause(true);
             } else {
-                play();
+                play(true);
             }
         }
 
@@ -587,7 +612,7 @@ const hasTracks = tracks.length > 0;
         }
 
         // Auto-play on first visit if configured
-        if (autoplay && !isPlaying) {
+        if (autoplay && !isPlaying && shouldAutoplayInSession()) {
             play();
         }
     })();

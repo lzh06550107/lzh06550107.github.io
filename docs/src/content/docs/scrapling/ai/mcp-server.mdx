@@ -1,0 +1,394 @@
+---
+title: MCP Server
+description: 了解如何将 Scrapling MCP Server 接入 Claude 等 AI 工具，并使用其抓取、会话、截图与反爬绕过能力。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# Scrapling MCP Server 指南
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/qyFk3ZNwOxE?si=3FHzgcYCb66iJ6e3" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+**Scrapling MCP Server** 是一项新功能，它把 Scrapling 强大的 Web Scraping 能力直接带进你喜欢的 AI 聊天机器人或 AI Agent。通过这个集成，你可以在 Claude 或任何支持 MCP 的界面中，以对话方式抓取网站、提取数据，并绕过反爬保护。
+
+## 功能特性
+
+Scrapling MCP Server 为 Web Scraping 提供了十个强力工具：
+
+### 🚀 基础 HTTP 抓取
+- **`get`**：高速 HTTP 请求，支持浏览器指纹伪装，可生成与 TLS 版本、HTTP/3 等相匹配的真实浏览器请求头。
+- **`bulk_get`**：上面工具的异步批量版本，可同时抓取多个 URL。
+
+### 🌐 动态内容抓取
+- **`fetch`**：使用 Chromium / Chrome 快速抓取动态内容，并对请求与浏览器行为进行细粒度控制。
+- **`bulk_fetch`**：上面工具的异步批量版本，可在多个浏览器标签页中同时抓取多个 URL。
+
+### 🔒 隐身抓取
+- **`stealthy_fetch`**：使用 Scrapling 的隐身浏览器，绕过 Cloudflare Turnstile / Interstitial 及其他反爬系统，并提供完整的请求 / 浏览器控制能力。
+- **`bulk_stealthy_fetch`**：上面工具的异步批量版本，可在多个浏览器标签页中同时对多个 URL 进行隐身抓取。
+
+### 📸 截图
+- **`screenshot`**：基于已打开的浏览器会话，捕获页面 PNG 或 JPEG 截图，并以模型可直接查看的图片内容块返回，而不是一大串 base64 文本。支持整页截图、JPEG 质量设置，以及常见的就绪控制参数（`wait`、`wait_selector`、`network_idle`）。
+
+### 🔌 会话管理
+- **`open_session`**：创建一个持久浏览器会话（动态或隐身），让它在多次抓取调用之间持续存在，避免每次都重新启动浏览器。
+- **`close_session`**：关闭持久浏览器会话并释放资源。
+- **`list_sessions`**：列出当前所有活跃的浏览器会话及其详细信息。
+
+### 核心能力
+- **智能内容提取**：可将网页 / 元素转换为 Markdown、HTML，或提取干净的纯文本。
+- **CSS 选择器支持**：在把内容交给 AI 之前，先用 Scrapling 精准锁定目标元素。
+- **绕过反爬**：可处理 Cloudflare Turnstile、Interstitial 等保护机制。
+- **代理支持**：用于匿名访问和地理定位。
+- **浏览器伪装**：模拟真实浏览器，包括 TLS 指纹、与该版本匹配的真实请求头等。
+- **并行处理**：并发抓取多个 URL，提高效率。
+- **会话持久化**：跨多个请求复用浏览器会话，提升性能。
+- **广告拦截**：所有基于浏览器的工具都会自动拦截约 3,500 个已知广告与追踪域名，节省 token 并加快页面加载速度。
+- **提示注入防护**：自动清洗可能被用于 prompt injection 的隐藏内容（CSS 隐藏元素、`aria-hidden`、零宽字符、HTML 注释、`template` 标签）。
+
+#### 为什么选择 Scrapling MCP Server，而不是其他同类工具？
+
+除了隐身能力以及绕过 Cloudflare Turnstile / Interstitial 的能力之外，Scrapling 的 MCP Server 还是目前少数允许你**先选定特定元素，再交给 AI** 的方案，这能显著节省时间和 token。
+
+很多其他服务器的工作方式是：先把整页内容全部提取出来，再把所有内容交给 AI 去找你需要的字段。这样会让 AI 消耗大量无关 token。Scrapling 通过允许你先传入 CSS 选择器，在交给 AI 之前就把内容范围缩小，从而让整个流程更快、更高效。
+
+如果你不会写 CSS 选择器，也不用担心。你可以在提示词里让 AI 先帮你尝试编写选择器，并让它不断试不同组合，直到找到正确结果；后面的示例会展示这种用法。
+
+## 安装
+
+先安装带 MCP 支持的 Scrapling，然后确认浏览器依赖已经装好：
+
+```bash
+# 安装带 MCP server 依赖的 Scrapling
+pip install "scrapling[ai]"
+
+# 安装浏览器依赖
+scrapling install
+```
+
+或者直接使用 Docker Registry 中的镜像：
+
+```bash
+docker pull pyd4vinci/scrapling
+```
+
+或者从 GitHub Registry 拉取：
+
+```bash
+docker pull ghcr.io/d4vinci/scrapling:latest
+```
+
+## 配置 MCP Server
+
+下面以 [Claude Desktop](https://claude.ai/download) 和 [Claude Code](https://www.anthropic.com/claude-code) 为例说明如何接入 Scrapling MCP Server；其他支持 MCP 的聊天工具逻辑基本相同。
+
+### Claude Desktop
+
+1. 打开 Claude Desktop。
+2. 点击左上角汉堡菜单（☰）→ **Settings** → **Developer** → **Edit Config**。
+3. 添加 Scrapling MCP Server 配置：
+
+```json
+"ScraplingServer": {
+  "command": "scrapling",
+  "args": [
+    "mcp"
+  ]
+}
+```
+
+如果这是你添加的第一个 MCP Server，那么整个配置文件内容可以写成：
+
+```json
+{
+  "mcpServers": {
+    "ScraplingServer": {
+      "command": "scrapling",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
+```
+
+按照 [官方文档](https://modelcontextprotocol.io/quickstart/user) 的说明，这一步要么会新建配置文件，要么会打开你现有的配置文件。该文件通常位于：
+
+1. **macOS**：`~/Library/Application Support/Claude/claude_desktop_config.json`
+2. **Windows**：`%APPDATA%\\Claude\\claude_desktop_config.json`
+
+为了确保配置生效，建议使用 `scrapling` 可执行文件的完整路径。打开终端并执行：
+
+1. **macOS**：`which scrapling`
+2. **Windows**：`where scrapling`
+
+例如，在作者的 Mac 上，返回值是 `/Users/<MyUsername>/.venv/bin/scrapling`，因此最终使用的配置如下：
+
+```json
+{
+  "mcpServers": {
+    "ScraplingServer": {
+      "command": "/Users/<MyUsername>/.venv/bin/scrapling",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
+```
+
+#### Docker
+
+如果你使用的是 Docker 镜像，那么配置大致会是这样：
+
+```json
+{
+  "mcpServers": {
+    "ScraplingServer": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "pyd4vinci/scrapling", "mcp"
+      ]
+    }
+  }
+}
+```
+
+同样的思路也适用于 [Cursor](https://cursor.com/docs/context/mcp)、[WindSurf](https://windsurf.com/university/tutorials/configuring-first-mcp-server) 等其他工具。
+
+### Claude Code
+
+这里会更简单一些。如果你已经安装了 [Claude Code](https://www.anthropic.com/claude-code)，打开终端执行：
+
+```bash
+claude mcp add ScraplingServer "/Users/<MyUsername>/.venv/bin/scrapling" mcp
+```
+
+与上面一样，要获取 Scrapling 可执行文件路径，可以运行：
+
+1. **macOS**：`which scrapling`
+2. **Windows**：`where scrapling`
+
+更多细节可参考 Anthropic 关于[如何在 Claude Code 中添加 MCP Server](https://docs.anthropic.com/en/docs/claude-code/mcp#option-1%3A-add-a-local-stdio-server) 的官方文档。
+
+添加完成后，请彻底退出并重新启动对应应用。在 Claude Desktop 中，你应该能在聊天输入框右下角看到 MCP Server 指示器（🔧），或者在输入框的 `Search and tools` 下拉中看到 `ScraplingServer`。
+
+### Streamable HTTP
+
+从 v0.3.6 开始，Scrapling 支持让 MCP Server 使用 **Streamable HTTP** 传输模式，而不是传统的 `stdio`。
+
+也就是说，不再只限于下面这种 `stdio` 启动方式：
+
+```bash
+scrapling mcp
+```
+
+你也可以这样启用 **Streamable HTTP** 模式：
+
+```bash
+scrapling mcp --http
+```
+
+默认情况下，服务监听的主机是 `0.0.0.0`，端口是 `8000`；两者都可以自定义：
+
+```bash
+scrapling mcp --http --host '127.0.0.1' --port 8000
+```
+
+## 示例
+
+下面是一些我们在测试 MCP Server 时使用过的提示词示例。我们会从简单到复杂逐步展开。这里以 Claude Desktop 为例，但其他工具的使用思路是一样的。
+
+1. **基础网页抓取**
+
+   以 Markdown 格式提取网页主体内容：
+
+   ```
+   Scrape the main content from https://example.com and convert it to markdown format.
+   ```
+
+   Claude 会使用 `get` 工具抓取页面并返回干净、可读的内容。如果失败，它默认会每秒重试一次，共尝试 3 次，除非你另行说明。如果因为反爬、动态加载等原因无法获取内容，它通常也会继续尝试其他工具；如果没有自动这样做，你也可以在提示词里明确要求。
+
+   一个更高效的同义提示词是：
+
+   ```
+   Use regular requests to scrape the main content from https://example.com and convert it to markdown format.
+   ```
+
+   这样你就直接告诉了 Claude 该用哪种工具，不必让它猜。有时它会主动使用普通请求，有时却会无缘无故地认为浏览器更适合该网站。经验上，最好总是明确指定工具，这样更省时间、更省钱，结果也更稳定。
+
+2. **定向数据提取**
+
+   使用 CSS 选择器提取特定元素：
+
+   ```
+   Get all product titles from https://shop.example.com using the CSS selector '.product-title'. If the request fails, retry up to 5 times every 10 seconds.
+   ```
+
+   服务器只会提取与你选择器匹配的元素，并以结构化列表返回。这里我还让它在连接不稳定时最多重试 5 次；不过大多数场景下默认设置已经够用。
+
+3. **电商数据采集**
+
+   一个稍复杂一些的提示词示例：
+
+   ```
+   Extract product information from these e-commerce URLs using bulk browser fetches:
+   - https://shop1.com/product-a
+   - https://shop2.com/product-b
+   - https://shop3.com/product-c
+
+   Get the product names, prices, and descriptions from each page.
+   ```
+
+   Claude 会使用 `bulk_fetch` 并发抓取这些 URL，然后分析提取到的数据。
+
+4. **更高级的工作流**
+
+   假设我想获取 PlayStation 商店第一页当前所有动作类游戏，可以这样写：
+
+   ```
+   Extract the URLs of all games in this page, then do a bulk request to them and return a list of all action games: https://store.playstation.com/en-us/pages/browse
+   ```
+
+   注意我明确要求它对收集到的 URL 发起批量请求。如果不特别说明，有时它会按预期工作，有时却会逐个 URL 单独请求，耗时会明显更长。这个提示词大约需要一分钟完成。
+
+   但由于我说得还不够具体，它实际上用了 `stealthy_fetch`，并在第二步用了 `bulk_stealthy_fetch`，无谓地消耗了大量 token。更好的写法是：
+
+   ```
+   Use normal requests to extract the URLs of all games in this page, then do a bulk request to them and return a list of all action games: https://store.playstation.com/en-us/pages/browse
+   ```
+
+   如果你还会写 CSS 选择器，那么可以进一步让 Claude 只匹配你想要的元素，这样几乎会立刻完成任务：
+
+   ```
+   Use normal requests to extract the URLs of all games on the page below, then perform a bulk request to them and return a list of all action games.
+   The selector for games in the first page is `[href*="/concept/"]` and the selector for the genre in the second request is `[data-qa="gameInfo#releaseInformation#genre-value"]`.
+
+   URL: https://store.playstation.com/en-us/pages/browse
+   ```
+
+5. **抓取带 Cloudflare 防护的网站**
+
+   如果你认为目标网站有 Cloudflare 防护，请直接告诉 Claude，而不是让它自己摸索：
+
+   ```
+   What's the price of this product? Be cautious, as it utilizes Cloudflare's Turnstile protection. Make the browser visible while you work.
+
+   https://ao.com/product/oo101uk-ninja-woodfire-outdoor-pizza-oven-brown-99357-685.aspx
+   ```
+
+6. **长流程任务**
+
+   例如，你可以这样写：
+
+   ```
+   Extract all product URLs for the following category, then return the prices and details for the first 3 products.
+
+   https://www.arnotts.ie/furniture/bedroom/bed-frames/
+   ```
+
+   但更好的提示词是：
+
+   ```
+   Go to the following category URL and extract all product URLs using the CSS selector "a". Then, fetch the first 3 product pages in parallel and extract each product’s price and details.
+
+   Keep the output in markdown format to reduce irrelevant content.
+
+   Category URL:
+   https://www.arnotts.ie/furniture/bedroom/bed-frames/
+   ```
+
+7. **使用持久会话**
+
+   当你要抓取同一网站上的多个页面时，可以使用持久浏览器会话，避免每次请求都重新启动浏览器：
+
+   ```
+   Open a stealthy browser session with 5 pages maximum pool, then use it to scrape the main details in bulk from the first 5 product pages on https://shop.example.com. Close the session when you're done.
+   ```
+
+   Claude 会使用 `open_session` 创建持久浏览器，把 `session_id` 传给 `bulk_stealthy_fetch`，并同时打开所有页面，最后再调用 `close_session`。这比每页都启动一个新浏览器要快得多。
+
+   :::danger
+   使用持久会话时，务必在结束后关闭会话，否则浏览器会一直保持打开状态。
+   :::
+
+8. **在长流程中使用持久会话**
+
+   再看一个更能让 Claude “动脑子”的长流程示例：
+
+   ```
+   Use Scrapling MCP to do the following in this order:
+
+   1. Open a stealthy browser session with headless mode off.
+   2. Go to this page and collect the number of stars: https://github.com/D4Vinci/Scrapling
+   3. From the README, get the URL that shows the number of downloads and go to it.
+   4. Get the number of downloads and the top 3 countries from the graph.
+   5. Prepare a report with the results.
+   6. Close the browser.
+   ```
+
+   以此类推。这里真正的关键，是你的创造力。
+
+## 最佳实践
+
+下面给你一些更偏技术层面的建议。
+
+### 1. 选择合适的工具
+- **`get`**：快速、简单的网站
+- **`fetch`**：依赖 JavaScript / 动态内容的网站
+- **`stealthy_fetch`**：带防护的网站、Cloudflare、反爬系统
+
+### 2. 优化性能
+- 抓取多个 URL 时优先使用批量工具
+- 禁用不必要的资源加载
+- 设置合适的超时时间
+- 使用 CSS 选择器做定向提取
+
+### 3. 处理动态内容
+- 对 SPA 使用 `network_idle`
+- 对特定元素使用 `wait_selector`
+- 对加载慢的网站适当增加超时
+
+### 4. 提高数据质量
+- 使用 `main_content_only=true` 避开导航栏与广告
+- 根据你的场景选择合适的 `extraction_type`
+
+### 5. 提示注入防护
+当 `main_content_only` 启用时（默认就是开启的），MCP Server 会自动清洗抓取内容，移除恶意网站可能借此向 AI 上下文注入指令的隐藏内容：
+
+- **CSS 隐藏元素**：`display:none`、`visibility:hidden`、`opacity:0`、`font-size:0`、`height:0`、`width:0`
+- **无障碍隐藏元素**：`aria-hidden="true"`
+- **模板标签**：`<template>` 元素
+- **HTML 注释**：`<!-- ... -->`
+- **零宽字符**：例如零宽空格这类不可见 Unicode 字符
+
+这项保护会自动作用于所有 MCP 工具响应。为了获得最大防护，建议保持 `main_content_only=true`（默认值）。
+
+### 6. 多请求场景使用会话
+- 抓取多个页面时，用 `open_session` 创建持久浏览器会话
+- 在 `fetch` 或 `stealthy_fetch` 调用中传入 `session_id` 以复用同一浏览器
+- 用完后务必通过 `close_session` 关闭会话，释放资源
+- 可以用 `list_sessions` 查看当前仍处于活跃状态的会话
+- 动态会话的 `session_id` 只能用于 `fetch` / `bulk_fetch`；隐身会话的 `session_id` 只能用于 `stealthy_fetch` / `bulk_stealthy_fetch`
+- 你还可以在 `open_session` 时传入自定义 `session_id`，为会话指定更有意义的名字（例如 `"search"`、`"checkout"`），而不是使用默认随机十六进制 ID。如果所选 ID 已被占用，`open_session` 会直接报错，便于你提前发现冲突
+
+### 7. 截图建议
+- `screenshot` 只能基于已有浏览器会话工作，因此请先调用 `open_session`（`dynamic` 或 `stealthy` 都可以）
+- 返回值是真实的 `ImageContent` 内容块，而不是 JSON 中的 base64 字符串，因此模型能直接“看到”页面
+- 当你需要截取首屏以下全部内容时，使用 `full_page=True`；默认只截取当前可见视口
+- 如果不需要像素级色彩精度、但想减小负载，可选择 `image_type="jpeg"` 并设置 `quality`（0-100）
+- 这里同样支持与 `fetch` 一致的 `wait`、`wait_selector`、`network_idle`、`timeout` 控制参数
+
+## 法律与伦理注意事项
+
+:::caution[重要提示]
+- **检查 robots.txt**：访问 `https://website.com/robots.txt` 查看抓取规则。
+- **尊重速率限制**：不要用请求淹没服务器。
+- **阅读服务条款**：遵守网站的使用条款。
+- **尊重版权**：注意知识产权问题。
+- **关注隐私**：留意个人数据保护相关法律。
+- **商业用途**：在商业场景下请确认你已获得相应授权。
+:::
+
+*由 Scrapling 团队用 ❤️ 打造。祝你抓取顺利！*

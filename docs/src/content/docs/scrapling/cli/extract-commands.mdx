@@ -1,0 +1,395 @@
+---
+title: 提取命令
+description: 学习如何使用 scrapling extract 命令在终端中下载网页、转换格式、按选择器提取内容，并为 AI 场景清洗输出。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+# Scrapling 提取命令指南
+
+**无需编程，直接通过终端完成 Web Scraping！**
+
+`scrapling extract` 命令可以让你不写任何代码，直接在终端中下载网站并提取内容。它非常适合初学者、研究人员，以及任何希望快速提取网页数据的人。
+
+:::tip[前置阅读]
+1. 先阅读 [Fetcher 基础](/scrapling/fetching/choosing)，理解 [Response 对象](/scrapling/fetching/choosing#response-对象) 是什么，以及该选择哪种 fetcher。
+2. 先阅读 [查询元素](/scrapling/parsing/selection)，理解如何从 [Selector](/scrapling/parsing/main_classes#selector) / [Response](/scrapling/fetching/choosing#response-对象) 对象中查找与提取元素。
+3. 先阅读 [解析核心类](/scrapling/parsing/main_classes)，了解 [Response](/scrapling/fetching/choosing#response-对象) 从 [Selector](/scrapling/parsing/main_classes#selector) 继承了哪些属性与方法。
+4. 至少阅读抓取部分中的一页，以便知道这里应使用哪类请求方式：[HTTP 请求](/scrapling/fetching/static)、[动态网站抓取](/scrapling/fetching/dynamic) 或 [带强防护的动态网站抓取](/scrapling/fetching/stealthy)。
+:::
+
+## 什么是提取命令组？
+
+提取命令是一组简单的终端工具，可以：
+
+- **下载网页** 并把内容保存到文件。
+- **把 HTML 转换为更易读的格式**，例如 Markdown；也可以保留原始 HTML，或只提取页面文本。
+- **支持自定义 CSS 选择器**，只提取页面中的指定部分。
+- **支持 HTTP 请求与浏览器抓取**。
+- **高度可定制**，支持自定义请求头、Cookies、代理以及其他各种选项。代码层能用到的大多数参数，在命令行中同样可用。
+
+:::tip[面向 AI 的模式]
+所有提取命令都支持 `--ai-targeted` 参数。启用后，它只提取正文主体内容，去除噪声标签（`script`、`style`、`noscript`、`svg`），移除可能用于提示注入的隐藏元素（CSS 隐藏、`aria-hidden`、`template` 标签），剥离零宽 Unicode 字符，并删除 HTML 注释。对于浏览器类命令（`fetch` / `stealthy-fetch`），它还会自动启用广告拦截。如果输出结果将交给 AI 模型处理，这个模式尤其有用。
+:::
+
+## 快速开始
+
+- **基础网页下载**
+
+  将网页的文本内容保存为干净、易读的纯文本：
+
+  ```bash
+  scrapling extract get "https://example.com" page_content.txt
+  ```
+
+  这会发送一个 HTTP GET 请求，并把网页文本内容保存到 `page_content.txt`。
+
+- **保存为不同格式**
+
+  通过更换输出文件扩展名选择不同格式：
+
+  ```bash
+  # 将 HTML 内容转换为 Markdown 再保存（很适合文档归档）
+  scrapling extract get "https://blog.example.com" article.md
+
+  # 原样保存 HTML 内容
+  scrapling extract get "https://example.com" page.html
+
+  # 将网页的纯净文本内容保存到文件
+  scrapling extract get "https://example.com" content.txt
+
+  # 也可以使用 Docker 镜像，例如：
+  docker run -v $(pwd)/output:/output scrapling extract get "https://blog.example.com" /output/article.md
+  ```
+
+- **提取指定内容**
+
+  所有命令都支持通过 `--css-selector` 或 `-s` 来提取页面中的指定部分，后续示例会展示具体写法。
+
+## 可用命令
+
+你可以通过 `scrapling extract --help` 查看可用命令列表：
+
+```bash
+Usage: scrapling extract [OPTIONS] COMMAND [ARGS]...
+
+  Fetch web pages using various fetchers and extract full/selected HTML content as HTML, Markdown, or extract text content.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  get             Perform a GET request and save the content to a file.
+  post            Perform a POST request and save the content to a file.
+  put             Perform a PUT request and save the content to a file.
+  delete          Perform a DELETE request and save the content to a file.
+  fetch           Use DynamicFetcher to fetch content with browser...
+  stealthy-fetch  Use StealthyFetcher to fetch content with advanced...
+```
+
+下面我们会逐个详细说明。
+
+### HTTP 请求
+
+1. **GET 请求**
+
+   下载网页内容时最常用的命令：
+
+   ```bash
+   scrapling extract get [URL] [OUTPUT_FILE] [OPTIONS]
+   ```
+
+   **示例：**
+
+   ```bash
+   # 基础下载
+   scrapling extract get "https://news.site.com" news.md
+
+   # 自定义超时时间
+   scrapling extract get "https://example.com" content.txt --timeout 60
+
+   # 通过 CSS 选择器只提取特定内容
+   scrapling extract get "https://blog.example.com" articles.md --css-selector "article"
+
+   # 携带 Cookies 发起请求
+   scrapling extract get "https://scrapling.requestcatcher.com" content.md --cookies "session=abc123; user=john"
+
+   # 添加 User-Agent
+   scrapling extract get "https://api.site.com" data.json -H "User-Agent: MyBot 1.0"
+
+   # 添加多个请求头
+   scrapling extract get "https://site.com" page.html -H "Accept: text/html" -H "Accept-Language: en-US"
+   ```
+
+   你可以通过 `scrapling extract get --help` 查看该命令的可用选项：
+
+   ```bash
+   Usage: scrapling extract get [OPTIONS] URL OUTPUT_FILE
+
+     Perform a GET request and save the content to a file.
+
+     The output file path can be an HTML file, a Markdown file of the HTML content, or the text content itself. Use file extensions (`.html`/`.md`/`.txt`) respectively.
+
+   Options:
+     -H, --headers TEXT                             HTTP headers in format "Key: Value" (can be used multiple times)
+     --cookies TEXT                                 Cookies string in format "name1=value1;name2=value2"
+     --timeout INTEGER                              Request timeout in seconds (default: 30)
+     --proxy TEXT                                   Proxy URL in format "http://username:***@host:port"
+     -s, --css-selector TEXT                        CSS selector to extract specific content from the page. It returns all matches.
+     -p, --params TEXT                              Query parameters in format "key=value" (can be used multiple times)
+     --follow-redirects / --no-follow-redirects     Whether to follow redirects (default: True)
+     --verify / --no-verify                         Whether to verify SSL certificates (default: True)
+     --impersonate TEXT                             Browser to impersonate (e.g., chrome, firefox).
+     --stealthy-headers / --no-stealthy-headers     Use stealthy browser headers (default: True)
+     --ai-targeted                                  Extract only main content and sanitize hidden elements for AI consumption (default: False)
+     --help                                         Show this message and exit.
+   ```
+
+   这些参数在其他请求命令中的行为基本一致，因此后面不再重复说明。
+
+2. **POST 请求**
+
+   ```bash
+   scrapling extract post [URL] [OUTPUT_FILE] [OPTIONS]
+   ```
+
+   **示例：**
+
+   ```bash
+   # 提交表单数据
+   scrapling extract post "https://api.site.com/search" results.html --data "query=python&type=tutorial"
+
+   # 发送 JSON 数据
+   scrapling extract post "https://api.site.com" response.json --json '{"username": "test", "action": "search"}'
+   ```
+
+   你可以通过 `scrapling extract post --help` 查看该命令的可用选项：
+
+   ```bash
+   Usage: scrapling extract post [OPTIONS] URL OUTPUT_FILE
+
+     Perform a POST request and save the content to a file.
+
+     The output file path can be an HTML file, a Markdown file of the HTML content, or the text content itself. Use file extensions (`.html`/`.md`/`.txt`) respectively.
+
+   Options:
+     -d, --data TEXT                                Form data to include in the request body (as string, ex: "param1=value1&param2=value2")
+     -j, --json TEXT                                JSON data to include in the request body (as string)
+     -H, --headers TEXT                             HTTP headers in format "Key: Value" (can be used multiple times)
+     --cookies TEXT                                 Cookies string in format "name1=value1;name2=value2"
+     --timeout INTEGER                              Request timeout in seconds (default: 30)
+     --proxy TEXT                                   Proxy URL in format "http://username:***@host:port"
+     -s, --css-selector TEXT                        CSS selector to extract specific content from the page. It returns all matches.
+     -p, --params TEXT                              Query parameters in format "key=value" (can be used multiple times)
+     --follow-redirects / --no-follow-redirects     Whether to follow redirects (default: True)
+     --verify / --no-verify                         Whether to verify SSL certificates (default: True)
+     --impersonate TEXT                             Browser to impersonate (e.g., chrome, firefox).
+     --stealthy-headers / --no-stealthy-headers     Use stealthy browser headers (default: True)
+     --ai-targeted                                  Extract only main content and sanitize hidden elements for AI consumption (default: False)
+     --help                                         Show this message and exit.
+   ```
+
+3. **PUT 请求**
+
+   ```bash
+   scrapling extract put [URL] [OUTPUT_FILE] [OPTIONS]
+   ```
+
+   **示例：**
+
+   ```bash
+   # 发送表单数据
+   scrapling extract put "https://scrapling.requestcatcher.com/put" results.html --data "update=info" --impersonate "firefox"
+
+   # 发送 JSON 数据
+   scrapling extract put "https://scrapling.requestcatcher.com/put" response.json --json '{"username": "test", "action": "search"}'
+   ```
+
+   你可以通过 `scrapling extract put --help` 查看该命令的可用选项：
+
+   ```bash
+   Usage: scrapling extract put [OPTIONS] URL OUTPUT_FILE
+
+     Perform a PUT request and save the content to a file.
+
+     The output file path can be an HTML file, a Markdown file of the HTML content, or the text content itself. Use file extensions (`.html`/`.md`/`.txt`) respectively.
+
+   Options:
+     -d, --data TEXT                                Form data to include in the request body
+     -j, --json TEXT                                JSON data to include in the request body (as string)
+     -H, --headers TEXT                             HTTP headers in format "Key: Value" (can be used multiple times)
+     --cookies TEXT                                 Cookies string in format "name1=value1;name2=value2"
+     --timeout INTEGER                              Request timeout in seconds (default: 30)
+     --proxy TEXT                                   Proxy URL in format "http://username:***@host:port"
+     -s, --css-selector TEXT                        CSS selector to extract specific content from the page. It returns all matches.
+     -p, --params TEXT                              Query parameters in format "key=value" (can be used multiple times)
+     --follow-redirects / --no-follow-redirects     Whether to follow redirects (default: True)
+     --verify / --no-verify                         Whether to verify SSL certificates (default: True)
+     --impersonate TEXT                             Browser to impersonate (e.g., chrome, firefox).
+     --stealthy-headers / --no-stealthy-headers     Use stealthy browser headers (default: True)
+     --ai-targeted                                  Extract only main content and sanitize hidden elements for AI consumption (default: False)
+     --help                                         Show this message and exit.
+   ```
+
+4. **DELETE 请求**
+
+   ```bash
+   scrapling extract delete [URL] [OUTPUT_FILE] [OPTIONS]
+   ```
+
+   **示例：**
+
+   ```bash
+   # 发起 DELETE 请求
+   scrapling extract delete "https://scrapling.requestcatcher.com/delete" results.html
+
+   # 指定浏览器伪装
+   scrapling extract delete "https://scrapling.requestcatcher.com/" response.txt --impersonate "chrome"
+   ```
+
+   你可以通过 `scrapling extract delete --help` 查看该命令的可用选项：
+
+   ```bash
+   Usage: scrapling extract delete [OPTIONS] URL OUTPUT_FILE
+
+     Perform a DELETE request and save the content to a file.
+
+     The output file path can be an HTML file, a Markdown file of the HTML content, or the text content itself. Use file extensions (`.html`/`.md`/`.txt`) respectively.
+
+   Options:
+     -H, --headers TEXT                             HTTP headers in format "Key: Value" (can be used multiple times)
+     --cookies TEXT                                 Cookies string in format "name1=value1;name2=value2"
+     --timeout INTEGER                              Request timeout in seconds (default: 30)
+     --proxy TEXT                                   Proxy URL in format "http://username:***@host:port"
+     -s, --css-selector TEXT                        CSS selector to extract specific content from the page. It returns all matches.
+     -p, --params TEXT                              Query parameters in format "key=value" (can be used multiple times)
+     --follow-redirects / --no-follow-redirects     Whether to follow redirects (default: True)
+     --verify / --no-verify                         Whether to verify SSL certificates (default: True)
+     --impersonate TEXT                             Browser to impersonate (e.g., chrome, firefox).
+     --stealthy-headers / --no-stealthy-headers     Use stealthy browser headers (default: True)
+     --ai-targeted                                  Extract only main content and sanitize hidden elements for AI consumption (default: False)
+     --help                                         Show this message and exit.
+   ```
+
+### 浏览器抓取
+
+1. **fetch：处理动态内容**
+
+   对于依赖 JavaScript 动态加载内容，或者只有轻度防护的网站：
+
+   ```bash
+   scrapling extract fetch [URL] [OUTPUT_FILE] [OPTIONS]
+   ```
+
+   **示例：**
+
+   ```bash
+   # 等待 JavaScript 加载内容并等待网络活动结束
+   scrapling extract fetch "https://scrapling.requestcatcher.com/" content.md --network-idle
+
+   # 等待指定内容出现
+   scrapling extract fetch "https://scrapling.requestcatcher.com/" data.txt --wait-selector ".content-loaded"
+
+   # 以可见浏览器模式运行（适合调试）
+   scrapling extract fetch "https://scrapling.requestcatcher.com/" page.html --no-headless --disable-resources
+   ```
+
+   你可以通过 `scrapling extract fetch --help` 查看该命令的可用选项：
+
+   ```bash
+   Usage: scrapling extract fetch [OPTIONS] URL OUTPUT_FILE
+
+     Use DynamicFetcher to fetch content with browser automation.
+
+     The output file path can be an HTML file, a Markdown file of the HTML content, or the text content itself. Use file extensions (`.html`/`.md`/`.txt`) respectively.
+
+   Options:
+     --headless / --no-headless                  Run browser in headless mode (default: True)
+     --disable-resources / --enable-resources    Drop unnecessary resources for speed boost (default: False)
+     --network-idle / --no-network-idle          Wait for network idle (default: False)
+     --timeout INTEGER                           Timeout in milliseconds (default: 30000)
+     --wait INTEGER                              Additional wait time in milliseconds after page load (default: 0)
+     -s, --css-selector TEXT                     CSS selector to extract specific content from the page. It returns all matches.
+     --wait-selector TEXT                        CSS selector to wait for before proceeding
+     --locale TEXT                               Specify user locale. Defaults to the system default locale.
+     --real-chrome/--no-real-chrome              If you have a Chrome browser installed on your device, enable this, and the Fetcher will launch an instance of your browser and use it. (default: False)
+     --proxy TEXT                                Proxy URL in format "http://username:***@host:port"
+     -H, --extra-headers TEXT                    Extra headers in format "Key: Value" (can be used multiple times)
+     --dns-over-https / --no-dns-over-https      Route DNS through Cloudflare's DoH to prevent DNS leaks when using proxies (default: False)
+     --block-ads / --no-block-ads                Block requests to known ad and tracker domains (default: False)
+     --ai-targeted                               Extract only main content and sanitize hidden elements for AI consumption (default: False)
+     --help                                      Show this message and exit.
+   ```
+
+2. **stealthy-fetch：绕过防护**
+
+   对于带有反爬机制或 Cloudflare 防护的网站：
+
+   ```bash
+   scrapling extract stealthy-fetch [URL] [OUTPUT_FILE] [OPTIONS]
+   ```
+
+   **示例：**
+
+   ```bash
+   # 绕过基础防护
+   scrapling extract stealthy-fetch "https://scrapling.requestcatcher.com" content.md
+
+   # 解决 Cloudflare 挑战
+   scrapling extract stealthy-fetch "https://nopecha.com/demo/cloudflare" data.txt --solve-cloudflare --css-selector "#padded_content a"
+
+   # 使用代理提高匿名性
+   scrapling extract stealthy-fetch "https://site.com" content.md --proxy "http://proxy-server:8080"
+   ```
+
+   你可以通过 `scrapling extract stealthy-fetch --help` 查看该命令的可用选项：
+
+   ```bash
+   Usage: scrapling extract stealthy-fetch [OPTIONS] URL OUTPUT_FILE
+
+     Use StealthyFetcher to fetch content with advanced stealth features.
+
+     The output file path can be an HTML file, a Markdown file of the HTML content, or the text content itself. Use file extensions (`.html`/`.md`/`.txt`) respectively.
+
+   Options:
+     --headless / --no-headless                  Run browser in headless mode (default: True)
+     --disable-resources / --enable-resources    Drop unnecessary resources for speed boost (default: False)
+     --block-webrtc / --allow-webrtc             Block WebRTC entirely (default: False)
+     --solve-cloudflare / --no-solve-cloudflare  Solve Cloudflare challenges (default: False)
+     --allow-webgl / --block-webgl               Allow WebGL (default: True)
+     --network-idle / --no-network-idle          Wait for network idle (default: False)
+     --real-chrome/--no-real-chrome              If you have a Chrome browser installed on your device, enable this, and the Fetcher will launch an instance of your browser and use it. (default: False)
+     --timeout INTEGER                           Timeout in milliseconds (default: 30000)
+     --wait INTEGER                              Additional wait time in milliseconds after page load (default: 0)
+     -s, --css-selector TEXT                     CSS selector to extract specific content from the page. It returns all matches.
+     --wait-selector TEXT                        CSS selector to wait for before proceeding
+     --hide-canvas / --show-canvas               Add noise to canvas operations (default: False)
+     --proxy TEXT                                Proxy URL in format "http://username:***@host:port"
+     -H, --extra-headers TEXT                    Extra headers in format "Key: Value" (can be used multiple times)
+     --dns-over-https / --no-dns-over-https      Route DNS through Cloudflare's DoH to prevent DNS leaks when using proxies (default: False)
+     --block-ads / --no-block-ads                Block requests to known ad and tracker domains (default: False)
+     --ai-targeted                               Extract only main content and sanitize hidden elements for AI consumption (default: False)
+     --help                                      Show this message and exit.
+   ```
+
+## 什么时候该用哪条命令？
+
+如果你还不是 Web Scraping 专家，不知道该选哪种方式，可以先按下面这个经验法则：
+
+- 简单网站、博客、新闻文章：用 **`get`**
+- 现代 Web App 或动态内容网站：用 **`fetch`**
+- 带保护机制、Cloudflare 或反爬系统的网站：用 **`stealthy-fetch`**
+
+## 法律与伦理注意事项
+
+:::caution[重要提示]
+- **检查 robots.txt**：访问 `https://website.com/robots.txt` 查看抓取规则。
+- **尊重速率限制**：不要用请求淹没服务器。
+- **阅读服务条款**：遵守网站的使用条款。
+- **尊重版权**：注意知识产权问题。
+- **关注隐私**：留意个人数据保护相关法律。
+- **商业用途**：在商业场景下请确认你已获得相应授权。
+:::
+
+*祝你抓取顺利！请始终尊重网站政策，并遵守所有适用法律法规。*

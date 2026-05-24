@@ -1,0 +1,228 @@
+---
+title: 介绍
+description: 了解 Scrapling——一个适用于现代 Web 的自适应网页抓取框架，涵盖解析、抓取、爬虫与反爬绕过能力。
+editUrl: false
+sidebar:
+  hidden: true
+---
+
+<div align="center">
+  <a href="https://scrapling.readthedocs.io/en/latest/" aria-label="Scrapling">
+    <img alt="Scrapling" src="/images/scrapling/assets/cover_light.svg" />
+  </a>
+</div>
+
+## *为现代 Web 而生的轻松抓取体验*
+
+Scrapling 是一个**自适应**的 Web 抓取框架，既能处理单次请求，也能胜任全量爬取。
+
+它的解析器会从网站变化中学习，并在页面更新后自动重新定位你的元素；它的抓取器开箱即用即可绕过 Cloudflare Turnstile 等反机器人系统；它的 Spider 框架则让你仅用几行 Python，就能扩展到支持并发、多会话、暂停/恢复以及自动代理轮换的完整爬取流程。一个库，零妥协。
+
+它还支持极速爬取、实时统计与流式输出。无论你是专业爬虫工程师还是普通用户，都能从中找到适合自己的能力。
+
+```python
+from scrapling.fetchers import Fetcher, StealthyFetcher, DynamicFetcher
+StealthyFetcher.adaptive = True
+page = StealthyFetcher.fetch('https://example.com', headless=True, network_idle=True)  # 低调抓取网站！
+products = page.css('.product', auto_save=True)                                        # 抓取可在站点改版后继续生效的数据！
+products = page.css('.product', adaptive=True)                                         # 之后如果网站结构改变，传入 `adaptive=True` 继续查找它们！
+```
+
+或者扩展到完整爬虫：
+
+```python
+from scrapling.spiders import Spider, Response
+
+class MySpider(Spider):
+  name = "demo"
+  start_urls = ["https://example.com/"]
+
+  async def parse(self, response: Response):
+      for item in response.css('.product'):
+          yield {"title": item.css('h2::text').get()}
+
+MySpider().start()
+```
+
+## 顶级赞助商
+
+<div style="text-align: center;">
+  <a href="https://coldproxy.com/" target="_blank" title="Residential, IPv6 & Datacenter Proxies for Web Scraping">
+    <img src="/images/scrapling/remote/coldproxy.png" alt="Coldproxy" width="240" height="100" />
+  </a>
+  <a href="https://hypersolutions.co/?utm_source=github&utm_medium=readme&utm_campaign=scrapling" target="_blank" title="Bot Protection Bypass API for Akamai, DataDome, Incapsula & Kasada">
+    <img src="/images/scrapling/remote/HyperSolutions.png" alt="HyperSolutions" width="240" height="100" />
+  </a>
+  <a href="https://birdproxies.com/t/scrapling" target="_blank" title="At Bird Proxies, we eliminate your pains such as banned IPs, geo restriction, and high costs so you can focus on your work.">
+    <img src="/images/scrapling/remote/BirdProxies.jpg" alt="BirdProxies" width="240" height="100" />
+  </a>
+  <a href="https://evomi.com?utm_source=github&utm_medium=banner&utm_campaign=d4vinci-scrapling" target="_blank" title="Evomi is your Swiss Quality Proxy Provider, starting at $0.49/GB">
+    <img src="/images/scrapling/remote/evomi.png" alt="Evomi" width="240" height="100" />
+  </a>
+  <a href="https://tikhub.io/?utm_source=github.com/D4Vinci/Scrapling&utm_medium=marketing_social&utm_campaign=retargeting&utm_content=carousel_ad" target="_blank" title="Unlock the Power of Social Media Data & AI">
+    <img src="/images/scrapling/remote/TikHub.jpg" alt="TikHub" width="240" height="100" />
+  </a>
+  <a href="https://www.nsocks.com/?keyword=2p67aivg" target="_blank" title="Scalable Web Data Access for AI Applications">
+    <img src="/images/scrapling/remote/nsocks.png" alt="Nsocks" width="240" height="100" />
+  </a>
+  <a href="https://petrosky.io/d4vinci" target="_blank" title="PetroSky delivers cutting-edge VPS hosting.">
+    <img src="/images/scrapling/remote/petrosky.png" alt="PetroSky" width="240" height="100" />
+  </a>
+  <a href="https://substack.thewebscraping.club/p/scrapling-hands-on-guide?utm_source=github&utm_medium=repo&utm_campaign=scrapling" target="_blank" title="The #1 newsletter dedicated to Web Scraping">
+    <img src="/images/scrapling/remote/TWSC.png" alt="The Web Scraping Club" width="240" height="100" />
+  </a>
+  <a href="http://mangoproxy.com/?utm_source=D4Vinci&utm_medium=GitHub&utm_campaign=D4Vinci" target="_blank" title="Proxies You Can Rely On: Residential, Server, and Mobile">
+    <img src="/images/scrapling/remote/MangoProxy.png" alt="MangoProxy" width="240" height="100" />
+  </a>
+  <a href="https://www.swiftproxy.net/?ref=D4Vinci" target="_blank" title="Scalable Solutions for Web Data Access">
+    <img src="/images/scrapling/remote/SwiftProxy.png" alt="SwiftProxy" width="240" height="100" />
+  </a>
+  <a href="https://9proxy.com/pricing?tab=traffic&utm_source=Github&utm_campaign=D4vinci" target="_blank" title="Top-Tier Residential Proxy Solution for the Highest Success Rate">
+    <img src="/images/scrapling/remote/9proxy.png" alt="9Proxy" width="240" height="100" />
+  </a>
+  <br />
+  <br />
+  <a href="https://www.crawleo.dev/?utm_source=github&utm_medium=sponsor&utm_campaign=scrapling" target="_blank" title="Supercharge your AI with Real-Time Web Intelligence">
+    <img src="/images/scrapling/remote/crawleo.png" alt="Crawleo" />
+  </a>
+</div>
+
+*<sub>想把你的广告展示在这里吗？点击 [这里](https://github.com/sponsors/D4Vinci) 选择一个计划，并享受其余赞助权益！</sub>*
+
+## 核心特性
+
+### Spiders：完整的爬取框架
+- 🕷️ **类 Scrapy 的 Spider API**：使用 `start_urls`、异步 `parse` 回调以及 `Request`/`Response` 对象来定义爬虫。
+- ⚡ **并发爬取**：支持可配置的并发上限、按域名限速和下载延迟。
+- 🔄 **多会话支持**：在同一个 Spider 中统一处理 HTTP 请求与隐身无头浏览器，并可按会话 ID 将请求路由到不同会话。
+- 💾 **暂停与恢复**：基于检查点的爬取持久化。按下 Ctrl+C 可优雅退出；重启后即可从中断处继续。
+- 📡 **流式模式**：通过 `async for item in spider.stream()` 在抓取结果到达时实时输出，并附带实时统计；非常适合 UI、数据管道和长时间运行的抓取任务。
+- 🛡️ **请求阻断检测**：自动检测被拦截的请求并重试，且支持自定义逻辑。
+- 🤖 **遵守 Robots.txt**：可选 `robots_txt_obey` 开关，支持遵守 `Disallow`、`Crawl-delay` 与 `Request-rate` 指令，并按域名缓存。
+- 🧪 **开发模式**：首次运行时将响应缓存到磁盘，后续运行直接回放；无需反复请求目标站点也能迭代你的 `parse()` 逻辑。
+- 📦 **内置导出**：可通过钩子、你自己的管道，或内置 JSON/JSONL 导出结果，分别使用 `result.items.to_json()` / `result.items.to_jsonl()`。
+
+### 面向高级网站的抓取能力与会话支持
+- **HTTP 请求**：通过 `Fetcher` 类发起快速且隐蔽的 HTTP 请求；可伪装浏览器 TLS 指纹、请求头，并支持 HTTP/3。
+- **动态加载**：通过 `DynamicFetcher` 类使用完整浏览器自动化抓取动态网站，支持 Playwright 的 Chromium 与 Google Chrome。
+- **反爬绕过**：`StealthyFetcher` 提供高级隐身能力与指纹伪装，可轻松自动绕过多种 Cloudflare Turnstile/中间页保护。
+- **会话管理**：`FetcherSession`、`StealthySession` 与 `DynamicSession` 提供持久会话支持，便于在多次请求之间管理 Cookie 与状态。
+- **代理轮换**：内置 `ProxyRotator`，支持循环或自定义轮换策略，适用于全部会话类型，并可按请求覆盖代理。
+- **域名与广告拦截**：可拦截特定域名（及其子域）请求，也可在基于浏览器的抓取器中启用内置广告拦截（约 3,500 个已知广告/追踪域名）。
+- **防 DNS 泄漏**：可选 DNS-over-HTTPS 支持，通过 Cloudflare DoH 转发 DNS 查询，在使用代理时防止 DNS 泄漏。
+- **异步支持**：全部抓取器均提供完整异步支持，并有对应的异步会话类。
+
+### 自适应抓取与 AI 集成
+- 🔄 **智能元素追踪**：网站结构变化后，使用智能相似度算法重新定位元素。
+- 🎯 **灵活智能选择**：支持 CSS 选择器、XPath 选择器、基于过滤条件的搜索、文本搜索、正则搜索等方式。
+- 🔍 **查找相似元素**：自动定位与已找到元素相似的其他元素。
+- 🤖 **可与 AI 配合的 MCP Server**：内置 MCP Server，用于 AI 辅助的 Web 抓取与数据提取。它提供一组强大的定制能力，能先利用 Scrapling 提取目标内容，再将结果交给 AI（Claude/Cursor 等），从而减少 token 消耗、降低成本并提升速度。([演示视频](https://www.youtube.com/watch?v=qyFk3ZNwOxE))
+
+### 高性能且久经实战检验的架构
+- 🚀 **闪电般快速**：优化后的性能优于大多数 Python 抓取库。
+- 🔋 **内存高效**：使用优化数据结构与惰性加载，尽可能降低内存占用。
+- ⚡ **高速 JSON 序列化**：比标准库快 10 倍。
+- 🏗️ **经过实战验证**：Scrapling 不仅拥有 92% 的测试覆盖率与完整的类型注解覆盖，而且在过去一年里已被数百位 Web 抓取开发者每天使用。
+
+### 对开发者 / 抓取工程师友好的体验
+- 🎯 **交互式 Web 抓取 Shell**：可选内置 IPython Shell，集成 Scrapling、快捷方式以及新工具，可显著加快抓取脚本开发，例如把 curl 请求转换为 Scrapling 请求，或直接在浏览器中查看请求结果。
+- 🚀 **可直接从终端使用**：你甚至可以不写一行代码，直接用 Scrapling 抓取一个 URL。
+- 🛠️ **丰富的导航 API**：支持父级、兄弟和子级等高级 DOM 遍历方法。
+- 🧬 **增强的文本处理**：内置正则、清洗方法与优化后的字符串操作。
+- 📝 **自动生成选择器**：可为任意元素生成稳健的 CSS/XPath 选择器。
+- 🔌 **熟悉的 API**：风格类似 Scrapy / BeautifulSoup，并支持 Scrapy / Parsel 常用的伪元素。
+- 📘 **完整类型覆盖**：提供全面的类型注解，带来优秀的 IDE 支持与自动补全；整个代码库会在每次变更后自动通过 **PyRight** 与 **MyPy** 扫描。
+- 🔋 **现成 Docker 镜像**：每次发布时都会自动构建并推送包含所有浏览器的 Docker 镜像。
+
+## Star History
+
+Scrapling 自发布以来 GitHub Star 数持续稳定增长（见下图）。
+
+[![Star History Chart](/images/scrapling/remote/star-history.svg)](https://github.com/D4Vinci/Scrapling)
+
+## 安装
+
+Scrapling 需要 Python 3.10 或更高版本：
+
+```bash
+pip install scrapling
+```
+
+该安装仅包含解析器引擎及其依赖，不包含任何抓取器或命令行相关依赖。
+
+### 可选依赖
+
+1. 如果你要使用下列任意额外功能、抓取器或其类，则需要安装抓取器依赖及浏览器依赖：
+
+   ```bash
+   pip install "scrapling[fetchers]"
+
+   scrapling install           # 正常安装
+   scrapling install --force   # 强制重新安装
+   ```
+
+   这会下载全部浏览器，以及它们的系统依赖和指纹操作相关依赖。
+
+   你也可以不通过命令行，而是在代码中执行安装：
+
+   ```python
+   from scrapling.cli import install
+
+   install([], standalone_mode=False)           # 正常安装
+   install(["--force"], standalone_mode=False)  # 强制重新安装
+   ```
+
+2. 其他扩展功能：
+
+   - 安装 MCP Server 功能：
+
+     ```bash
+     pip install "scrapling[ai]"
+     ```
+
+   - 安装 Shell 功能（Web 抓取 Shell 与 `extract` 命令）：
+
+     ```bash
+     pip install "scrapling[shell]"
+     ```
+
+   - 安装全部内容：
+
+     ```bash
+     pip install "scrapling[all]"
+     ```
+
+   如果你尚未安装浏览器依赖，记得在安装这些扩展后执行 `scrapling install`。
+
+### Docker
+
+你也可以从 DockerHub 拉取包含全部扩展与浏览器的 Docker 镜像：
+
+```bash
+docker pull pyd4vinci/scrapling
+```
+
+或者从 GitHub Registry 下载：
+
+```bash
+docker pull ghcr.io/d4vinci/scrapling:latest
+```
+
+该镜像会通过 GitHub Actions 基于仓库主分支自动构建并推送。
+
+## 文档如何组织
+
+Scrapling 拥有较为完整的文档体系，因此尽量遵循 [Diátaxis documentation framework](https://diataxis.fr/) 文档框架。
+
+## 支持项目
+
+如果你喜欢 Scrapling 并希望支持它的持续开发：
+
+- ⭐ 为 [GitHub 仓库](https://github.com/D4Vinci/Scrapling) 点个 Star
+- 🚀 在 [Twitter](https://x.com/Scrapling_dev) 关注我们，并加入 [Discord 服务器](https://discord.gg/EMgGbDceNQ)
+- 💝 考虑[赞助项目或请我喝杯咖啡](/scrapling/donate) 😉
+- 🐛 通过 [GitHub Issues](https://github.com/D4Vinci/Scrapling/issues) 提交 Bug 和功能建议
+
+## 许可证
+
+本项目采用 BSD-3 许可证。详情请参阅 [LICENSE](https://github.com/D4Vinci/Scrapling/blob/main/LICENSE)。

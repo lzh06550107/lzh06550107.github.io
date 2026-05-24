@@ -1,0 +1,138 @@
+---
+title: 用 Scrapling 替代 AI 进行稳健的网页抓取
+description: 了解为什么许多网页抓取问题并不一定需要 AI，以及 Scrapling 如何以更低成本解决这些挑战。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+# Scrapling：AI 之外的免费稳健网页抓取方案
+
+长期以来，网页抓取一直是数据提取、索引构建、数据集准备等场景中的重要工具。但有经验的用户常常会遇到一些顽固问题，影响抓取效果。近来，越来越多人开始转向基于 AI 的网页抓取，正是因为它看起来能解决这些难题。
+
+本文会讨论这些常见问题、企业为何转向这种方案、这种方案自身的问题，以及 Scrapling 如何在**无需承担 AI 使用成本**的前提下为你解决它们。
+
+## 常见问题与更具挑战性的目标
+
+如果你已经做了很长时间的 Web 抓取，你大概会发现一些反复出现的问题，例如：
+
+1. **网站结构变化频繁** —— 网站经常更新 DOM 结构，导致静态 XPath/CSS 选择器失效。
+2. **选择器不稳定** —— 类名和 ID 经常变化，或者使用随机生成的值，使抓取器失效或增加抓取难度。
+3. **越来越复杂的反机器人措施** —— CAPTCHA、浏览器指纹和行为分析让传统抓取方式越来越困难。
+4. 以及其他问题。
+
+不过，这通常还是针对**已知网站的定向抓取**。在这种情况下，你仍然可以为每个网站编写专门的代码。
+
+但如果你开始考虑更大的目标，例如宽泛抓取（Broad Scraping）或通用抓取（Generic Web Scraping），无论你怎么称呼它，上述问题都会进一步放大，同时你还会遇到新的挑战：
+
+1. **网站差异极大** —— 通用抓取必须应对数不清的 HTML 结构、CSS 用法、JavaScript 框架以及后端技术差异。
+2. **识别相关数据** —— 抓取器如何知道在一个从未见过的页面上，哪些数据才是重要的？
+3. **分页形式多变** —— 无限滚动、传统分页、“加载更多”按钮……都需要不同处理方式。
+4. 以及更多问题。
+
+面对这些彼此几乎没有共同技术基础的网站，你要如何手动搞定通用抓取？
+
+## AI 来救场，但代价很高
+
+当然，AI 的确可以轻松解决其中大多数问题，因为它能够理解页面源码，识别你想要的字段，或者直接为你生成选择器。当然，前提是你已经通过其他工具解决了反爬措施 :) 
+
+这种方式当然很优雅。我很喜欢 AI，也觉得它非常迷人，尤其是生成式 AI。你大概会在提示词工程和 prompt 调优上花不少时间；如果这对你来说不是问题，那么你很快就会撞上真正的成本问题。
+
+大多数网页单页内容都非常多，而你需要想办法把这些内容传给 AI，让它发挥作用。这会像野火烧干草一样迅速消耗 token，并很快累积出高昂成本。
+
+除非钱对你来说完全不是问题，否则你一定会寻找更便宜的方案——这正是 Scrapling 出场的地方 😄
+
+## Scrapling 已经为你准备好了方案
+
+Scrapling 能处理你在 Web 抓取中会遇到的绝大多数问题，后续更新也会继续补齐剩余部分。
+
+### 解决问题 T1：网站结构变化频繁
+
+这正是 [adaptive](/scrapling/parsing/adaptive) 功能诞生的原因。你知道我一定会提到它，现在果然来了 :) 
+
+在抓取过程中，如果你启用了 `adaptive` 功能，就可以保存任意元素的唯一属性，以便在网站结构变化后再次找到它。最让人头疼的地方在于：元素身上的任何东西都有可能变化，因此你很难依赖某个单一特征。
+
+`adaptive` 的工作方式正是：尽可能存储一个元素所有独特的信息；等网站结构发生变化后，它会返回与原始元素**相似度最高**的那个元素。
+
+我已经用更多细节和大量示例解释过这件事。可从[这里](/scrapling/parsing/adaptive#how-the-adaptive-feature-works)继续阅读。
+
+### 解决问题 T2：选择器不稳定
+
+如果你抓站足够久，多半已经遇到过这种情况：某些网站采用很糟糕的设计模式，只用原始 HTML、完全没有 ID / class，或者类名是随机生成的，几乎没有任何稳定线索可依赖，等等……
+
+这时，基于 CSS / XPath 选择器的标准选择方法往往不是最优解，这也是为什么 Scrapling 还额外提供了三种选择方式：
+
+1. [按元素内容选择](/scrapling/parsing/selection#text-content-selection)：基于文本内容（`find_by_text`）或匹配文本内容的正则（`find_by_regex`）
+2. [查找与另一个元素相似的元素](/scrapling/parsing/selection#finding-similar-elements)：你先找到一个元素，剩下的交给我们！
+3. [按过滤条件选择元素](/scrapling/parsing/selection#filters-based-searching)：你描述这个元素必须满足的条件，我们来帮你找到它！
+
+这几个方法不需要我展开讲；点开链接后，你会很直观地看到 Scrapling 是如何解决这类问题的。
+
+### 解决问题 T3：越来越复杂的反机器人措施
+
+众所周知，想打造一个难以被检测的爬虫，仅靠住宅 / 移动代理和类人行为远远不够；你还需要一个**不容易被识别的浏览器**。为此，Scrapling 提供了两个主要选项：
+
+1. [DynamicFetcher](/scrapling/fetching/dynamic) —— 提供灵活的浏览器自动化能力，拥有多种配置选项，并内置少量底层隐身增强。
+2. [StealthyFetcher](/scrapling/fetching/stealthy) —— 现实世界很残酷，你往往需要[做全套，而不是做一半](https://www.youtube.com/watch?v=7BE4QcwX4dU)。于是 `StealthyFetcher` 就诞生了。它使用我们的隐身浏览器——也就是 `DynamicFetcher` 的增强版本，几乎可以绕过所有烦人的反防护措施，并提供额外工具处理剩余问题，还能自动绕过各种类型的 Cloudflare Turnstile / Interstitial！
+
+我们会在每次更新中继续增强这两个抓取器，敬请期待 :) 
+
+### 解决问题 B1 与 B2：网站差异极大 / 识别相关数据
+
+这个问题确实很难，但 Scrapling 的灵活性让它变得可行。
+
+我曾和一位使用 AI 从不同网站提取价格的人聊过。他只关心价格和标题，因此他让 AI 帮他定位价格。
+
+我告诉他，其实这里未必需要 AI，并给了他这段示例代码：
+
+```python
+price_element = page.find_by_regex(r'£[\d\.,]+', first_match=True)  # 找到第一个文本匹配价格正则（例如 £10.50）的元素
+# 如果你想获取包含该价格元素的容器/父元素
+price_element_container = price_element.parent or price_element.find_ancestor(lambda ancestor: ancestor.has_class('product'))  # 或其他方式……
+target_element_selector = price_element_container.generate_css_selector or price_element_container.generate_full_css_selector # 或 xpath
+```
+
+然后他说：“那像下面这种情况怎么办？”
+
+```html
+<span class='currency'> $ </span> <span class='a-price'> 45,000 </span>
+```
+
+于是我把代码改成这样：
+
+```python
+price_element_container = page.find_by_regex(r'[\d,]+', first_match=True).parent # 为这个示例调整后的正则
+full_price_data = price_element_container.get_all_text(strip=True)  # 在这个例子里会返回 '$45,000'
+```
+
+这对他的使用场景已经足够了。你可以先尝试第一种正则，如果找不到，再尝试下一种，依此类推。优先覆盖最常见模式，再覆盖不那么常见的模式。
+
+这个过程可能稍微有点无聊，但肯定比用 AI 便宜得多。
+
+这个例子正好说明了我想表达的观点：并不是所有挑战都需要 AI 才能解决；有时你只需要更有创造力一些，而这可能会帮你省下很多钱。
+
+### 解决问题 B3：分页形式多变
+
+对于这个问题，Scrapling 目前还没有一个可直接自动提取分页 URL 的专门方法，不过它会在后续更新中加入 :) 
+
+但如果你搜索最常见的模式，依然能处理大多数网站，比如用 `page.find_by_text('Next')['href']`、`page.find_by_text('load more')['href']`，或者使用 `'a[href*="?page="]'`、`'a[href*="/page/"]'` 这类选择器——你懂的。
+
+## 成本对比与节省空间
+
+下面做一个快速对比：
+
+| 维度 | Scrapling | AI 工具（如 Browse AI、Oxylabs） |
+|----------------|----------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| 成本结构 | 大概率免费或低成本，不按使用次数收费 | 从每月 19 美元（Browse AI）到 49 美元（Oxylabs）起，并随使用量增长 |
+| 上手成本 | 需要少量技术能力和手动配置 | 通常是无代码方案，对非技术用户更友好 |
+| 使用方式 | 可通过代码、终端或 MCP Server 使用 | 常见方式是 GUI 或 API，具体取决于厂商提供的方案 |
+| 可扩展性 | 取决于用户自己的实现 | 通常内置大规模托管能力 |
+| 适应性 | 借助 `adaptive` 和非选择器式选择方法，适应性很高 | 借助 AI 自动适应，能力强，但频繁变动时代价高 |
+
+此表基于 [Browse AI Pricing](https://www.browse.ai/pricing) 与 [Oxylabs Web Scraper API Pricing](https://oxylabs.io/products/scraper-api/web/pricing) 页面上的定价信息整理。
+
+## 结论
+
+AI 的能力当然很强，但对许多 Web 抓取任务来说，它的成本往往高得难以接受。Scrapling 提供了一套稳健、灵活且具备成本优势的工具集，用于解决定向抓取与宽泛抓取中的现实问题，而且在很多情况下都能免去昂贵的 AI 方案。通过 `adaptive`、多样化的选择方式和高级抓取器，你可以更高效地构建出更有韧性的抓取系统。
+
+继续探索文档，看看 Scrapling 如何让你今后的 Web 抓取项目更轻松！

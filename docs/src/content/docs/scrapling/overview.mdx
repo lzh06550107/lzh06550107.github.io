@@ -1,0 +1,399 @@
+---
+title: 概览
+description: 快速了解 Scrapling 的解析、元素选择、DOM 导航以及静态与动态网页抓取方式。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+## 选择你的起点
+
+如果你不确定从哪里开始，可以根据自己的目标选择对应路径：
+
+| 我想要…… | 从这里开始 |
+|:---|:---|
+| **解析手头已有的 HTML** | [元素查询](/scrapling/parsing/selection)：CSS、XPath 以及基于文本的选择方式 |
+| **快速抓取一个页面** 并做原型验证 | 选择一个[抓取器](/scrapling/fetching/choosing)立即测试，或启动[交互式 Shell](/scrapling/cli/interactive-shell) |
+| **构建可扩展的爬虫** | [Spiders](/scrapling/spiders/getting-started)：支持并发、多会话和暂停/恢复的爬取流程 |
+| **不写代码也能抓取** | 使用 [CLI 提取命令](/scrapling/cli/extract-commands)，或把 [MCP Server](/scrapling/ai/mcp-server) 接入你喜欢的 AI 工具 |
+| **从其他库迁移** | 参考 [从 BeautifulSoup 迁移](/scrapling/tutorials/migrating_from_beautifulsoup) 或 [与 Scrapy 的对比](/scrapling/spiders/architecture#comparison-with-scrapy) |
+
+---
+
+接下来我们会先快速浏览解析能力，然后介绍如何用定制浏览器抓取网站、发起请求并解析响应。
+
+下面是一份由 ChatGPT 生成的 HTML 文档，本页后续示例都会使用它：
+
+```html
+<html>
+  <head>
+    <title>Complex Web Page</title>
+    <style>
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav>
+        <ul>
+          <li> <a href="#home">Home</a> </li>
+          <li> <a href="#about">About</a> </li>
+          <li> <a href="#contact">Contact</a> </li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      <section id="products" schema='{"jsonable": "data"}'>
+        <h2>Products</h2>
+        <div class="product-list">
+          <article class="product" data-id="1">
+            <h3>Product 1</h3>
+            <p class="description">This is product 1</p>
+            <span class="price">$10.99</span>
+            <div class="hidden stock">In stock: 5</div>
+          </article>
+
+          <article class="product" data-id="2">
+            <h3>Product 2</h3>
+            <p class="description">This is product 2</p>
+            <span class="price">$20.99</span>
+            <div class="hidden stock">In stock: 3</div>
+          </article>
+
+          <article class="product" data-id="3">
+            <h3>Product 3</h3>
+            <p class="description">This is product 3</p>
+            <span class="price">$15.99</span>
+            <div class="hidden stock">Out of stock</div>
+          </article>
+        </div>
+      </section>
+      
+      <section id="reviews">
+        <h2>Customer Reviews</h2>
+        <div class="review-list">
+          <div class="review" data-rating="5">
+            <p class="review-text">Great product!</p>
+            <span class="reviewer">John Doe</span>
+          </div>
+          <div class="review" data-rating="4">
+            <p class="review-text">Good value for money.</p>
+            <span class="reviewer">Jane Smith</span>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script id="page-data" type="application/json">
+      {
+        "lastUpdated": "2024-09-22T10:30:00Z",
+        "totalProducts": 3
+      }
+    </script>
+  </body>
+</html>
+```
+
+先像下面这样加载原始 HTML：
+
+```python
+from scrapling.parser import Selector
+page = Selector(html_doc)
+page  # <data='<html><head><title>Complex Web Page</tit...'>
+```
+
+递归获取页面中的全部文本内容：
+
+```python
+page.get_all_text(ignore_tags=('script', 'style'))
+# 'Complex Web Page\nHome\nAbout\nContact\nProducts\nProduct 1\nThis is product 1\n$10.99\nIn stock: 5\nProduct 2\nThis is product 2\n$20.99\nIn stock: 3\nProduct 3\nThis is product 3\n$15.99\nOut of stock\nCustomer Reviews\nGreat product!\nJohn Doe\nGood value for money.\nJane Smith'
+```
+
+## 查找元素
+
+如果页面上有你想找的元素，你基本都能把它找到！限制你的通常只有创造力。
+
+查找第一个 HTML `section` 元素：
+
+```python
+section_element = page.find('section')
+# <data='<section id="products" schema='{"jsonabl...' parent='<main><section id="products" schema='{"j...'>
+```
+
+查找所有 `section` 元素：
+
+```python
+section_elements = page.find_all('section')
+# [<data='<section id="products" schema='{"jsonabl...' parent='<main><section id="products" schema='{"j...'>, <data='<section id="reviews"><h2>Customer Revie...' parent='<main><section id="products" schema='{"j...'>]
+```
+
+查找所有 `id` 属性值等于 `products` 的 `section` 元素：
+
+```python
+section_elements = page.find_all('section', {'id':"products"})
+# 等价于
+section_elements = page.find_all('section', id="products")
+# [<data='<section id="products" schema='{"jsonabl...' parent='<main><section id="products" schema='{"j...'>]
+```
+
+查找所有 `id` 属性值包含 `product` 的 `section` 元素：
+
+```python
+section_elements = page.find_all('section', {'id*':"product"})
+```
+
+查找所有文本内容匹配正则 `Product \d` 的 `h3` 元素：
+
+```python
+page.find_all('h3', re.compile(r'Product \d'))
+# [<data='<h3>Product 1</h3>' parent='<article class="product" data-id="1"><h3...'>, <data='<h3>Product 2</h3>' parent='<article class="product" data-id="2"><h3...'>, <data='<h3>Product 3</h3>' parent='<article class="product" data-id="3"><h3...'>]
+```
+
+查找所有文本内容仅匹配正则 `Product` 的 `h3` 和 `h2` 元素：
+
+```python
+page.find_all(['h3', 'h2'], re.compile(r'Product'))
+# [<data='<h3>Product 1</h3>' parent='<article class="product" data-id="1"><h3...'>, <data='<h3>Product 2</h3>' parent='<article class="product" data-id="2"><h3...'>, <data='<h3>Product 3</h3>' parent='<article class="product" data-id="3"><h3...'>, <data='<h2>Products</h2>' parent='<section id="products" schema='{"jsonabl...'>]
+```
+
+查找所有文本内容精确匹配 `Products` 的元素（不考虑空白字符）：
+
+```python
+page.find_by_text('Products', first_match=False)
+# [<data='<h2>Products</h2>' parent='<section id="products" schema='{"jsonabl...'>]
+```
+
+或者查找所有文本内容匹配正则 `Product \d` 的元素：
+
+```python
+page.find_by_regex(r'Product \d', first_match=False)
+# [<data='<h3>Product 1</h3>' parent='<article class="product" data-id="1"><h3...'>, <data='<h3>Product 2</h3>' parent='<article class="product" data-id="2"><h3...'>, <data='<h3>Product 3</h3>' parent='<article class="product" data-id="3"><h3...'>]
+```
+
+查找与你目标元素相似的所有元素：
+
+```python
+target_element = page.find_by_regex(r'Product \d', first_match=True)
+# <data='<h3>Product 1</h3>' parent='<article class="product" data-id="1"><h3...'>
+target_element.find_similar()
+# [<data='<h3>Product 2</h3>' parent='<article class="product" data-id="2"><h3...'>, <data='<h3>Product 3</h3>' parent='<article class="product" data-id="3"><h3...'>]
+```
+
+查找第一个匹配 CSS 选择器的元素：
+
+```python
+page.css('.product-list [data-id="1"]')[0]
+# <data='<article class="product" data-id="1"><h3...' parent='<div class="product-list"> <article clas...'>
+```
+
+查找所有匹配 CSS 选择器的元素：
+
+```python
+page.css('.product-list article')
+# [<data='<article class="product" data-id="1"><h3...' parent='<div class="product-list"> <article clas...'>, <data='<article class="product" data-id="2"><h3...' parent='<div class="product-list"> <article clas...'>, <data='<article class="product" data-id="3"><h3...' parent='<div class="product-list"> <article clas...'>]
+```
+
+查找第一个匹配 XPath 选择器的元素：
+
+```python
+page.xpath("//*[@id='products']/div/article")[0]
+# <data='<article class="product" data-id="1"><h3...' parent='<div class="product-list"> <article clas...'>
+```
+
+查找所有匹配 XPath 选择器的元素：
+
+```python
+page.xpath("//*[@id='products']/div/article")
+# [<data='<article class="product" data-id="1"><h3...' parent='<div class="product-list"> <article clas...'>, <data='<article class="product" data-id="2"><h3...' parent='<div class="product-list"> <article clas...'>, <data='<article class="product" data-id="3"><h3...' parent='<div class="product-list"> <article clas...'>]
+```
+
+这些函数我们这里只是浅尝辄止；后文会展示这些选择方式更高级的用法。
+
+## 访问元素数据
+
+这件事简单得很：
+
+```python
+>>> section_element.tag
+'section'
+>>> print(section_element.attrib)
+{'id': 'products', 'schema': '{"jsonable": "data"}'}
+>>> section_element.attrib['schema'].json()  # 如果属性值可转换为 JSON，可使用 `.json()` 进行转换
+{'jsonable': 'data'}
+>>> section_element.text  # 直接文本内容
+''
+>>> section_element.get_all_text()  # 递归获取全部文本内容
+'Products\nProduct 1\nThis is product 1\n$10.99\nIn stock: 5\nProduct 2\nThis is product 2\n$20.99\nIn stock: 3\nProduct 3\nThis is product 3\n$15.99\nOut of stock'
+>>> section_element.html_content  # 元素的 HTML 内容
+'<section id="products" schema=\'{"jsonable": "data"}\'><h2>Products</h2>\n        <div class="product-list">\n          <article class="product" data-id="1"><h3>Product 1</h3>\n            <p class="description">This is product 1</p>\n            <span class="price">$10.99</span>\n            <div class="hidden stock">In stock: 5</div>\n          </article><article class="product" data-id="2"><h3>Product 2</h3>\n            <p class="description">This is product 2</p>\n            <span class="price">$20.99</span>\n            <div class="hidden stock">In stock: 3</div>\n          </article><article class="product" data-id="3"><h3>Product 3</h3>\n            <p class="description">This is product 3</p>\n            <span class="price">$15.99</span>\n            <div class="hidden stock">Out of stock</div>\n          </article></div>\n      </section>'
+>>> print(section_element.prettify())  # 美化后的版本
+'''
+<section id="products" schema='{"jsonable": "data"}'><h2>Products</h2>
+    <div class="product-list">
+      <article class="product" data-id="1"><h3>Product 1</h3>
+        <p class="description">This is product 1</p>
+        <span class="price">$10.99</span>
+        <div class="hidden stock">In stock: 5</div>
+      </article><article class="product" data-id="2"><h3>Product 2</h3>
+        <p class="description">This is product 2</p>
+        <span class="price">$20.99</span>
+        <div class="hidden stock">In stock: 3</div>
+      </article><article class="product" data-id="3"><h3>Product 3</h3>
+        <p class="description">This is product 3</p>
+        <span class="price">$15.99</span>
+        <div class="hidden stock">Out of stock</div>
+      </article>
+    </div>
+</section>
+'''
+>>> section_element.path  # 此元素在 DOM 树中的全部祖先
+[<data='<main><section id="products" schema='{"j...' parent='<body> <header><nav><ul><li> <a href="#h...'>,
+ <data='<body> <header><nav><ul><li> <a href="#h...' parent='<html><head><title>Complex Web Page</tit...'>,
+ <data='<html><head><title>Complex Web Page</tit...'>]
+>>> section_element.generate_css_selector
+'#products'
+>>> section_element.generate_full_css_selector
+'body > main > #products > #products'
+>>> section_element.generate_xpath_selector
+"//*[@id='products']"
+>>> section_element.generate_full_xpath_selector
+"//body/main/*[@id='products']"
+```
+
+## 导航
+
+基于上面找到的元素：
+
+```python
+>>> section_element.parent
+<data='<main><section id="products" schema='{"j...' parent='<body> <header><nav><ul><li> <a href="#h...'>
+>>> section_element.parent.tag
+'main'
+>>> section_element.parent.parent.tag
+'body'
+>>> section_element.children
+[<data='<h2>Products</h2>' parent='<section id="products" schema='{"jsonabl...'>,
+ <data='<div class="product-list"> <article clas...' parent='<section id="products" schema='{"jsonabl...'>]
+>>> section_element.siblings
+[<data='<section id="reviews"><h2>Customer Revie...' parent='<main><section id="products" schema='{"j...'>]
+>>> section_element.next  # 获取下一个元素，同样的逻辑也适用于 `quote.previous`
+<data='<section id="reviews"><h2>Customer Revie...' parent='<main><section id="products" schema='{"j...'>
+>>> section_element.children.css('h2::text').getall()
+['Products']
+>>> page.css('[data-id="1"]')[0].has_class('product')
+True
+```
+
+如果你的场景不止需要父元素，你还可以遍历任意元素的完整祖先链，例如：
+
+```python
+for ancestor in section_element.iterancestors():
+    # 对它做点什么……
+```
+
+你也可以搜索某个满足条件的特定祖先元素；只需传入一个接收 `Selector` 对象并返回 `True`/`False` 的函数即可：
+
+```python
+>>> section_element.find_ancestor(lambda ancestor: ancestor.css('nav'))
+<data='<body> <header><nav><ul><li> <a href="#h...' parent='<html><head><title>Complex Web Page</tit...'>
+```
+
+## 抓取网站
+
+除了把原始 HTML 传给 Scrapling，你也可以直接通过 HTTP 请求或浏览器抓取的方式来获取网站响应。
+
+它为不同使用场景准备了不同的抓取器。
+
+### HTTP 请求
+
+对于简单的 HTTP 请求，可以导入 `Fetcher` 类并像这样使用：
+
+```python
+from scrapling.fetchers import Fetcher
+page = Fetcher.get('https://scrapling.requestcatcher.com/get', impersonate="chrome")
+```
+
+下面展示所有 HTTP 方法的写法：
+
+```python
+from scrapling.fetchers import Fetcher
+page = Fetcher.get('https://scrapling.requestcatcher.com/get', stealthy_headers=True)
+page = Fetcher.post('https://scrapling.requestcatcher.com/post', data={'key': 'value'}, proxy='http://username:***@localhost:8030')
+page = Fetcher.put('https://scrapling.requestcatcher.com/put', data={'key': 'value'})
+page = Fetcher.delete('https://scrapling.requestcatcher.com/delete')
+```
+
+异步请求时，只需像下面这样替换导入：
+
+```python
+from scrapling.fetchers import AsyncFetcher
+page = await AsyncFetcher.get('https://scrapling.requestcatcher.com/get', stealthy_headers=True)
+page = await AsyncFetcher.post('https://scrapling.requestcatcher.com/post', data={'key': 'value'}, proxy='http://username:***@localhost:8030')
+page = await AsyncFetcher.put('https://scrapling.requestcatcher.com/put', data={'key': 'value'})
+page = await AsyncFetcher.delete('https://scrapling.requestcatcher.com/delete')
+```
+
+:::note[说明]
+1. 你可以使用 `stealthy_headers` 参数；启用后，请求会生成并使用真实浏览器风格的请求头，其中还包括 Google Referer。它默认开启。
+2. `impersonate` 参数允许你伪装成特定浏览器版本的 TLS 指纹。
+3. 此外还有 `http3` 参数；启用后，抓取器会使用 HTTP/3 发起请求，使请求更接近真实浏览器。
+:::
+
+以上只是这个抓取器的冰山一角；更多内容请参阅[这里](/scrapling/fetching/static)。
+
+### 动态加载
+
+如果你面对的是如今常见的动态网站，Scrapling 同样能胜任！
+
+`DynamicFetcher` 类（旧称 `PlayWrightFetcher`）提供了大量选项，可使用基于 Chromium 的浏览器抓取并加载网页。
+
+```python
+from scrapling.fetchers import DynamicFetcher
+page = DynamicFetcher.fetch('https://quotes.toscrape.com/js/', disable_resources=True, block_ads=True)
+print(len(page.css(".quote")))  # -> 10
+
+# fetch 的异步版本
+page = await DynamicFetcher.async_fetch('https://quotes.toscrape.com/js/', disable_resources=True, block_ads=True)
+print(len(page.css(".quote")))  # -> 10
+```
+
+它构建于 [Playwright](https://playwright.dev/python/) 之上，目前主要提供两种可自由组合的运行方式：
+
+- 原生 Playwright，仅应用你显式启用的选项，使用 Chromium 浏览器。
+- 真实浏览器，例如通过 `real_chrome` 参数直接使用你的 Chrome，或传入浏览器的 CDP URL 交由 Fetcher 控制，并且大多数选项都可以启用。
+
+同样，这也只是这个抓取器的冰山一角。完整参数和详细说明请查看[这里](/scrapling/fetching/dynamic)。
+
+### 具备反防护能力的动态加载
+
+如果你面对的是带有恼人反爬保护的动态网站，我们也准备好了方案！
+
+`StealthyFetcher` 类使用了上面所述 `DynamicFetcher` 的隐身版本。
+
+它能做到的事情包括：
+
+1. 自动轻松绕过各种类型的 Cloudflare Turnstile / Interstitial。
+2. 绕过 CDP 运行时泄漏与 WebRTC 泄漏。
+3. 隔离 JS 执行环境，移除大量 Playwright 指纹，并阻止网站通过一些已知的机器人行为特征识别你。
+4. 生成 Canvas 噪声，避免通过 Canvas 进行指纹识别。
+5. 自动修补一些可用于检测无头模式的方法，并提供对抗时区不匹配攻击的选项。
+6. 以及更多反防护能力……
+
+```python
+from scrapling.fetchers import StealthyFetcher
+page = StealthyFetcher.fetch('https://www.browserscan.net/bot-detection')  # 默认以无头模式运行
+page.status == 200  # -> True
+
+page = StealthyFetcher.fetch('https://nopecha.com/demo/cloudflare', solve_cloudflare=True)  # 如果出现 Cloudflare 验证，自动求解
+page.status == 200  # -> True
+
+page = StealthyFetcher.fetch('https://www.browserscan.net/bot-detection', block_webrtc=True, hide_canvas=True, dns_over_https=True) # 以及其他参数……
+# fetch 的异步版本
+page = await StealthyFetcher.async_fetch('https://www.browserscan.net/bot-detection')
+page.status == 200  # -> True
+```
+
+同样，这也只是这个抓取器的冰山一角。完整参数和详细说明请查看[这里](/scrapling/fetching/stealthy)。
+
+---
+
+以上就是 Scrapling 的整体速览。如果你想进一步了解它，请继续阅读下一部分。
