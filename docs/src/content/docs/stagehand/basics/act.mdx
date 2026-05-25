@@ -1,0 +1,428 @@
+---
+title: Act
+description: 在网页上执行操作。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Act
+
+> 在网页上执行操作
+
+## 什么是 `act()`？
+
+```ts
+await stagehand.act("click on add to cart")
+```
+
+`act` 让 Stagehand 能够在网页上执行**单个**操作。你可以用它构建具备自愈能力且确定性更强的自动化流程，并且能够适应网站变化。
+
+## 为什么使用 `act()`？
+
+<CardGrid>
+  <Card title="自然语言指令" icon="wand-magic-sparkles" href="#using-act">
+    用纯英文描述你的自动化操作。无需选择器，也不需要复杂语法。
+  </Card>
+
+  <Card title="精确控制" icon="crosshairs" href="#best-practices">
+    按步骤构建自动化流程。精确定义每个时刻会发生什么。
+  </Card>
+
+  <Card title="自愈能力" icon="bandage" href="#ensure-reliable-actions">
+    当网站发生变化时，操作会自动适配。
+  </Card>
+
+  <Card title="缓存" icon="repeat" href="#reduce-model-costs">
+    对操作进行缓存，避免 LLM 调用，并确保多次运行之间的执行一致性。
+  </Card>
+</CardGrid>
+
+<div id="using-act"></div>
+
+## 使用 `act()`
+
+使用 `act` 在你的自动化流程中执行单个操作。下面是点击按钮的方式：
+
+```ts
+await page.goto("https://example-store.com");
+await stagehand.act("click the add to cart button");
+```
+
+:::note[说明]
+**iFrame 与 Shadow DOM 支持**：Stagehand 会自动处理 iFrame 遍历和 shadow DOM 元素，无需额外配置。
+:::
+
+使用 `act` 时，最好将复杂操作拆分为多个小的单步动作。如果你需要编排多步流程，请使用多个 `act` 命令或 `agent`。
+
+<details>
+  <summary>建议使用的操作</summary>
+
+  | 操作 | 示例指令 |
+  | --- | --- |
+  | 点击 | `click the button` |
+  | 填写 | `fill the field with <value>` |
+  | 输入 | `type <text> into the search box` |
+  | 按键 | `press <key> in the search field` |
+  | 滚动 | `scroll to <position>` |
+  | 从下拉框选择 | `select <value> from the dropdown` |
+</details>
+
+### `act()` 的返回值是什么？
+
+当你使用 `act()` 时，Stagehand 会返回一个 `Promise<ActResult>`，其结构如下：
+
+```ts
+{
+  success: true,
+  message: 'Action [click] performed successfully on selector: xpath=/html[1]/body[1]/div[1]/span[1] → Action [click] performed successfully on selector: xpath=/html[1]/body[1]/div[2]/div[1]/section[1]/div[1]/div[1]/div[25]',
+  actionDescription: 'Favorite Colour',
+  actions: [
+    {
+      selector: 'xpath=/html[1]/body[1]/div[1]/span[1]',
+      description: 'Favorite Colour',
+      method: 'click',
+      arguments: []
+    },
+    {
+      selector: 'xpath=/html[1]/body[1]/div[2]/div[1]/section[1]/div[1]/div[1]/div[25]',
+      description: 'Peach',
+      method: 'click',
+      arguments: []
+    }
+  ]
+}
+```
+
+<Tabs>
+  <TabItem label="这样做" icon="check">
+
+  将任务拆分为单步操作。
+
+  ```ts
+  // 将任务拆分为单步操作
+  await stagehand.act("open the filters panel");
+  await stagehand.act("choose 4-star rating");
+  await stagehand.act("click the apply button");
+  ```
+  </TabItem>
+
+  <TabItem label="不要这样做" icon="xmark">
+
+  对于多步任务，请改用 [`agent()`](https://docs.stagehand.dev/v3/basics/agent)。
+
+  ```ts
+  // 过于复杂：试图一次完成多件事
+  await stagehand.act("open the filters panel, choose 4-star rating, and click apply");
+  ```
+  </TabItem>
+</Tabs>
+
+## 高级配置
+
+你可以传入额外选项来配置模型、超时、变量以及目标页面：
+
+```ts
+// 自定义模型配置
+await stagehand.act("choose 'Peach' from the favorite color dropdown", {
+  model: "google/gemini-2.5-flash",
+  timeout: 10000
+});
+```
+
+### 服务端缓存
+
+:::note[说明]
+`serverCache` 仅在使用 `env: "BROWSERBASE"` 运行时生效。在本地环境中不会产生任何效果。
+:::
+
+当运行在 Browserbase 上时，Stagehand 会自动在服务端缓存 `act()` 结果。对于相同输入的重复调用，会立即返回，并且不会消耗 LLM token。缓存默认开启，可以在构造器上全局控制，也可以在单次调用时覆盖：
+
+```ts
+// 为整个实例禁用服务端缓存
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  serverCache: false,
+});
+
+// 或者仅对单次调用禁用
+await stagehand.act("click the login button", { serverCache: false });
+
+// 检查结果是否来自缓存
+const result = await stagehand.act("click the login button");
+console.log(result.cacheStatus); // "HIT"、"MISS" 或 undefined
+```
+
+### 与自定义页面一起使用
+
+你可以通过传入 `page` 选项，将 `act()` 与来自其他浏览器自动化库（如 Puppeteer、Playwright 或 Patchright）的页面一起使用：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+import puppeteer from "puppeteer-core";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+});
+await stagehand.init();
+
+// 通过 Puppeteer 连接
+const browser = await puppeteer.connect({
+  browserWSEndpoint: stagehand.connectURL(),
+  defaultViewport: null,
+});
+
+const pages = await browser.pages();
+const customPage = pages[0];
+
+await customPage.goto("https://www.example.com/blog");
+
+// 在自定义 Puppeteer 页面上使用 act
+await stagehand.act("click the next page button", {
+  page: customPage
+});
+```
+
+这适用于：
+
+- **Puppeteer**：传入 Puppeteer 的 Page 对象
+- **Playwright**：传入 Playwright 的 Page 对象
+- **Patchright**：传入 Patchright 的 Page 对象
+- **Stagehand Page**：使用 `stagehand.context.pages()[0]` 或 `context.activePage()`（默认）
+
+<Card title="完整 API 参考" icon="book" href="https://docs.stagehand.dev/v3/references/act">
+  查看完整的 `act()` 参考文档，了解详细参数说明、返回值以及高级示例。
+</Card>
+
+<div id="best-practices"></div>
+
+## 最佳实践
+
+<div id="ensure-reliable-actions"></div>
+
+### 确保操作可靠
+
+使用 `observe()` 可以在当前页面上发现候选操作并进行可靠规划。它会返回一个建议操作列表（包含 selector、description、method 和 arguments）。你可以直接把观察到的操作传给 `act` 来执行。
+
+```ts
+const [action] = await stagehand.observe("click the login button");
+
+if (action) {
+  await stagehand.act(action);
+}
+```
+
+<Card title="使用 observe() 分析页面" icon="magnifying-glass" href="https://docs.stagehand.dev/v3/basics/observe">
+  在使用 `act` 执行之前，先用 `observe()` 规划操作。
+</Card>
+
+<div id="reduce-model-costs"></div>
+
+### 降低模型成本
+
+在初始化 Stagehand 时指定 `cacheDir`，即可启用自动操作缓存。某个操作首次运行时会被缓存；后续运行会复用缓存的操作，而无需再次调用 LLM。
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+// 通过指定缓存目录启用缓存
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "act-cache" // 操作会自动缓存在这里
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+// 第一次运行：调用 LLM 并缓存该操作
+await stagehand.act("click the login button");
+```
+
+:::note[说明]
+缓存会跨脚本执行持久化。第一次运行脚本时，操作会被缓存到本地文件系统；在后续运行中，会自动复用这些缓存的操作，从而显著降低成本并提升性能。
+:::
+
+<Card title="完整缓存指南" icon="database" href="https://docs.stagehand.dev/v3/best-practices/caching">
+  了解用于优化性能的高级缓存技巧与模式。
+</Card>
+
+### 保护你的自动化流程
+
+变量**不会与 LLM 提供商共享**。请用它们来处理密码、API 密钥以及其他敏感数据。
+
+:::note[说明]
+请通过 `.env` 文件中的环境变量加载敏感数据。绝不要在代码中直接硬编码 API 密钥、密码或其他机密信息。
+:::
+
+```ts
+// 在指令中通过 %variableName% 语法使用变量
+await stagehand.act("type %username% into the email field", {
+  variables: { username: "user@example.com" }
+});
+
+await stagehand.act("type %password% into the password field", {
+  variables: { password: process.env.USER_PASSWORD }
+});
+
+await stagehand.act("click the login button");
+```
+
+:::warning[警告]
+处理敏感数据时，请在 Stagehand 配置中设置 `verbose: 0`，以防止机密信息出现在日志中。更多细节请参阅[配置指南](https://docs.stagehand.dev/v3/configuration/browser)。
+:::
+
+<Card title="用户数据最佳实践" icon="shield-check" href="https://docs.stagehand.dev/v3/best-practices/user-data">
+  了解用于保护浏览器自动化流程的最佳实践与配置完整指南。
+</Card>
+
+## 故障排查
+
+<details>
+  <summary>不支持的方法</summary>
+
+  **问题**：`act` 因 “method not supported” 错误而失败。
+
+  **解决方案**：
+
+  - 使用清晰且详细的指令来描述你想完成的事情
+  - 查看我们的 [evals](https://stagehand.dev/evals)，为你的用例选择最合适的模型
+  - 使用 [`observe()`](https://docs.stagehand.dev/v3/basics/observe)，并验证生成的操作是否在你的预期操作列表之内
+
+  **方案 1：使用 observe 进行校验**
+
+  ```ts
+  const prompt = "click the submit button";
+  const expectedMethod = "click";
+
+  try {
+    await stagehand.act(prompt);
+  } catch (error) {
+    if (error.message.includes("method not supported")) {
+      // 观察相同的提示词，获取计划执行的操作
+      const [action] = await stagehand.observe(prompt);
+
+      if (action && action.method === expectedMethod) {
+        await stagehand.act(action);
+      } else {
+        throw new Error(`Unsupported method: expected "${expectedMethod}", got "${action?.method}"`);
+      }
+    } else {
+      throw error;
+    }
+  }
+  ```
+
+  **方案 2：使用指数退避重试**
+
+  ```ts
+  // 通过指数退避重试处理间歇性问题
+  const prompt = "click the submit button";
+  const maxRetries = 3;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await stagehand.act(prompt, { timeout: 10000 + (attempt * 5000) });
+      break; // 成功后退出重试循环
+    } catch (error) {
+      if (error.message.includes("method not supported") && attempt < maxRetries) {
+        // 指数退避：等待 2^attempt 秒
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`Retry ${attempt + 1}/${maxRetries} after ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+  ```
+</details>
+
+<details>
+  <summary>操作失败或超时</summary>
+
+  **问题**：`act` 超时或未能完成操作（通常是因为找不到元素）。
+
+  **解决方案**：
+
+  - 确保页面已经完全加载
+  - 检查内容是否在 iframe 中：[进一步了解如何处理 iframe](https://docs.stagehand.dev/v3/best-practices/working-with-iframes)
+  - 增加操作超时时间
+  - 先使用 `observe()` 验证元素是否存在
+
+  ```ts
+  // 处理超时和元素未找到问题
+  try {
+    await stagehand.act("click the submit button", { timeout: 30000 });
+  } catch (error) {
+    // 检查页面是否已完全加载
+    await page.waitForLoadState('domcontentloaded');
+
+    // 使用 observe 检查元素状态
+    const [element] = await stagehand.observe("find the submit button");
+
+    if (element) {
+      console.log("Element found, trying more specific instruction");
+      await stagehand.act("click the submit button at the bottom of the form");
+    } else {
+      console.log("Element not found, trying alternative selector");
+      await stagehand.act("click the button with text 'Submit'");
+    }
+  }
+  ```
+</details>
+
+<details>
+  <summary>选中了错误的元素</summary>
+
+  **问题**：`act` 在错误的元素上执行了操作。
+
+  **解决方案**：
+
+  - 在指令中描述得更具体：加入视觉特征、位置或上下文
+  - 使用 `observe()` 预览将要被选中的元素
+  - 添加上下文信息：例如 “the search button in the header”
+  - 在可用时使用唯一标识符
+
+  ```ts
+  // 更精确地定位元素
+  // 不要这样：
+  await stagehand.act("click the button");
+
+  // 应该提供更具体的上下文：
+  await stagehand.act("click the red 'Delete' button next to the user John Smith");
+
+  // 或者先用 observe 预览：
+  const [action] = await stagehand.observe("click the submit button in the checkout form");
+  if (action.description.includes("checkout")) {
+    await stagehand.act(action);
+  }
+  ```
+</details>
+
+## 下一步
+
+<CardGrid>
+  <Card title="使用 Agent 编排复杂工作流" icon="robot" href="https://docs.stagehand.dev/v3/basics/agent">
+    使用 `Agent` 自主执行多步任务和复杂工作流。
+  </Card>
+
+  <Card title="缓存操作" icon="bolt" href="https://docs.stagehand.dev/v3/best-practices/caching">
+    通过缓存操作，加速重复执行的自动化流程。
+  </Card>
+
+  <Card title="使用 extract() 提取数据" icon="table" href="https://docs.stagehand.dev/v3/basics/extract">
+    将 `extract` 与数据 schema 结合使用，从任意页面中提取干净、强类型的数据。
+  </Card>
+
+  <Card title="使用 observe() 预览操作" icon="magnifying-glass" href="https://docs.stagehand.dev/v3/basics/observe">
+    在执行前先用 `observe()` 预览操作。
+  </Card>
+</CardGrid>

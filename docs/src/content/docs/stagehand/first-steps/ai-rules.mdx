@@ -1,0 +1,482 @@
+---
+title: AI 规则
+description: 使用 AI 更快、更好地编写 Stagehand 代码。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+你很可能正在用 AI 写代码，而这件事有对的方法，也有错的方法。本页汇集了规则、配置以及可直接复制粘贴的片段，帮助你的 AI 智能体 / 助手以尽可能快的速度写出高性能的 Stagehand 代码。
+
+## 快速开始
+
+<CardGrid>
+  <Card title="Add MCP servers" icon="screwdriver-wrench">
+    在你的 MCP 客户端中配置 Browserbase（Stagehand）、Context7、DeepWiki 和 Stagehand Docs。
+  </Card>
+  <Card title="Pin editor rules" icon="memo">
+    放入 `cursorrules` 和 `claude.md`，让 AI 智能体 / 助手始终输出符合 Stagehand 模式的代码。
+  </Card>
+</CardGrid>
+
+## 使用 MCP 服务器
+
+MCP（Model Context Protocol，模型上下文协议）服务器充当中间层，将 AI 系统连接到外部数据源和工具。这些服务器使你的编码助手能够访问实时信息、执行任务，并检索结构化数据，从而提升代码生成的准确性。
+
+以下 MCP 服务器为 Stagehand 文档及相关资源提供专门访问能力：
+
+<details>
+  <summary>Context7 by Upstash</summary>
+
+  Context7 提供跨文档和代码库上下文的语义搜索。它让 AI 助手能够从你的项目历史中找到相关代码模式、示例和实现细节，并维持对开发工作流的上下文理解，进而从以往工作中提取相关解决方案。
+
+  **安装：**
+
+  ```json
+  {
+    "mcpServers": {
+      "context7": {
+        "command": "npx",
+        "args": ["-y", "@upstash/context7-mcp"]
+      }
+    }
+  }
+  ```
+</details>
+
+<details>
+  <summary>DeepWiki by Cognition</summary>
+
+  DeepWiki 提供对 GitHub 仓库与文档的深度索引。它让 AI 智能体能够理解整个 Stagehand 生态中的项目架构、API 参考和最佳实践，并提供关于仓库结构、代码关系和开发模式的全面知识。
+
+  **安装：**
+
+  ```json
+  {
+    "mcpServers": {
+      "deepwiki": {
+        "url": "https://mcp.deepwiki.com/mcp"
+      }
+    }
+  }
+  ```
+</details>
+
+<details>
+  <summary>Stagehand Docs by Mintlify</summary>
+
+  直接访问 Stagehand 官方文档。这个 MCP 服务器为 AI 助手提供最新的 API 参考、配置选项和使用示例，以生成更准确的代码。Mintlify 会基于官方文档自动生成这个服务器，确保你的 AI 助手始终获得最新信息。
+
+  **用法：**
+
+  ```json
+  {
+    "mcpServers": {
+      "stagehand-docs": {
+        "url": "https://docs.stagehand.dev/mcp"
+      }
+    }
+  }
+  ```
+</details>
+
+### MCP 服务器如何增强你的开发
+
+- **实时文档访问**：AI 助手可以查询最新的 Stagehand 文档、示例和最佳实践。
+- **上下文感知的代码生成**：服务器会根据你的具体用例提供相关代码模式和配置。
+- **更低的集成开销**：标准化协议消除了为每个文档源分别编写自定义集成的需要。
+- **更高的准确性**：AI 智能体拿到的是结构化、最新的信息，而不是依赖可能已经过时的训练数据。
+
+:::tip[提示]
+请明确要求你的编码智能体 / 助手使用这些 MCP 服务器从文档中获取相关信息，这样它们会拥有更好的上下文，也更清楚怎样写出规范的 Stagehand 代码。
+
+例如：`Use the stagehand-docs MCP to fetch the act/observe guidelines, then generate code that follows them. Prefer cached observe results.`
+:::
+
+## 编辑器规则文件（可复制粘贴）
+
+将下面这些内容放入 `.cursorrules`、`windsurfrules`、`claude.md` 或任何智能体规则框架中：
+
+<details>
+  <summary>TypeScript</summary>
+
+  ````md
+  # Stagehand 项目
+
+  这是一个使用 Stagehand V3 的项目。Stagehand V3 是一个浏览器自动化框架，提供由 AI 驱动的 `act`、`extract`、`observe` 和 `agent` 方法。
+
+  主类可以从 `@browserbasehq/stagehand` 导入，名称为 `Stagehand`。
+
+  **关键类：**
+
+  - `Stagehand`：主编排类，提供 `act`、`extract`、`observe` 和 `agent` 方法
+  - `context`：用于管理浏览器上下文与页面的 `V3Context` 对象
+  - `page`：单个页面对象，可通过 `stagehand.context.pages()[i]` 访问，也可通过 `stagehand.context.newPage()` 创建
+
+  ## 初始化
+
+  ```typescript
+  import { Stagehand } from "@browserbasehq/stagehand";
+
+  const stagehand = new Stagehand({
+    env: "LOCAL", // 或 "BROWSERBASE"
+    verbose: 2, // 0、1 或 2
+    model: "openai/gpt-4.1-mini", // 或任意受支持模型
+  });
+
+  await stagehand.init();
+
+  // 访问浏览器上下文和页面
+  const page = stagehand.context.pages()[0];
+  const context = stagehand.context;
+
+  // 如有需要可创建新页面
+  const page2 = await stagehand.context.newPage();
+  ```
+
+  ## Act
+
+  操作调用应当写在 `stagehand` 实例上（而不是 page 上）。请使用原子化、具体的指令：
+
+  ```typescript
+  // 在当前活动页面上执行操作
+  await stagehand.act("click the sign in button");
+
+  // 在指定页面上执行操作（当你需要针对的页面不是当前活动页时）
+  await stagehand.act("click the sign in button", { page: page2 });
+  ```
+
+  **重要：** Act 指令应尽可能原子化且具体：
+
+  - ✅ 好示例：`"Click the sign in button"` 或 `"Type 'hello' into the search input"`
+  - ❌ 差示例：`"Order me pizza"` 或 `"Type in the search bar and hit enter"`（多步骤）
+
+  ### Observe + Act 模式（推荐）
+
+  缓存 `observe` 的结果，以避免意外的 DOM 变化：
+
+  ```typescript
+  const instruction = "Click the sign in button";
+
+  // 获取候选动作
+  const actions = await stagehand.observe(instruction);
+
+  // 执行第一个动作
+  await stagehand.act(actions[0]);
+  ```
+
+  如果要针对指定页面：
+
+  ```typescript
+  const actions = await stagehand.observe("select blue as the favorite color", {
+    page: page2,
+  });
+  await stagehand.act(actions[0], { page: page2 });
+  ```
+
+  ## Extract
+
+  使用自然语言指令从页面中提取数据。`extract` 方法应调用在 `stagehand` 实例上。
+
+  ### 基础提取（带 schema）
+
+  ```typescript
+  import { z } from "zod";
+
+  // 使用显式 schema 提取
+  const data = await stagehand.extract(
+    "extract all apartment listings with prices and addresses",
+    z.object({
+      listings: z.array(
+        z.object({
+          price: z.string(),
+          address: z.string(),
+        }),
+      ),
+    }),
+  );
+
+  console.log(data.listings);
+  ```
+
+  ### 简单提取（不带 schema）
+
+  ```typescript
+  // extract 会返回一个默认对象，其中包含 'extraction' 字段
+  const result = await stagehand.extract("extract the sign in button text");
+
+  console.log(result);
+  // 输出：{ extraction: "Sign in" }
+
+  // 或者直接解构
+  const { extraction } = await stagehand.extract(
+    "extract the sign in button text",
+  );
+  console.log(extraction); // "Sign in"
+  ```
+
+  ### 定向提取
+
+  使用选择器从指定元素中提取数据：
+
+  ```typescript
+  const reason = await stagehand.extract(
+    "extract the reason why script injection fails",
+    z.string(),
+    { selector: "/html/body/div[2]/div[3]/iframe/html/body/p[2]" },
+  );
+  ```
+
+  ### URL 提取
+
+  当你需要提取链接或 URL 时，请使用 `z.string().url()`：
+
+  ```typescript
+  const { links } = await stagehand.extract(
+    "extract all navigation links",
+    z.object({
+      links: z.array(z.string().url()),
+    }),
+  );
+  ```
+
+  ### 从指定页面提取
+
+  ```typescript
+  // 从指定页面提取（当你需要针对的页面不是当前活动页时）
+  const data = await stagehand.extract(
+    "extract the placeholder text on the name field",
+    { page: page2 },
+  );
+  ```
+
+  ## Observe
+
+  在执行前先规划动作。它会返回候选动作数组：
+
+  ```typescript
+  // 获取当前活动页面上的候选动作
+  const [action] = await stagehand.observe("Click the sign in button");
+
+  // 执行动作
+  await stagehand.act(action);
+  ```
+
+  在指定页面上执行 observe：
+
+  ```typescript
+  // 针对指定页面（当你需要针对的页面不是当前活动页时）
+  const actions = await stagehand.observe("find the next page button", {
+    page: page2,
+  });
+  await stagehand.act(actions[0], { page: page2 });
+  ```
+
+  ## Agent
+
+  使用 `agent` 方法自主执行复杂的多步骤任务。
+
+  ### 基础 Agent 用法
+
+  ```typescript
+  const page = stagehand.context.pages()[0];
+  await page.goto("https://www.google.com");
+
+  const agent = stagehand.agent({
+    model: "google/gemini-2.0-flash",
+    executionModel: "google/gemini-2.0-flash",
+  });
+
+  const result = await agent.execute({
+    instruction: "Search for the stock price of NVDA",
+    maxSteps: 20,
+  });
+
+  console.log(result.message);
+  ```
+
+  ### Computer Use Agent（CUA）
+
+  对于更高级的 computer-use 模型场景：
+
+  ```typescript
+  const agent = stagehand.agent({
+    mode: "cua", // 启用 Computer Use Agent 模式
+    model: "anthropic/claude-sonnet-4-6",
+    // 或 "google/gemini-2.5-computer-use-preview-10-2025"
+    systemPrompt: `You are a helpful assistant that can use a web browser.
+      Do not ask follow up questions, the user will trust your judgement.`,
+  });
+
+  await agent.execute({
+    instruction: "Apply for a library card at the San Francisco Public Library",
+    maxSteps: 30,
+  });
+  ```
+
+  ### 带自定义模型配置的 Agent
+
+  ```typescript
+  const agent = stagehand.agent({
+    mode: "cua",
+    model: {
+      modelName: "google/gemini-2.5-computer-use-preview-10-2025",
+      apiKey: process.env.GEMINI_API_KEY,
+    },
+    systemPrompt: `You are a helpful assistant.`,
+  });
+  ```
+
+  ### 带集成能力的 Agent（MCP / 外部工具）
+
+  ```typescript
+  const agent = stagehand.agent({
+    integrations: [`https://mcp.exa.ai/mcp?exaApiKey=${process.env.EXA_API_KEY}`],
+    systemPrompt: `You have access to the Exa search tool.`,
+  });
+  ```
+
+  ## 高级特性
+
+  ### DeepLocator（XPath 定位）
+
+  跨 Shadow DOM 和 iframe 定位特定元素：
+
+  ```typescript
+  await page
+    .deepLocator("/html/body/div[2]/div[3]/iframe/html/body/p")
+    .highlight({
+      durationMs: 5000,
+      contentColor: { r: 255, g: 0, b: 0 },
+    });
+  ```
+
+  ### 多页面工作流
+
+  ```typescript
+  const page1 = stagehand.context.pages()[0];
+  await page1.goto("https://example.com");
+
+  const page2 = await stagehand.context.newPage();
+  await page2.goto("https://example2.com");
+
+  // 默认情况下，act / extract / observe 会在当前活动页面上执行
+  // 传入 { page } 选项即可指定目标页面
+  await stagehand.act("click button", { page: page1 });
+  await stagehand.extract("get title", { page: page2 });
+  ```
+  ````
+</details>
+
+<details>
+  <summary>Python</summary>
+
+  ````md
+  # Stagehand Python 项目
+
+  这是一个使用 [Stagehand Python](https://github.com/browserbase/stagehand-python) 的项目，它提供由 AI 驱动的浏览器自动化能力，包括 `act`、`extract` 和 `observe` 方法。
+
+  `Stagehand` 是一个提供配置与浏览器自动化能力的类，具备：
+  - 通过 `stagehand.context.pages()` 或 `stagehand.context.activePage()` 访问页面
+  - `stagehand.context`：一个 StagehandContext 对象（扩展自 Playwright BrowserContext）
+  - `stagehand.agent()`：创建用于自主多步骤工作流的 AI 智能体
+  - `stagehand.init()`：初始化浏览器会话
+  - `stagehand.close()`：清理资源
+
+  `Page` 扩展了 Playwright 的 Page 类，并加入 AI 驱动的方法：
+  - `act()`：使用自然语言对网页元素执行操作
+  - `extract()`：使用 schema 从页面提取结构化数据
+  - `observe()`：在执行前规划动作并获取选择器
+
+  `Agent` 提供自主式 Computer Use Agent 能力：
+  - `execute()`：使用自然语言指令执行复杂的多步骤任务
+
+  使用以下规则为该项目编写代码。
+
+  - 若要为诸如 `"click the sign in button"` 的指令做规划，请先使用 Stagehand `observe` 获取待执行动作。
+
+  你还可以传入以下参数：
+
+  - `observe` 的结果是一个 `ObserveResult` 对象列表，可像下面这样直接作为 `act` 的参数使用：
+
+  - 当你要编写需要从页面提取数据的代码时，请使用 Stagehand `extract`。对于 schema，请使用 Pydantic 模型：
+
+  ## Initialize
+
+  ### Configuration Options
+
+  `StagehandConfig` 中的关键配置项：
+
+  ## Act
+
+  你可以直接使用字符串指令执行 act：
+
+  使用变量来完成动态表单填写：
+
+  **最佳实践：**
+  - 缓存 `observe` 的结果，避免意外的 DOM 变化
+  - 保持动作原子化且具体（例如 `"Click the sign in button"`，而不是 `"Sign in to the website"`）
+  - 使用具体、清晰的指令
+
+  `act` 的 `action` 应尽可能原子化且具体，例如 `"Click the sign in button"` 或 `"Type 'hello' into the search input"`。
+  **避免** 使用多步骤动作，例如 `"Order me pizza"` 或 `"Send an email to Paul asking him to call me"`。
+
+  ## Extract
+
+  ### Simple String Extraction
+
+  ### Structured Extraction with Schema (Recommended)
+  进行结构化数据提取时，始终使用 Pydantic 模型：
+
+  ### Array Extraction
+  对于数组，请使用 `List` 类型：
+
+  ### Complex Object Extraction
+  对于更复杂的数据结构：
+
+  ## Agent System
+
+  Stagehand 提供 Agent System，用于通过 Computer Use Agents（CUA）实现自主式 Web 浏览。
+
+  ### Creating Agents
+
+  ### Agent Execution
+
+  **最佳实践：**
+  - 使用具体指令：`"Fill out the contact form with name 'John Doe' and submit it"`
+  - 将复杂任务拆成更小的步骤
+  - 使用 try/except 做错误处理
+  - 将 agent 用于导航，把传统方法用于精确数据提取
+
+  ## Project Structure Best Practices
+
+  - 将配置存储在环境变量或配置文件中
+  - 始终一致地使用 async/await 模式
+  - 在异步函数中实现主要自动化逻辑
+  - 使用异步上下文管理器进行资源管理
+  - 使用类型提示和 Pydantic 模型进行数据校验
+  - 使用 try/except 正确处理异常
+  ````
+</details>
+
+## 安全说明
+
+- 不要把密钥直接写进文档或规则文件中；请在 MCP 配置中使用环境变量。
+- 避免使用可能触发意外导航的宽泛动作；优先先执行 `observe`。
+
+## 资源 / 参考
+
+- Context7 MCP（Upstash）  
+  https://github.com/upstash/context7
+- DeepWiki MCP  
+  https://mcp.deepwiki.com/
+- Stagehand Docs MCP（Mintlify）  
+  https://docs.stagehand.dev/mcp

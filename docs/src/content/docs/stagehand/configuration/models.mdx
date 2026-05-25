@@ -1,0 +1,1058 @@
+---
+title: Models
+description: 配置 Stagehand 使用的模型提供方、模型网关、自定义端点与高级模型选项。
+editUrl: false
+sidebar:
+    order: 2
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Models
+
+> 在 Stagehand 中使用任意 LLM 模型
+
+:::tip[新功能：Model Gateway]
+使用你的 Browserbase API Key，即可访问来自 OpenAI、Anthropic 和 Google 的热门模型。一个 Key、一张账单、无需单独创建各家提供方账号。[阅读博客](https://www.browserbase.com/blog/model-gateway)
+:::
+
+## Model Gateway
+
+Model Gateway 让你无需自行接入各模型提供方，也能使用 Stagehand。你不必为每个提供方分别管理 API Key，只需传入 Browserbase API Key 并选择一个模型，Browserbase 会为你把请求路由到上游提供方。
+
+### 设置
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "openai/gpt-5",
+});
+
+await stagehand.init();
+```
+
+当你只提供 Browserbase API Key 时（而未提供特定模型提供方的 API Key），Stagehand 会自动通过 Model Gateway 路由模型请求。无需额外配置。
+
+:::note[说明]
+Model Gateway 需要使用 Browserbase 托管浏览器，不支持 `env: "LOCAL"`。
+:::
+
+### 切换模型
+
+使用 Model Gateway 时，在不同提供方之间切换只需要修改配置——不需要新账号、API Key，也不需要重新改写代码：
+
+<Tabs>
+  <TabItem label="OpenAI">
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "openai/gpt-5",
+});
+```
+
+  </TabItem>
+  <TabItem label="Anthropic">
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "anthropic/claude-sonnet-4-6",
+});
+```
+
+  </TabItem>
+  <TabItem label="Google">
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "google/gemini-3-flash-preview",
+});
+```
+
+  </TabItem>
+</Tabs>
+
+### 主要优势
+
+- **一个 Key，一张账单** —— LLM 推理、浏览器基础设施与缓存都通过你的 Browserbase API Key 统一计费。
+- **按市场价计费的 token** —— 我们的价格与直接调用模型提供方一致，不加价。
+- **内置可靠性** —— 重试、退避和速率限制处理都由系统代管。
+- **无等级门槛** —— 无需满足提供方的消费门槛，也能立即使用新模型。
+- **操作缓存** —— Model Gateway 可与 Stagehand 的[托管操作缓存](/stagehand/best-practices/caching/)配合使用，重复步骤会被复用，而不是重新执行。
+
+### 支持的提供方
+
+| 提供方 | 示例模型 |
+| --- | --- |
+| OpenAI | `openai/gpt-5` |
+| Anthropic | `anthropic/claude-sonnet-4-6` |
+| Google | `google/gemini-2.5-flash` |
+
+:::tip[提示]
+如果你需要的提供方尚未列出，[欢迎联系我们](https://www.browserbase.com/contact)——我们很乐意与团队合作，增加更多模型支持。
+:::
+
+---
+
+## 配置设置
+
+### 快速开始
+
+:::tip[提示]
+在 `.env` 中设置好 API Key 后，Stagehand 会处理其余工作，无需显式配置。
+:::
+
+你可以先从 Google Gemini 开始（在速度与成本方面都很推荐）：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "google/gemini-2.5-flash",
+  // API key auto-loads from GOOGLE_GENERATIVE_AI_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+---
+
+<div id="first-class-models"></div>
+
+### 一等公民模型
+
+你可以直接使用以下已支持提供方中的任意模型。
+
+<Tabs>
+  <TabItem label="Google">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "google/gemini-2.5-flash",
+  // API key auto-loads from GOOGLE_GENERATIVE_AI_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 Google 模型 →](https://ai.google.dev/gemini-api/docs/models)
+
+  </TabItem>
+
+  <TabItem label="Google Vertex">
+
+:::warning[警告]
+Google Vertex 需要在 Stagehand 构造器中设置 `experimental: true`。
+:::
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  experimental: true, // Vertex 必需
+  model: {
+    modelName: "vertex/gemini-3-flash-preview",
+    project: "your-gcp-project-id",
+    location: "us-central1",
+    googleAuthOptions: {
+      credentials: {
+        client_email: "your-sa@project.iam.gserviceaccount.com",
+        private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+      },
+    },
+  },
+});
+
+await stagehand.init();
+```
+
+`model` 对象支持以下字段：
+
+- `modelName` —— Vertex 模型名，需带 `vertex/` 前缀（例如 `vertex/gemini-3-flash-preview`）
+- `project` —— 你的 GCP 项目 ID
+- `location` —— 你的 Vertex AI 区域（例如 `us-central1`）
+- `googleAuthOptions.credentials` —— 服务账号凭据，包含 `client_email` 与 `private_key`
+
+[查看所有支持的 Vertex AI 模型 →](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models)
+
+  </TabItem>
+
+  <TabItem label="Anthropic">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "anthropic/claude-haiku-4-5",
+  // API key auto-loads from ANTHROPIC_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 Anthropic 模型 →](https://docs.anthropic.com/en/docs/models-overview)
+
+  </TabItem>
+
+  <TabItem label="OpenAI">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "openai/gpt-5",
+  // API key auto-loads from OPENAI_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 OpenAI 模型 →](https://platform.openai.com/docs/models)
+
+  </TabItem>
+
+  <TabItem label="Azure">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "azure/gpt-5",
+  // API key auto-loads from AZURE_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 Azure 模型 →](https://ai.azure.com/catalog)
+
+  </TabItem>
+
+  <TabItem label="Cerebras">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "cerebras/llama-4-scout",
+  // API key auto-loads from CEREBRAS_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 Cerebras 模型 →](https://inference-docs.cerebras.ai/models/overview)
+
+  </TabItem>
+
+  <TabItem label="DeepSeek">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "deepseek/deepseek-chat",
+  // API key auto-loads from DEEPSEEK_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 DeepSeek 模型 →](https://api-docs.deepseek.com/quick_start/pricing)
+
+  </TabItem>
+
+  <TabItem label="Groq">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "groq/llama-3.1-8b-instant",
+  // API key auto-loads from GROQ_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 Groq 模型 →](https://console.groq.com/docs/models)
+
+  </TabItem>
+
+  <TabItem label="Mistral">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "mistral/codestral-2508",
+  // API key auto-loads from MISTRAL_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 Mistral 模型 →](https://docs.mistral.ai/getting-started/models)
+
+  </TabItem>
+
+  <TabItem label="Ollama">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "ollama/llama3.2",
+  // 无需 API Key
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 Ollama 模型 →](https://ollama.com/library)
+
+  </TabItem>
+
+  <TabItem label="Perplexity">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "perplexity/sonar-reasoning",
+  // API key auto-loads from PERPLEXITY_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 Perplexity 模型 →](https://docs.perplexity.ai/getting-started/models)
+
+  </TabItem>
+
+  <TabItem label="TogetherAI">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "togetherai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
+  // API key auto-loads from TOGETHER_AI_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有支持的 TogetherAI 模型 →](https://www.together.ai/models)
+
+  </TabItem>
+
+  <TabItem label="xAI">
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "xai/grok-4-fast-reasoning",
+  // API key auto-loads from XAI_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+[查看所有 xAI 模型 →](https://docs.x.ai/docs/models)
+
+  </TabItem>
+</Tabs>
+
+---
+
+<div id="custom-models"></div>
+
+### 自定义模型
+
+支持 Amazon Bedrock、Cohere、全部[一等公民模型](/stagehand/configuration/models/#first-class-models)，以及 [Vercel AI SDK](https://sdk.vercel.ai/providers) 中的任意模型。
+
+当你需要自定义端点、自定义重试逻辑或缓存逻辑时，可以使用这种配置方式。
+
+下面以 Amazon Bedrock 和 Google 为例。
+
+<details>
+  <summary>Amazon Bedrock</summary>
+
+#### 步骤 1：安装依赖
+
+为你的提供方安装对应的 Vercel AI SDK。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npm install @ai-sdk/amazon-bedrock
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm add @ai-sdk/amazon-bedrock
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn add @ai-sdk/amazon-bedrock
+```
+
+  </TabItem>
+  <TabItem label="bun">
+
+```bash
+bun add @ai-sdk/amazon-bedrock
+```
+
+  </TabItem>
+</Tabs>
+
+#### 步骤 2：导入、创建 provider，并创建 client
+
+```ts
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { AISdkClient } from '@browserbasehq/stagehand';
+
+const bedrockProvider = createAmazonBedrock({
+  region: 'us-east-1',
+  accessKeyId: 'xxxxxxxxx',
+  secretAccessKey: 'xxxxxxxxx',
+  sessionToken: 'xxxxxxxxx',
+});
+
+const bedrockClient = new AISdkClient({
+  model: bedrockProvider("amazon/nova-pro-latest"),
+});
+```
+
+#### 步骤 3：将 client 传给 Stagehand
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  llmClient: bedrockClient,
+});
+
+await stagehand.init();
+```
+
+</details>
+
+<details>
+  <summary>Google</summary>
+
+#### 步骤 1：安装依赖
+
+为你的提供方安装对应的 Vercel AI SDK。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npm install @ai-sdk/google
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm add @ai-sdk/google
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn add @ai-sdk/google
+```
+
+  </TabItem>
+  <TabItem label="bun">
+
+```bash
+bun add @ai-sdk/google
+```
+
+  </TabItem>
+</Tabs>
+
+#### 步骤 2：导入、创建 provider，并创建 client
+
+```ts
+import { createGoogle } from '@ai-sdk/google';
+import { AISdkClient } from '@browserbasehq/stagehand';
+
+const googleProvider = createGoogle({
+  apiKey: process.env.GEMINI_API_KEY,
+});
+
+const googleClient = new AISdkClient({
+  model: googleProvider("google/gemini-2.5-flash"),
+});
+```
+
+#### 步骤 3：将 client 传给 Stagehand
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  llmClient: googleClient,
+});
+
+await stagehand.init();
+```
+
+</details>
+
+<details>
+  <summary>所有提供方</summary>
+
+要实现自定义模型，请按照你所使用提供方的步骤进行。可以参考上面的 Amazon Bedrock 与 Google 示例。所有受支持的提供方与模型都可在 [Vercel AI SDK](https://sdk.vercel.ai/providers) 中找到。
+
+#### 步骤 1：安装依赖
+
+安装对应提供方的 Vercel AI SDK。
+
+#### 步骤 2：导入、创建 provider，并创建 client
+
+```ts
+import { createProvider } from '@ai-sdk/provider';
+import { AISdkClient } from '@browserbasehq/stagehand';
+
+const provider = createProvider({
+  apiKey: 'xxxxxxxxx',
+});
+
+const providerClient = new AISdkClient({
+  model: provider("model/name"),
+});
+```
+
+#### 步骤 3：将 client 传给 Stagehand
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  llmClient: providerClient,
+});
+
+await stagehand.init();
+```
+
+</details>
+
+---
+
+## 选择模型
+
+不同模型各自擅长不同任务。请根据你的使用场景综合考虑速度、准确率与成本。
+
+<Card title="模型选择指南" href="https://www.stagehand.dev/evals" icon="scale">
+  在模型评测页面查看更详细的模型对比与推荐。
+</Card>
+
+**快速推荐**
+
+| 使用场景 | 推荐模型 | 原因 |
+| --- | --- | --- |
+| **生产环境** | `google/gemini-2.5-flash` | 速度快、准确且成本效益高 |
+| **智能性** | `google/gemini-3-pro-preview` | 在复杂任务上准确率最佳 |
+| **速度** | `google/gemini-2.5-flash` | 响应时间最快 |
+| **成本** | `google/gemini-2.5-flash` | 单位 token 性价比最佳 |
+| **本地/离线** | `ollama/qwen3` | 无 API 成本，完全可控 |
+
+---
+
+## 高级选项
+
+<div id="agent-models-with-cua-support"></div>
+
+### Agent 模型（支持 CUA）
+
+**默认行为**
+
+Stagehand agent 默认会使用传给 Stagehand 的同一个模型。所有模型（[一等公民模型](/stagehand/configuration/models/#first-class-models)与[自定义模型](/stagehand/configuration/models/#custom-models)）都支持。下面是一个使用 Gemini 的示例：
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "google/gemini-2.5-flash",
+  // GOOGLE_GENERATIVE_AI_API_KEY is auto-loaded from .env
+  // ... other stagehand options
+});
+
+// Agent 将使用 google/gemini-2.5-flash
+const agent = stagehand.agent();
+```
+
+**覆盖模型（支持 CUA）**
+
+不过，stagehand agent 也接受 `model` 参数，它可以接收任意[一等公民模型](/stagehand/configuration/models/#first-class-models)，包括[计算机使用代理（CUA）](/stagehand/configuration/models/#agent-models-with-cua-support)。当你希望 agent 使用与 Stagehand 主实例不同的模型时，这会非常有用。
+
+:::tip[提示]
+要使用 CUA 模型，你必须向 `agent()` 方法传入 `mode: "cua"`。如果使用的是非 CUA 模型——无论是在 Stagehand 中指定，还是在 `agent()` 方法中覆盖指定——都会抛出错误。
+:::
+
+:::warning[警告]
+**弃用提示：** `cua: true` 选项已弃用，未来版本将移除。请改用 `mode: "cua"`。
+:::
+
+<Tabs>
+  <TabItem label="Google CUA">
+
+```ts
+const agent = stagehand.agent({
+  mode: "cua",
+  model: "google/gemini-2.5-computer-use-preview-10-2025",
+  // GOOGLE_GENERATIVE_AI_API_KEY is auto-loaded from .env
+  // ... other agent options
+});
+```
+
+  </TabItem>
+  <TabItem label="Anthropic CUA">
+
+```ts
+const agent = stagehand.agent({
+  mode: "cua",
+  model: "anthropic/claude-sonnet-4-6",
+  // ANTHROPIC_API_KEY is auto-loaded from .env
+  // ... other agent options
+});
+```
+
+  </TabItem>
+  <TabItem label="OpenAI CUA">
+
+```ts
+const agent = stagehand.agent({
+  mode: "cua",
+  model: "openai/computer-use-preview",
+  // OPENAI_API_KEY is auto-loaded from .env
+  // ... other agent options
+});
+```
+
+  </TabItem>
+  <TabItem label="一等公民模型示例">
+
+所有[一等公民模型](/stagehand/configuration/models/#first-class-models)都可用。下面是一个 Gemini 示例：
+
+```ts
+const agent = stagehand.agent({
+  model: "google/gemini-2.5-pro",
+  // GOOGLE_GENERATIVE_AI_API_KEY is auto-loaded from .env
+  // ... other agent options
+});
+```
+
+  </TabItem>
+</Tabs>
+
+<details>
+  <summary>所有支持的 CUA 模型</summary>
+
+| 提供方 | 模型 |
+| --- | --- |
+| Anthropic | `anthropic/claude-haiku-4-5-20251001` |
+| Anthropic | `anthropic/claude-sonnet-4-6` |
+| Anthropic | `anthropic/claude-sonnet-4-5-20250929` |
+| Anthropic | `anthropic/claude-opus-4-5-20251101` |
+| Anthropic | `anthropic/claude-opus-4-6` |
+| Google | `google/gemini-2.5-computer-use-preview-10-2025` |
+| Google | `google/gemini-3-flash-preview` |
+| Google | `google/gemini-3-pro-preview` |
+| Microsoft | `microsoft/fara-7b` |
+| OpenAI | `openai/computer-use-preview` |
+| OpenAI | `openai/computer-use-preview-2025-03-11` |
+
+</details>
+
+:::note[说明]
+如果你需要覆盖 agent 的 API Key、使用企业代理、添加提供方专属选项，或处理其他高级场景，agent 的 `model` 也可以写成对象形式。详见 [Agent 参考](/stagehand/references/agent/)。
+:::
+
+---
+
+### 自定义端点
+
+如果你需要使用 Azure OpenAI 部署或企业内部部署，可以参考以下方式。
+
+<Tabs>
+  <TabItem label="OpenAI">
+
+对于 OpenAI，你可以通过 `model` 参数直接传入配置，而不必使用 `llmClient`：
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: {
+    modelName: "openai/gpt-5",
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: "https://custom-openai-endpoint.com/v1",
+  }
+});
+```
+
+  </TabItem>
+  <TabItem label="Anthropic">
+
+对于 Anthropic，你可以通过 `model` 参数直接传入配置，而不必使用 `llmClient`：
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: {
+    modelName: "anthropic/claude-haiku-4-5",
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    baseURL: "https://custom-anthropic-endpoint.com",
+  },
+});
+```
+
+  </TabItem>
+  <TabItem label="其他所有提供方">
+
+对于其他所有提供方，请使用 `llmClient`。下面是一个使用 Hugging Face 的示例：
+
+```ts
+// pnpm add @ai-sdk/huggingface
+
+import { createHuggingFace } from "@ai-sdk/huggingface";
+import { AISdkClient } from "@browserbasehq/stagehand";
+
+const huggingFaceProvider = createHuggingFace({
+  apiKey: process.env.HUGGINGFACE_API_KEY,
+  baseURL: "https://custom-huggingface-endpoint.com",
+});
+
+const huggingFaceClient = new AISdkClient({
+  model: huggingFaceProvider("meta-llama/Llama-3.1-8B-Instruct"),
+});
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  llmClient: huggingFaceClient,
+});
+```
+
+  </TabItem>
+</Tabs>
+
+---
+
+### AI Gateway
+
+[Vercel AI Gateway](https://vercel.com/docs/ai-gateway) 允许你通过单一 API Key 与统一接口访问多个提供方（OpenAI、Anthropic、Google 等）的模型。无需额外安装提供方 SDK，也不需要为每个提供方单独配置 API Key。
+
+:::tip[提示]
+AI Gateway 已内置在 Stagehand 所使用的 `ai` 包中——无需额外依赖。
+:::
+
+**主要优势：**
+
+- 使用单个 `AI_GATEWAY_API_KEY` 即可访问所有主流提供方的模型
+- 根据可用性与延迟自动进行提供方回退和动态路由
+- 通过 Vercel 控制台进行用量跟踪与可观测性分析
+- 支持自带 Key（BYOK），可继续使用你现有的提供方凭据
+
+<Tabs>
+  <TabItem label="简单用法">
+
+使用 `gateway/` 前缀，后面接提供方与模型名：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: "gateway/openai/gpt-5",
+  // API key auto-loads from AI_GATEWAY_API_KEY - set in your .env
+});
+
+await stagehand.init();
+```
+
+适用于网关上提供的任意模型：
+
+```ts
+// 通过 gateway 使用 Anthropic
+model: "gateway/anthropic/claude-sonnet-4.5"
+
+// 通过 gateway 使用 Google
+model: "gateway/google/gemini-3-flash-preview"
+```
+
+  </TabItem>
+  <TabItem label="自定义配置">
+
+使用对象形式显式传入 API Key 以及可选的 base URL：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  model: {
+    modelName: "gateway/openai/gpt-5",
+    apiKey: process.env.AI_GATEWAY_API_KEY,
+    baseURL: "https://ai-gateway.vercel.sh/v3/ai", // 可选自定义端点
+  }
+});
+
+await stagehand.init();
+```
+
+  </TabItem>
+</Tabs>
+
+[查看所有可用的 AI Gateway 模型 →](https://vercel.com/docs/ai-gateway/models-and-providers)
+
+---
+
+### 扩展 AI SDK Client
+
+对于自定义重试逻辑或缓存逻辑等高级场景，你可以扩展 `AISdkClient`：
+
+```ts
+import { LLMClient } from "@browserbasehq/stagehand";
+
+class CustomRetryClient extends LLMClient {
+  async createChatCompletion(options) {
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        return await super.createChatCompletion(options);
+      } catch (error) {
+        retries--;
+        if (retries === 0) throw error;
+        await new Promise((r) => setTimeout(r, 1000 * (4 - retries)));
+      }
+    }
+  }
+}
+```
+
+:::tip[提示]
+如果你需要自定义缓存，建议优先考虑内置的[缓存功能](/stagehand/best-practices/caching/)。
+:::
+
+---
+
+### 旧版模型格式
+
+:::tip[提示]
+**推荐：** 使用 `provider/model` 格式。例如：
+
+- `model: "openai/gpt-4o"`（推荐）
+- `model: "gpt-4o"`（旧版）
+:::
+
+以下模型出于兼容旧版本的目的，仍然支持在 `model` 参数中不带 `provider/` 前缀：
+
+<details>
+  <summary>Google</summary>
+
+- `gemini-2.5-flash-preview-04-17`
+- `gemini-2.5-pro-preview-03-25`
+- `gemini-2.0-flash`
+- `gemini-2.0-flash-lite`
+- `gemini-1.5-flash`
+- `gemini-1.5-flash-8b`
+- `gemini-1.5-pro`
+
+</details>
+
+<details>
+  <summary>Anthropic</summary>
+
+- `claude-sonnet-4-6`
+- `claude-sonnet-4-5-20250929`
+- `claude-haiku-4-5-20251001`
+
+</details>
+
+<details>
+  <summary>OpenAI</summary>
+
+- `gpt-4o`
+- `gpt-4o-mini`
+- `o1`
+- `o1-mini`
+- `o3`
+- `o3-mini`
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `gpt-4.1-nano`
+- `o4-mini`
+- `gpt-4.5-preview`
+- `gpt-4o-2024-08-06`
+- `o1-preview`
+
+</details>
+
+<details>
+  <summary>Cerebras</summary>
+
+- `cerebras-llama-3.3-70b`
+- `cerebras-llama-3.1-8b`
+
+</details>
+
+<details>
+  <summary>Groq</summary>
+
+- `groq-llama-3.3-70b-versatile`
+- `groq-llama-3.3-70b-specdec`
+- `moonshotai/kimi-k2-instruct`
+
+</details>
+
+---
+
+## 故障排查
+
+<details>
+  <summary>错误：找不到 API Key</summary>
+
+**错误：** `API key not found`
+
+**解决方案：**
+
+- 检查 `.env` 文件中是否使用了与你当前提供方匹配的变量名
+- 确保环境变量已正确加载（例如使用 `dotenv`）
+- 更新 `.env` 后重启应用
+
+| 提供方 | 环境变量 |
+| --- | --- |
+| Model Gateway | `BROWSERBASE_API_KEY`（无需提供方 Key） |
+| Google | `GOOGLE_GENERATIVE_AI_API_KEY` 或 `GEMINI_API_KEY` |
+| Vertex | 服务账号凭据（见[设置](#first-class-models)） |
+| Anthropic | `ANTHROPIC_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` |
+| Azure | `AZURE_API_KEY` |
+| Cerebras | `CEREBRAS_API_KEY` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| Groq | `GROQ_API_KEY` |
+| Mistral | `MISTRAL_API_KEY` |
+| Ollama | 无（本地） |
+| Perplexity | `PERPLEXITY_API_KEY` |
+| TogetherAI | `TOGETHER_AI_API_KEY` |
+| xAI | `XAI_API_KEY` |
+| AI Gateway | `AI_GATEWAY_API_KEY` |
+
+</details>
+
+<details>
+  <summary>错误：模型不受支持</summary>
+
+**错误：** `Unsupported model`
+
+**解决方案：**
+
+- 使用 `provider/model` 格式，例如：`openai/gpt-5`
+- 确认该模型名存在于对应提供方文档中
+- 检查模型名拼写是否正确
+- 确认你的模型 API Key 有权限访问该模型
+
+</details>
+
+<details>
+  <summary>模型不支持结构化输出</summary>
+
+**错误：** `Model does not support structured outputs`
+
+**解决方案：**
+
+- 查看我们的[模型评测页面](https://www.stagehand.dev/evals)以获取推荐模型
+
+</details>
+
+<details>
+  <summary>成本高或性能慢</summary>
+
+**症状：** 自动化执行成本高或速度慢
+
+**解决方案：**
+
+- 切换到更具成本效益的模型（可参考 [evals](https://www.stagehand.dev/evals) 对比）
+- 简单任务使用更快模型，复杂任务使用更强模型
+- 对重复模式启用[缓存](/stagehand/best-practices/caching/)
+
+</details>
+
+<details>
+  <summary>Python SDK 或自定义模型</summary>
+
+Stagehand v3 现已支持 Python。Python SDK 采用 BYOB（Bring Your Own Browser，自带浏览器）架构。
+
+**解决方案：**
+
+- 安装与使用方式请查看 [Python SDK 文档](/stagehand/sdk/python/)
+- 如果你正从 v2 升级，请查看 [Python 迁移指南](/stagehand/migrations/python/)
+
+</details>
+
+### 需要帮助？联系支持团队
+
+找不到解决方案，或还有其他问题？欢迎联系支持团队：
+
+<Card title="联系支持" icon="envelope" href="mailto:support@browserbase.com">
+  发送邮件至 [support@browserbase.com](mailto:support@browserbase.com)
+</Card>
+
+---
+
+## 下一步
+
+<CardGrid>
+  <Card title="提示词指南" href="/stagehand/best-practices/prompting-best-practices/" icon="brain">
+    学习如何为 LLM 编写提示词，以获得最佳结果。
+  </Card>
+
+  <Card title="运行评测" href="/stagehand/basics/evals/" icon="flask">
+    测试哪些模型最适合你的具体使用场景。
+  </Card>
+
+  <Card title="缓存指南" href="/stagehand/best-practices/caching/" icon="database">
+    通过缓存响应来降低成本并提升速度。
+  </Card>
+
+  <Card title="优化成本" href="/stagehand/best-practices/cost-optimization/" icon="dollar-sign">
+    借助缓存与智能模型选择来降低 LLM 开销。
+  </Card>
+</CardGrid>

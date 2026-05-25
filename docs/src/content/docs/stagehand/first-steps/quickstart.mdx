@@ -1,0 +1,114 @@
+---
+title: 快速开始
+description: Stagehand 让你能够使用自然语言和代码构建 Web 自动化。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Stagehand 让你能够使用自然语言和代码构建 Web 自动化。
+
+如果这是你**第一次使用 Stagehand**，你应该先试试 [Director](https://director.ai)。它是一个智能体，允许你使用自然语言构建 Stagehand 工作流。你也可以通过它们的 [MCP Server 原文文档](https://docs.stagehand.dev/v3/integrations/mcp/introduction) 体验 Stagehand。
+
+否则，开始使用 Stagehand 的最快方式是它们的 CLI。它会为你脚手架出一个开箱即用的 Stagehand 应用，带有合理的默认配置和一个示例脚本。
+
+:::note[说明]
+本快速开始面向 **TypeScript**。如果你使用其他语言，请切换左上角的语言选择器查看原文对应版本。
+:::
+
+## 1）创建示例项目
+
+```bash
+npx create-browser-app
+```
+
+## 2）运行它
+
+按照 CLI 提示进入项目目录并添加你的 API 密钥。然后运行示例脚本。
+
+```bash
+cd my-stagehand-app # 进入项目目录
+cp .env.example .env  # 添加你的 API 密钥
+npm start # 运行示例脚本
+```
+
+## 3）使用 Stagehand（act、extract、observe）
+
+脚手架会包含一个 `index.ts` 文件，其中带有示例脚本。内容如下：
+
+```ts
+import "dotenv/config";
+import { Stagehand } from "@browserbasehq/stagehand";
+
+async function main() {
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE"
+  });
+
+  await stagehand.init();
+
+  console.log(`Stagehand Session Started`);
+  console.log(`Watch live: https://browserbase.com/sessions/${stagehand.browserbaseSessionID}`);
+
+  const page = stagehand.context.pages()[0];
+
+  await page.goto("https://stagehand.dev");
+
+  const extractResult = await stagehand.extract("Extract the value proposition from the page.");
+  console.log(`Extract result:\n`, extractResult);
+
+  await stagehand.act("Click the 'Evals' button.");
+
+  const observeResult = await stagehand.observe("What can I click on this page?");
+  console.log(`Observe result:\n`, observeResult);
+
+  const agent = stagehand.agent({
+    mode: "cua",
+    model: "google/gemini-2.5-computer-use-preview-10-2025",
+    systemPrompt: "You're a helpful assistant that can control a web browser.",
+  });
+
+  const agentResult = await agent.execute("What is the most accurate model to use in Stagehand?");
+  console.log(`Agent result:\n`, agentResult);
+
+  await stagehand.close();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+```
+
+:::tip[提示]
+要运行这段代码，请在 `.env` 中设置模型提供商密钥，例如 `OPENAI_API_KEY`。如果你要使用云浏览器，还需要添加 `BROWSERBASE_API_KEY`。
+:::
+
+## 下一步
+
+了解 Stagehand 的四个原语：`act`、`extract`、`observe` 和 `agent`。
+
+<CardGrid>
+  <Card title="Act" icon="code">
+    使用自然语言在网页上执行操作。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/act)
+  </Card>
+  <Card title="Extract" icon="box">
+    使用 Zod schema 获取结构化数据。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/extract)
+  </Card>
+  <Card title="Observe" icon="open-book">
+    发现可用元素与可执行操作。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/observe)
+  </Card>
+  <Card title="Agent" icon="rocket">
+    自主完成多步骤浏览器工作流。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/agent)
+  </Card>
+</CardGrid>

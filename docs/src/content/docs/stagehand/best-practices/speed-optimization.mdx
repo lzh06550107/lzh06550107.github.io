@@ -1,0 +1,183 @@
+---
+title: 速度优化
+description: 优化 Stagehand 性能，以获得更快的自动化速度并降低延迟。
+editUrl: false
+sidebar:
+  order: 5
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 速度优化
+
+> 优化 Stagehand 性能，以获得更快的自动化速度并降低延迟
+
+Stagehand 的性能取决于多个因素：DOM 处理速度、LLM 推理时间、浏览器操作以及网络延迟。本指南提供了一些经过验证的策略，帮助你将自动化速度最大化。
+
+## 快速提升性能的方法
+
+### 1. 使用 Observe 提前规划
+
+使用一次 `observe()` 调用来规划多个操作，然后高效地执行它们：
+
+```typescript
+// 不要通过多次 LLM 调用顺序执行操作
+await stagehand.act("Fill name field");          // LLM 调用 #1
+await stagehand.act("Fill email field");         // LLM 调用 #2
+await stagehand.act("Select country dropdown");  // LLM 调用 #3
+
+// 使用一次 observe 规划所有表单字段 —— 一次 LLM 调用
+const formFields = await stagehand.observe("Find all form fields to fill");
+
+// 无需 LLM 推理，直接执行所有操作
+for (const field of formFields) {
+  await stagehand.act(field); // 不会触发 LLM 调用！
+}
+```
+
+:::note[性能提示]
+对 `observe` 的结果直接执行 `act`，可以完全绕过 LLM 推理。对于多步骤工作流，这种方式通常比直接调用 `act()` 快 2–3 倍，也是推荐模式。
+:::
+
+<CardGrid>
+  <Card title="缓存指南" icon="database" href="/stagehand/best-practices/caching/">
+    了解高级缓存模式与缓存失效策略。
+  </Card>
+</CardGrid>
+
+### 2. 优化 DOM 处理
+
+在 Stagehand 处理页面前，先降低 DOM 的复杂度：
+
+```typescript
+// 移除会拖慢处理速度的重型元素
+await page.evaluate(() => {
+  // 移除视频元素
+  document.querySelectorAll('video, iframe').forEach(el => el.remove());
+
+  // 隐藏复杂动画
+  document.querySelectorAll('[style*="animation"]').forEach(el => {
+    (el as HTMLElement).style.animation = 'none';
+  });
+});
+
+// 然后再执行 Stagehand 操作
+await stagehand.act("Click the submit button");
+```
+
+### 3. 设置合适的超时时间
+
+对简单操作使用更短的超时，对复杂页面加载使用更长一些但仍经过优化的超时：
+
+```typescript
+// 简单操作 —— 缩短 action 超时
+await stagehand.act("Click the login button", {
+  timeout: 5000  // 默认是 30000ms，简单点击可适当缩短
+});
+
+// 复杂页面加载 —— 优化导航等待策略
+const page = stagehand.context.pages()[0];
+await page.goto("https://heavy-spa.com", {
+  waitUntil: "domcontentloaded", // 不必等待所有资源完成加载
+  timeout: 15000 // 比默认 30 秒更短
+});
+```
+
+## 性能监控与基准测试
+
+跟踪性能指标，并衡量优化带来的实际影响：
+
+### 性能跟踪
+
+```typescript
+class PerformanceTracker {
+  private speedMetrics: Map<string, number[]> = new Map();
+
+  async timedAct(page: Page, prompt: string): Promise<ActResult> {
+    const start = Date.now();
+    const result = await stagehand.act(prompt);
+    const duration = Date.now() - start;
+
+    if (!this.speedMetrics.has(prompt)) {
+      this.speedMetrics.set(prompt, []);
+    }
+    this.speedMetrics.get(prompt)!.push(duration);
+
+    console.log(`Action "${prompt}" took ${duration}ms`);
+    return result;
+  }
+
+  getAverageTime(prompt: string): number {
+    const times = this.speedMetrics.get(prompt) || [];
+    return times.reduce((a, b) => a + b, 0) / times.length;
+  }
+}
+```
+
+示例输出：
+
+```
+Action "Fill form" took 1000ms
+Action "Click submit" took 2000ms
+Action "Confirm submission" took 5000ms
+```
+
+### 优化前后基准对比
+
+```typescript
+// 优化前
+console.time("workflow");
+await stagehand.act("Fill form");
+await stagehand.act("Click submit");
+await stagehand.act("Confirm submission");
+console.timeEnd("workflow"); // 8000ms
+
+// 使用 observe 规划后的优化版本
+console.time("workflow-optimized");
+const workflowActions = await stagehand.observe("Find form, submit, and confirm elements");
+
+// 顺序执行操作，避免冲突
+for (const action of workflowActions) {
+  await stagehand.act(action);
+}
+console.timeEnd("workflow-optimized"); // 500ms
+```
+
+示例输出：
+
+```
+Workflow took 8000ms
+Optimized workflow took 500ms
+```
+
+<CardGrid>
+  <Card title="可观测性与指标" icon="chart-line" href="/stagehand/configuration/observability/">
+    建立全面的性能监控体系。
+  </Card>
+</CardGrid>
+
+## 相关资源
+
+<CardGrid>
+  <Card title="缓存策略" icon="database" href="/stagehand/best-practices/caching/">
+    用于获得最佳性能的高级缓存模式。
+  </Card>
+
+  <Card title="成本优化" icon="dollar-sign" href="/stagehand/best-practices/cost-optimization/">
+    在提升速度的同时平衡成本因素。
+  </Card>
+
+  <Card title="浏览器配置" icon="window-maximize" href="/stagehand/configuration/browser/">
+    优化 Browserbase 设置以提升速度。
+  </Card>
+
+  <Card title="模型选择" icon="brain" href="/stagehand/configuration/models/">
+    根据速度与准确率需求选择合适模型。
+  </Card>
+</CardGrid>

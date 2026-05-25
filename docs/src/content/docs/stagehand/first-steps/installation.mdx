@@ -1,0 +1,157 @@
+---
+title: 安装
+description: 将 Stagehand 集成到现有项目中。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+在当前应用中通过 TypeScript SDK 安装 Stagehand。
+
+:::tip[提示]
+我们建议使用 **Node.js** 运行时来执行 Stagehand 脚本。
+
+**现已支持 Bun**，前提是你**不要**将 Stagehand 与 Playwright 集成。Playwright 与 Bun 不兼容。
+:::
+
+<Tabs>
+  <TabItem label="TypeScript" icon="code">
+
+  ## 安装依赖
+
+  <Tabs>
+    <TabItem label="npm">
+
+    ```bash
+    npm install @browserbasehq/stagehand
+    ```
+    </TabItem>
+
+    <TabItem label="pnpm">
+
+    ```bash
+    pnpm add @browserbasehq/stagehand
+    ```
+    </TabItem>
+
+    <TabItem label="yarn">
+
+    ```bash
+    yarn add @browserbasehq/stagehand
+    ```
+    </TabItem>
+
+    <TabItem label="bun">
+
+    ```bash
+    bun add @browserbasehq/stagehand
+    ```
+    </TabItem>
+  </Tabs>
+
+  :::tip[提示]
+  如果你打算在本地运行，则需要在你的机器上安装 [Chrome](https://www.google.com/chrome/)。如果你使用云浏览器会话，则可跳过这一步。
+  :::
+
+  ## 配置环境
+
+  设置环境变量（或者通过你的框架使用 `.env`）：
+
+  ```bash
+  OPENAI_API_KEY=your_api_key
+  BROWSERBASE_API_KEY=your_api_key
+  ```
+
+  :::note[说明]
+  Stagehand **不会自动加载** `.env` 文件。
+
+  如果你使用 `.env` 文件，请在你自己的应用代码中安装并初始化 `dotenv`：
+
+  ```bash
+  npm install dotenv
+  ```
+
+  ```ts
+  import dotenv from "dotenv";
+  dotenv.config({ path: ".env" });
+  ```
+  :::
+
+  ## 在你的代码库中使用
+
+  在需要浏览器自动化的地方引入 Stagehand。
+
+  ```ts
+  import dotenv from "dotenv";
+  import { Stagehand } from "@browserbasehq/stagehand";
+  import { z } from "zod";
+
+  dotenv.config({ path: ".env" });  // 如有需要
+
+  async function main() {
+    const stagehand = new Stagehand({
+      env: "BROWSERBASE"
+    });
+
+    await stagehand.init();
+    const page = stagehand.context.pages()[0];
+
+    await page.goto("https://example.com");
+
+    // 在页面上执行操作
+    await stagehand.act("Click the learn more button");
+
+    // 提取结构化数据
+    const description = await stagehand.extract("extract the description", z.string());
+
+    console.log(description);
+    await stagehand.close();
+  }
+
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+  ```
+  </TabItem>
+
+  <TabItem label="Other Languages" icon="globe">
+
+  :::note[说明]
+  对于 Python 以及其他语言的 SDK，请使用侧边栏左上角的**语言选择器**，查看对应语言的 SDK 文档。
+  :::
+  </TabItem>
+</Tabs>
+
+## 下一步
+
+<CardGrid>
+  <Card title="Configuration" icon="gear">
+    环境、Browserbase 与 Local 的差异、日志、超时以及 LLM 自定义。
+
+    [查看原文](https://docs.stagehand.dev/v3/configuration/browser)
+  </Card>
+  <Card title="Act" icon="code">
+    使用自然语言执行精确操作。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/act)
+  </Card>
+  <Card title="Extract" icon="box">
+    使用 Zod schema 提取强类型数据。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/extract)
+  </Card>
+  <Card title="Observe" icon="open-book">
+    发现页面元素与建议操作。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/observe)
+  </Card>
+</CardGrid>

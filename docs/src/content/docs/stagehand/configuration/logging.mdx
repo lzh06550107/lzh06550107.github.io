@@ -1,0 +1,667 @@
+---
+title: Logging
+description: 为 Stagehand 工作流配置日志、调试与错误跟踪。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Logging
+
+> 为 Stagehand 工作流设置日志、调试与错误跟踪
+
+Stagehand 提供了全面的日志能力，帮助你调试自动化工作流、跟踪执行过程并诊断问题。你可以为开发与生产环境配置日志级别、结构化输出以及调试工具。
+
+## 快速开始
+
+根据你的运行环境选择合适的日志配置：
+
+<Tabs>
+  <TabItem label="开发环境" icon="seti:typescript">
+
+  ```ts
+  import { Stagehand } from "@browserbasehq/stagehand";
+
+  const stagehand = new Stagehand({
+    env: "LOCAL",
+    verbose: 2,  // 完整调试输出
+    // restOfYourConfiguration...
+  });
+  ```
+  </TabItem>
+
+  <TabItem label="生产环境" icon="seti:typescript">
+
+  ```ts
+  import { Stagehand } from "@browserbasehq/stagehand";
+
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    verbose: 1,  // 标准日志输出——噪音更少
+    disablePino: true,  // 禁用默认控制台日志——避免刷屏
+    // logger: yourProductionLogger,  // 发送到 Sentry 或 DataDog 等可观测平台
+    // restOfYourConfiguration...
+  });
+  ```
+  </TabItem>
+
+  <TabItem label="测试环境" icon="seti:typescript">
+
+  ```ts
+  import { Stagehand } from "@browserbasehq/stagehand";
+
+  const stagehand = new Stagehand({
+    env: "LOCAL",
+    verbose: 1,
+    // 在测试环境中会自动禁用 Pino —— 不会遇到 worker thread 问题
+    // logger: yourTestLogger,  // 发送到 Jest 等测试日志框架
+    // restOfYourConfiguration...
+  });
+  ```
+  </TabItem>
+</Tabs>
+
+---
+
+## 运行日志
+
+在自动化执行期间记录实时事件日志。
+
+### 详细级别
+
+控制你希望在日志中看到的细节程度：
+
+<Tabs>
+  <TabItem label="级别 2：调试">
+
+  **适用场景：** 开发阶段、排查特定问题
+
+  ```ts
+  const stagehand = new Stagehand({
+    verbose: 2,  // 最详细
+    // restOfYourConfiguration...
+  });
+  ```
+
+  <details>
+    <summary>示例输出</summary>
+
+    ```text
+    [12:34:56] DEBUG: Capturing DOM snapshot
+    [12:34:57] DEBUG: DOM contains 847 elements
+    [12:34:58] DEBUG: LLM inference started
+    [12:34:59] DEBUG: LLM response: {"selector": "#btn-submit", "method": "click"}
+    [12:35:00] INFO: act completed successfully
+    ```
+  </details>
+  </TabItem>
+
+  <TabItem label="级别 1：信息（默认）">
+
+  **适用场景：** 标准运行、预发布、生产环境
+
+  ```ts
+  const stagehand = new Stagehand({
+    verbose: 1,  // 默认级别
+    // restOfYourConfiguration...
+  });
+  ```
+
+  <details>
+    <summary>示例输出</summary>
+
+    ```text
+    [12:34:56] INFO: act started
+    [12:35:00] INFO: act completed successfully
+    [12:35:01] INFO: extract started
+    [12:35:03] INFO: extract completed
+    ```
+  </details>
+  </TabItem>
+
+  <TabItem label="级别 0：仅错误">
+
+  **适用场景：** 已接入外部监控的生产环境、尽量减少噪音
+
+  ```ts
+  const stagehand = new Stagehand({
+    verbose: 0,  // 仅记录错误
+    // restOfYourConfiguration...
+  });
+  ```
+
+  <details>
+    <summary>示例输出</summary>
+
+    ```text
+    [12:35:05] ERROR: act failed: element not found
+    [12:35:10] ERROR: navigation timeout exceeded
+    ```
+  </details>
+  </TabItem>
+</Tabs>
+
+---
+
+### 日志输出目标
+
+日志可以发送到不同的目标，包括你的控制台以及外部可观测平台：
+
+<Tabs>
+  <TabItem label="Pino（默认）">
+
+  快速、结构化、带颜色的 JSON 日志器，并输出到控制台。
+
+  **适用场景：** 开发、预发布，或未接入外部可观测系统的生产环境；也适合管理多个 Stagehand 实例。
+
+  ```ts
+  // 默认启用 —— Pino 会自动处理控制台输出
+  const stagehand = new Stagehand({
+    verbose: 1,
+    // restOfYourConfiguration...
+  });
+  ```
+
+  <details>
+    <summary>以下情况下会自动禁用</summary>
+
+    - `process.env.NODE_ENV === "test"`
+    - `process.env.JEST_WORKER_ID !== undefined`（Jest 测试）
+    - `process.env.PLAYWRIGHT_TEST_BASE_DIR !== undefined`（Playwright 测试）
+    - `process.env.CI === "true"`（CI/CD 环境）
+
+    **为什么会自动禁用？** Pino 会使用 worker threads 做美化输出，这在测试运行器中可能导致问题。
+  </details>
+  </TabItem>
+
+  <TabItem label="Console 回退">
+
+  简单的 `console.log` / `console.error` 输出。
+
+  **适用场景：** 在测试中自动启用，或者在设置 `disablePino: true` 且未配置外部日志器时启用。
+
+  ```ts
+  const stagehand = new Stagehand({
+    verbose: 1,
+    disablePino: true, // 检测到测试环境时会自动设为 true
+    // restOfYourConfiguration...
+  });
+  ```
+
+  <details>
+    <summary>自动切换说明</summary>
+
+    - `process.env.NODE_ENV === "test"`
+    - `process.env.JEST_WORKER_ID !== undefined`（Jest 测试）
+    - `process.env.PLAYWRIGHT_TEST_BASE_DIR !== undefined`（Playwright 测试）
+    - `process.env.CI === "true"`（CI/CD 环境）
+
+    **为什么会自动禁用 Pino？** Pino 会使用 worker threads 做美化输出，这在测试运行器中可能导致问题。
+  </details>
+  </TabItem>
+
+  <TabItem label="自定义日志器">
+
+  通过你自己的日志函数接收全部日志。它与 Pino 独立工作——无论 Pino 是否开启，都会收到日志。
+
+  **适用场景：** 开发、调试，或者你不需要查询能力时。
+
+  #### 1. 创建一个简单日志器
+
+  ```ts
+  // 不做解析的简单日志器（适合基础控制台输出）
+  const simpleLogger = (logLine: LogLine) => {
+    console.log(`[${logLine.level}] ${logLine.message}`);
+
+    // 可选：打印原始辅助数据
+    if (logLine.auxiliary) {
+      console.log('  Context:', logLine.auxiliary);
+    }
+  };
+  ```
+
+  #### 2. 在 Stagehand 实例中传入日志器
+
+  然后将该日志器传给你的 Stagehand 实例：
+
+  ```ts
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    verbose: 1,
+    logger: simpleLogger,
+    disablePino: true,  // 避免重复处理
+    // restOfYourConfiguration...
+  })
+  ```
+  </TabItem>
+
+  <TabItem label="外部日志器（生产环境）">
+
+  通过你自己的日志函数接收全部日志。它与 Pino 独立工作——无论 Pino 是否开启，都会收到日志。
+
+  **适用场景：** 生产环境中接入 DataDog、Sentry、CloudWatch 或自定义可观测平台，以实现集中监控和错误告警。下面给出 Sentry 与 DataDog 的示例：
+
+  #### 1. 创建一个生产日志器
+
+  <Tabs>
+    <TabItem label="Sentry">
+
+    ```ts
+    import * as Sentry from "@sentry/node";
+
+    const productionLogger = (logLine: LogLine) => {
+      // 将错误发送到 Sentry
+      if (logLine.level === 0) {
+        Sentry.captureMessage(logLine.message, {
+          level: 'error',
+          extra: aux,
+        });
+      }
+    }
+
+    // 辅助函数：将 auxiliary 解析为扁平、数值化且可筛选的数据
+    function parseAuxiliary(aux?: LogLine['auxiliary']): Record<string, any> {
+      if (!aux) return {};
+      const parsed: Record<string, any> = {};
+      for (const [key, entry] of Object.entries(aux)) {
+        parsed[key] = entry.type === 'object'
+          ? JSON.parse(entry.value)
+          : entry.value;
+      }
+      return parsed;
+    }
+    ```
+    </TabItem>
+
+    <TabItem label="DataDog">
+
+    ```ts
+    import { datadogLogs } from "@datadog/browser-logs";
+
+    const productionLogger = (logLine: LogLine) => {
+      // 将全部日志发送到 DataDog
+      datadogLogs.logger.log(logLine.message, {
+        status: logLine.level === 0 ? 'error' : 'info',
+        service: 'stagehand-automation',
+        category: logLine.category,
+        ...aux,
+      });
+    }
+
+    // 辅助函数：将 auxiliary 解析为扁平、数值化且可筛选的数据
+    function parseAuxiliary(aux?: LogLine['auxiliary']): Record<string, any> {
+      if (!aux) return {};
+      const parsed: Record<string, any> = {};
+      for (const [key, entry] of Object.entries(aux)) {
+        parsed[key] = entry.type === 'object'
+          ? JSON.parse(entry.value)
+          : entry.value;
+      }
+      return parsed;
+    }
+    ```
+    </TabItem>
+  </Tabs>
+
+  #### 2. 在 Stagehand 实例中传入日志器
+
+  ```ts
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    verbose: 1,
+    logger: productionLogger,
+    disablePino: true,  // 避免重复处理
+    // restOfYourConfiguration...
+  })
+  ```
+  </TabItem>
+</Tabs>
+
+---
+
+## 基于文件的会话日志
+
+通过设置配置目录，你可以为所有 Stagehand 操作启用详细的基于文件的日志记录。这会为 `agent.execute`、`act`、`observe`、`extract`、CDP 事件以及 LLM 请求/响应创建完整日志。
+
+### 设置方法
+
+将以下内容加入你的 shell 配置文件（如 `~/.zshrc`、`~/.bashrc` 等）：
+
+```bash
+export BROWSERBASE_CONFIG_DIR=~/.config/browserbase
+```
+
+然后重新加载 shell，或执行 `source ~/.zshrc`。
+
+### 使用方式
+
+像平时一样运行你的 Stagehand 脚本：
+
+```bash
+tsx run_some_script_that_imports_stagehand.ts
+```
+
+日志会写入 `~/.config/browserbase/sessions/<session-id>/`，其中 `latest` 符号链接会指向最近一次会话。
+
+### 查看日志
+
+<Tabs>
+  <TabItem label="实时监控">
+
+  跟随查看所有日志的实时输出：
+
+  ```bash
+  tail -f ~/.config/browserbase/sessions/latest/*.log
+  ```
+
+  或者只观察特定类型的日志：
+
+  ```bash
+  # 仅查看 LLM 请求与响应
+  tail -f ~/.config/browserbase/sessions/latest/llm_events.log
+
+  # 仅查看 CDP（Chrome DevTools Protocol）事件
+  tail -f ~/.config/browserbase/sessions/latest/cdp_events.log
+  ```
+  </TabItem>
+
+  <TabItem label="按时间顺序回看">
+
+  查看按时间戳排序后的统一输出：
+
+  ```bash
+  cat ~/.config/browserbase/sessions/latest/*.log | sort
+  ```
+  </TabItem>
+
+  <TabItem label="历史会话">
+
+  浏览之前的会话日志：
+
+  ```bash
+  ls ~/.config/browserbase/sessions/
+  # 输出：2025-01-06_14-30-45_abc123  2025-01-06_15-45-12_def456  latest
+
+  cat ~/.config/browserbase/sessions/2025-01-06_14-30-45_abc123/*.log | sort
+  ```
+  </TabItem>
+</Tabs>
+
+### 日志文件
+
+每个会话目录都包含以下文件：
+
+| 文件 | 内容 |
+| --- | --- |
+| `llm_events.log` | `act`、`extract`、`observe` 以及 `agent` 操作的 LLM 请求与响应 |
+| `cdp_events.log` | Chrome DevTools Protocol 调用与事件 |
+| `stagehand.log` | 通用 Stagehand 操作与状态变化 |
+
+:::note[说明]
+这对调试 agent 工作流尤其有用，因为你往往需要追踪 LLM 决策、浏览器操作以及 CDP 交互的完整时序。
+:::
+
+---
+
+## LLM 推理调试
+
+:::warning[警告]
+**仅限开发环境** —— 会生成较大的文件，并且其中包含页面内容。请勿在生产环境中使用。
+:::
+
+将完整的 LLM 请求/响应转储保存到磁盘，便于离线分析。你可以准确查看发送给 LLM 的 DOM 内容，以及它为何选错元素。
+
+```ts
+const stagehand = new Stagehand({
+  env: "LOCAL",
+  verbose: 2,
+  logInferenceToFile: true,  // 将文件写入 ./inference_summary/
+});
+```
+
+每次 LLM 调用都会生成带时间戳的文件：
+
+```text
+./inference_summary/
+├── act_summary/
+│   ├── act_summary.json                      # 汇总指标
+│   ├── 20250127_123456_act_call.txt          # LLM 请求
+│   ├── 20250127_123456_act_response.txt      # LLM 响应
+│   ├── 20250127_123501_act_call.txt
+│   └── 20250127_123501_act_response.txt
+├── extract_summary/
+│   ├── extract_summary.json
+│   ├── 20250127_123510_extract_call.txt
+│   ├── 20250127_123510_extract_response.txt
+│   ├── 20250127_123511_metadata_call.txt
+│   └── 20250127_123511_metadata_response.txt
+└── observe_summary/
+    ├── observe_summary.json
+    └── ...
+```
+
+**文件类型：**
+
+<details>
+  <summary>调用文件（Call File）</summary>
+
+  包含完整的 LLM 请求：
+
+  ```json
+  {
+    "modelCall": "act",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a browser automation assistant. You have access to these actions:\n- click\n- type\n- scroll\n..."
+      },
+      {
+        "role": "user",
+        "content": "Click the sign in button\n\nDOM:\n<html>\n  <body>\n    <button id=\"btn-1\">Sign In</button>\n    <button id=\"btn-2\">Sign Up</button>\n  </body>\n</html>"
+      }
+    ]
+  }
+  ```
+</details>
+
+<details>
+  <summary>响应文件（Response File）</summary>
+
+  包含 LLM 的输出：
+
+  ```json
+  {
+    "modelResponse": "act",
+    "rawResponse": {
+      "selector": "#btn-1",
+      "method": "click",
+      "reasoning": "Found sign in button with ID btn-1"
+    }
+  }
+  ```
+</details>
+
+<details>
+  <summary>汇总文件（Summary File）</summary>
+
+  汇总所有调用及其指标：
+
+  ```json
+  {
+    "act_summary": [
+      {
+        "act_inference_type": "act",
+        "timestamp": "20250127_123456",
+        "LLM_input_file": "20250127_123456_act_call.txt",
+        "LLM_output_file": "20250127_123456_act_response.txt",
+        "prompt_tokens": 3451,
+        "completion_tokens": 45,
+        "inference_time_ms": 951
+      },
+      {
+        "act_inference_type": "act",
+        "timestamp": "20250127_123501",
+        "LLM_input_file": "20250127_123501_act_call.txt",
+        "LLM_output_file": "20250127_123501_act_response.txt",
+        "prompt_tokens": 2890,
+        "completion_tokens": 38,
+        "inference_time_ms": 823
+      }
+    ]
+  }
+  ```
+</details>
+
+---
+
+## 参考
+
+### 日志配置
+
+所有日志选项都通过 Stagehand 构造函数传入：
+
+```ts
+const stagehand = new Stagehand({
+  // ... 其他配置（env、model 等）
+
+  // 日志选项：
+  verbose?: 0 | 1 | 2;                   // 日志级别（默认：1）
+  logger?: (line: LogLine) => void;      // 外部日志器函数
+  disablePino?: boolean;                 // 禁用 Pino 后端（默认：false）
+  logInferenceToFile?: boolean;          // 将 LLM 请求保存到磁盘（默认：false）
+});
+```
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `verbose` | `1` | 日志级别：`0` = 仅错误，`1` = 信息，`2` = 调试 |
+| `logger` | `undefined` | 用于外部平台的自定义日志函数 |
+| `disablePino` | `false` | 禁用 Pino（测试环境中会自动为 `true`） |
+| `logInferenceToFile` | `false` | 将 LLM 请求保存到磁盘 |
+
+### 日志结构
+
+每条日志都遵循统一的结构化格式：
+
+```ts
+interface LogLine {
+  message: string;              // "act completed successfully"
+  level?: 0 | 1 | 2;            // error | info | debug
+  category?: string;            // "action", "llm", "browser", "cache"
+  timestamp?: string;           // ISO 8601 时间戳
+  auxiliary?: {                 // 附加的结构化元数据
+    [key: string]: {
+      value: string;            // 序列化后的值
+      type: "object" | "string" | "integer" | "float" | "boolean";
+    };
+  };
+}
+```
+
+<details>
+  <summary>日志示例</summary>
+
+  <Tabs>
+    <TabItem label="成功的操作">
+
+    ```json
+    {
+      "category": "action",
+      "message": "act completed successfully",
+      "level": 1,
+      "timestamp": "2025-01-27T12:35:00.123Z",
+      "auxiliary": {
+        "selector": {
+          "value": "#btn-submit",
+          "type": "string"
+        },
+        "executionTime": {
+          "value": "1250",
+          "type": "integer"
+        }
+      }
+    }
+    ```
+    </TabItem>
+
+    <TabItem label="LLM 推理">
+
+    ```json
+    {
+      "category": "llm",
+      "message": "inference completed",
+      "level": 1,
+      "timestamp": "2025-01-27T12:34:58.456Z",
+      "auxiliary": {
+        "model": {
+          "value": "gpt-4o",
+          "type": "string"
+        },
+        "promptTokens": {
+          "value": "3451",
+          "type": "integer"
+        },
+        "completionTokens": {
+          "value": "45",
+          "type": "integer"
+        }
+      }
+    }
+    ```
+    </TabItem>
+
+    <TabItem label="错误">
+
+    ```json
+    {
+      "category": "action",
+      "message": "action failed: element not found",
+      "level": 0,
+      "timestamp": "2025-01-27T12:35:05.789Z",
+      "auxiliary": {
+        "selector": {
+          "value": "#missing-btn",
+          "type": "string"
+        },
+        "url": {
+          "value": "https://example.com/form",
+          "type": "string"
+        }
+      }
+    }
+    ```
+    </TabItem>
+  </Tabs>
+</details>
+
+---
+
+## 下一步
+
+现在你已经完成日志配置，可以继续查看更多调试与监控工具，详见[可观测性指南](/stagehand/configuration/observability)：
+
+<CardGrid>
+  <Card title="History API" icon="clock-rotate-left" href="/stagehand/best-practices/history">
+    跟踪所有 LLM 操作（`act`、`extract`、`observe`、`agent`），包括参数、结果与时间戳。非常适合调试操作序列以及回放工作流。
+  </Card>
+
+  <Card title="Metrics API" icon="chart-line" href="/stagehand/configuration/observability#实时指标与监控">
+    实时监控 token 使用量与性能。跟踪每次操作的成本，识别高开销调用，并优化资源使用。
+  </Card>
+
+  <Card title="LLM Inference Debugging" icon="microscope" href="/stagehand/configuration/logging#llm-推理调试">
+    将完整的 LLM 请求/响应转储保存到磁盘。准确查看发送给 LLM 的 DOM，以及它为何做出特定决策。
+  </Card>
+
+  <Card title="Browserbase Session Monitoring" icon="video" href="/stagehand/configuration/observability#browserbase-会话监控">
+    通过会话录制、网络监控和实时浏览器检查，以可视化方式观察你的自动化流程（仅 Browserbase）。
+  </Card>
+</CardGrid>

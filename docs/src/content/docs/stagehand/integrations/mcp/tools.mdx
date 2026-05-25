@@ -1,0 +1,92 @@
+---
+title: Browserbase MCP 服务器工具
+description: 了解 Browserbase MCP 服务器中用于浏览器自动化与交互的专用工具。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Browserbase MCP 服务器工具
+
+> 本指南介绍 Browserbase MCP 服务器中可用于浏览器自动化与交互的专用工具。
+
+## 概览
+
+Browserbase MCP 服务器通过绑定到当前传输会话的活动 session，提供浏览器自动化与会话管理能力。
+
+## 核心浏览器自动化工具
+
+这些是使用自然语言执行现代网页自动化时最主要的工具。
+
+<details>
+  <summary><code>navigate</code></summary>
+
+导航到浏览器中的任意 URL。
+
+- **url** (`string`, 必填)：要访问的 URL。
+</details>
+
+<details>
+  <summary><code>act</code></summary>
+
+使用自然语言在网页上执行操作。
+
+- **action** (`string`, 必填)：要执行的动作，例如 “click the login button” 或 “fill form field”。
+</details>
+
+<details>
+  <summary><code>observe</code></summary>
+
+观察页面并查找可执行的元素。
+
+- **instruction** (`string`, 必填)：观察指令，例如 “find the login button” 或 “locate search form”。
+</details>
+
+<details>
+  <summary><code>extract</code></summary>
+
+从当前页面提取数据。
+
+- **instruction** (`string`, 可选)：提取指令。
+</details>
+
+## 会话管理
+
+<details>
+  <summary><code>start</code></summary>
+
+创建一个新的 Browserbase 会话，或附加到一个现有的 Browserbase 会话，并将其设置为当前 MCP 传输会话的活动会话。
+
+- **sessionId** (`string`, 可选)：要附加的 Browserbase 会话 ID。如果省略，`start` 会创建一个新会话。
+- **返回值 sessionId** (`string`)：当前 MCP 传输会话所激活的 Browserbase 会话 ID。
+</details>
+
+<details>
+  <summary><code>end</code></summary>
+
+关闭当前 MCP 传输会话的活动 Browserbase 会话。
+
+无需输入参数。
+</details>
+
+## 延伸阅读
+
+<CardGrid>
+  <Card title="Model Context Protocol (MCP) 文档" icon="book" href="https://modelcontextprotocol.io/introduction">
+    进一步了解 MCP 协议。
+  </Card>
+  <Card title="Stagehand 文档" icon="robot" href="https://docs.stagehand.dev/">
+    探索 Stagehand 的 AI 浏览器自动化能力。
+  </Card>
+  <Card title="支持" icon="help-circle" href="mailto:support@browserbase.com">
+    联系支持团队获取帮助。
+  </Card>
+</CardGrid>

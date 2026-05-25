@@ -1,0 +1,182 @@
+---
+title: Puppeteer
+description: 将 Stagehand 与 Puppeteer 结合进行浏览器自动化。
+editUrl: false
+sidebar:
+  order: 7
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Puppeteer
+
+> 使用 Stagehand 与 Puppeteer 进行浏览器自动化
+
+## 概览
+
+Stagehand v3 可以与 Puppeteer 无缝协作，使你能够直接把 Puppeteer 的 `Page` 对象交给 Stagehand 的 AI 方法，例如 `act()`、`extract()` 与 `observe()`。
+
+## 安装
+
+先安装 Stagehand 与 Puppeteer：
+
+```bash
+npm install @browserbasehq/stagehand puppeteer-core
+```
+
+## 快速开始
+
+### 基础设置
+
+将 Puppeteer 连接到 Stagehand 的浏览器实例：
+
+```typescript
+import { Stagehand } from '@browserbasehq/stagehand';
+import puppeteer from 'puppeteer-core';
+
+const stagehand = new Stagehand({
+  env: 'LOCAL', // 或 'BROWSERBASE'
+  model: 'openai/gpt-5',
+});
+
+await stagehand.init();
+
+const browser = await puppeteer.connect({
+  browserWSEndpoint: stagehand.connectURL(),
+  defaultViewport: null,
+});
+
+const pages = await browser.pages();
+const ppPage = pages[0];
+```
+
+### 将 Puppeteer 页面交给 Stagehand 使用
+
+连接后，你就可以将 Puppeteer 的 `Page` 对象交给 Stagehand 的 AI 方法：
+
+```typescript
+await ppPage.goto('https://example.com');
+
+await stagehand.act('click the sign in button', { page: ppPage });
+
+const data = await stagehand.extract(
+  'extract the page title',
+  z.object({ title: z.string() }),
+  { page: ppPage },
+);
+```
+
+## 进阶：多页面用法
+
+你可以用 Stagehand 创建并管理多个 Puppeteer 页面：
+
+```typescript
+import { Stagehand } from '@browserbasehq/stagehand';
+import puppeteer from 'puppeteer-core';
+import { z } from 'zod';
+
+async function multiPageExample() {
+  const stagehand = new Stagehand({
+    env: 'BROWSERBASE',
+    model: 'openai/gpt-5',
+  });
+
+  await stagehand.init();
+
+  const browser = await puppeteer.connect({
+    browserWSEndpoint: stagehand.connectURL(),
+    defaultViewport: null,
+  });
+
+  const pages = await browser.pages();
+  const ppPage1 = pages[0];
+  const ppPage2 = await browser.newPage();
+
+  await ppPage1.goto('https://example.com');
+  await ppPage2.goto('https://another-site.com');
+
+  await stagehand.act('click the button', { page: ppPage1 });
+
+  const data = await stagehand.extract(
+    'extract the title',
+    z.object({ title: z.string() }),
+    { page: ppPage2 },
+  );
+
+  console.log('Extracted from page 2:', data);
+
+  await stagehand.close();
+}
+```
+
+## Observe + Act 模式
+
+这是更可靠的自动化推荐模式：
+
+```typescript
+// 第 1 步：先 observe，找到候选动作
+const actions = await stagehand.observe(
+  'find the submit button',
+  { page: ppPage },
+);
+
+// 第 2 步：执行第一个动作
+if (actions.length > 0) {
+  await stagehand.act(actions[0], { page: ppPage });
+}
+```
+
+这个模式有助于避免在观察与执行动作之间 DOM 变化导致的问题。
+
+## 关键点
+
+- **通过 WebSocket 连接**：使用 `puppeteer.connect()`，并将 `stagehand.connectURL()` 作为 `browserWSEndpoint`
+- **传入 page**：调用 Stagehand 方法时始终通过 `{ page }` 传入 Puppeteer `page` 对象
+- **禁用默认视口**：设置 `defaultViewport: null`，使用 Stagehand 的视口设置
+- **支持多页面**：可使用 `browser.newPage()` 创建多个页面，再分别交给 Stagehand
+
+## 环境变量
+
+使用 Browserbase 时，请设置：
+
+```bash
+BROWSERBASE_API_KEY=your_api_key
+```
+
+若使用 OpenAI（或其他提供方），还需要：
+
+```bash
+OPENAI_API_KEY=your_api_key
+```
+
+## 对比：原生 Stagehand vs Puppeteer
+
+| 特性 | 原生 Stagehand | 搭配 Puppeteer |
+| --- | --- | --- |
+| **设置** | 简单，直接使用 `stagehand.context.pages()` | 需要额外调用 `puppeteer.connect()` |
+| **页面访问** | `stagehand.context.pages()[0]` | `await browser.pages()` |
+| **AI 方法** | `stagehand.act("click")` | `stagehand.act("click", { page: ppPage })` |
+| **最适合** | 纯 Stagehand 工作流 | 已有 Puppeteer 代码库 |
+
+## 下一步
+
+<CardGrid>
+  <Card title="Agent" icon="robot" href="/stagehand/basics/agent/">
+    自动化完整工作流。
+  </Card>
+  <Card title="Act" icon="play" href="/stagehand/basics/act/">
+    在网页上执行动作。
+  </Card>
+  <Card title="Extract" icon="database" href="/stagehand/basics/extract/">
+    从页面提取结构化数据。
+  </Card>
+  <Card title="Observe" icon="eye" href="/stagehand/basics/observe/">
+    观察并查找页面元素。
+  </Card>
+</CardGrid>

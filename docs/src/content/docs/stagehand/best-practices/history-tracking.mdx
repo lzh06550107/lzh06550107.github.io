@@ -1,0 +1,201 @@
+---
+title: 历史追踪
+description: 使用 history API 跟踪并分析 Stagehand 操作。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 历史追踪
+
+> 使用 history API 跟踪并分析 Stagehand 操作
+
+history API 会捕获每一次 Stagehand 操作，用于调试、审计以及工作流分析。
+
+## 基础用法
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({ env: "BROWSERBASE" });
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+await page.goto("https://example.com");
+await stagehand.act("click login button");
+
+// 获取完整历史记录
+const history = await stagehand.history;
+
+console.log(`总操作数：${history.length}`);
+history.forEach((entry, i) => {
+  console.log(`${i + 1}. ${entry.method} 于 ${entry.timestamp}`);
+});
+
+await stagehand.close();
+```
+
+## 历史记录条目结构
+
+```typescript
+interface HistoryEntry {
+  method: "act" | "extract" | "observe" | "navigate" | "agent";
+  parameters: unknown;  // 输入参数
+  result: unknown;      // 输出/结果
+  timestamp: string;    // ISO 8601 时间戳
+}
+```
+
+## 常见用例
+
+### 调试失败
+
+```typescript
+try {
+  await stagehand.act("click login button");
+} catch (error) {
+  const history = await stagehand.history;
+
+  history.forEach((entry, i) => {
+    const status = entry.result && 'error' in entry.result ? "FAILED" : "SUCCESS";
+    console.log(`${i + 1}. ${status} - ${entry.method}`);
+  });
+}
+```
+
+### 分析耗时
+
+```typescript
+const history = await stagehand.history;
+
+const timings = history.map((entry, i) => {
+  if (i === 0) return null;
+  const duration = new Date(entry.timestamp).getTime() -
+                   new Date(history[i - 1].timestamp).getTime();
+  return { operation: entry.method, duration };
+}).filter(Boolean);
+
+console.log("最慢的操作：",
+  timings.sort((a, b) => b.duration - a.duration).slice(0, 3)
+);
+```
+
+### 操作统计
+
+```typescript
+const history = await stagehand.history;
+
+const stats = history.reduce((acc, entry) => {
+  acc[entry.method] = (acc[entry.method] || 0) + 1;
+  return acc;
+}, {} as Record<string, number>);
+
+console.log("操作统计：", stats);
+// { act: 5, extract: 2, observe: 3, navigate: 1 }
+```
+
+### 保存历史记录
+
+```typescript
+import fs from "fs/promises";
+
+const history = await stagehand.history;
+const metrics = await stagehand.metrics;
+
+await fs.writeFile(
+  `workflow-report.json`,
+  JSON.stringify({
+    history,
+    totalOps: history.length,
+    totalTokens: metrics.totalPromptTokens + metrics.totalCompletionTokens
+  }, null, 2)
+);
+```
+
+## 按操作类型筛选
+
+```typescript
+const history = await stagehand.history;
+
+const actions = history.filter(e => e.method === 'act');
+const extractions = history.filter(e => e.method === 'extract');
+const agentOps = history.filter(e => e.method === 'agent');
+
+console.log(`动作数：${actions.length}`);
+console.log(`提取数：${extractions.length}`);
+console.log(`Agent 执行次数：${agentOps.length}`);
+```
+
+## 与指标结合使用
+
+```typescript
+const history = await stagehand.history;
+const metrics = await stagehand.metrics;
+
+const report = {
+  totalOps: history.length,
+  successful: history.filter(e => !e.result || !('error' in e.result)).length,
+  failed: history.filter(e => e.result && 'error' in e.result).length,
+  totalTokens: metrics.totalPromptTokens + metrics.totalCompletionTokens,
+  avgTimePerOp: `${(metrics.totalInferenceTimeMs / history.length).toFixed(0)}ms`
+};
+
+console.log(report);
+```
+
+<CardGrid>
+  <Card title="可观测性指南" icon="chart-line" href="/stagehand/configuration/observability/">
+    进一步了解指标、日志与监控。
+  </Card>
+</CardGrid>
+
+## 会跟踪什么？
+
+历史记录中只会跟踪 Stagehand 方法：
+
+```typescript
+// 会被跟踪
+await stagehand.act("click button");              // ✓
+await stagehand.extract({ instruction: "..." }); // ✓
+await stagehand.observe("find elements");         // ✓
+await page.goto("https://example.com");          // ✓
+
+// 不会被跟踪
+await page.locator("button").click();            // ✗ 原生 Playwright
+await page.click("button");                      // ✗ 原生 Playwright
+```
+
+## 最佳实践
+
+- **为关键工作流保存历史记录** —— 为生产环境保留审计轨迹
+- **调试时检查历史记录** —— 查看最后几次操作以识别失败原因
+- **定期分析耗时** —— 找出慢操作并进行优化
+- **结合指标一起分析** —— 完整掌握性能与成本情况
+
+## 后续步骤
+
+<CardGrid>
+  <Card title="确定性 Agent 脚本" icon="robot" href="/stagehand/best-practices/deterministic-agent/">
+    构建快速且可缓存的 Agent 工作流。
+  </Card>
+
+  <Card title="可观测性" icon="chart-line" href="/stagehand/configuration/observability/">
+    将历史记录与指标结合使用。
+  </Card>
+
+  <Card title="缓存操作" icon="database" href="/stagehand/best-practices/caching-actions/">
+    通过缓存加速工作流。
+  </Card>
+
+  <Card title="日志" icon="file-lines" href="/stagehand/configuration/logging/">
+    配置详细的执行追踪。
+  </Card>
+</CardGrid>

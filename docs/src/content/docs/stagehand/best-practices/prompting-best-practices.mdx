@@ -1,0 +1,259 @@
+---
+title: 提示词最佳实践
+description: 编写高质量提示词，让 Stagehand 自动化更加稳定可靠。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 提示词最佳实践
+
+> 编写有效的提示词，实现可靠的 Stagehand 自动化
+
+好的提示词会让 Stagehand 更可靠。糟糕的提示词会导致失败。以下是编写能够稳定工作的提示词的方法。
+
+## Act 方法
+
+在网页上执行单个操作时，请使用 `act()`。每个操作都应聚焦且清晰。
+
+```ts
+// Good - Single, specific actions
+await stagehand.act("click the 'Add to Cart' button");
+await stagehand.act("type 'user@example.com' into the email field");
+
+// Bad - Multiple actions combined
+await stagehand.act("fill out the form and submit it");
+await stagehand.act("login with credentials and navigate to dashboard");
+```
+
+### 使用元素类型，而不是颜色
+
+请根据元素的类型和功能来描述它们，而不是使用颜色这类视觉属性。
+
+```ts
+// Good - Element types and descriptive text
+await stagehand.act("click the 'Sign In' button");
+await stagehand.act("type into the email input field");
+
+// Bad - Color-based descriptions
+await stagehand.act("click the blue button");
+await stagehand.act("type into the white input");
+```
+
+### 使用描述性语言
+
+```ts
+// Good - Clear element identification
+await stagehand.act("click the 'Next' button at the bottom of the form");
+await stagehand.act("type into the search bar at the top of the page");
+
+// Bad - Vague descriptions
+await stagehand.act("click next");
+await stagehand.act("type into search");
+```
+
+### 选择正确的动作动词
+
+- **Click**：用于按钮、链接、复选框
+- **Type**：用于文本输入框
+- **Select**：用于下拉菜单
+- **Check/uncheck**：用于复选框
+- **Upload**：用于文件输入框
+
+```ts
+// Good
+await stagehand.act("click the submit button");
+await stagehand.act("select 'Option 1' from dropdown");
+
+// Bad
+await stagehand.act("click submit");
+await stagehand.act("choose option 1");
+```
+
+### 保护敏感数据
+
+使用变量可以让敏感信息不出现在提示词和日志中。
+
+```ts
+// Use variables for sensitive data
+await stagehand.act("type %username% into the email field", {
+  variables: { username: "user@example.com" }
+});
+
+await stagehand.act("type %password% into the password field", {
+  variables: { password: process.env.USER_PASSWORD }
+});
+```
+
+:::caution[警告]
+请在你的 Stagehand 配置中设置 `verbose: 0`，以防止敏感信息出现在日志中。
+:::
+
+## Extract 方法
+
+使用 `extract()` 从页面中提取结构化数据。请定义清晰的 schema，并提供上下文。
+
+### Schema 最佳实践
+
+请使用描述性的字段名、正确的类型以及详细的描述。字段描述能够提供上下文，帮助模型准确理解应提取什么内容。
+
+```ts
+// Good - Descriptive names, correct types, and helpful descriptions
+const productData = await stagehand.extract(
+  "Extract product information",
+  z.object({
+    productTitle: z.string().describe("The main product name displayed on the page"),
+    priceInDollars: z.number().describe("Current selling price as a number, without currency symbol"),
+    isInStock: z.boolean().describe("Whether the product is available for purchase")
+  })
+);
+
+// Bad - Generic names, wrong types, no descriptions
+const data = await stagehand.extract(
+  "Get product details",
+  z.object({
+    name: z.string(), // Too generic, no context
+    price: z.string(), // Should be number
+    stock: z.string() // Should be boolean, no context
+  })
+);
+```
+
+### 使用正确的 URL 类型
+
+使用 `z.string().url()` 指定 URL 类型，以便告诉 Stagehand 提取 URL。
+
+```ts
+// Good - Tells Stagehand to extract URLs
+const links = await stagehand.extract(
+  "Extract navigation links",
+  z.array(z.object({
+    text: z.string(),
+    url: z.string().url() // Required for URL extraction
+  }))
+);
+
+// Single URL extraction
+const contactUrl = await stagehand.extract(
+  "extract the contact page URL",
+  z.string().url()
+);
+```
+
+## Observe 方法
+
+在执行操作前，使用 `observe()` 发现可操作元素。
+
+### 先检查元素
+
+在执行操作前先确认元素存在，以避免出错。
+
+```ts
+// Check for elements first
+const loginButtons = await stagehand.observe("Find the login button");
+
+if (loginButtons.length > 0) {
+  await stagehand.act(loginButtons[0]);
+} else {
+  console.log("No login button found");
+}
+```
+
+### 明确元素类型
+
+```ts
+// Good - Specific element types
+const submitButtons = await stagehand.observe("Find submit button in the form");
+const dropdowns = await stagehand.observe("Find the state dropdown menu");
+
+// Bad - Too vague
+const elements = await stagehand.observe("Find submit stuff");
+const things = await stagehand.observe("Find state selection");
+```
+
+## Agent 方法
+
+对于复杂的多步骤工作流，请使用 `agent()`。提供详细指令，并设置合适的限制。
+
+### 先导航
+
+不要把导航包含在 agent 任务中。请单独处理导航。
+
+```ts
+// Good - Navigate first
+await page.goto('https://amazon.com');
+await agent.execute('Search for wireless headphones under $100 and add the best rated one to cart');
+
+// Bad - Navigation in task
+await agent.execute('Go to Amazon, search for headphones, and add one to cart');
+```
+
+### 尽可能具体
+
+详细的指令会带来更好的结果。
+
+```ts
+// Good - Detailed instructions
+await agent.execute({
+  instruction: "Find Italian restaurants in Brooklyn that are open after 10pm, have outdoor seating, and are rated 4+ stars. Save the top 3 results.",
+  maxSteps: 25
+});
+
+// Bad - Vague instructions
+await agent.execute("Find some good restaurants");
+```
+
+### 设置合适的步骤上限
+
+让步骤上限与任务复杂度相匹配。
+
+```ts
+// Simple task - fewer steps
+await agent.execute({
+  instruction: "Subscribe to the newsletter with email 'user@example.com'",
+  maxSteps: 10
+});
+
+// Complex task - more steps
+await agent.execute({
+  instruction: "Research and compare 5 project management tools with pricing and features",
+  maxSteps: 50
+});
+```
+
+### 包含成功标准
+
+告诉 agent 如何判断自己已经完成任务。
+
+```ts
+// Good - Clear success criteria
+await agent.execute({
+  instruction: "Add 3 smartphone cases to cart and confirm the cart shows exactly 3 items with total price",
+  maxSteps: 20
+});
+
+// Bad - No validation
+await agent.execute("Add some items to cart");
+```
+
+## 需要避免的常见错误
+
+- **合并多个操作** —— 每次 `act()` 调用只做一个操作
+- **使用模糊描述** —— 明确说明要交互的是哪个元素
+- **暴露敏感数据** —— 凭据始终使用变量
+- **跳过验证** —— 继续前先检查结果
+
+## 测试你的提示词
+
+1. **从简单开始** —— 先测试基础功能
+2. **逐步增加复杂度** —— 慢慢构建到复杂工作流
+3. **监控结果** —— 使用日志了解发生了什么
+4. **根据失败结果迭代** —— 当提示词不起作用时进行优化
+
+请记住：好的提示词是迭代出来的。拿不准时，宁可更具体，也不要更模糊。

@@ -1,0 +1,410 @@
+---
+title: Observe
+description: 在任意网页上发现并规划可执行的操作。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Observe
+
+> 在任意网页上发现并规划可执行的操作
+
+## 什么是 `observe()`？
+
+```ts
+await stagehand.observe("find the login button");
+```
+
+`observe()` 会发现页面上的可操作元素，并返回结构化操作。你可以在真正执行之前先校验这些操作，或者直接执行它们。它适合用于探索页面、规划多步工作流、缓存操作，以及在执行前验证元素。
+
+## 为什么使用 `observe()`？
+
+<CardGrid>
+  <Card title="探索" icon="compass" href="#using-observe">
+    发现页面上有哪些事情可以做——查找按钮、表单、链接和交互元素。
+  </Card>
+
+  <Card title="规划" icon="map" href="#plan-then-execute">
+    预先发现所需的全部操作，从而绘制多步工作流。
+  </Card>
+
+  <Card title="缓存" icon="database" href="https://docs.stagehand.dev/v3/best-practices/caching">
+    存储已发现的操作，跳过 LLM 调用，加快重复工作流的执行速度。
+  </Card>
+
+  <Card title="验证" icon="check" href="#validate-before-acting">
+    在执行关键操作之前，先确认元素存在并检查其属性。
+  </Card>
+</CardGrid>
+
+<div id="using-observe"></div>
+
+## 使用 `observe()`
+
+使用 `observe()` 来发现页面上的可操作元素。下面展示了如何查找一个按钮：
+
+```ts
+const page = stagehand.context.pages()[0];
+await page.goto("https://example.com");
+const actions = await stagehand.observe("find the learn more button");
+```
+
+:::note[说明]
+**iFrame 与 Shadow DOM 支持**：Stagehand 会自动处理 iFrame 遍历和 shadow DOM 元素，无需额外配置。
+:::
+
+<details>
+  <summary>常见用例</summary>
+
+  | 用例 | 示例指令 |
+  | --- | --- |
+  | 查找按钮 | `find the submit button` |
+  | 定位表单 | `find all input fields in the form` |
+  | 发现链接 | `find navigation links` |
+  | 识别表格 | `find the pricing table` |
+  | 映射工作流 | `find all checkout steps` |
+  | 验证元素 | `find the delete account button` |
+</details>
+
+### `observe()` 的返回值是什么？
+
+当你使用 `observe()` 时，Stagehand 会返回一个 `Promise<Action[]>`，其结构如下：
+
+```ts
+[
+  {
+    description: 'Learn more button',
+    method: 'click',
+    arguments: [],
+    selector: 'xpath=/html[1]/body[1]/shadow-demo[1]//div[1]/button[1]'
+  }
+]
+```
+
+<Tabs>
+  <TabItem label="这样做" icon="check">
+
+  使用具体且描述清晰的指令。
+
+  ```ts
+  // 清晰且具体
+  await stagehand.observe("find the primary call-to-action button in the hero section");
+  await stagehand.observe("find all input fields in the checkout form");
+  await stagehand.observe("find the delete account button in settings");
+  ```
+  </TabItem>
+
+  <TabItem label="不要这样做" icon="xmark">
+
+  避免使用模糊查询，或把它当作数据提取工具。
+
+  ```ts
+  // 过于模糊
+  await stagehand.observe("find buttons");
+
+  // 数据提取请改用 extract()
+  await stagehand.observe("what is the page title?");
+  ```
+  </TabItem>
+</Tabs>
+
+## 高级配置
+
+你可以传入额外选项来配置模型、超时时间、选择器范围、需要忽略的页面区域，以及占位变量：
+
+```ts
+// 自定义模型配置
+const actions = await stagehand.observe("find navigation links", {
+  model: "openai/gpt-4o",
+  timeout: 30000,
+  selector: "//header" // 聚焦到特定区域
+});
+```
+
+你也可以使用 `ignoreSelectors` 排除特定节点，以及这些节点的所有后代节点。
+
+```ts
+const actions = await stagehand.observe("find the main call-to-action buttons", {
+  ignoreSelectors: [
+    "//aside[contains(@class, 'promo-rail')]",
+    "//div[@id='floating-chat-launcher']",
+    "//section[@aria-label='recommended articles']"
+  ]
+});
+```
+
+:::note[说明]
+`ignoreSelectors` 会移除每个选择器匹配到的所有节点，以及每个匹配节点的所有后代。`selector` 仍然只会将观察范围限定在单个已解析的子树中。
+:::
+
+### 使用变量先验证再执行
+
+对于登录以及其他对安全性敏感的流程，可以先用 `observe()` 发现候选操作，对其进行验证，然后再通过 `act()` 执行。传入 `variables` 后，`observe()` 会在建议操作的参数中返回 `%variableName%` 占位符，而不是原始的敏感值。
+
+```ts
+const actions = await stagehand.observe("find the login form fields", {
+  variables: {
+    username: { value: "user@example.com", description: "The login email" },
+    password: { value: process.env.USER_PASSWORD, description: "The login password" },
+  }
+});
+
+const emailField = actions.find((action) => action.arguments?.includes("%username%"));
+const passwordField = actions.find((action) => action.arguments?.includes("%password%"));
+
+if (emailField && passwordField) {
+  await stagehand.act(emailField, {
+    variables: { username: "user@example.com" }
+  });
+
+  await stagehand.act(passwordField, {
+    variables: { password: process.env.USER_PASSWORD }
+  });
+}
+```
+
+### 服务端缓存
+
+:::note[说明]
+`serverCache` 仅在使用 `env: "BROWSERBASE"` 运行时生效。在本地环境中不会产生任何效果。
+:::
+
+当运行在 Browserbase 上时，Stagehand 会自动在服务端缓存 `observe()` 的结果。对于输入相同的重复调用，会立即返回，而不会消耗 LLM token。缓存默认开启，可以在构造器上全局控制，也可以在单次调用时覆盖：
+
+```ts
+// 为整个实例禁用服务端缓存
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  serverCache: false,
+});
+
+// 或者仅对单次调用禁用
+const actions = await stagehand.observe("find the login button", { serverCache: false });
+```
+
+:::note[说明]
+`observe()` 目前不会暴露 `cacheStatus` 字段。要检查一次 `observe()` 调用是否来自缓存，可以使用 [Browserbase 的会话回放面板](https://docs.browserbase.com/features/observability#stagehand)，或查看会话日志。
+:::
+
+### 与自定义页面一起使用
+
+你可以通过传入 `page` 选项，将 `observe()` 与来自其他浏览器自动化库（如 Puppeteer、Playwright 或 Patchright）的页面一起使用：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+import puppeteer from "puppeteer-core";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+});
+await stagehand.init();
+
+// 通过 Puppeteer 连接
+const browser = await puppeteer.connect({
+  browserWSEndpoint: stagehand.connectURL(),
+  defaultViewport: null,
+});
+
+const pages = await browser.pages();
+const customPage = pages[0];
+
+await customPage.goto("https://www.example.com/products");
+
+// 在自定义 Puppeteer 页面上使用 observe
+const actions = await stagehand.observe("find all product cards", {
+  page: customPage
+});
+```
+
+这适用于：
+
+- **Puppeteer**：传入 Puppeteer 的 Page 对象
+- **Playwright**：传入 Playwright 的 Page 对象
+- **Patchright**：传入 Patchright 的 Page 对象
+- **Stagehand Context Pages**：通过 `stagehand.context.pages()` 访问页面（默认）
+
+<Card title="完整 API 参考" icon="book" href="https://docs.stagehand.dev/v3/references/observe">
+  查看完整的 `observe()` 参考文档，了解详细参数说明、返回值以及高级示例。
+</Card>
+
+## 最佳实践
+
+<div id="plan-then-execute"></div>
+
+### 先规划，再执行
+
+先一次性发现全部操作，然后再执行，这样就不需要额外的 LLM 调用。与拆分成多个独立 `act()` 调用相比，这种方式通常快 2–3 倍。
+
+```ts
+const formFields = await stagehand.observe("find all form input fields");
+
+for (const field of formFields) {
+  await stagehand.act(field); // 无需 LLM 调用
+}
+```
+
+<Card title="使用 observe() 分析页面" icon="magnifying-glass" href="https://docs.stagehand.dev/v3/references/observe">
+  查看如何使用 `observe()` 规划操作的完整指南。
+</Card>
+
+### 缩小提取范围
+
+使用 `observe()` 缩小提取范围，最多可将 token 使用量降低 10 倍。
+
+```ts
+const [table] = await stagehand.observe("find the pricing table");
+
+const pricing = await stagehand.extract({
+  instruction: "extract all pricing tiers",
+  schema: PricingSchema,
+  selector: table.selector
+});
+```
+
+<Card title="提取结构化数据" icon="table" href="https://docs.stagehand.dev/v3/basics/extract">
+  了解如何将 `observe()` 与 `extract()` 结合使用，以进行精确的数据提取。
+</Card>
+
+<div id="validate-before-acting"></div>
+
+### 执行前先验证
+
+在执行关键操作之前，先确认元素存在，并验证其属性。
+
+```ts
+const [deleteButton] = await stagehand.observe("find the delete account button");
+
+if (deleteButton?.method === "click") {
+  await stagehand.act(deleteButton);
+} else {
+  throw new Error("Delete button not found");
+}
+```
+
+<Card title="使用 act() 执行操作" icon="play" href="https://docs.stagehand.dev/v3/basics/act">
+  了解如何可靠地执行观察到的操作。
+</Card>
+
+### 缓存已观察到的操作
+
+存储并复用已经观察到的操作，以消除冗余的 LLM 调用。下面是一个简单缓存的示例：
+
+```ts
+const actionCache = new Map<string, Action[]>();
+
+async function cachedObserve(instruction: string) {
+  if (actionCache.has(instruction)) {
+    return actionCache.get(instruction)!;
+  }
+
+  const actions = await stagehand.observe(instruction);
+  actionCache.set(instruction, actions);
+  return actions;
+}
+```
+
+<Card title="完整缓存指南" icon="database" href="https://docs.stagehand.dev/v3/best-practices/caching">
+  了解用于优化性能的高级缓存技巧与模式。
+</Card>
+
+## 故障排查
+
+<details>
+  <summary>未找到元素</summary>
+
+  **问题**：`observe()` 返回空数组。
+
+  **解决方案**：
+
+  - 确认页面上确实存在该元素
+  - 使用更具体的指令（例如，用 “find the blue submit button” 代替 “find button”）
+  - 确保在调用 `observe()` 之前页面已经完全加载
+  - 在 Stagehand 配置中启用详细日志，以检查检测行为
+
+  ```ts
+  // 在 observe 之前检查页面状态
+  const page = stagehand.context.pages()[0];
+  await page.waitForLoadState('domcontentloaded');
+
+  const actions = await stagehand.observe("find the submit button");
+
+  if (actions.length === 0) {
+    console.log("No elements found, trying alternative instruction");
+    const altActions = await stagehand.observe("find the button at the bottom of the form");
+  }
+  ```
+</details>
+
+<details>
+  <summary>结果不准确</summary>
+
+  **问题**：描述或选择器与实际元素不匹配。
+
+  **解决方案**：
+
+  - 使用能力更强的模型——可以参考 [model evals](https://stagehand.dev/evals) 选择推荐模型
+  - 在指令中提供更多上下文（例如，“find the submit button in the checkout form”）
+  - 在 Stagehand 配置中启用详细日志与 `logInferenceToFile`，检查 LLM 的推理过程
+
+  ```ts
+  // 更具体的指令可以提升准确性
+  // 不要这样：
+  await stagehand.observe("find the button");
+
+  // 应该加入上下文：
+  await stagehand.observe("find the red 'Delete' button in the user settings panel");
+  ```
+</details>
+
+<details>
+  <summary>建议的方法不正确</summary>
+
+  **问题**：`method` 字段的值不是你预期的内容。
+
+  **解决方案**：
+
+  - 在使用前先验证方法：`if (action.method === "click") { ... }`
+  - 查看[支持的操作](https://docs.stagehand.dev/v3/basics/act)以确认合法的方法名称
+  - 必要时显式覆盖方法：`await stagehand.act({ ...action, method: "click" })`
+
+  ```ts
+  const [action] = await stagehand.observe("find the submit button");
+
+  // 执行前验证方法
+  const validMethods = ["click", "fill", "type", "press"];
+  if (action && validMethods.includes(action.method || "")) {
+    await stagehand.act(action);
+  } else {
+    console.warn(`Unexpected method: ${action?.method}`);
+  }
+  ```
+</details>
+
+## 下一步
+
+<CardGrid>
+  <Card title="使用 act() 执行操作" icon="play" href="https://docs.stagehand.dev/v3/basics/act">
+    使用 `act()` 可靠地执行已发现的操作。
+  </Card>
+
+  <Card title="提取结构化数据" icon="table" href="https://docs.stagehand.dev/v3/basics/extract">
+    将 `observe()` 与 `extract()` 结合使用，以进行精确的数据提取。
+  </Card>
+
+  <Card title="缓存操作" icon="bolt" href="https://docs.stagehand.dev/v3/best-practices/caching">
+    构建操作缓存，消除冗余的 LLM 调用。
+  </Card>
+
+  <Card title="完整 API 参考" icon="book" href="https://docs.stagehand.dev/v3/references/observe">
+    查看包含详细参数说明的完整 `observe()` 参考文档。
+  </Card>
+</CardGrid>

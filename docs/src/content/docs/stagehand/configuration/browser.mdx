@@ -1,0 +1,430 @@
+---
+title: Browser
+description: 在 Browserbase 或本地环境中配置 Stagehand。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+import { Card } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Browser
+
+> 在 Browserbase 或本地环境中配置 Stagehand
+
+Stagehand 支持两种主要环境：
+
+- **Browserbase**：面向生产级大规模 Web 自动化优化的云托管浏览器基础设施
+- **Local**：直接在你的机器上运行浏览器，适用于开发与调试
+
+## Browserbase 环境
+
+Browserbase 提供面向大规模 Web 自动化优化的托管云浏览器基础设施。它提供隐身模式、代理支持和持久化上下文等高级功能。
+
+<Card icon="cloud" title="Browserbase" href="https://docs.browserbase.com">
+  探索使用 Browserbase 进行可扩展 Web 自动化的特性与优势。
+</Card>
+
+### 多区域支持
+
+Stagehand API 在多个区域可用，可用于优化延迟并满足数据驻留要求。SDK 会根据你的浏览器会话所在区域，自动将请求路由到正确的区域 API 端点。
+
+| 区域 | API 端点 |
+| --- | --- |
+| **us-west-2**（默认） | [https://api.stagehand.browserbase.com](https://api.stagehand.browserbase.com) |
+| **us-east-1** | [https://api.use1.stagehand.browserbase.com](https://api.use1.stagehand.browserbase.com) |
+| **eu-central-1** | [https://api.euc1.stagehand.browserbase.com](https://api.euc1.stagehand.browserbase.com) |
+| **ap-southeast-1** | [https://api.apse1.stagehand.browserbase.com](https://api.apse1.stagehand.browserbase.com) |
+
+在 `browserbaseSessionCreateParams` 中配置浏览器会话区域：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  browserbaseSessionCreateParams: {
+    region: "eu-central-1", // 浏览器运行在法兰克福
+  },
+});
+
+await stagehand.init();
+```
+
+:::warning[警告]
+API 端点必须与你的浏览器会话区域一致。如果不一致，你会收到如下错误：
+`Session is in region 'X' but this API instance serves 'Y'. Please route your request to the X Stagehand API endpoint.`
+:::
+
+### 禁用 Stagehand API
+
+如果你想把 Stagehand 纯粹作为本地库来使用，而不通过 Stagehand API 进行路由，你可以禁用 API 模式：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  disableAPI: true, // 禁用 Stagehand API —— 与 Browserbase 配合在本地运行
+});
+
+await stagehand.init();
+```
+
+:::tip[提示]
+当你希望直接管理浏览器会话，同时仍在本地使用 Stagehand 的自动化能力时，禁用 API 会很有用。
+:::
+
+### 环境变量
+
+开始前，请先设置所需的环境变量：
+
+```bash
+BROWSERBASE_API_KEY=your_api_key_here
+```
+
+:::tip[提示]
+可在 [Browserbase Dashboard](https://browserbase.com/overview) 获取你的 API Key。
+:::
+
+### 将 Stagehand 与 Browserbase 一起使用
+
+#### 基础设置
+
+最简单的入门方式是使用默认设置：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+});
+
+await stagehand.init();
+```
+
+#### 高级配置
+
+你可以配置浏览器设置、代理支持以及其他会话参数：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  // 可选：API Key 将直接从你的环境变量中读取
+  apiKey: process.env.BROWSERBASE_API_KEY,
+  browserbaseSessionCreateParams: {
+    proxies: true,
+    region: "us-west-2",
+    browserSettings: {
+      viewport: { width: 1920, height: 1080 },
+      blockAds: true,
+    },
+  },
+});
+
+await stagehand.init();
+console.log("Session ID:", stagehand.sessionId);
+```
+
+<details>
+  <summary>高级 Browserbase 配置示例</summary>
+
+  ```ts
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    apiKey: process.env.BROWSERBASE_API_KEY,
+    browserbaseSessionCreateParams: {
+      proxies: true,
+      region: "us-west-2",
+      timeout: 3600, // 1 小时会话超时
+      keepAlive: true, // Startup 套餐可用
+      browserSettings: {
+        advancedStealth: false, // 这是 Scale 套餐特性 - 如需启用，请联系 support@browserbase.com
+        blockAds: true,
+        solveCaptchas: true,
+        recordSession: false,
+        viewport: {
+          width: 1920,
+          height: 1080,
+        },
+      },
+      userMetadata: {
+        userId: "automation-user-123",
+        environment: "production",
+      },
+    },
+  });
+  ```
+</details>
+
+### 另一种方式：Browserbase SDK
+
+如果你更喜欢直接管理会话，也可以使用 Browserbase SDK：
+
+```ts
+import { Browserbase } from "@browserbasehq/sdk";
+
+const bb = new Browserbase({
+  apiKey: process.env.BROWSERBASE_API_KEY!
+});
+
+const session = await bb.sessions.create({
+  // 在此添加配置选项
+});
+```
+
+#### 连接到现有会话
+
+你可以使用会话 ID 连接到先前已创建的 Browserbase 会话：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  browserbaseSessionID: "existing-session-uuid-here",
+});
+
+await stagehand.init();
+console.log("Resumed Session ID:", stagehand.sessionId);
+```
+
+## Local 环境
+
+本地环境会直接在你的机器上运行浏览器，从而提供对浏览器实例和配置的完整控制。它非常适合开发、调试，以及需要自定义浏览器设置的场景。
+
+### 环境对比
+
+| 特性 | Browserbase | Local |
+| --- | --- | --- |
+| **可扩展性** | 高（云托管） | 有限（受本地资源限制） |
+| **隐身能力** | 高级指纹伪装 | 基础隐身 |
+| **代理支持** | 内置住宅代理 | 手动配置 |
+| **会话持久化** | 云端上下文存储 | 基于文件的用户数据 |
+| **地理分布** | 多区域部署 | 单机 |
+| **调试** | 会话录制与日志 | 直接访问 DevTools |
+| **配置复杂度** | 只需环境变量 | 需要安装浏览器 |
+| **成本** | 按使用量计费 | 基础设施与维护成本 |
+| **最适合** | 生产、规模化、合规 | 开发、调试 |
+
+### 基础本地设置
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "LOCAL"
+});
+
+await stagehand.init();
+console.log("Session ID:", stagehand.sessionId);
+```
+
+### 高级本地配置
+
+你可以自定义浏览器启动选项，以适应本地开发：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "LOCAL",
+  localBrowserLaunchOptions: {
+    headless: false, // 显示浏览器窗口
+    devtools: true, // 打开开发者工具
+    viewport: { width: 1280, height: 720 },
+    executablePath: '/opt/google/chrome/chrome', // 自定义 Chrome 路径
+    port: 9222, // 固定的 CDP 调试端口
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-web-security',
+      '--allow-running-insecure-content',
+    ],
+    userDataDir: './chrome-user-data', // 持久化浏览器数据
+    preserveUserDataDir: true, // 关闭后保留数据
+    chromiumSandbox: false, // 禁用 sandbox（会追加 --no-sandbox）
+    ignoreHTTPSErrors: true, // 忽略证书错误
+    locale: 'en-US', // 设置浏览器语言
+    deviceScaleFactor: 1.0, // 显示缩放比例
+    proxy: {
+      server: 'http://proxy.example.com:8080',
+      username: 'user',
+      password: 'pass'
+    },
+    downloadsPath: './downloads', // 下载目录
+    acceptDownloads: true, // 允许下载
+    connectTimeoutMs: 30000, // 连接超时
+  },
+});
+
+await stagehand.init();
+```
+
+## 高级配置
+
+### Keep Alive
+
+`keepAlive` 选项用于控制：在调用 `stagehand.close()` 之后，或者父进程异常退出时（例如崩溃、`SIGTERM`、`SIGINT`），浏览器是否继续保持运行。
+
+默认情况下，Stagehand 会在关闭时终止浏览器并清理所有资源。设置 `keepAlive: true` 后，浏览器会独立继续运行，以便你稍后重新连接。
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  keepAlive: true,
+});
+
+await stagehand.init();
+
+// 调用 close() 后浏览器会话仍会继续运行
+await stagehand.close();
+
+// 稍后重新连接到同一个会话
+const stagehand2 = new Stagehand({
+  env: "BROWSERBASE",
+  browserbaseSessionID: stagehand.browserbaseSessionID,
+});
+await stagehand2.init();
+```
+
+#### 各环境下的行为
+
+| 行为 | `keepAlive: true` | `keepAlive: false`（默认） |
+| --- | --- | --- |
+| **Browserbase** | 调用 `close()` 后会话仍保持活动 | 会话会通过 API 被终止 |
+| **Local** | Chrome 进程继续运行 | Chrome 进程被杀掉，临时配置文件会被移除 |
+| **崩溃/信号时** | 浏览器会保持运行 | 浏览器会被自动清理 |
+
+#### Local 环境
+
+当你在本地以 `keepAlive: true` 运行时，Chrome 进程会从 Node.js 事件循环中分离，因此你的脚本退出后浏览器依然会保持打开。这对调试或将浏览器会话交给另一个进程接管都很有帮助。
+
+```ts
+const stagehand = new Stagehand({
+  env: "LOCAL",
+  keepAlive: true,
+  localBrowserLaunchOptions: {
+    headless: false,
+  },
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+await page.goto("https://example.com");
+
+// 脚本退出后浏览器窗口仍会保持打开
+await stagehand.close();
+```
+
+#### Browserbase 环境
+
+在 Browserbase 上，`keepAlive: true` 会让云端会话保持活动，以便你稍后使用 `browserbaseSessionID` 重新连接。这对跨多次脚本执行的长流程非常有用。
+
+:::note[说明]
+顶层 `keepAlive` 选项与 `browserbaseSessionCreateParams.keepAlive` 同时提供时，前者会覆盖后者。
+:::
+
+### 固定的 CDP 调试端口
+
+你可以指定固定的 Chrome DevTools Protocol（CDP）调试端口，而不是使用随机分配的端口。
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "LOCAL",
+  localBrowserLaunchOptions: {
+    port: 9222,
+  },
+});
+
+await stagehand.init();
+```
+
+:::tip[提示]
+如果未指定 `port`，则会随机分配一个端口。
+:::
+
+### DOM Settle Timeout
+
+你可以配置 Stagehand 在执行操作前等待 DOM 稳定的时间。
+
+```ts
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  domSettleTimeout: 3000 // 最多等待 3 秒，让 DOM 稳定下来
+});
+```
+
+#### 什么是 DOM 稳定？
+
+DOM 稳定意味着：
+
+- **动画完成**后再与元素交互
+- 给**懒加载内容**留出显示时间
+- 在执行操作前等待 **JavaScript 更新**完成
+- 确保**动态内容**已经完整渲染
+
+#### 什么时候需要调整
+
+对于以下页面，你可以增大 `domSettleTimeout`：
+
+- 大量动画或过渡效果
+- 懒加载或无限滚动
+- 动态 JavaScript 框架（React、Vue、Angular）
+- 复杂的单页应用
+
+```ts
+// 对于快速、静态的页面
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  domSettleTimeout: 500 // 最小等待时间
+});
+
+// 对于动态、带动画的页面
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  domSettleTimeout: 5000 // 更长的等待时间，以获得稳定性
+});
+```
+
+:::warning[警告]
+`domSettleTimeout` 设置得过低，可能会导致元素尚未就绪时操作失败；设置得过高，则会无谓地增加执行时间。
+:::
+
+## 故障排查
+
+<details>
+  <summary>Browserbase 认证错误</summary>
+
+  - 确认 `BROWSERBASE_API_KEY` 已正确设置
+  - 检查你的 API Key 是否具备所需权限
+  - 确保你的 Browserbase 账户拥有足够额度
+</details>
+
+<details>
+  <summary>本地浏览器启动失败</summary>
+
+  - 在系统中安装 Chrome 或 Chromium
+  - 为你的 Chrome 安装设置正确的 `executablePath`
+  - 检查是否安装了所需依赖（Linux：`libnss3-dev libatk-bridge2.0-dev libgtk-3-dev libxss1 libasound2`）
+</details>
+
+<details>
+  <summary>会话超时问题</summary>
+
+  - 在 `browserbaseSessionCreateParams.timeout` 中增大会话超时时间
+  - 对于长时间运行的会话，使用 `keepAlive: true`
+  - 监控会话使用情况，避免意外终止
+</details>

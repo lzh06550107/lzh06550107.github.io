@@ -1,0 +1,322 @@
+---
+title: MCP 集成
+description: 使用模型上下文协议（MCP）集成来增强 Agent 的能力。
+editUrl: false
+sidebar:
+  order: 5
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# MCP 集成
+
+> 使用模型上下文协议（MCP）集成来增强 Agent 的能力
+
+## 什么是 MCP 集成？
+
+MCP（Model Context Protocol，模型上下文协议）集成允许你将 Stagehand Agent 连接到外部工具、API 和服务。这使 Agent 能够执行超出浏览器自动化范围的操作，例如网页搜索、数据库操作和 API 调用。
+
+:::tip[说明]
+MCP 集成通过将浏览器自动化与外部能力结合起来，使你的 Agent 更加强大。Agent 可以智能地决定何时使用浏览器操作，何时使用外部工具。
+:::
+
+## 连接方式
+
+连接到 MCP 服务器有两种方式：
+
+1. **直接传入 URL** —— 最适合快速配置的简单方式
+2. **先创建连接** —— 让你对连接拥有更多控制权
+
+:::note[注意]
+目前 MCP 客户端支持仅适用于 TypeScript。
+:::
+
+## 直接传入 URL
+
+添加 MCP 集成的最简单方式，是在 Agent 配置中直接提供服务器 URL：
+
+```typescript
+const agent = stagehand.agent({
+  provider: "openai",
+  model: "computer-use-preview",
+  integrations: [
+    `https://mcp.exa.ai/mcp?exaApiKey=${process.env.EXA_API_KEY}`,
+  ],
+  systemPrompt: `你可以通过 Exa 进行网页搜索。请先用它查找最新信息，再进行浏览。`,
+  options: {
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+});
+
+await agent.execute("搜索 2025 年最好的耳机，并根据最佳推荐继续完成结账流程");
+```
+
+## 先创建连接
+
+另一种方式是先建立 MCP 连接，再传入客户端对象：
+
+```typescript
+import { connectToMCPServer } from "@browserbasehq/stagehand";
+
+// 连接到 MCP 服务器
+const supabaseClient = await connectToMCPServer(
+  `https://server.smithery.ai/@supabase-community/supabase-mcp/mcp?api_key=***`
+);
+
+// 你也可以传入配置来启动本地 MCP 服务器
+const notionClient = await connectToMCPServer({
+  command: "npx",
+  args: ["-y", "@notionhq/notion-mcp-server"],
+  env: {
+    NOTION_TOKEN: process.env.NOTION_TOKEN,
+  },
+});
+
+// 使用已连接的客户端（以 Supabase + Notion 为例）
+const agent = stagehand.agent({
+  provider: "openai",
+  model: "computer-use-preview",
+  integrations: [supabaseClient, notionClient],
+  systemPrompt: `你可以与 Supabase 数据库和 Notion 交互。请使用这些工具来存储和检索数据。`,
+  options: {
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+});
+
+await agent.execute("搜索新泽西州 New Brunswick 的餐厅，并将第一条结果保存到数据库中");
+```
+
+## 需要认证的 MCP 服务器
+
+有些 MCP 服务器要求通过 HTTP 请求头进行认证。你可以通过 `requestOptions` 传入请求头：
+
+```typescript
+const authenticatedClient = await connectToMCPServer({
+  serverUrl: "https://mcp-server.example.com/mcp",
+  requestOptions: {
+    requestInit: {
+      headers: {
+        Authorization: `Bearer ${process.env.MCP_SERVER_API_KEY}`,
+      },
+    },
+  },
+});
+```
+
+## 多个集成
+
+你可以在同一个 Agent 中组合多个 MCP 集成：
+
+```typescript
+const databaseClient = await connectToMCPServer(/* 数据库配置 */);
+
+const agent = stagehand.agent({
+  integrations: [
+    `https://search-service.example.com/mcp?apiKey=***`,
+    databaseClient,
+  ],
+  systemPrompt: `你可以使用外部工具进行搜索和数据存储。请有策略地使用这些工具，以高效完成任务。`,
+});
+```
+
+## 最佳实践
+
+### 选择合适的连接方式
+
+<Tabs>
+  <TabItem label="直接传入 URL">
+
+  **适用场景：**
+
+  * 配置需求简单
+  * 标准 API 配置
+  * 希望快速开始
+
+  **优势：**
+
+  * 所需代码最少
+  * 自动处理连接
+  * 易于配置
+
+  </TabItem>
+
+  <TabItem label="先创建连接">
+
+  **适用场景：**
+
+  * 需要自定义连接选项
+  * 需要在多个 Agent 之间复用连接
+  * 需要更高级的错误处理
+
+  **优势：**
+
+  * 完全掌控连接细节
+  * 更好的错误处理
+  * 支持连接池能力
+
+  </TabItem>
+</Tabs>
+
+### 环境变量
+
+始终使用环境变量来保存 API Key 和敏感信息：
+
+```bash
+# .env file
+SEARCH_API_KEY=your_search_service_key
+MCP_SERVICE_API_KEY=your_mcp_service_key
+OPENAI_API_KEY=your_openai_key
+DATABASE_URL=your_database_url
+DATABASE_API_KEY=your_database_key
+```
+
+### 指令编写最佳实践
+
+请清晰说明有哪些可用工具：
+
+<Tabs>
+  <TabItem label="好的指令">
+
+  ```typescript
+  systemPrompt: `你可以使用以下能力：
+  1. 网页搜索工具 —— 用于查找最新信息
+  2. 数据库工具 —— 用于存储/检索数据
+  3. 浏览器自动化 —— 用于网页交互
+
+  在做决策前，始终先搜索最新信息。
+  将重要数据保存下来，以便后续引用。`
+  ```
+
+  </TabItem>
+
+  <TabItem label="不好的指令">
+
+  ```typescript
+  systemPrompt: "你可以搜索并保存数据。"
+  ```
+
+  </TabItem>
+</Tabs>
+
+### 错误处理
+
+请为 MCP 连接实现适当的错误处理：
+
+```typescript
+try {
+  const client = await connectToMCPServer(serverUrl);
+
+  const agent = stagehand.agent({
+    integrations: [client],
+    // ... 其他配置
+  });
+
+  const result = await agent.execute(instruction);
+} catch (error) {
+  console.error("MCP 集成失败:", error);
+  // 处理回退逻辑
+}
+```
+
+## 故障排查
+
+<details>
+  <summary><strong>连接超时</strong></summary>
+
+  **问题：** MCP 服务器连接超时
+
+  **解决方案：**
+
+  * 确认服务器 URL 正确且可访问
+  * 检查网络连通性
+  * 确认 API Key 有效且具备正确权限
+  * 尝试分别连接各个服务器，以隔离问题
+</details>
+
+<details>
+  <summary><strong>工具未被使用</strong></summary>
+
+  **问题：** Agent 没有使用可用的 MCP 工具
+
+  **解决方案：**
+
+  * 更具体地说明何时应使用工具
+  * 确认 API Key 已正确配置
+  * 检查 MCP 服务器是否支持预期的工具
+  * 确认工具描述清晰且可执行
+</details>
+
+<details>
+  <summary><strong>认证错误</strong></summary>
+
+  **问题：** API Key 或认证失败
+
+  **解决方案：**
+
+  * 确认所有必需的环境变量都已设置
+  * 检查 API Key 的有效性和权限
+  * 确认 URL 中包含必要的认证参数
+  * 在用于 Agent 之前，先独立测试 MCP 连接
+</details>
+
+## 示例
+
+### 网页搜索 + 浏览器自动化
+
+```typescript
+const agent = stagehand.agent({
+  integrations: [`https://mcp.exa.ai/mcp?exaApiKey=${process.env.EXA_API_KEY}`],
+  systemPrompt: `先搜索当前信息，再根据你找到的内容使用浏览器完成任务。`,
+});
+
+await agent.execute("查找 2025 年最划算的笔记本电脑优惠，并导航到最佳推荐的购买页面");
+```
+
+### 数据提取 + 存储
+
+```typescript
+const supabaseClient = await connectToMCPServer(/* 配置 */);
+
+const agent = stagehand.agent({
+  integrations: [supabaseClient],
+  systemPrompt: `从网站中提取数据，并使用可用的数据库工具进行存储。`,
+});
+
+await agent.execute("从这个目录中提取所有餐厅信息，并将其保存到数据库中");
+```
+
+### 多工具工作流
+
+```typescript
+const agent = stagehand.agent({
+  integrations: [
+    `https://mcp.exa.ai/mcp?exaApiKey=${process.env.EXA_API_KEY}`,
+    supabaseClient,
+  ],
+  systemPrompt: `请有策略地使用所有可用工具：搜索最新信息、浏览网站并存储重要数据。`,
+});
+
+await agent.execute("调研竞争对手定价，与我们的网站进行比较，并保存分析结果");
+```
+
+## 延伸阅读
+
+<CardGrid>
+  <Card title="Agent 基础" icon="robot" href="/stagehand/basics/agent/">
+    了解 Stagehand Agent 的基础知识
+  </Card>
+
+  <Card title="MCP 服务器设置" icon="server" href="https://docs.stagehand.dev/v3/integrations/mcp/setup">
+    设置你自己的 MCP 服务器
+  </Card>
+
+  <Card title="自定义工具" icon="wrench" href="https://docs.stagehand.dev/v3/integrations/mcp/tools">
+    创建自定义 MCP 工具
+  </Card>
+</CardGrid>

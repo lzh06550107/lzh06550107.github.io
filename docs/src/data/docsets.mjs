@@ -365,6 +365,111 @@ export const docsets = [
             { label: 'Contributing', link: 'https://github.com/D4Vinci/Scrapling/blob/main/CONTRIBUTING.md' },
             { label: 'Changelog', link: 'https://github.com/D4Vinci/Scrapling/releases' },
         ],
+    },
+    {
+        id: 'stagehand',
+        title: 'Stagehand',
+        cardLabel: 'Stagehand 文档集',
+        description: 'Stagehand 官方文档的简体中文镜像，已覆盖 First Steps、The Basics、Configuration、Best Practices 与 Integrations 五大章节。',
+        landing: '/stagehand/',
+        ctaLabel: '进入 Stagehand 文档',
+        featuredLinks: [
+            { label: 'Introduction 简介', href: '/stagehand/first-steps/introduction/' },
+            { label: 'Agent', href: '/stagehand/basics/agent/' },
+            { label: 'Browser 配置', href: '/stagehand/configuration/browser/' },
+            { label: 'MCP Integration', href: '/stagehand/integrations/mcp/introduction/' },
+        ],
+        sections: [
+            {
+                label: 'First Steps',
+                items: [
+                    { label: 'Introduction', link: '/stagehand/first-steps/introduction/' },
+                    { label: 'Quickstart', link: '/stagehand/first-steps/quickstart/' },
+                    { label: 'Installation', link: '/stagehand/first-steps/installation/' },
+                    { label: 'AI Rules', link: '/stagehand/first-steps/ai-rules/' },
+                ],
+            },
+            {
+                label: 'The Basics',
+                items: [
+                    { label: 'Agent', link: '/stagehand/basics/agent/' },
+                    { label: 'Act', link: '/stagehand/basics/act/' },
+                    { label: 'Extract', link: '/stagehand/basics/extract/' },
+                    { label: 'Observe', link: '/stagehand/basics/observe/' },
+                    { label: 'Evals', link: '/stagehand/basics/evals/' },
+                ],
+            },
+            {
+                label: 'Configuration',
+                items: [
+                    { label: 'Browser', link: '/stagehand/configuration/browser/' },
+                    { label: 'Observability', link: '/stagehand/configuration/observability/' },
+                    { label: 'Logging', link: '/stagehand/configuration/logging/' },
+                    { label: 'Models', link: '/stagehand/configuration/models/' },
+                ],
+            },
+            {
+                label: 'Best Practices',
+                items: [
+                    { label: 'Caching Actions', link: '/stagehand/best-practices/caching-actions/' },
+                    { label: 'Cost Optimization', link: '/stagehand/best-practices/cost-optimization/' },
+                    { label: 'Deterministic Agent', link: '/stagehand/best-practices/deterministic-agent/' },
+                    { label: 'Using Multiple Tabs', link: '/stagehand/best-practices/using-multiple-tabs/' },
+                    { label: 'Deploying Stagehand', link: '/stagehand/best-practices/deploying-stagehand/' },
+                    { label: 'History Tracking', link: '/stagehand/best-practices/history-tracking/' },
+                    { label: 'Computer Use Agents', link: '/stagehand/best-practices/computer-use-agents/' },
+                    { label: 'Agent Fallbacks', link: '/stagehand/best-practices/agent-fallbacks/' },
+                    { label: 'Prompting Best Practices', link: '/stagehand/best-practices/prompting-best-practices/' },
+                    { label: 'MCP Integrations', link: '/stagehand/best-practices/mcp-integrations/' },
+                    { label: 'Speed Optimization', link: '/stagehand/best-practices/speed-optimization/' },
+                ],
+            },
+            {
+                label: 'Integrations',
+                items: [
+                    {
+                        label: 'MCP Server',
+                        items: [
+                            { label: 'Introduction', link: '/stagehand/integrations/mcp/introduction/' },
+                            { label: 'Configuration', link: '/stagehand/integrations/mcp/configuration/' },
+                            { label: 'Setup', link: '/stagehand/integrations/mcp/setup/' },
+                            { label: 'Tools', link: '/stagehand/integrations/mcp/tools/' },
+                        ],
+                    },
+                    {
+                        label: 'CrewAI',
+                        items: [
+                            { label: 'Introduction', link: '/stagehand/integrations/crew-ai/introduction/' },
+                            { label: 'Configuration', link: '/stagehand/integrations/crew-ai/configuration/' },
+                        ],
+                    },
+                    {
+                        label: 'LangChain JS',
+                        items: [
+                            { label: 'Introduction', link: '/stagehand/integrations/langchain/introduction/' },
+                            { label: 'Configuration', link: '/stagehand/integrations/langchain/configuration/' },
+                        ],
+                    },
+                    {
+                        label: 'Next.js + Vercel',
+                        items: [
+                            { label: 'Introduction', link: '/stagehand/integrations/vercel/introduction/' },
+                            { label: 'Configuration', link: '/stagehand/integrations/vercel/configuration/' },
+                        ],
+                    },
+                    {
+                        label: 'Convex',
+                        items: [
+                            { label: 'Introduction', link: '/stagehand/integrations/convex/introduction/' },
+                            { label: 'Configuration', link: '/stagehand/integrations/convex/configuration/' },
+                        ],
+                    },
+                    { label: 'Playwright', link: '/stagehand/integrations/playwright/' },
+                    { label: 'Puppeteer', link: '/stagehand/integrations/puppeteer/' },
+                    { label: 'Selenium', link: '/stagehand/integrations/selenium/' },
+                ],
+            },
+        ],
     }
 ];
 

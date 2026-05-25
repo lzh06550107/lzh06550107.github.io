@@ -1,0 +1,211 @@
+---
+title: Browserbase MCP 服务器
+description: 通过与 Stagehand 集成的模型上下文协议（MCP）实现 AI 驱动的浏览器自动化。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Browserbase MCP 服务器
+
+> 通过与 Stagehand 集成的模型上下文协议（MCP）实现 AI 驱动的浏览器自动化
+
+## 概览
+
+Browserbase MCP 服务器通过模型上下文协议（MCP）为 MCP 客户端带来强大的浏览器自动化能力。该集成构建于 [Stagehand](https://docs.stagehand.dev/) 之上，能够使用自然语言命令提供 AI 驱动的 Web 自动化。
+
+:::note[说明]
+托管的 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) 端点由 Browserbase 基础设施提供服务。
+你也可以通过 STDIO 在本地运行 MCP 服务器，但对于大多数用户，我们推荐使用托管的 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) 端点。
+:::
+
+## 关键特性
+
+<CardGrid>
+  <Card title="自然语言自动化" icon="wand-magic-sparkles">
+    使用简单的自然语言命令控制浏览器，例如“点击登录按钮”或“填写联系表单”。
+  </Card>
+
+  <Card title="网页交互" icon="browser">
+    轻松完成导航、点击和表单填写。
+  </Card>
+
+  <Card title="数据提取" icon="download">
+    自动从任意网站提取结构化数据。
+  </Card>
+
+  <Card title="会话生命周期" icon="route">
+    通过显式的 MCP 工具创建、复用并关闭浏览器会话。
+  </Card>
+</CardGrid>
+
+## 核心优势
+
+<Tabs>
+  <TabItem label="易用性">
+
+  <CardGrid>
+    <Card title="直观命令" icon="wand-magic-sparkles">
+      无需学习复杂的选择器或自动化语法。只需用自然语言描述你想完成的操作。
+    </Card>
+
+    <Card title="快速设置" icon="rocket">
+      无论是托管的 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) 还是本地 STDIO，都可以在几分钟内开始使用。
+    </Card>
+
+    <Card title="智能自动化" icon="brain">
+      Stagehand 的 AI 能理解网页上下文，并可适配不同的布局和设计。
+    </Card>
+  </CardGrid>
+
+  </TabItem>
+
+  <TabItem label="强大能力">
+
+  <CardGrid>
+    <Card title="完整浏览器控制" icon="browser">
+      可进行导航、点击、输入、滚动，并与任意网页元素交互。
+    </Card>
+
+    <Card title="数据智能" icon="chart-line">
+      自动从复杂网页中提取结构化信息。
+    </Card>
+
+    <Card title="会话持久化" icon="cookie-bite">
+      在多次交互之间保持认证状态和 Cookie。
+    </Card>
+  </CardGrid>
+
+  </TabItem>
+
+  <TabItem label="企业就绪">
+
+  <CardGrid>
+    <Card title="可靠基础设施" icon="server">
+      托管的 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) 运行在 Browserbase 基础设施之上，可提供稳定一致的性能。
+    </Card>
+
+    <Card title="可扩展架构" icon="arrows-up-to-line">
+      可处理多个并发会话以及高吞吐量自动化任务。
+    </Card>
+
+    <Card title="安全特性" icon="shield-check">
+      提供隐身模式、代理支持以及高级反检测能力。
+    </Card>
+
+    <Card title="全面日志" icon="file-lines">
+      提供详细的会话录制和调试信息。
+    </Card>
+  </CardGrid>
+
+  </TabItem>
+</Tabs>
+
+## 使用场景
+
+<Tabs>
+  <TabItem label="网页抓取与数据收集">
+
+  <CardGrid>
+    <Card title="电商监控" icon="store">
+      跟踪商品价格、库存可用性和竞品信息。
+    </Card>
+
+    <Card title="市场研究" icon="chart-bar">
+      从多个来源收集数据，用于分析和报告。
+    </Card>
+
+    <Card title="内容聚合" icon="newspaper">
+      从各类网站收集文章、帖子和媒体内容。
+    </Card>
+
+    <Card title="线索生成" icon="users">
+      从目录站点中提取联系信息和商业数据。
+    </Card>
+  </CardGrid>
+
+  </TabItem>
+
+  <TabItem label="测试">
+
+  <CardGrid>
+    <Card title="自动化测试" icon="flask">
+      为 Web 应用创建全面的测试套件。
+    </Card>
+
+    <Card title="跨浏览器验证" icon="browsers">
+      在不同浏览器环境中测试功能表现。
+    </Card>
+
+    <Card title="用户旅程测试" icon="route">
+      模拟真实用户交互和工作流。
+    </Card>
+
+    <Card title="性能监控" icon="gauge">
+      跟踪页面加载时间和用户体验指标。
+    </Card>
+  </CardGrid>
+
+  </TabItem>
+
+  <TabItem label="工作流自动化">
+
+  <CardGrid>
+    <Card title="表单自动化" icon="file-contract">
+      自动填写并提交复杂的网页表单。
+    </Card>
+
+    <Card title="报告生成" icon="chart-line">
+      提取数据并生成自动化报告。
+    </Card>
+
+    <Card title="社交媒体管理" icon="share-nodes">
+      跨平台安排发帖并监控互动表现。
+    </Card>
+
+    <Card title="行政任务" icon="clipboard-check">
+      自动化重复性的 Web 业务流程。
+    </Card>
+  </CardGrid>
+
+  </TabItem>
+</Tabs>
+
+## 快速开始
+
+1. **安装 MCP 服务器**  
+   根据你的需求，在托管的 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)（推荐）和本地 STDIO 之间进行选择。
+
+2. **配置身份验证**  
+   在 MCP 配置中设置你的 Browserbase API 凭据。你可以在 [Browserbase Dashboard](https://www.browserbase.com/overview) 获取 API Key。
+
+3. **开始自动化**  
+   通过你的 MCP 客户端使用自然语言命令开始控制浏览器。
+
+:::tip[提示]
+准备好开始了吗？请查看[设置指南](https://docs.stagehand.dev/v3/integrations/mcp/setup)。
+:::
+
+## 延伸阅读
+
+<CardGrid>
+  <Card title="设置指南" icon="rocket" href="https://docs.stagehand.dev/v3/integrations/mcp/setup">
+    通过安装与配置快速开始使用。
+  </Card>
+
+  <Card title="MCP 文档" icon="book" href="https://modelcontextprotocol.io/introduction">
+    进一步了解 MCP 协议。
+  </Card>
+
+  <Card title="Browserbase 文档" icon="globe" href="https://docs.browserbase.com">
+    浏览 Browserbase 的功能与能力。
+  </Card>
+</CardGrid>

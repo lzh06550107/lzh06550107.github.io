@@ -1,0 +1,384 @@
+---
+title: 可观测性
+description: 通过会话可见性与分析功能跟踪 Stagehand 自动化。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 可观测性
+
+> 通过会话可见性与分析功能跟踪 Stagehand 自动化
+
+Stagehand 提供了强大的可观测性能力，帮助你监控、跟踪性能，并分析浏览器自动化工作流。无论是在 Browserbase 还是本地环境中，你都可以围绕会话监控、资源使用情况和运维洞察来开展分析。
+
+## Browserbase 会话监控
+
+当你在 Browserbase 上运行时，可以通过 Browserbase API 和控制台获得完整的云端监控与会话管理能力。
+
+<img src="/images/stagehand/configuration/observability.gif" alt="Browserbase 会话可观测性" width="400" />
+
+### 实时会话可见性
+
+Browserbase 为你的自动化会话提供实时可见性：
+
+**会话控制台功能**
+
+- 实时浏览器屏幕录制与回放
+- 带有详细时序信息的网络请求监控
+- JavaScript 控制台日志与错误跟踪
+- CPU 与内存使用指标
+- 会话状态与持续时间跟踪
+
+**会话管理与 API 访问**
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+import { Browserbase } from "@browserbasehq/sdk";
+
+const browserbase = new Browserbase({
+  apiKey: process.env.BROWSERBASE_API_KEY,
+});
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE"
+});
+
+await stagehand.init();
+
+const sessionInfo = await browserbase.sessions.retrieve(stagehand.sessionId);
+
+console.log("Session status:", sessionInfo.status);
+console.log("Session region:", sessionInfo.region);
+console.log("CPU usage:", sessionInfo.avgCpuUsage);
+console.log("Memory usage:", sessionInfo.memoryUsage);
+console.log("Proxy bytes:", sessionInfo.proxyBytes);
+```
+
+### 会话分析与洞察
+
+<CardGrid>
+  <Card title="实时监控" icon="chart-line">
+    监控实时会话状态、资源使用情况和地理分布。借助实时洞察来扩展并管理并发会话。
+  </Card>
+
+  <Card title="会话录制" icon="video">
+    通过逐帧播放回看完整会话录制。结合网络请求分析，以可视化方式调试浏览器交互。
+  </Card>
+
+  <Card title="API 管理" icon="code">
+    通过 API 以编程方式访问会话数据、自动化生命周期管理，并与监控系统集成。
+  </Card>
+
+  <Card title="使用量监控" icon="chart-bar">
+    跟踪资源消耗、会话时长和 API 使用情况。获取自动化成本与利用率的详细拆解。
+  </Card>
+</CardGrid>
+
+### 会话监控与筛选
+
+按状态和元数据查询并监控会话：
+
+```ts
+import { Browserbase } from "@browserbasehq/sdk";
+
+const browserbase = new Browserbase({
+  apiKey: process.env.BROWSERBASE_API_KEY,
+});
+
+// 按条件列出会话
+async function getFilteredSessions() {
+  const sessions = await browserbase.sessions.list({
+    status: 'RUNNING'
+  });
+  
+  return sessions.map(session => ({
+    id: session.id,
+    status: session.status, // RUNNING, COMPLETED, ERROR, TIMED_OUT
+    startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    region: session.region,
+    avgCpuUsage: session.avgCpuUsage,
+    memoryUsage: session.memoryUsage,
+    proxyBytes: session.proxyBytes,
+    userMetadata: session.userMetadata
+  }));
+}
+
+// 按元数据查询会话
+async function querySessionsByMetadata(query: string) {
+  const sessions = await browserbase.sessions.list({
+    q: query
+  });
+  
+  return sessions;
+}
+```
+
+## 本地环境监控
+
+对于本地开发，Stagehand 直接在你的机器上提供性能监控和资源跟踪能力。
+
+### 性能跟踪
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "LOCAL",
+  verbose: 1, // 在没有调试噪音的情况下监控性能
+});
+
+await stagehand.init();
+
+// 跟踪本地自动化指标
+const startTime = Date.now();
+const initialMetrics = await stagehand.metrics;
+
+// ... 执行自动化任务
+const page = stagehand.context.pages()[0];
+await page.goto("https://example.com");
+await stagehand.act("click button");
+await stagehand.extract({ instruction: "get data", schema: DataSchema });
+
+const finalMetrics = await stagehand.metrics;
+const executionTime = Date.now() - startTime;
+
+console.log('Local Performance Summary:', {
+  executionTime: `${executionTime}ms`,
+  totalTokens: finalMetrics.totalPromptTokens + finalMetrics.totalCompletionTokens,
+  totalInferenceTime: `${finalMetrics.totalInferenceTimeMs}ms`,
+  tokensPerSecond: ((finalMetrics.totalPromptTokens + finalMetrics.totalCompletionTokens) / (executionTime / 1000)).toFixed(2)
+});
+```
+
+## 资源使用监控
+
+在本地运行时，你可以监控系统资源使用情况与浏览器性能：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+import * as os from 'os';
+import { performance } from 'perf_hooks';
+
+class LocalResourceMonitor {
+  private cpuUsage: number[] = [];
+  private memoryUsage: number[] = [];
+  
+  startMonitoring() {
+    const interval = setInterval(() => {
+      // 跟踪系统资源
+      const memUsage = process.memoryUsage();
+      this.memoryUsage.push(memUsage.heapUsed / 1024 / 1024); // MB
+      
+      // 跟踪 CPU（简化示例）
+      const loadAvg = os.loadavg()[0];
+      this.cpuUsage.push(loadAvg);
+    }, 1000);
+    
+    return interval;
+  }
+  
+  getResourceSummary() {
+    return {
+      avgMemoryUsage: this.memoryUsage.reduce((a, b) => a + b, 0) / this.memoryUsage.length,
+      peakMemoryUsage: Math.max(...this.memoryUsage),
+      avgCpuLoad: this.cpuUsage.reduce((a, b) => a + b, 0) / this.cpuUsage.length,
+      totalDataPoints: this.cpuUsage.length
+    };
+  }
+}
+
+const monitor = new LocalResourceMonitor();
+const interval = monitor.startMonitoring();
+
+const stagehand = new Stagehand({ env: "LOCAL" });
+
+// ... 运行自动化
+
+clearInterval(interval);
+console.log('Resource Usage:', monitor.getResourceSummary());
+```
+
+<Card title="LLM 使用量" icon="chart-line" href="/stagehand/basics/evals">
+  监控 token 使用量、成本和速度。为关键失败配置自动告警。跨不同环境实施成本跟踪，并使用会话分析来优化自动化工作流。
+</Card>
+
+## 实时指标与监控
+
+### 基础使用跟踪
+
+使用 `stagehand.metrics` 实时监控自动化的资源使用情况：
+
+```ts
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({ env: "BROWSERBASE" });
+await stagehand.init();
+
+// V3 中的 metrics 是异步的
+const metrics = await stagehand.metrics;
+console.log(metrics);
+
+// 在自动化过程中监控
+const startTime = Date.now();
+const initialMetrics = await stagehand.metrics;
+
+// ... 执行自动化任务
+const page = stagehand.context.pages()[0];
+await page.goto("https://example.com");
+await stagehand.act("click the login button");
+const data = await stagehand.extract({
+  instruction: "extract user info",
+  schema: UserSchema
+});
+
+const finalMetrics = await stagehand.metrics;
+const executionTime = Date.now() - startTime;
+
+console.log('Automation Summary:', {
+  totalTokens: finalMetrics.totalPromptTokens + finalMetrics.totalCompletionTokens,
+  executionTime: `${executionTime}ms`,
+  avgInferenceTime: `${finalMetrics.totalInferenceTimeMs / 3}ms`,
+});
+```
+
+### 理解指标数据
+
+`metrics` 对象会按 Stagehand 操作提供详细拆解：
+
+```ts
+interface StagehandMetrics {
+  // act 操作指标
+  actPromptTokens: number;
+  actCompletionTokens: number;
+  actReasoningTokens: number;
+  actCachedInputTokens: number;
+  actInferenceTimeMs: number;
+
+  // extract 操作指标
+  extractPromptTokens: number;
+  extractCompletionTokens: number;
+  extractReasoningTokens: number;
+  extractCachedInputTokens: number;
+  extractInferenceTimeMs: number;
+
+  // observe 操作指标
+  observePromptTokens: number;
+  observeCompletionTokens: number;
+  observeReasoningTokens: number;
+  observeCachedInputTokens: number;
+  observeInferenceTimeMs: number;
+
+  // agent 操作指标
+  agentPromptTokens: number;
+  agentCompletionTokens: number;
+  agentReasoningTokens: number;
+  agentCachedInputTokens: number;
+  agentInferenceTimeMs: number;
+
+  // 累计总量
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalReasoningTokens: number;
+  totalCachedInputTokens: number;
+  totalInferenceTimeMs: number;
+}
+```
+
+**指标输出示例：**
+
+```ts
+const metrics = await stagehand.metrics;
+console.log(metrics);
+
+// {
+//   actPromptTokens: 4011,
+//   actCompletionTokens: 51,
+//   actReasoningTokens: 12,
+//   actCachedInputTokens: 0,
+//   actInferenceTimeMs: 1688,
+//   extractPromptTokens: 4200,
+//   extractCompletionTokens: 243,
+//   extractReasoningTokens: 18,
+//   extractCachedInputTokens: 0,
+//   extractInferenceTimeMs: 4297,
+//   observePromptTokens: 347,
+//   observeCompletionTokens: 43,
+//   observeReasoningTokens: 5,
+//   observeCachedInputTokens: 0,
+//   observeInferenceTimeMs: 903,
+//   agentPromptTokens: 0,
+//   agentCompletionTokens: 0,
+//   agentReasoningTokens: 0,
+//   agentCachedInputTokens: 0,
+//   agentInferenceTimeMs: 0,
+//   totalPromptTokens: 8558,
+//   totalCompletionTokens: 337,
+//   totalReasoningTokens: 35,
+//   totalCachedInputTokens: 0,
+//   totalInferenceTimeMs: 6888
+// }
+```
+
+## 最佳实践
+
+<details>
+  <summary>生产环境监控</summary>
+
+  - 跟踪会话成功率和失败模式
+  - 监控资源使用情况与扩容需求
+  - 为关键失败设置自动告警
+  - 在不同环境中实施成本跟踪
+  - 使用会话分析来优化自动化工作流
+</details>
+
+<details>
+  <summary>性能优化</summary>
+
+  - 对比 Browserbase 与本地执行时间
+  - 跨模型监控 token 使用量与推理成本
+  - 跟踪不同地理区域的性能差异
+  - 识别自动化工作流中的瓶颈
+  - 优化成本效益与执行速度
+</details>
+
+<details>
+  <summary>运维洞察</summary>
+
+  - 跟踪不同区域中的会话分布
+  - 监控并发会话限制与扩展情况
+  - 分析失败模式与常见错误场景
+  - 使用会话录制进行根因分析
+  - 为工作流分类实现自定义元数据
+</details>
+
+<details>
+  <summary>集成与告警</summary>
+
+  - 将会话 API 集成到监控控制台中
+  - 为会话失败设置自动通知
+  - 跟踪 SLA 合规情况与性能基准
+  - 监控资源成本与使用模式
+  - 使用分析数据进行容量规划与优化
+</details>
+
+## 下一步
+
+<CardGrid>
+  <Card title="历史追踪" icon="clock-rotate-left" href="/stagehand/best-practices/history">
+    使用参数、结果和时间戳跟踪所有 LLM 操作，便于调试。
+  </Card>
+
+  <Card title="日志" icon="file-lines" href="/stagehand/configuration/logging">
+    配置日志级别、自定义 logger 以及基于文件的会话日志记录。
+  </Card>
+</CardGrid>

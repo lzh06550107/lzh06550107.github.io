@@ -22,9 +22,12 @@ Scrapling 是一个**自适应**的 Web 抓取框架，既能处理单次请求�
 
 ```python
 from scrapling.fetchers import Fetcher, StealthyFetcher, DynamicFetcher
+# 必须先开启 adaptive 功能才能使用自适应抓取
 StealthyFetcher.adaptive = True
 page = StealthyFetcher.fetch('https://example.com', headless=True, network_idle=True)  # 低调抓取网站！
+# auto_save=True 第一次选择器还能正常命中时保存当前元素特征
 products = page.css('.product', auto_save=True)                                        # 抓取可在站点改版后继续生效的数据！
+# adaptive=True 后续选择器可能失效时根据之前保存的特征重新定位元素
 products = page.css('.product', adaptive=True)                                         # 之后如果网站结构改变，传入 `adaptive=True` 继续查找它们！
 ```
 

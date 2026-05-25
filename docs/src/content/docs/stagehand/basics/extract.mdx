@@ -1,0 +1,411 @@
+---
+title: Extract
+description: 从网页中提取结构化数据。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+> 从网页中提取结构化数据
+
+## 什么是 `extract()`？
+
+```ts
+await stagehand.extract("提取这个仓库的名称");
+```
+
+`extract()` 用于从网页中抓取结构化数据。你可以使用 [Zod](https://github.com/colinhacks/zod)（TypeScript）或 JSON 来定义 schema。如果你不想定义 schema，也可以只用[自然语言提示词](#仅指令)来调用 `extract`，或者在[不传参数](#不传参数)的情况下调用 `extract`。
+
+## 为什么使用 `extract()`？
+
+<CardGrid>
+  <Card title="结构化" icon="brackets-curly">
+    将杂乱的网页数据转换为符合 schema 的干净对象。
+  </Card>
+  <Card title="更稳健" icon="dumbbell">
+    构建在网站变化时也不容易失效的提取流程。
+  </Card>
+</CardGrid>
+
+## 返回值
+
+当你使用 `extract()` 时，Stagehand 会返回一个 `Promise<ExtractResult>`，其结构如下：
+
+<Tabs>
+  <TabItem label="基础 Schema">
+
+  当使用 schema 进行提取时，返回类型会从你的 Zod schema 中自动推断：
+
+  ```ts
+  const result = await stagehand.extract(
+    "提取商品详情",
+    z.object({
+      name: z.string(),
+      price: z.number(),
+      inStock: z.boolean()
+    })
+  );
+  ```
+
+  **示例结果：**
+
+  ```ts
+  {
+    name: "Wireless Mouse",
+    price: 29.99,
+    inStock: true
+  }
+  ```
+  </TabItem>
+
+  <TabItem label="数组">
+
+  当提取数组时，你会得到一个对象数组：
+
+  ```ts
+  const apartments = await stagehand.extract(
+    "提取所有公寓房源",
+    z.array(
+      z.object({
+        address: z.string(),
+        price: z.string(),
+        sqft: z.number()
+      })
+    )
+  );
+  ```
+
+  **示例结果：**
+
+  ```ts
+  [
+    {
+      address: "123 Main St",
+      price: "$1,200/mo",
+      sqft: 750
+    },
+    {
+      address: "456 Oak Ave",
+      price: "$1,500/mo",
+      sqft: 900
+    }
+  ]
+  ```
+  </TabItem>
+
+  <TabItem label="原始类型">
+
+  当提取单个原始值时：
+
+  ```ts
+  const price = await stagehand.extract(
+    "提取价格",
+    z.number()
+  );
+  ```
+
+  **示例结果：**
+
+  ```ts
+  19.99
+  ```
+
+  你也可以提取字符串、布尔值等：
+
+  ```ts
+  const url = await stagehand.extract(
+    "提取联系页面链接",
+    z.string().url()
+  );
+  ```
+  </TabItem>
+
+  <TabItem label="仅指令">
+
+  当只传入一条指令时（不带 schema）：
+
+  ```ts
+  const result = await stagehand.extract("提取仓库名称");
+  ```
+
+  **示例结果：**
+
+  ```ts
+  {
+    extraction: "stagehand"
+  }
+  ```
+  </TabItem>
+
+  <TabItem label="不传参数">
+
+  当不传任何参数时：
+
+  ```ts
+  const result = await stagehand.extract();
+  ```
+
+  **示例结果：**
+
+  ```ts
+  {
+    pageText: "Accessibility Tree:\n[0-2] RootWebArea: Page Title\n  [0-37] scrollable\n    [0-118] body\n      ..."
+  }
+  ```
+
+  这会直接返回页面的无障碍树表示，而不会经过 LLM 处理。
+  </TabItem>
+</Tabs>
+
+## 高级配置
+
+你可以传入额外选项来配置模型、超时时间以及选择器范围：
+
+```ts
+const result = await stagehand.extract("提取仓库名称", {
+  model: "anthropic/claude-sonnet-4-5",
+  timeout: 30000,
+  selector: "//header" // 聚焦到特定区域
+});
+```
+
+### 服务端缓存
+
+:::note[说明]
+`serverCache` 仅在使用 `env: "BROWSERBASE"` 运行时生效。在本地环境中它不会产生任何作用。
+:::
+
+当运行在 Browserbase 上时，Stagehand 会自动在服务端缓存 `extract()` 的结果。对于输入完全相同的重复调用，会立即返回结果，而不会消耗 LLM token。缓存默认开启，你可以在构造函数中全局控制它，也可以在单次调用时覆盖：
+
+```ts
+// 为整个实例禁用服务端缓存
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  serverCache: false,
+});
+
+// 或者仅为单次调用禁用
+const data = await stagehand.extract("提取仓库名称", { serverCache: false });
+
+// 检查结果是否来自缓存
+const result = await stagehand.extract("提取页面标题");
+console.log(result.cacheStatus); // "HIT" 或 "MISS"
+```
+
+### 定向提取
+
+给 `extract` 传入一个 selector，可以将提取目标限定到页面中的某个特定元素。
+
+:::tip[提示]
+这有助于减少传给 LLM 的上下文，从而优化 token 使用量与速度，并提升准确性。
+:::
+
+```ts
+const tableData = await stagehand.extract(
+  "提取第三行的值",
+  z.object({
+    values: z.array(z.string())
+  }),
+  {
+    // xPath 或 CSS 选择器
+    selector: "xpath=/html/body/div/table/"
+  }
+);
+```
+
+你也可以使用 `ignoreSelectors` 排除特定节点（以及它们的所有后代节点）。
+
+```ts
+const article = await stagehand.extract(
+  "提取文章标题和正文",
+  z.object({
+    title: z.string(),
+    body: z.string()
+  }),
+  {
+    ignoreSelectors: [".ad", ".newsletter-modal", "nav.related-posts"]
+  }
+);
+```
+
+:::note[说明]
+`ignoreSelectors` 会移除每个选择器匹配到的所有节点，以及每个匹配节点的所有后代。`selector` 仍然只会将提取范围限定在单个已解析的子树中。
+:::
+
+## 最佳实践
+
+### 带上下文进行提取
+
+你可以为 schema 提供额外上下文，以帮助模型更准确地提取数据。
+
+```ts
+const apartments = await stagehand.extract(
+  "提取所有公寓房源及其详细信息，包括地址、价格和面积。",
+  z.array(
+    z.object({
+      address: z.string().describe("公寓的地址"),
+      price: z.string().describe("公寓的价格"),
+      square_feet: z.string().describe("公寓的平方英尺面积"),
+    })
+  )
+);
+```
+
+### 链接提取
+
+:::note[说明]
+如果要提取链接或 URL，请将相关字段定义为 `z.string().url()`。
+:::
+
+下面是一个用于提取链接或 URL 的 `extract` 调用示例。它同样适用于图片链接。
+
+```ts
+const contactLink = await stagehand.extract(
+  "提取“联系我们”页面的链接",
+  z.string().url() // 注意：这里使用 z.string().url() 来校验 URL
+);
+
+console.log("联系我们页面的链接是：", contactLink);
+```
+
+:::tip[提示]
+在 Stagehand 内部，提取链接时会让 LLM 选择一个 ID。Stagehand 会在 ID -> URL 的映射表中查找该 ID。因此，当你记录 LLM trace 时，预期看到的是 ID；真正的 URL 会包含在最终的 `ExtractResult` 中。
+:::
+
+## 故障排查
+
+<details>
+  <summary>结果为空或不完整</summary>
+
+  **问题**：`extract()` 返回空数据或不完整的数据。
+
+  **解决方案**：
+
+  - **检查指令是否清晰**：确保你的指令足够具体，并准确描述你想提取哪些数据。
+  - **确认数据确实存在**：先使用 `stagehand.observe()` 确认页面上存在目标数据。
+  - **等待动态内容加载**：如果页面内容是动态加载的，请在提取前先使用 `stagehand.act("wait for the content to load")`。
+
+  **示例：提取前先等待内容加载**
+
+  ```ts
+  // 提取前先等待内容加载
+  await stagehand.act("wait for the product listings to load");
+  const products = await stagehand.extract(
+    "提取所有商品名称和价格",
+    z.array(z.object({
+      name: z.string(),
+      price: z.string()
+    }))
+  );
+  ```
+</details>
+
+<details>
+  <summary>Schema 校验错误</summary>
+
+  **问题**：出现 schema 校验错误或类型不匹配。
+
+  **解决方案**：
+
+  - **使用可选字段**：如果某些数据不一定始终存在，可通过 `z.optional()` 将字段设为可选。
+  - **使用更灵活的类型**：例如价格中可能带有货币符号时，可以考虑使用 `z.string()` 而不是 `z.number()`。
+  - **添加描述信息**：使用 `.describe()` 帮助模型理解字段要求。
+
+  **示例：使用更灵活的 schema**
+
+  ```ts
+  const schema = z.object({
+    price: z.string().describe("包含货币符号的价格，例如 '$19.99'"),
+    availability: z.string().optional().describe("如有库存状态则提取"),
+    rating: z.number().optional()
+  });
+  ```
+</details>
+
+<details>
+  <summary>结果不一致</summary>
+
+  **问题**：不同运行之间的提取结果不一致。
+
+  **解决方案**：
+
+  - **让指令更具体**：例如不要只写“提取价格”，而是写“提取每个商品的数值价格”。
+  - **在 schema 描述中加入上下文**：添加字段描述来引导模型。
+  - **结合 observe 使用**：先用 `stagehand.observe()` 了解页面结构。
+
+  **示例：先用 observe 验证**
+
+  ```ts
+  // 先 observe，理解页面结构
+  const elements = await stagehand.observe("查找所有商品列表");
+  console.log("找到的元素：", elements.map(e => e.description));
+
+  // 然后进行有针对性的提取
+  const products = await stagehand.extract(
+    "从页面显示的每个商品列表中提取名称和价格",
+    z.array(z.object({
+      name: z.string().describe("商品标题或名称"),
+      price: z.string().describe("页面上显示的价格，包含货币信息")
+    }))
+  );
+  ```
+</details>
+
+<details>
+  <summary>性能问题</summary>
+
+  **问题**：提取速度很慢或发生超时。
+
+  **解决方案**：
+
+  - **缩小范围**：将数据拆分成多个小调用来提取，而不是一次性提取所有内容。
+  - **使用定向指令**：明确说明应聚焦页面的哪个部分。
+  - **考虑分页**：对于大型数据集，一次只提取一页。
+  - **增加超时时间**：对于复杂提取，使用 `timeoutMs` 参数。
+
+  **示例：拆分大型提取任务**
+
+  ```ts
+  // 不要一次提取所有内容
+  const allData = [];
+  const pageNumbers = [1, 2, 3, 4, 5];
+
+  for (const pageNum of pageNumbers) {
+    await stagehand.act(`navigate to page ${pageNum}`);
+
+    const pageData = await stagehand.extract(
+      "仅提取当前页面中的商品数据",
+      z.array(z.object({
+        name: z.string(),
+        price: z.number()
+      })),
+      { timeout: 60000 } // 60 秒超时
+    );
+
+    allData.push(...pageData);
+  }
+  ```
+</details>
+
+## 下一步
+
+<CardGrid>
+  <Card title="Act" icon="play">
+    高效执行操作。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/act)
+  </Card>
+  <Card title="Observe" icon="magnifying-glass">
+    分析页面并预览操作。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/observe)
+  </Card>
+</CardGrid>

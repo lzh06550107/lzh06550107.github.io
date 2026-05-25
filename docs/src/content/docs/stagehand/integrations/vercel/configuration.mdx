@@ -1,0 +1,266 @@
+---
+title: 在 Next.js 中使用 Stagehand
+description: 在 Next.js 应用中接入 Stagehand，并部署到 Vercel。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 在 Next.js 中使用 Stagehand
+
+> Next.js 是用于生产级 Web 应用开发的流行框架。它为 [Director](https://director.ai)、[Brainrot](https://brainrot.run) 和 [Open Operator](https://operator.browserbase.com) 等 Stagehand 应用提供支持。
+
+<Card title="查看 Stagehand Next.js Quickstart" icon="code" href="https://github.com/browserbase/stagehand-nextjs-quickstart">
+  克隆我们的 [GitHub 仓库](https://github.com/browserbase/stagehand-nextjs-quickstart)，开始在 Next.js 中使用 Stagehand（v2）。
+</Card>
+
+## 将 Stagehand 添加到现有 Next.js 项目
+
+如果你希望从零开始，可以运行：
+
+<Tabs>
+  <TabItem label="npm" icon="terminal">
+
+```bash
+npm create next-app@latest stagehand-nextjs --yes
+cd stagehand-nextjs
+```
+
+  </TabItem>
+  <TabItem label="pnpm" icon="terminal">
+
+```bash
+pnpm create next-app@latest stagehand-nextjs --yes
+cd stagehand-nextjs
+```
+
+  </TabItem>
+  <TabItem label="yarn" icon="terminal">
+
+```bash
+yarn create next-app@latest stagehand-nextjs --yes
+cd stagehand-nextjs
+```
+
+  </TabItem>
+</Tabs>
+
+如果你想把 Stagehand 添加到已有的 Next.js 项目中，可以安装以下依赖：
+
+<Tabs>
+  <TabItem label="npm" icon="terminal">
+
+```bash
+npm install @browserbasehq/stagehand @browserbasehq/sdk playwright zod
+```
+
+  </TabItem>
+  <TabItem label="pnpm" icon="terminal">
+
+```bash
+pnpm add @browserbasehq/stagehand @browserbasehq/sdk playwright zod
+```
+
+  </TabItem>
+  <TabItem label="yarn" icon="terminal">
+
+```bash
+yarn add @browserbasehq/stagehand @browserbasehq/sdk playwright zod
+```
+
+  </TabItem>
+</Tabs>
+
+### 添加环境变量
+
+接下来，将环境变量添加到 `.env` 文件中：
+
+```env
+BROWSERBASE_API_KEY=your-browserbase-api-key
+OPENAI_API_KEY=your-openai-api-key
+```
+
+### 编写 server action
+
+接着，在 `app/stagehand/main.ts` 中将 `main` 函数定义为一个 server action。该文件包含以下三个函数：
+
+1. **`main`**：运行主要的 Stagehand 脚本
+2. **`runStagehand`**：初始化并运行 `main` 函数
+3. **`startBBSSession`**：启动 Browserbase 会话
+
+```ts title="app/stagehand/main.ts"
+'use server';
+
+import { Stagehand } from '@browserbasehq/stagehand';
+import { z } from 'zod';
+import { Browserbase } from '@browserbasehq/sdk';
+
+async function main(stagehand: Stagehand) {
+  const page = stagehand.context.activePage();
+
+  await page?.goto('https://docs.stagehand.dev/');
+  await stagehand.act('click the quickstart link');
+  const { title } = await stagehand.extract(
+    'extract the main heading of the page',
+    z.object({
+      title: z.string(),
+    }),
+  );
+
+  return title;
+}
+
+export async function runStagehand(sessionId?: string) {
+  const stagehand = new Stagehand({
+    env: 'BROWSERBASE',
+    apiKey: process.env.BROWSERBASE_API_KEY,
+    verbose: 1,
+    logger: console.log,
+    browserbaseSessionID: sessionId,
+    disablePino: true,
+  });
+  await stagehand.init();
+  const result = await main(stagehand);
+  console.log(result);
+  await stagehand.close();
+}
+
+export async function startBBSSession() {
+  const browserbase = new Browserbase();
+  const session = await browserbase.sessions.create({});
+  const debugUrl = await browserbase.sessions.debug(session.id);
+  return {
+    sessionId: session.id,
+    debugUrl: debugUrl.debuggerFullscreenUrl,
+  };
+}
+```
+
+### 创建客户端组件
+
+接下来，创建一个客户端组件，用来启动 Browserbase 会话，并通过刚刚定义的 server actions 运行 `main` 函数。我们会先创建 Browserbase 会话，再将其嵌入 iframe，然后运行 `main`。
+
+```tsx title="app/components/stagehandEmbed.tsx"
+'use client';
+
+import { useCallback, useState } from 'react';
+import { runStagehand, startBBSSession } from '@/app/stagehand/main';
+
+export function StagehandEmbed() {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [debugUrl, setDebugUrl] = useState<string | null>(null);
+
+  const startSession = useCallback(async () => {
+    const { sessionId, debugUrl } = await startBBSSession();
+    setSessionId(sessionId);
+    setDebugUrl(debugUrl);
+    await runStagehand(sessionId);
+  }, []);
+
+  return (
+    <div>
+      {!sessionId && <button onClick={startSession}>Start Session</button>}
+      {sessionId && debugUrl && (
+        <iframe src={debugUrl} className="w-full h-full" />
+      )}
+    </div>
+  );
+}
+```
+
+### 使用 `StagehandEmbed` 组件
+
+现在就可以在应用中使用 `StagehandEmbed`：
+
+```tsx title="app/page.tsx"
+import { StagehandEmbed } from '@/app/components/stagehandEmbed';
+
+export default function Home() {
+  return (
+    <main>
+      <StagehandEmbed />
+    </main>
+  );
+}
+```
+
+### 运行应用
+
+使用以下命令运行应用：
+
+<Tabs>
+  <TabItem label="npm" icon="terminal">
+
+```bash
+npm run dev
+```
+
+  </TabItem>
+  <TabItem label="pnpm" icon="terminal">
+
+```bash
+pnpm dev
+```
+
+  </TabItem>
+  <TabItem label="yarn" icon="terminal">
+
+```bash
+yarn dev
+```
+
+  </TabItem>
+</Tabs>
+
+### 部署应用
+
+首先安装 Vercel CLI：
+
+<Tabs>
+  <TabItem label="npm" icon="terminal">
+
+```bash
+npm add -g vercel
+```
+
+  </TabItem>
+  <TabItem label="pnpm" icon="terminal">
+
+```bash
+pnpm add -g vercel
+```
+
+  </TabItem>
+  <TabItem label="yarn" icon="terminal">
+
+```bash
+yarn add -g vercel
+```
+
+  </TabItem>
+</Tabs>
+
+然后运行以下命令部署应用：
+
+```bash
+vercel
+```
+
+## 参考资料
+
+<CardGrid>
+  <Card title="部署模板（v2）" icon="rocket" href="https://vercel.com/templates/ai/stagehand-next-js-quickstart">
+    在 Vercel 上一键部署 Stagehand Next.js 模板（Stagehand v2）。
+  </Card>
+  <Card title="源代码（v2）" icon="code" href="https://github.com/browserbase/stagehand-nextjs-quickstart">
+    在 GitHub 上浏览完整模板仓库（Stagehand v2）。
+  </Card>
+</CardGrid>

@@ -1,0 +1,141 @@
+---
+title: Selenium
+description: 让 Stagehand 与 Selenium 在同一个浏览器会话中协同工作。
+editUrl: false
+sidebar:
+  order: 8
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Selenium
+
+> 使用 Stagehand 与 Selenium 协同操作同一个浏览器
+
+## 概览
+
+Stagehand v3 可以与 Selenium WebDriver 并行协作，让两者同时操作同一个浏览器会话。这样你就能把 Stagehand 的 AI 自动化能力，与 Selenium 精确的元素交互能力结合起来。
+
+:::caution[注意]
+**仅支持 Browserbase**：此集成要求使用 Browserbase。由于 Selenium 需要远程 WebDriver 端点，因此它不能与 `env: "LOCAL"` 配合使用。
+:::
+
+## 安装
+
+安装 Stagehand、Selenium 和 Browserbase SDK：
+
+```bash
+npm install @browserbasehq/stagehand selenium-webdriver @browserbasehq/sdk
+```
+
+## 快速开始
+
+### 创建共享会话
+
+使用 Browserbase SDK 创建一个可以同时被两套工具连接的会话：
+
+```typescript
+import http from 'http';
+import { Builder, Key } from 'selenium-webdriver';
+import Browserbase from '@browserbasehq/sdk';
+import { Stagehand } from '@browserbasehq/stagehand';
+
+const bb = new Browserbase({
+  apiKey: process.env.BROWSERBASE_API_KEY,
+});
+
+// 创建共享会话
+const session = await bb.sessions.create({});
+
+console.log('Session created:', session.id);
+```
+
+### 连接 Stagehand
+
+使用该会话 ID 初始化 Stagehand：
+
+```typescript
+const stagehand = new Stagehand({
+  env: 'BROWSERBASE',
+  browserbaseSessionID: session.id,
+  model: 'openai/gpt-5',
+  verbose: 2,
+});
+
+await stagehand.init();
+```
+
+### 连接 Selenium
+
+通过会话的签名 key 自定义 HTTP agent：
+
+```typescript
+// 创建带签名 key 的自定义 HTTP agent
+const customHttpAgent = new http.Agent({});
+(customHttpAgent as any).addRequest = (req: any, options: any) => {
+  req.setHeader('x-bb-signing-key', session.signingKey);
+  (http.Agent.prototype as any).addRequest.call(customHttpAgent, req, options);
+};
+
+// 连接 Selenium WebDriver
+const driver = new Builder()
+  .forBrowser('chrome')
+  .usingHttpAgent(customHttpAgent)
+  .usingServer(session.seleniumRemoteUrl)
+  .build();
+```
+
+### 同时使用两套工具
+
+此时 Stagehand 与 Selenium 将共同操作同一个浏览器：
+
+```typescript
+// 使用 Stagehand 导航
+const page = stagehand.context.pages()[0];
+await page.goto('https://www.google.com');
+
+// 用 Stagehand AI 提取页面内容
+const pageContent = await stagehand.extract();
+console.log('Page content:', pageContent);
+
+// 用 Selenium 精确操作元素
+const searchBox = await driver.findElement({ name: 'q' });
+await searchBox.sendKeys('Browserbase automation');
+await searchBox.sendKeys(Key.RETURN);
+
+// 等待结果
+await driver.sleep(2000);
+
+console.log('Search completed!');
+```
+
+## 关键点
+
+- **共享会话**：两套工具连接到同一个 Browserbase 会话
+- **签名 Key**：Selenium 需要在 HTTP 头中携带会话的 `signingKey`
+- **远程地址**：Selenium 的服务端地址使用 `session.seleniumRemoteUrl`
+- **并发使用**：两套工具可以同时操作同一个浏览器
+- **清理资源**：结束时关闭 Stagehand（`await stagehand.close()`）与 Selenium（`await driver.quit()`）
+
+## 下一步
+
+<CardGrid>
+  <Card title="Agent" icon="robot" href="/stagehand/basics/agent/">
+    自动化完整工作流。
+  </Card>
+  <Card title="Act" icon="play" href="/stagehand/basics/act/">
+    在网页上执行动作。
+  </Card>
+  <Card title="Extract" icon="database" href="/stagehand/basics/extract/">
+    从页面提取结构化数据。
+  </Card>
+  <Card title="Observe" icon="eye" href="/stagehand/basics/observe/">
+    观察并定位页面元素。
+  </Card>
+</CardGrid>

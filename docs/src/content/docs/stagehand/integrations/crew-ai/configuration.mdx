@@ -1,0 +1,186 @@
+---
+title: 使用 CrewAI 自动化浏览器任务
+description: 创建能够与网站交互并使用自然语言自动化浏览器任务的智能代理。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 使用 CrewAI 自动化浏览器任务
+
+> 创建能够与网站交互并使用自然语言自动化浏览器任务的智能代理
+
+本指南将逐步介绍如何将 CrewAI 与 Browserbase 结合，创建能够使用自然语言执行网页自动化任务的代理。
+
+## 第 1 步：安装依赖
+
+安装 CrewAI 与 Stagehand 集成所需的软件包：
+
+```bash
+pip install stagehand crewai crewai-tools
+```
+
+## 第 2 步：配置环境变量
+
+你需要以下服务的 API Key：
+
+1. **Browserbase API Key**：可从 [Browserbase dashboard](https://www.browserbase.com/) 获取
+2. **LLM API Key**：可从 [OpenAI](https://platform.openai.com/api-keys) 或 [Anthropic](https://console.anthropic.com/) 获取
+
+请将这些密钥安全地存储为环境变量：
+
+```bash
+BROWSERBASE_API_KEY="your-browserbase-api-key"
+OPENAI_API_KEY="your-openai-api-key"
+ANTHROPIC_API_KEY="your-anthropic-api-key"
+```
+
+## 第 3 步：创建你的第一个代理
+
+创建一个包含基础 CrewAI 代理的 Python 脚本：
+
+```python
+import os
+from crewai import Agent, Task, Crew
+from crewai_tools import StagehandTool
+from stagehand.schemas import AvailableModel
+
+# 从环境变量获取 API Key
+browserbase_api_key = os.environ.get("BROWSERBASE_API_KEY")
+model_api_key = os.environ.get("OPENAI_API_KEY")  # 或 ANTHROPIC_API_KEY
+
+# 初始化 StagehandTool
+stagehand_tool = StagehandTool(
+    api_key=browserbase_api_key,
+    model_api_key=model_api_key,
+    model_name=AvailableModel.GPT_4O,  # 或 AvailableModel.CLAUDE_3_7_SONNET_LATEST
+)
+
+# 创建带工具的代理
+researcher = Agent(
+    role="Web Researcher",
+    goal="Find and summarize information from websites",
+    backstory="I'm an expert at finding information online.",
+    verbose=True,
+    tools=[stagehand_tool],
+)
+```
+
+## 第 4 步：创建并运行任务
+
+为代理定义任务并执行：
+
+```python
+# 创建使用工具的任务
+research_task = Task(
+    description="Go to https://www.example.com and tell me what you see on the homepage.",
+    agent=researcher,
+)
+
+# 运行 crew
+crew = Crew(
+    agents=[researcher],
+    tasks=[research_task],
+    verbose=True,
+)
+
+try:
+    result = crew.kickoff()
+    print(result)
+finally:
+    # 清理资源
+    stagehand_tool.close()
+```
+
+## 第 5 步：运行脚本
+
+执行你的 Python 脚本：
+
+```bash
+python your_crew_script.py
+```
+
+## 高级配置
+
+你可以通过更多参数来自定义 `StagehandTool` 的行为：
+
+```python
+stagehand_tool = StagehandTool(
+    api_key=browserbase_api_key,
+    model_api_key=model_api_key,
+    model_name=AvailableModel.CLAUDE_3_7_SONNET_LATEST,
+    dom_settle_timeout_ms=5000,  # 给 DOM 更多稳定时间
+    headless=True,  # 以无头模式运行浏览器
+    self_heal=True,  # 尝试从错误中恢复
+    wait_for_captcha_solves=True,  # 等待 CAPTCHA 被解决
+    verbose=1,  # 控制日志详细程度（0-3）
+)
+```
+
+## 示例任务
+
+<Tabs>
+  <TabItem label="表单提交" icon="code">
+
+```python
+form_task = Task(
+    description="""
+    Submit a contact form:
+    1. Go to https://example.com/contact
+    2. Fill out the form with name 'John Doe', email 'john@example.com'
+    3. Submit and confirm success
+    """,
+    agent=researcher,
+)
+```
+
+  </TabItem>
+  <TabItem label="数据提取" icon="code">
+
+```python
+extraction_task = Task(
+    description="""
+    Extract product information:
+    1. Go to the products page
+    2. Extract all product names, prices, and descriptions
+    3. Format as structured data
+    """,
+    agent=researcher,
+)
+```
+
+  </TabItem>
+  <TabItem label="多步导航" icon="code">
+
+```python
+navigation_task = Task(
+    description="""
+    Navigate and analyze:
+    1. Start at homepage
+    2. Navigate to products section
+    3. Filter by 'Electronics' category
+    4. Find and extract details of highest-rated product
+    """,
+    agent=researcher,
+)
+```
+
+  </TabItem>
+</Tabs>
+
+<CardGrid>
+  <Card title="CrewAI 文档" icon="book" href="https://docs.crewai.com/">
+    深入了解 CrewAI 的能力与集成方式。
+  </Card>
+  <Card title="Browserbase 文档" icon="book" href="https://docs.browserbase.com/">
+    查看 Browserbase 的完整指南与资源。
+  </Card>
+</CardGrid>

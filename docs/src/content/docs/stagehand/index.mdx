@@ -1,0 +1,56 @@
+---
+title: Stagehand 文档
+description: Stagehand 官方文档的简体中文镜像，现已覆盖 First Steps、The Basics、Configuration、Best Practices 与 Integrations 五大章节。
+editUrl: false
+sidebar:
+  hidden: true
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Stagehand 是一个使用自然语言与代码控制浏览器的 Web 自动化框架。本镜像文档现已完成 **First Steps、The Basics、Configuration、Best Practices、Integrations** 五个主要章节的简体中文翻译。
+
+<CardGrid>
+  <Card title="First Steps" icon="rocket">
+    从介绍、快速开始、安装到 AI Rules，建立 Stagehand 的基础使用路径。
+
+    [进入 First Steps](/stagehand/first-steps/introduction/)
+  </Card>
+  <Card title="The Basics" icon="star">
+    学习 Agent、Act、Extract、Observe、Evals 五个核心基础页面。
+
+    [进入 The Basics](/stagehand/basics/agent/)
+  </Card>
+  <Card title="Configuration" icon="gear">
+    查看 Browser、Observability、Logging、Models 等配置能力。
+
+    [进入 Configuration](/stagehand/configuration/browser/)
+  </Card>
+  <Card title="Best Practices" icon="check-circle">
+    覆盖缓存、成本优化、多标签页、部署、提示词等最佳实践。
+
+    [进入 Best Practices](/stagehand/best-practices/caching-actions/)
+  </Card>
+  <Card title="Integrations" icon="puzzle">
+    集成 MCP、CrewAI、LangChain、Next.js + Vercel、Convex、Playwright、Puppeteer、Selenium。
+
+    [进入 Integrations](/stagehand/integrations/mcp/introduction/)
+  </Card>
+</CardGrid>
+
+## 当前内容总览
+
+| 章节 | 页面数 | 说明 |
+| --- | ---: | --- |
+| First Steps | 4 | Introduction、Quickstart、Installation、AI Rules |
+| The Basics | 5 | Agent、Act、Extract、Observe、Evals |
+| Configuration | 4 | Browser、Observability、Logging、Models |
+| Best Practices | 11 | 缓存、成本优化、确定性 Agent、多标签页、部署、历史记录、Computer Use、Fallbacks、Prompting、MCP Integrations、Speed Optimization |
+| Integrations | 15 | MCP、CrewAI、LangChain、Next.js + Vercel、Convex、Playwright、Puppeteer、Selenium |
+
+## 推荐阅读路径
+
+1. **初次接触 Stagehand**：先看 [Introduction](/stagehand/first-steps/introduction/) → [Quickstart](/stagehand/first-steps/quickstart/)。
+2. **理解核心能力**：继续阅读 [Agent](/stagehand/basics/agent/)、[Act](/stagehand/basics/act/)、[Extract](/stagehand/basics/extract/)、[Observe](/stagehand/basics/observe/)。
+3. **配置运行环境**：查看 [Browser](/stagehand/configuration/browser/) 与 [Models](/stagehand/configuration/models/)。
+4. **进入工程化使用**：阅读 [Best Practices](/stagehand/best-practices/caching-actions/) 与 [Integrations](/stagehand/integrations/mcp/introduction/)。

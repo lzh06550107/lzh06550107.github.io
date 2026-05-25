@@ -1,0 +1,314 @@
+---
+title: 评估与指标
+description: 监控性能、优化成本，并评估 LLM 的效果。
+editUrl: false
+sidebar:
+  order: 5
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 评估与指标
+
+> 监控性能、优化成本，并评估 LLM 的效果
+
+评估可以帮助你了解自动化执行得有多好、哪些模型最适合你的使用场景，以及如何在成本与可靠性之间做优化。本指南同时涵盖如何监控你自己的工作流，以及如何运行更全面的评估。
+
+## 为什么评估很重要
+
+- **性能优化**：识别哪些模型和设置最适合你的特定自动化任务
+- **成本控制**：跟踪 token 使用量和推理时间，以优化支出
+- **可靠性**：衡量成功率并识别失败模式
+- **模型选择**：在真实任务上比较不同 LLM，从而做出有依据的决策
+
+<CardGrid>
+  <Card title="实时模型对比" href="https://www.stagehand.dev/evals">
+    在 [Stagehand Evals Dashboard](https://www.stagehand.dev/evals) 上查看不同 LLM 的实时性能对比。
+  </Card>
+</CardGrid>
+
+## 全面评估
+
+评估可以帮助你系统化地测试并改进自动化工作流。Stagehand 同时提供内置评估，以及用于创建自定义评估的工具。
+
+### Evals CLI
+
+<img src="/images/stagehand/basics/evals-cli.png" alt="Evals CLI" width="856" height="592" />
+
+:::tip[提示]
+要运行 evals，你需要克隆 [Stagehand 仓库](https://github.com/browserbase/stagehand) 并完成 CLI 设置。
+
+我们推荐使用 [Braintrust](https://www.braintrust.dev/docs/) 来帮助可视化评估结果和指标。
+:::
+
+Stagehand CLI 为运行评估提供了强大的接口。你可以使用可自定义的设置来运行特定 eval、某个类别，或外部基准测试。
+
+Evals 被分为：
+
+1. **Act Evals**：用于测试 `act` 方法功能的 eval。
+2. **Extract Evals**：用于测试 `extract` 方法功能的 eval。
+3. **Observe Evals**：用于测试 `observe` 方法功能的 eval。
+4. **Combination Evals**：用于联合测试 `act`、`extract` 和 `observe` 方法功能的 eval。
+5. **Experimental Evals**：用于测试 stagehand 基础原语功能的实验性自定义 eval。
+6. **Agent Evals**：用于测试 `agent` 功能的 eval。
+7. **（新增）External Benchmarks**：运行 WebBench、GAIA、WebVoyager、OnlineMind2Web 和 OSWorld 等外部基准测试。
+
+#### 安装
+
+1. **安装依赖**
+
+   ```bash
+   # 在 stagehand 根目录中
+   pnpm install
+   ```
+
+2. **构建 CLI**
+
+   ```bash
+   pnpm run build:cli
+   ```
+
+3. **验证安装**
+
+   ```bash
+   evals help
+   ```
+
+#### CLI 命令与选项
+
+##### 基础命令
+
+```bash
+# 运行全部 eval
+evals run all
+
+# 运行特定类别
+evals run act
+evals run extract
+evals run observe
+evals run agent
+
+# 运行特定 eval
+evals run extract/extract_text
+
+# 列出可用 eval
+evals list
+evals list --detailed
+
+# 配置默认值
+evals config
+evals config set env browserbase
+evals config set trials 5
+```
+
+##### 命令选项
+
+- **`-e, --env`**：环境（`local` 或 `browserbase`）
+- **`-t, --trials`**：每个 eval 的试验次数（默认：3）
+- **`-c, --concurrency`**：最大并行会话数（默认：10）
+- **`-m, --model`**：覆盖默认模型
+- **`-p, --provider`**：覆盖默认提供商
+- **`--api`**：使用 Stagehand API，而不是 SDK
+
+##### 运行外部基准测试
+
+CLI 支持多种行业标准基准测试：
+
+```bash
+# 带筛选条件的 WebBench
+evals run benchmark:webbench -l 10 -f difficulty=easy -f category=READ
+
+# GAIA 基准测试
+evals run b:gaia -s 100 -l 25 -f level=1
+
+# WebVoyager
+evals run b:webvoyager -l 50
+
+# OnlineMind2Web
+evals run b:onlineMind2Web
+
+# OSWorld
+evals run b:osworld -f source=Mind2Web
+```
+
+#### 配置文件
+
+你可以在 [`evals/tasks`](https://github.com/browserbase/stagehand/tree/main/packages/evals/tasks) 中查看具体的 eval。每个 eval 都会根据 [`evals/evals.config.json`](https://github.com/browserbase/stagehand/blob/main/evals/evals.config.json) 被归入相应的评估类别。
+
+#### 查看评估结果
+
+<img src="/images/stagehand/basics/evals.png" alt="评估结果" width="3456" height="2234" />
+
+评估结果可以在 Braintrust 上查看。运行 `npm run evals` 时，你可以根据终端中显示的 Braintrust URL 查看某个特定 eval 的结果。
+
+默认情况下，每个 eval 会针对每个模型运行五次。"Exact Match" 列显示该 eval 判定正确的百分比；"Error Rate" 列显示该 eval 出错的百分比。
+
+你可以使用 Braintrust UI 按模型或 eval 进行筛选，并聚合所有 eval 的结果。
+
+## 创建自定义评估
+
+### 分步指南
+
+1. **创建评估文件**
+
+   在 `evals/tasks/your-eval.ts` 中创建一个新文件：
+
+   ```typescript
+   import { EvalTask } from '../types';
+
+   export const customEvalTask: EvalTask = {
+     name: 'custom_task_name',
+     description: '测试特定的自动化工作流',
+     
+     // 测试准备
+     setup: async ({ page }) => {
+       await page.goto('https://example.com');
+     },
+     
+     // 实际测试
+     task: async ({ stagehand, page }) => {
+       // 你的自动化逻辑
+       await stagehand.act({ action: 'click the login button' });
+       const result = await stagehand.extract({ 
+         instruction: 'Get the user name',
+         schema: { username: 'string' }
+       });
+       return result;
+     },
+     
+     // 验证
+     validate: (result, expected) => {
+       return result.username === expected.username;
+     },
+     
+     // 测试用例
+     testCases: [
+       {
+         input: { /* 测试输入 */ },
+         expected: { username: 'john_doe' }
+       }
+     ],
+     
+     // 评估标准
+     scoring: {
+       exactMatch: true,
+       timeout: 30000,
+       retries: 2
+     }
+   };
+   ```
+
+2. **添加到配置中**
+
+   更新 `evals/evals.config.json`：
+
+   ```json
+   {
+     "categories": {
+       "custom": ["custom_task_name"],
+       "existing_category": ["custom_task_name"]
+     }
+   }
+   ```
+
+3. **运行你的评估**
+
+   ```bash
+   # 测试你的自定义评估
+   evals run custom_task_name
+
+   # 运行整个自定义类别
+   evals run custom
+
+   # 以特定设置运行
+   evals run custom_task_name -e browserbase -t 5 -m gpt-4o
+   ```
+
+## 自定义评估的最佳实践
+
+<details>
+  <summary>测试设计原则</summary>
+
+  - **原子化**：每个测试都应验证一项特定能力
+  - **确定性**：测试应产生一致且可衡量的结果
+  - **贴近真实场景**：使用真实世界中的场景和网站
+  - **可衡量**：定义清晰的成功/失败标准
+</details>
+
+<details>
+  <summary>性能优化</summary>
+
+  - **并行执行**：将测试设计为可独立运行
+  - **资源管理**：每次测试后进行清理
+  - **超时处理**：为操作设置合适的超时时间
+  - **错误恢复**：优雅地处理失败
+</details>
+
+<details>
+  <summary>数据质量</summary>
+
+  - **基准真值（Ground Truth）**：建立可靠的预期结果
+  - **边界情况**：测试边界条件和错误场景
+  - **统计显著性**：通过多次运行提升可靠性
+  - **版本控制**：持续跟踪测试用例的变化
+</details>
+
+### 评估故障排查
+
+<details>
+  <summary>评估超时</summary>
+
+  **症状**：测试因超时错误而失败。
+
+  **解决方案**：
+
+  - 增加 `taskConfig.ts` 中的超时时间
+  - 使用更快的模型（Gemini 2.5 Flash、Claude Haiku 4.5）
+  - 优化测试场景，降低复杂度
+  - 检查到 LLM 提供商的网络连接
+</details>
+
+<details>
+  <summary>结果不一致</summary>
+
+  **症状**：同一个测试随机通过或失败。
+
+  **解决方案**：
+
+  - 将 temperature 设为 0，以获得更确定性的输出
+  - 增加重复次数，以提升统计显著性
+  - 对复杂任务使用能力更强的模型
+  - 检查是否有动态网页内容影响测试
+</details>
+
+<details>
+  <summary>评估成本过高</summary>
+
+  **症状**：token 使用量超出预算。
+
+  **解决方案**：
+
+  - 使用更具成本效益的模型（Gemini 2.5 Flash、Claude Haiku 4.5）
+  - 在初始测试阶段减少重复次数
+  - 聚焦于特定的评估类别
+  - 使用本地浏览器环境以降低 Browserbase 成本
+</details>
+
+<details>
+  <summary>Braintrust 集成问题</summary>
+
+  **症状**：结果没有上传到仪表板。
+
+  **解决方案**：
+
+  - 检查 Braintrust API 密钥配置
+  - 验证互联网连接
+  - 将 Braintrust SDK 更新到最新版本
+  - 检查 Braintrust 仪表板中的项目权限
+</details>

@@ -1,0 +1,64 @@
+---
+title: Agent 回退
+description: 当页面出现意外变化、导致额外步骤产生时的故障保护机制。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+export const V3Banner = () => null;
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Agent 回退
+
+> 当意外的页面变化增加了额外步骤时的故障保护机制
+
+<V3Banner />
+
+## 何时使用
+
+当原本一步即可完成的操作意外变成多步骤流程时，可将 agent 回退用作故障保护机制。
+
+## 工作原理
+
+1. 先尝试使用 [`act()`](/v3/basics/act) 执行直接操作
+2. 如果失败，则由 [`agent()`](/v3/basics/agent) 找出新的路径
+3. Agent 完成所有必要步骤（打开菜单 → 点击按钮）
+
+### 示例场景
+
+**之前**：登录按钮位于页眉中\
+**之后**：现在登录需要：点击账户菜单 → 点击“登录”选项
+
+单个 `act("click sign in")` 无法处理这一变化。agent 回退可以发现并执行这两个步骤。
+
+```typescript theme={null}
+import { Stagehand } from "@browserbasehq/stagehand";
+
+try {
+  await stagehand.act("click the 'Sign In' button");
+} catch (err) {
+  console.log("Agent fallback triggered");
+
+  const agent = stagehand.agent({
+    model: "anthropic/claude-sonnet-4-6",
+    systemPrompt: "You are a helpful assistant that can use a web browser.",
+  });
+
+  const result = await agent.execute({
+    instruction: "Find and click Sign In button",
+    maxSteps: 10,
+  });
+
+  console.log(result.success ? "Agent fallback success" : "Agent fallback failed");
+
+  if (!result.success) throw err;
+}
+```
+
+可在[模型页面](/v3/configuration/models#agent-models-with-cua-support)查看所有可用的 agent 模型。

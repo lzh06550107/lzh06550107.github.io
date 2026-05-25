@@ -1,0 +1,70 @@
+---
+title: Next.js + Vercel
+description: 构建并部署基于 Stagehand 的 Next.js 应用到 Vercel。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Next.js + Vercel
+
+> 构建并部署基于 Stagehand 的 Next.js 应用到 Vercel
+
+## 概览
+
+Stagehand + Next.js Quickstart 是一个可用于生产环境的模板，它将 Stagehand 的 AI 浏览器自动化能力与现代 Next.js 应用结合起来，并支持在 Vercel 上一键部署。
+
+<CardGrid>
+  <Card title="部署模板" icon="rocket" href="https://vercel.com/templates/ai/stagehand-next-js-quickstart">
+    在完成环境配置后，一键部署到 Vercel。
+  </Card>
+  <Card title="在线演示" icon="globe" href="https://stagehand-nextjs-quickstart.vercel.app">
+    查看已部署模板的实际效果。
+  </Card>
+  <Card title="源代码" icon="code" href="https://github.com/browserbase/stagehand-nextjs-quickstart">
+    在 GitHub 上浏览该仓库（Stagehand v2）。
+  </Card>
+</CardGrid>
+
+## 你将获得什么
+
+<CardGrid>
+  <Card title="App Router 项目" icon="box">
+    基于 Next.js App Router 的脚手架，并预置 Tailwind 样式。
+  </Card>
+  <Card title="服务端安全自动化" icon="shield-check">
+    使用 Browserbase 提供云浏览器，可在 Vercel Functions 上运行。
+  </Card>
+  <Card title="预接线配置" icon="gear">
+    提供带有模型与提供方切换能力的 `stagehand.config.ts`。
+  </Card>
+  <Card title="开箱即用自动化" icon="robot">
+    内含 Stagehand 各基础原语的示例用法。
+  </Card>
+</CardGrid>
+
+## 要求
+
+- **Node 18+** 本地环境
+- **模型密钥**：OpenAI 或 Anthropic（也可接入自定义客户端）
+- **Browserbase Key**：云浏览器需要 `BROWSERBASE_API_KEY`
+
+:::tip[提示]
+Vercel 上无法使用本地 Playwright 浏览器。部署时请将 Stagehand 配置为 Browserbase。
+:::
+
+## 相关链接
+
+<CardGrid>
+  <Card title="操作指南" icon="rocket" href="/stagehand/integrations/vercel/configuration/">
+    几分钟内完成本地运行并部署到 Vercel。
+  </Card>
+</CardGrid>

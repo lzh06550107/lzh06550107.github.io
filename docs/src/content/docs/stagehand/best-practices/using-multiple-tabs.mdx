@@ -1,0 +1,85 @@
+---
+title: 使用多个标签页
+description: 使用 Stagehand 在多个标签页上执行操作。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 使用多个标签页
+
+> 使用 Stagehand 在多个标签页上执行操作
+
+许多现代 Web 应用会在用户点击某些按钮或链接时打开新标签页。如果没有合适的多标签页支持，当预期内容出现在新标签页而不是当前标签页时，自动化脚本就会中断。Stagehand 的多标签页能力可确保你的自动化在多标签页工作流中无缝运行。
+
+## Stagehand 页面
+
+Stagehand 会自动适配多标签页工作流。活动页面（通过 `context.activePage()` 访问）始终指向最近打开或当前活动的标签页，从而确保即使创建了新标签页，你的自动化也能继续正常运行。
+
+这意味着你可以继续使用熟悉的模式：
+
+```typescript
+const page = stagehand.context.pages()[0];
+await page.goto("https://example.com");
+await stagehand.act("click the button that opens a new tab");
+// page 现在会自动指向新标签页
+await stagehand.extract("get data from new tab");
+```
+
+:::caution
+**重要**：[Stagehand Agent](/stagehand/basics/agent/) 始终会在活动页面上运行。如果你需要让 agent 在特定标签页之间工作，就需要手动管理页面切换。
+:::
+
+## 手动管理页面
+
+如果你需要更强的控制能力，或者要处理多标签页工作流，可以显式管理多个标签页：
+
+```typescript
+// 创建第二个页面
+await stagehand.context.newPage();
+const pages = stagehand.context.pages();
+
+const githubPage = pages[0];
+const pythonPage = pages[1];
+
+// 让每个页面分别导航到不同的仓库
+await githubPage.goto("https://github.com/browserbase/stagehand");
+await pythonPage.goto("https://github.com/browserbase/stagehand-python");
+
+// 同时从两个页面提取数据
+const [stagehandStars, stagehandPythonStars] = await Promise.all([
+  stagehand.extract("extract the repository stars", { page: githubPage }),
+  stagehand.extract("extract the repository stars", { page: pythonPage })
+]);
+
+console.log(`Stagehand stars: ${stagehandStars}`);
+console.log(`Stagehand-Python stars: ${stagehandPythonStars}`);
+```
+
+## 下一步
+
+<CardGrid>
+  <Card title="使用 Agent 编排复杂工作流" icon="robot" href="/stagehand/basics/agent/">
+    使用 `Agent` 自主执行多步骤任务和复杂工作流。
+  </Card>
+
+  <Card title="处理 iframe" icon="frame" href="https://docs.stagehand.dev/v3/best-practices/working-with-iframes">
+    了解与 iframe 内部元素交互的最佳实践。
+  </Card>
+
+  <Card title="浏览器配置" icon="window-maximize" href="/stagehand/configuration/browser/">
+    为复杂自动化场景管理浏览器上下文与会话。
+  </Card>
+
+  <Card title="日志与调试" icon="bug" href="/stagehand/configuration/logging/">
+    更从容地处理错误，并高效调试自动化问题。
+  </Card>
+</CardGrid>

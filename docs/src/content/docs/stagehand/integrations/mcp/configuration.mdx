@@ -1,0 +1,408 @@
+---
+title: Browserbase MCP 服务器配置
+description: 使用命令行标志、环境变量和高级选项来配置你的浏览器自动化。
+editUrl: false
+sidebar:
+  order: 3
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Browserbase MCP 服务器配置
+
+> 使用命令行标志、环境变量和高级选项来配置你的浏览器自动化
+
+## 配置概览
+
+Browserbase MCP 服务器通过命令行标志和环境变量提供广泛的配置选项。你可以配置浏览器行为、代理设置、隐身模式、模型选择等内容，以自定义你的浏览器自动化工作流。
+
+:::note[注意]
+命令行标志仅在本地运行服务器时可用（例如使用带参数的 `npx @browserbasehq/mcp`，或在本地开发环境中运行）。
+:::
+
+## 环境变量
+
+配置必需的 Browserbase 凭据以及可选的调试设置：
+
+<Card title="BROWSERBASE_API_KEY" icon="key">
+  用于身份验证的 Browserbase API Key
+</Card>
+
+## 命令行标志
+
+### 可用标志
+
+| 标志 | 说明 |
+| --- | --- |
+| `--proxies` | 为会话启用 Browserbase 代理 |
+| `--advancedStealth` | 启用 Browserbase Advanced Stealth（仅限 Scale Plan） |
+| `--keepAlive` | 启用 Browserbase Keep Alive Session |
+| `--contextId <contextId>` | 指定要使用的 Browserbase Context ID |
+| `--persist [boolean]` | 是否持久化 Browserbase 上下文（默认：true） |
+| `--port <port>` | 用于 HTTP/SHTTP 传输的监听端口 |
+| `--host <host>` | 服务器绑定的主机（默认：localhost，使用 `0.0.0.0` 可监听所有接口） |
+| `--browserWidth <width>` | 浏览器视口宽度（默认：1024） |
+| `--browserHeight <height>` | 浏览器视口高度（默认：768） |
+| `--modelName <model>` | Stagehand 使用的模型（默认：`google/gemini-2.5-flash-lite`） |
+| `--modelApiKey <key>` | 自定义模型提供方的 API Key（使用自定义模型时必填） |
+| `--experimental` | 启用实验性特性（默认：false） |
+
+## 配置示例
+
+### 基础配置
+
+<Tabs>
+  <TabItem label="远程 URL（SHTTP）">
+
+```json title="直接 SHTTP"
+{
+  "mcpServers": {
+    "browserbase": {
+      "url": "your-smithery-url.com"
+    }
+  }
+}
+```
+
+当使用我们的远程托管服务器时，我们会承担 Gemini 的 LLM 成本。它是 [Stagehand](https://www.stagehand.dev) 中[表现最好的模型](https://www.stagehand.dev/evals)。
+
+  </TabItem>
+
+  <TabItem label="NPM 包">
+
+```json
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "npx",
+      "args": ["@browserbasehq/mcp"],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key",
+        "GEMINI_API_KEY": "your_gemini_api_key"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+
+  <TabItem label="本地 STDIO">
+
+```json
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "node",
+      "args": ["/path/to/mcp-server-browserbase/cli.js"],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key",
+        "GEMINI_API_KEY": "your_gemini_api_key"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+
+  <TabItem label="本地 SHTTP">
+
+```bash title="启动服务器"
+node cli.js --port 8931
+```
+
+```json
+{
+  "mcpServers": {
+    "browserbase": {
+      "url": "http://localhost:8931/mcp",
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key",
+        "GEMINI_API_KEY": "your_gemini_api_key"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### 高级功能
+
+<Tabs>
+  <TabItem label="代理">
+
+启用 Browserbase 代理，以进行 IP 轮换和地理位置测试。
+
+:::tip[提示]
+[进一步了解 Browserbase Proxies](https://docs.browserbase.com/features/proxies)
+:::
+
+```json
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "npx",
+      "args": ["@browserbasehq/mcp", "--proxies"],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key",
+        "GEMINI_API_KEY": "your_gemini_api_key"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+
+  <TabItem label="高级隐身">
+
+启用高级反检测特性，以增强隐身浏览能力。
+
+:::tip[提示]
+[进一步了解 Advanced Stealth](https://docs.browserbase.com/features/stealth-mode#advanced-stealth-mode)
+
+**注意：** Advanced Stealth 仅对 Scale Plan 用户可用。
+:::
+
+```json
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "npx",
+      "args": ["@browserbasehq/mcp", "--advancedStealth"],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key",
+        "GEMINI_API_KEY": "your_gemini_api_key"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+
+  <TabItem label="上下文">
+
+使用持久化浏览器上下文，以在多个会话之间保持认证状态和上下文信息。
+
+:::tip[提示]
+[进一步了解 Browserbase Contexts](https://docs.browserbase.com/features/contexts)
+:::
+
+```json
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "npx",
+      "args": ["@browserbasehq/mcp", "--contextId", "your_context_id"],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### 浏览器自定义
+
+<Tabs>
+  <TabItem label="视口尺寸">
+
+自定义浏览器窗口尺寸。默认值为 1288x711。推荐宽高比：16:9。
+
+```json
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "npx",
+      "args": [
+        "@browserbasehq/mcp",
+        "--browserWidth", "1920",
+        "--browserHeight", "1080"
+      ],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key",
+        "GEMINI_API_KEY": "your_gemini_api_key"
+      }
+    }
+  }
+}
+```
+
+**常见分辨率：**
+
+- 桌面端：1920x1080、1280x720、1024x768
+- 移动端：375x667（iPhone）、360x640（Android）
+- 平板：768x1024（iPad）
+
+  </TabItem>
+</Tabs>
+
+## 模型配置
+
+为增强浏览器自动化配置 AI 模型。Stagehand 默认使用 Google 的 Gemini 2.5 Flash Lite，但也支持多个提供方。
+
+:::warning[警告]
+当使用任意自定义模型（非默认模型）时，你必须通过 `--modelApiKey` 标志提供该模型提供方自己的 API Key。
+:::
+
+<Tabs>
+  <TabItem label="可用模型">
+
+**Google Gemini**（默认）
+
+- `google/gemini-2.5-flash-lite`（默认）
+- `google/gemini-2.5-pro`
+- `google/gemini-2.5-flash`
+
+**OpenAI**
+
+- `gpt-5-2025-08-07`
+- `gpt-4.1-2025-04-14`
+- `gpt-4o`
+- `gpt-4o-mini`
+
+**Anthropic Claude**
+
+- `claude-sonnet-4-5`
+- `claude-haiku-4-5`
+
+[查看完整支持模型列表](https://docs.stagehand.dev/v3/configuration/models#models)
+
+  </TabItem>
+
+  <TabItem label="配置示例">
+
+```json title="OpenAI GPT-4o"
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "npx",
+      "args": [
+        "@browserbasehq/mcp",
+        "--modelName", "gpt-4o",
+        "--modelApiKey", "your_openai_api_key"
+      ],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key"
+      }
+    }
+  }
+}
+```
+
+```json title="Claude Sonnet"
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "npx",
+      "args": [
+        "@browserbasehq/mcp",
+        "--modelName", "claude-sonnet-4-6",
+        "--modelApiKey", "your_anthropic_api_key"
+      ],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+## 开发配置
+
+<Tabs>
+  <TabItem label="自定义主机/端口">
+
+为 SHTTP 传输配置自定义主机和端口。
+
+```json
+{
+  "mcpServers": {
+    "browserbase": {
+      "command": "npx",
+      "args": [
+        "@browserbasehq/mcp",
+        "--host", "0.0.0.0",
+        "--port", "8080"
+      ],
+      "env": {
+        "BROWSERBASE_API_KEY": "your_api_key",
+        "GEMINI_API_KEY": "your_gemini_api_key"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+## 最佳实践
+
+<details>
+  <summary><strong>性能 - 如何优化浏览器自动化性能？</strong></summary>
+
+  - 根据你的使用场景选择合适的视口尺寸
+  - 仅在需要地理位置能力时启用代理
+  - 选择高效模型（Gemini Flash 适合速度，GPT-4o 适合准确性）
+  - 复用上下文以保持认证状态
+</details>
+
+<details>
+  <summary><strong>安全 - 我应该实施哪些安全措施？</strong></summary>
+
+  - 将 API Key 安全地存储在环境变量中
+  - 对敏感操作使用 Advanced Stealth
+  - 实施适当的会话管理
+  - 定期轮换 Cookie 和上下文
+</details>
+
+<details>
+  <summary><strong>开发 - 推荐采用哪些开发实践？</strong></summary>
+
+  - 在开发期间启用调试模式
+  - 使用上下文持久化以加快迭代
+  - 使用不同的视口尺寸进行测试
+  - 监控会话使用情况和配额
+</details>
+
+<details>
+  <summary><strong>生产 - 应如何为生产环境进行配置？</strong></summary>
+
+  - 使用 NPM 安装方式以提高可靠性
+  - 配置合适的超时时间
+  - 实现错误处理与重试
+  - 监控性能和资源使用情况
+</details>
+
+## 延伸阅读
+
+<CardGrid>
+  <Card title="Browserbase 文档" icon="globe" href="https://docs.browserbase.com">
+    完整的平台文档
+  </Card>
+
+  <Card title="Stagehand 文档" icon="robot" href="https://docs.stagehand.dev/">
+    AI 驱动的浏览器自动化
+  </Card>
+
+  <Card title="支持" href="mailto:support@browserbase.com">
+    从我们的团队获取帮助
+  </Card>
+</CardGrid>

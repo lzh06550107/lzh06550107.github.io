@@ -1,0 +1,324 @@
+---
+title: Browserbase MCP 服务器设置
+description: 将 Browserbase MCP Server 添加到你的 MCP 客户端。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Browserbase MCP 服务器设置
+
+> 将 Browserbase MCP Server 添加到你的 MCP 客户端
+
+## 快速安装
+
+<CardGrid>
+  <Card title="使用 Cursor 安装" icon="arrow-pointer" href="cursor://anysphere.cursor-deeplink/mcp/install?name=browserbase&config=eyJ1cm...WSJ9">
+    直接在 Cursor 中一键安装。
+  </Card>
+</CardGrid>
+
+你也可以通过一条命令将 Browserbase MCP 添加到 Claude Code：
+
+```bash
+claude mcp add --transport http browserbase "https://mcp.browserbase.com/mcp?browserbaseApiKey=YOUR_BROWSERBASE_API_KEY"
+```
+
+我们同时支持本地 STDIO 和托管的 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)（SHTTP）。对于大多数用户，我们推荐使用托管的 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)。
+
+## 端点
+
+托管的 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) 端点（由 Browserbase 基础设施提供服务）：
+
+```text
+https://mcp.browserbase.com/mcp
+```
+
+## 前置条件
+
+### 1. 获取你的 Browserbase 凭据
+
+从 [Browserbase Dashboard](https://www.browserbase.com/overview) 获取你的 Browserbase API Key。
+
+![Browserbase API Key 设置](/images/stagehand/integrations/mcp/api-key.png)
+
+然后直接从输入框中复制你的 API Key。
+
+## 查询参数（托管 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)）
+
+### 工具调用所必需
+
+<CardGrid>
+  <Card title="browserbaseApiKey" icon="key">
+    Browserbase API Key。
+  </Card>
+</CardGrid>
+
+### 可选参数
+
+| 查询参数 | 类型 | 行为 |
+| --- | --- | --- |
+| `modelName` | string | 默认为 `google/gemini-2.5-flash-lite` |
+| `modelApiKey` | string | 当 `modelName` 不是默认值时必填 |
+| `keepAlive` | boolean string | `"true"` 或 `"false"` |
+| `proxies` | boolean string | `"true"` 或 `"false"` |
+| `advancedStealth` | boolean string | `"true"` 或 `"false"` |
+
+:::caution[警告]
+布尔查询参数的值必须是精确字符串：`"true"` 或 `"false"`。
+:::
+
+## 可用工具
+
+<details>
+  <summary><strong>navigate</strong></summary>
+
+导航到浏览器中的任意 URL。
+
+- **`url`** (`string`, 必填)：要导航到的 URL。
+</details>
+
+<details>
+  <summary><strong>act</strong></summary>
+
+使用自然语言在网页上执行操作。
+
+- **`action`** (`string`, 必填)：要执行的操作（例如：`"点击登录按钮"`、`"填写表单字段"`）。
+</details>
+
+<details>
+  <summary><strong>observe</strong></summary>
+
+观察并查找页面上可操作的元素。
+
+- **`instruction`** (`string`, 必填)：观察的具体指令（例如：`"查找登录按钮"`、`"定位搜索表单"`）。
+</details>
+
+<details>
+  <summary><strong>extract</strong></summary>
+
+从当前页面提取数据。
+
+- **`instruction`** (`string`, 可选)：可选的提取指令。
+</details>
+
+<details>
+  <summary><strong>start</strong></summary>
+
+创建一个新的 Browserbase 会话，或附加到现有的 Browserbase 会话，并将其设为当前 MCP transport 会话的活动会话。
+
+- **`sessionId`** (`string`, 可选)：要附加到的 Browserbase 会话 ID。如果省略，`start` 会创建一个新的 Browserbase 会话。
+- **返回 `sessionId`** (`string`)：当前 MCP transport 会话中处于活动状态的 Browserbase 会话 ID。
+</details>
+
+<details>
+  <summary><strong>end</strong></summary>
+
+关闭当前 MCP transport 会话的活动 Browserbase 会话。
+
+:::note[说明]
+不需要任何输入参数。
+:::
+</details>
+
+## 本地命令行标志
+
+:::note[说明]
+命令行标志仅在本地运行服务器时可用（使用带参数的 `npx @browserbasehq/mcp` 或本地开发配置）。
+:::
+
+| 标志 | 说明 |
+| --- | --- |
+| `--proxies` | 为会话启用 Browserbase 代理 |
+| `--advancedStealth` | 启用 Browserbase Advanced Stealth（仅 Scale Plan） |
+| `--keepAlive` | 启用 Browserbase Keep Alive Session |
+| `--contextId <contextId>` | 指定要使用的 Browserbase Context ID |
+| `--persist [boolean]` | 是否持久化 Browserbase 上下文（默认：true） |
+| `--port <port>` | 为 HTTP 或 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport 指定监听端口 |
+| `--host <host>` | 服务器绑定的主机（默认：localhost；若要绑定所有接口，请使用 0.0.0.0） |
+| `--browserWidth <width>` | 浏览器视口宽度（默认：1024） |
+| `--browserHeight <height>` | 浏览器视口高度（默认：768） |
+| `--modelName <model>` | Stagehand 使用的模型（默认：google/gemini-2.5-flash-lite） |
+| `--modelApiKey <key>` | 自定义模型提供方的 API Key（使用自定义模型时必填） |
+| `--experimental` | 启用实验性功能（默认：false） |
+
+## 安装方式
+
+<Tabs>
+  <TabItem label="托管版（推荐）">
+
+  使用你的 MCP 客户端配置：
+
+  ```json
+  {
+    "mcpServers": {
+      "browserbase": {
+        "url": "https://mcp.browserbase.com/mcp?browserbaseApiKey=YOUR_BROWSERBASE_API_KEY"
+      }
+    }
+  }
+  ```
+
+  对于自定义模型，请加入 `modelName` 和 `modelApiKey`：
+
+  ```json
+  {
+    "mcpServers": {
+      "browserbase": {
+        "url": "https://mcp.browserbase.com/mcp?browserbaseApiKey=YOUR_BROWSERBASE_API_KEY&modelName=openai/gpt-4.1&modelApiKey=YOUR_MODEL_API_KEY"
+      }
+    }
+  }
+  ```
+
+  </TabItem>
+
+  <TabItem label="NPM 包（STDIO）">
+
+  在本地开始使用的最简单方式是使用我们的 NPM 包。
+
+  :::note[说明]
+  如果你想使用不同的模型，需要在 `args` 中传入模型名称和密钥。更多信息请参见 [本地命令行标志](#本地命令行标志) 一节。
+  :::
+
+  #### 1. 添加到 MCP 配置
+
+  进入你的 MCP 配置 JSON，并添加 Browserbase Server：
+
+  ```json title="Claude Desktop"
+  {
+    "mcpServers": {
+      "browserbase": {
+        "command": "npx",
+        "args": ["@browserbasehq/mcp"],
+        "env": {
+          "BROWSERBASE_API_KEY": "your_api_key",
+          "GEMINI_API_KEY": "your_gemini_api_key"
+        }
+      }
+    }
+  }
+  ```
+
+  #### 2. 重启你的 MCP 客户端
+
+  :::tip[提示]
+  就这样！重新加载你的 MCP 客户端后，你就可以使用 Browserbase 了。
+  :::
+
+  </TabItem>
+
+  <TabItem label="本地开发">
+
+  如果你想进行本地开发或自定义，也可以在本地运行该服务器。
+
+  #### 1. 克隆并构建
+
+  ```bash
+  # 克隆仓库
+  git clone https://github.com/browserbase/mcp-server-browserbase.git
+  cd mcp-server-browserbase
+
+  # 安装依赖并构建项目
+  npm install && npm run build
+  ```
+
+  #### 2. 选择你的传输方式
+
+  你可以在本地通过 STDIO 或 [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) 运行。
+
+  <Tabs>
+    <TabItem label="STDIO">
+
+    将以下内容添加到你的 MCP 配置 JSON 文件：
+
+    ```json
+    {
+      "mcpServers": {
+        "browserbase": {
+          "command": "node",
+          "args": ["/path/to/mcp-server-browserbase/cli.js"],
+          "env": {
+            "BROWSERBASE_API_KEY": "your_api_key",
+            "GEMINI_API_KEY": "your_gemini_api_key"
+          }
+        }
+      }
+    }
+    ```
+
+    </TabItem>
+
+    <TabItem label="自托管 Streamable HTTP">
+
+    首先，运行服务器：
+
+    ```bash
+    node cli.js --port 8931
+    ```
+
+    然后将以下内容添加到你的 MCP 配置 JSON 文件：
+
+    ```json
+    {
+      "mcpServers": {
+        "browserbase": {
+          "url": "http://localhost:8931/mcp",
+          "env": {
+            "BROWSERBASE_API_KEY": "your_api_key",
+            "GEMINI_API_KEY": "your_gemini_api_key"
+          }
+        }
+      }
+    }
+    ```
+
+    </TabItem>
+  </Tabs>
+
+  #### 3. 重启你的客户端
+
+  :::tip[提示]
+  重新加载你的 MCP 客户端后，你应该就可以开始使用了！
+  :::
+
+  </TabItem>
+</Tabs>
+
+## 验证安装
+
+### 1. 重启你的 MCP 客户端
+
+重启/刷新你的 MCP 客户端应用，并确认工具已可用。
+
+### 2. 测试集成
+
+通过让你的 MCP 客户端导航到任意页面来开始使用我们的 MCP Server，并在 [dashboard](https://www.browserbase.com/sessions) 上查看你的 Browserbase 浏览器实际运行效果。
+
+:::tip[提示]
+试试：`"导航到 example.com 并提取主标题"`
+:::
+
+## 延伸阅读
+
+<CardGrid>
+  <Card title="Model Context Protocol (MCP) 文档" icon="book" href="https://modelcontextprotocol.io/introduction">
+    进一步了解 MCP 协议。
+  </Card>
+
+  <Card title="Browserbase 文档" icon="globe" href="https://docs.browserbase.com">
+    探索 Browserbase 的功能与能力。
+  </Card>
+
+  <Card title="支持" icon="headset" href="mailto:support@browserbase.com">
+    从我们的支持团队获取帮助。
+  </Card>
+</CardGrid>

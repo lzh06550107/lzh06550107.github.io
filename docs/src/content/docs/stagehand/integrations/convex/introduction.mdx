@@ -1,0 +1,53 @@
+---
+title: Convex
+description: 为 Convex 应用启用 AI 驱动的浏览器自动化。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Convex
+
+> 面向 Convex 应用的 AI 浏览器自动化
+
+## 概览
+
+本指南将向你展示如何将 Stagehand 与 Convex 结合，在你的 Convex 应用中实现 AI 驱动的浏览器自动化。阅读完本指南后，你将了解如何：
+
+- 在 Convex 应用中配置 `convex-stagehand` 组件
+- 使用自然语言从网页中提取结构化数据
+- 通过自然语言指令执行浏览器操作
+- 使用 agent API 构建自主的多步骤工作流
+
+## 适用场景
+
+当你需要在无服务器 Convex 函数中执行浏览器自动化时，Convex 集成尤其适合：
+
+- **数据提取流水线**：从网站提取结构化数据，并直接保存到 Convex 数据库
+- **自动化工作流**：构建可代表用户与网页交互的后台任务
+- **表单自动化**：基于 Convex 应用中的数据自动填写并提交表单
+- **多步骤网页流程**：执行需要决策与自适应能力的复杂浏览器工作流
+
+该集成封装了 Stagehand REST API，使 Convex actions 能够通过 Browserbase 控制云浏览器：
+
+1. **Act**：使用自然语言执行点击、输入、导航等动作
+2. **Extract**：结合 Zod schema 从网页提取结构化数据
+3. **Observe**：识别并分析页面中的交互元素
+4. **Agent**：运行带有 AI 决策能力的自主多步骤任务
+
+<CardGrid>
+  <Card title="源代码" icon="code" href="https://github.com/browserbase/convex-stagehand">
+    在 GitHub 上浏览该仓库。
+  </Card>
+  <Card title="Convex 配置" icon="gear" href="/stagehand/integrations/convex/configuration/">
+    了解如何设置并配置 convex-stagehand。
+  </Card>
+</CardGrid>

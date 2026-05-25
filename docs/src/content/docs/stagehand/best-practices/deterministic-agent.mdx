@@ -1,0 +1,589 @@
+---
+title: Deterministic Agent Scripts
+description: 使用自动缓存将 Agent 工作流转换为快速、可预测且可重复执行的确定性脚本。
+editUrl: false
+sidebar:
+    order: 1
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Deterministic Agent Scripts
+
+> 使用自动缓存将 Agent 工作流转换为快速、确定性的脚本。
+
+Agent 工作流非常适合探索和自动化复杂任务，但它们也可能比较慢，并且不具备确定性。本指南将展示如何使用 Stagehand 内置的自动缓存，把由 Agent 发现的工作流转换为快速、确定性的脚本，执行速度可提升 **10 到 100 倍**。
+
+## 为什么要将自动缓存与 Agent 搭配使用？
+
+<CardGrid>
+  <Card title="速度" icon="bolt">
+    缓存后的 Agent 工作流会跳过后续运行中的 LLM 推理，因此执行速度可提升 10 到 100 倍。
+  </Card>
+
+  <Card title="成本" icon="dollar-sign">
+    消除重复的 LLM 调用——首次运行使用推理，后续运行直接使用缓存。
+  </Card>
+
+  <Card title="可靠性" icon="shield-check">
+    缓存后的动作具有确定性，相比每次重新探索的 Agent 流程更可预测。
+  </Card>
+
+  <Card title="简单性" icon="wand-magic-sparkles">
+    开箱即用——只需指定 `cacheDir`，其余事情由 Stagehand 自动处理。
+  </Card>
+</CardGrid>
+
+## 自动缓存的工作原理
+
+当你指定 `cacheDir` 时：
+
+1. **首次运行**：Agent 使用 LLM 推理探索并执行工作流。
+2. **缓存动作**：所有动作都会自动保存到本地缓存。
+3. **后续运行**：相同工作流会复用缓存动作，不再调用 LLM。
+4. **性能提升**：执行速度提升 10 到 100 倍，且不消耗 LLM token。
+
+缓存键会基于以下内容自动生成：
+
+- Agent 指令
+- 起始 URL
+- Agent 执行选项
+- Agent 配置
+
+## 在 Agent 中使用基础自动缓存
+
+只需在初始化 Stagehand 时添加 `cacheDir`：
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+
+// 启用自动缓存
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "agent-cache" // 自动缓存已启用
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+await page.goto("https://example.com");
+
+const agent = stagehand.agent({
+  mode: "cua",
+  model: "google/gemini-3-flash-preview",
+  systemPrompt: "You are a helpful assistant that can use a web browser.",
+});
+
+// 首次运行：使用 LLM 推理（约 20-30 秒，约 50,000 tokens）
+// 后续运行：使用缓存动作（约 2-3 秒，0 tokens）
+const result = await agent.execute({
+  instruction: "Find the login form, fill in username 'demo' and password 'test123', then click submit",
+  maxSteps: 10
+});
+
+console.log("Completed:", result.success);
+console.log("Actions taken:", result.actions.length);
+
+await stagehand.close();
+```
+
+就是这么简单！当你第二次运行这段脚本时，它会自动复用已缓存的 Agent 动作。
+
+## 按工作流组织缓存
+
+为不同工作流使用具有描述性的缓存目录：
+
+```typescript
+// 登录工作流
+const loginStagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/login-workflow"
+});
+
+// 结账工作流
+const checkoutStagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/checkout-workflow"
+});
+
+// 数据提取工作流
+const extractStagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/extraction-workflow"
+});
+```
+
+## 完整示例：首次运行与后续运行
+
+### 首次运行（探索模式）
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/github-search" // 启用缓存
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+await page.goto("https://github.com");
+
+const agent = stagehand.agent({
+  mode: "cua",
+  model: "google/gemini-3-flash-preview",
+  systemPrompt: "You are a helpful assistant that can use a web browser.",
+});
+
+console.log("首次运行：使用 Agent 进行探索...");
+const startTime = Date.now();
+
+const result = await agent.execute({
+  instruction: "Search for 'stagehand' and click the first repository result",
+  maxSteps: 10
+});
+
+const duration = Date.now() - startTime;
+console.log(`首次运行完成，用时 ${duration}ms`);
+console.log(`动作数：${result.actions.length}`);
+console.log(`状态：${result.success}`);
+
+await stagehand.close();
+
+// 输出（示例）：
+// 首次运行完成，用时 25000ms
+// 动作数：8
+// 状态：true
+```
+
+### 后续运行（缓存模式）
+
+再次运行**完全相同的脚本**：
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/github-search" // 相同的缓存目录
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+await page.goto("https://github.com");
+
+const agent = stagehand.agent({
+  mode: "cua",
+  model: "google/gemini-3-flash-preview",
+  systemPrompt: "You are a helpful assistant that can use a web browser.",
+});
+
+console.log("后续运行：使用缓存动作...");
+const startTime = Date.now();
+
+const result = await agent.execute({
+  instruction: "Search for 'stagehand' and click the first repository result",
+  maxSteps: 10
+});
+
+const duration = Date.now() - startTime;
+console.log(`后续运行完成，用时 ${duration}ms`);
+console.log(`动作数：${result.actions.length}`);
+console.log(`状态：${result.success}`);
+
+await stagehand.close();
+
+// 输出（示例）：
+// 后续运行完成，用时 2500ms  ← 快了 10 倍！
+// 动作数：8
+// 状态：true
+```
+
+## 使用 History 进行分析
+
+虽然缓存会自动处理执行过程，但你仍然可以使用 `stagehand.history` 来分析发生了什么：
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+import fs from "fs/promises";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/workflow"
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+await page.goto("https://example.com");
+
+const agent = stagehand.agent({
+  mode: "cua",
+  model: "google/gemini-3-flash-preview",
+  systemPrompt: "You are a helpful assistant that can use a web browser.",
+});
+
+await agent.execute({
+  instruction: "Complete the login process",
+  maxSteps: 10
+});
+
+// 分析 Agent 执行了什么
+const history = await stagehand.history;
+
+console.log(`\n工作流分析：`);
+console.log(`总操作数：${history.length}`);
+
+const agentOps = history.filter(e => e.method === 'agent');
+const actOps = history.filter(e => e.method === 'act');
+const navOps = history.filter(e => e.method === 'navigate');
+
+console.log(`- Agent 执行次数：${agentOps.length}`);
+console.log(`- Act 操作数：${actOps.length}`);
+console.log(`- Navigate 操作数：${navOps.length}`);
+
+// 保存分析结果供文档或调试使用
+await fs.writeFile(
+  'workflow-analysis.json',
+  JSON.stringify(history, null, 2)
+);
+
+await stagehand.close();
+```
+
+## 缓存管理
+
+### 当站点发生变化时清除缓存
+
+如果网站结构发生变化，请清除缓存以强制重新探索：
+
+```typescript
+import { rmSync } from 'fs';
+
+// 清除特定工作流缓存
+rmSync('cache/login-workflow', { recursive: true, force: true });
+
+// 然后重新运行，让 Agent 从头探索
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/login-workflow" // 将重新构建缓存
+});
+```
+
+### 以编程方式控制缓存
+
+```typescript
+import { rmSync, existsSync } from 'fs';
+
+function clearCacheIfNeeded(cacheDir: string, maxAge: number = 7 * 24 * 60 * 60 * 1000) {
+  if (!existsSync(cacheDir)) {
+    return; // 没有可清理的缓存
+  }
+
+  const stats = statSync(cacheDir);
+  const age = Date.now() - stats.mtimeMs;
+
+  if (age > maxAge) {
+    console.log(`缓存已超过 ${maxAge}ms，正在清理...`);
+    rmSync(cacheDir, { recursive: true, force: true });
+  }
+}
+
+// 如果缓存超过 7 天则清除
+clearCacheIfNeeded('cache/workflow');
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/workflow"
+});
+```
+
+## 高级模式
+
+### 回退到重新探索
+
+将缓存与回退机制结合使用，以提高韧性：
+
+```typescript
+async function executeWithFallback() {
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    cacheDir: "cache/workflow",
+    selfHeal: true // 启用自愈
+  });
+
+  await stagehand.init();
+  const page = stagehand.context.pages()[0];
+
+  await page.goto("https://example.com");
+
+  const agent = stagehand.agent({
+    model: "anthropic/claude-sonnet-4-6"
+  });
+
+  try {
+    // 先尝试使用缓存
+    const result = await agent.execute({
+      instruction: "Complete the checkout process",
+      maxSteps: 15
+    });
+
+    console.log("执行成功：", result.success);
+  } catch (error) {
+    console.error("缓存工作流执行失败：", error);
+
+    // 清除缓存并重新探索
+    rmSync('cache/workflow', { recursive: true, force: true });
+
+    console.log("正在使用全新探索重试...");
+    const retryResult = await agent.execute({
+      instruction: "Complete the checkout process",
+      maxSteps: 15
+    });
+
+    console.log("重试成功：", retryResult.success);
+  }
+
+  await stagehand.close();
+}
+```
+
+### 为缓存进行版本控制
+
+将缓存目录提交到仓库中，以确保在不同环境下行为一致：
+
+```text
+# .gitignore
+
+# 为了实现确定性的 CI/CD，可提交缓存目录
+!cache/
+!cache/**/*.json
+```
+
+```typescript
+// CI/CD 流水线将使用预先生成的缓存
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/production-workflow" // 已提交到仓库
+});
+```
+
+## 最佳实践
+
+<details>
+  <summary><strong>使用具有描述性的缓存名称</strong></summary>
+
+  按工作流或功能组织缓存：
+
+  ```typescript
+  // 推荐：具有描述性的缓存名称
+  cacheDir: "cache/user-registration"
+  cacheDir: "cache/product-search"
+  cacheDir: "cache/checkout-flow"
+
+  // 避免：过于泛化的名称
+  cacheDir: "cache"
+  cacheDir: "my-cache"
+  ```
+</details>
+
+<details>
+  <summary><strong>缓存失效策略</strong></summary>
+
+  为缓存刷新制定明确策略：
+
+  ```typescript
+  // 方案 1：基于时间的失效
+  if (isCacheOlderThan('cache/workflow', 7)) {
+    clearCache('cache/workflow');
+  }
+
+  // 方案 2：基于版本的失效
+  const CACHE_VERSION = 'v2';
+  const cacheDir = `cache/workflow-${CACHE_VERSION}`;
+
+  // 方案 3：手动失效标记
+  if (process.env.CLEAR_CACHE === 'true') {
+    clearCache('cache/workflow');
+  }
+  ```
+</details>
+
+<details>
+  <summary><strong>先在预发布环境中测试</strong></summary>
+
+  在生产环境使用前，始终先在 staging 中验证缓存工作流：
+
+  ```typescript
+  const env = process.env.NODE_ENV === 'production' ? 'production' : 'staging';
+
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    cacheDir: `cache/${env}-workflow`
+  });
+  ```
+</details>
+
+<details>
+  <summary><strong>监控缓存命中率</strong></summary>
+
+  追踪缓存使用情况以便优化：
+
+  ```typescript
+  const cacheHit = existsSync('cache/workflow') &&
+                  statSync('cache/workflow').mtimeMs < Date.now();
+
+  if (cacheHit) {
+    console.log("缓存命中 - 使用缓存工作流");
+  } else {
+    console.log("缓存未命中 - 使用 Agent 重新探索");
+  }
+
+  // 记录指标
+  metrics.recordCacheHit(cacheHit);
+  ```
+</details>
+
+## 性能对比
+
+**不使用缓存（每次运行都重新推理）：**
+
+```typescript
+const stagehand = new Stagehand({ env: "BROWSERBASE" });
+// 未指定 cacheDir
+
+const result = await agent.execute({
+  instruction: "Complete workflow",
+  maxSteps: 10
+});
+
+// 每次运行：约 20-30 秒，约 50,000 tokens
+```
+
+**使用自动缓存（首次运行）：**
+
+```typescript
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/workflow"
+});
+
+const result = await agent.execute({
+  instruction: "Complete workflow",
+  maxSteps: 10
+});
+
+// 首次运行：约 20-30 秒，约 50,000 tokens（并为下次缓存）
+```
+
+**使用自动缓存（后续运行）：**
+
+```typescript
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/workflow" // 复用缓存
+});
+
+const result = await agent.execute({
+  instruction: "Complete workflow",
+  maxSteps: 10
+});
+
+// 后续运行：约 2-3 秒，0 tokens ← 快了 10-100 倍！
+```
+
+:::note[说明]
+缓存后的 Agent 工作流在后续运行中可实现 **10 到 100 倍的速度提升**，并且**完全不消耗 LLM token**。首次运行承担探索成本，之后的每次运行几乎都是瞬时完成。
+:::
+
+## 故障排查
+
+<details>
+  <summary><strong>缓存没有被使用</strong></summary>
+
+  **问题**：后续运行仍然很慢。
+
+  **解决方案**：
+
+  - 确认 `cacheDir` 路径正确，并且每次运行保持一致。
+  - 确保指令、URL 和 Agent 配置完全相同。
+  - 检查缓存目录的文件权限。
+  - 在详细日志模式下查看缓存命中 / 未命中日志。
+
+  ```typescript
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    cacheDir: "cache/workflow",
+    verbose: 2 // 启用调试日志
+  });
+  ```
+</details>
+
+<details>
+  <summary><strong>缓存后的工作流执行失败</strong></summary>
+
+  **问题**：缓存动作在后续运行中失败。
+
+  **解决方案**：
+
+  - 网站可能已经变化——清除缓存并重新探索。
+  - 启用自愈功能以适应轻微变化。
+  - 实现回退逻辑，在失败后重新探索。
+
+  ```typescript
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    cacheDir: "cache/workflow",
+    selfHeal: true // 适应变化
+  });
+  ```
+</details>
+
+<details>
+  <summary><strong>缓存目录过多</strong></summary>
+
+  **问题**：缓存目录数量持续增长，难以管理。
+
+  **解决方案**：
+
+  - 为缓存目录使用版本前缀。
+  - 自动清理旧缓存。
+  - 为相似工作流共享缓存目录。
+
+  ```typescript
+  // 带版本号的缓存
+  const CACHE_VERSION = '2024-01';
+  const cacheDir = `cache/workflow-${CACHE_VERSION}`;
+
+  // 清理旧版本
+  rmSync('cache/workflow-2023-12', { recursive: true, force: true });
+  ```
+</details>
+
+## 下一步
+
+<CardGrid>
+  <Card title="Agent 指南" icon="robot" href="/stagehand/basics/agent/">
+    进一步了解 Agent 的能力与配置。
+  </Card>
+
+  <Card title="缓存指南" icon="database" href="/stagehand/best-practices/caching/">
+    查看 `act()` 与 `agent()` 自动缓存的完整说明。
+  </Card>
+
+  <Card title="可观测性" icon="chart-line" href="/stagehand/configuration/observability/">
+    监控并追踪历史记录、指标与执行过程。
+  </Card>
+
+  <Card title="速度优化" icon="bolt" href="/stagehand/best-practices/speed-optimization/">
+    了解更多提升自动化速度的技巧。
+  </Card>
+</CardGrid>

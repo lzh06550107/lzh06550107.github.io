@@ -1,0 +1,122 @@
+---
+title: Stagehand 简介
+description: 开发者使用 Stagehand 可靠地自动化 Web。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+开发者使用 Stagehand 可靠地自动化 Web。
+
+Stagehand 是一个浏览器自动化框架，用于通过自然语言和代码控制 Web 浏览器。通过将 AI 的能力与代码的精确性结合起来，Stagehand 让 Web 自动化变得灵活、可维护，而且真正可靠。
+
+## 浏览器自动化的问题
+
+像 Playwright 和 Puppeteer 这样的传统框架，会迫使你编写脆弱的脚本，而这些脚本会随着每一次 UI 变化而失效。Web 智能体承诺能用 AI 解决这个问题，但你也因此受制于不可预测的行为。
+
+**你被困在两个糟糕的选择之间：**
+
+- **太脆弱**：传统选择器会在网站变化时失效
+- **太智能体化**：AI 智能体不可预测，而且几乎无法调试
+
+## Stagehand 登场
+
+Stagehand 通过四个强大的原语，让你可以精确选择要使用多少 AI，从而兼得两者之长：
+
+<CardGrid>
+  <Card title="Act" icon="code">
+    使用自然语言执行操作。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/act)
+  </Card>
+  <Card title="Extract" icon="box">
+    借助 schema 提取结构化数据。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/extract)
+  </Card>
+  <Card title="Observe" icon="open-book">
+    发现任意页面上可执行的操作。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/observe)
+  </Card>
+  <Card title="Agent" icon="rocket">
+    自主自动化完整工作流。
+
+    [查看原文](https://docs.stagehand.dev/v3/basics/agent)
+  </Card>
+</CardGrid>
+
+```ts
+// Act - 执行自然语言操作
+await stagehand.act("点击登录按钮");
+
+// Extract - 提取结构化数据
+const price = await stagehand.extract(
+    "提取价格",
+    z.number()
+);
+
+// Observe - 发现可用操作
+const actions = await stagehand.observe("查找提交按钮");
+
+// Agent - 自主自动化完整工作流
+const agent = stagehand.agent({
+    mode: "cua",
+    model: "google/gemini-2.5-computer-use-preview-10-2025",
+});
+await agent.execute("申请这个职位");
+```
+
+## 开发者为何选择 Stagehand
+
+- **精确控制**：将 AI 驱动的操作与确定性代码混合使用。你可以精确决定要使用多少 AI。
+- **真正可复现**：可以原样保存并重放操作。浏览器自动化里不再出现“只在我机器上可用”的情况。
+- **可规模化维护**：一份脚本就能自动化多个网站。当网站发生变化时，你的自动化流程也能随之适应。
+- **工具可组合**：通过 Act、Extract、Observe 和 Agent，自由选择你的自动化层级。
+
+## 为现代开发而生
+
+Stagehand 专为需要可靠 Web 访问能力的开发者而设计，适合用于构建生产级浏览器自动化和 AI 智能体。
+
+<details>
+  <summary>处处可用</summary>
+
+  兼容所有基于 Chromium 的浏览器：Chrome、Edge、Arc、Brave 等。
+</details>
+
+<details>
+  <summary>由 Browserbase 打造</summary>
+
+  由企业级浏览器基础设施背后的团队创建并持续维护。
+</details>
+
+## 60 秒开始上手
+
+:::tip[专业提示]
+为了获得最佳效果，我们建议将 Stagehand 与 [Browserbase](https://www.browserbase.com) 搭配使用，以获得可靠的云浏览器基础设施。
+:::
+
+<CardGrid>
+  <Card title="Quickstart" icon="rocket">
+    在不到一分钟内构建你的第一个自动化流程。
+
+    [查看本地翻译](/stagehand/first-steps/quickstart/)
+  </Card>
+  <Card title="Try Director" icon="starlight">
+    使用 AI 生成 Stagehand 脚本。
+
+    [访问 Director](https://www.director.ai)
+  </Card>
+  <Card title="View Templates" icon="code">
+    查看真实世界中的自动化示例。
+
+    [浏览模板](https://www.browserbase.com/templates)
+  </Card>
+  <Card title="Join Discord" icon="plus">
+    从社区获取帮助。
+
+    [加入 Discord](https://stagehand.dev/discord)
+  </Card>
+</CardGrid>

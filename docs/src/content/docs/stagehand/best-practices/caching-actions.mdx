@@ -1,0 +1,346 @@
+---
+title: 缓存操作
+description: 自动缓存操作以降低成本并提升性能。
+editUrl: false
+sidebar:
+  order: 1
+---
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 缓存操作
+
+> 自动缓存操作以降低成本并提升性能
+
+Stagehand 支持两种缓存策略，用于降低 LLM 成本并加快自动化速度：**Browserbase Cache** 和 **Local Cache**。它们适用于不同场景，也可以分别单独使用，或组合使用。
+
+---
+
+## Browserbase Cache
+
+Browserbase Cache 是内置于 Stagehand API 的托管式服务端缓存层。当你以 `env: "BROWSERBASE"` 运行 Stagehand 时，每一次 `act()` 调用都会自动缓存到 Browserbase 的服务器上。使用相同输入的重复调用会立刻返回，不会消耗任何 LLM token。你无需额外配置，即可直接享受缓存带来的收益。
+
+缓存键由你传入的指令、页面内容以及选项共同生成。命中缓存时，响应会直接从服务端返回，不会进行任何 LLM 推理，也不会产生 token 成本。你还可以通过 `act()` 返回的 `cacheStatus` 字段检查缓存行为。若想了解其底层工作原理，可查看 [Browserbase 博客](https://www.browserbase.com/blog/stagehand-caching)。
+
+### 在构造函数中禁用
+
+传入 `serverCache: false`，即可为该实例发出的所有请求禁用缓存：
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  serverCache: false,
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+await page.goto("https://example.com");
+
+// 已禁用缓存，始终会命中 LLM
+await stagehand.act("click the login button");
+```
+
+### 按调用禁用
+
+你也可以在单次调用中通过传入 `serverCache: false` 来覆盖实例级设置：
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({ env: "BROWSERBASE" }); // 默认启用缓存
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+await page.goto("https://example.com");
+
+// 此次调用跳过缓存
+await stagehand.act("click the login button", { serverCache: false });
+
+// 此次调用照常使用缓存
+await stagehand.act("submit the form");
+```
+
+### 检查缓存状态
+
+`act()` 会返回一个 `cacheStatus` 字段，你可以据此确认结果是否来自缓存：
+
+```typescript
+const actResult = await stagehand.act("click the login button");
+console.log(actResult.cacheStatus); // "HIT" 或 "MISS"
+```
+
+### 限制
+
+- 页面 URL 会参与缓存键计算。如果某个操作发生在动态 URL 页面上，缓存可能无法按预期工作。我们会过滤某些查询参数，例如推荐跟踪参数和分析参数，但目前还无法覆盖所有情况。
+- 如果页面内容或结构发生变化，该操作将不会获得缓存 `HIT`，而是会调用 LLM。之后的操作会尝试命中由这次结果生成的缓存条目。
+
+### 最佳实践
+
+<details>
+  <summary>等待页面完成加载</summary>
+
+  如果你在 `page.goto()` 之后立刻调用 Stagehand 方法，页面内容可能仍在持续流式加载。这意味着为缓存键捕获到的无障碍树会比页面最终渲染出的内容更短——因此，后续在页面完全加载后进行的调用会生成不同的哈希，导致无法命中缓存。应先调用 `page.waitForLoadState("networkidle")`，确保完整树结构稳定之后，再让 Stagehand 对其进行快照。
+
+  ```typescript
+  async function example(stagehand: Stagehand) {
+    const page = stagehand.context.pages()[0];
+    await page.goto("https://www.google.com/search?q=browserbase");
+
+    await page.waitForLoadState("networkidle");
+
+    // 所有内容都已加载 —— 各次运行间哈希一致
+    const result1 = await stagehand.observe("click the first search result");
+    // MISS
+
+    const result2 = await stagehand.observe("click the first search result");
+    // HIT
+  }
+  ```
+</details>
+
+<details>
+  <summary>按选择器限定范围</summary>
+
+  当你只需要定位页面中的某个特定区域时，可以传入 `selector`，把无障碍树快照限定到该容器中。这样既能降低 token 成本、加快推理速度，也能在缓存层面带来一个关键收益：容器**外部**的变化不会影响缓存键。
+
+  ```typescript
+  async function example(stagehand: Stagehand) {
+    const page = stagehand.context.pages()[0];
+    await page.goto("https://www.google.com/search?q=browserbase");
+
+    await page.waitForLoadState("networkidle");
+
+    const result = await stagehand.observe("click the first search result", {
+      // 将范围限定在搜索结果容器中，这样广告、页眉
+      // 以及其他周边内容就不会污染缓存键。
+      selector: "#rcnt",
+    });
+  }
+  ```
+</details>
+
+<details>
+  <summary>对动态值使用变量</summary>
+
+  在 `act()` 中使用变量，可以让同一个缓存条目适配许多不同的值。缓存键基于变量的**键名**，而不是变量值，因此 `{ email: "alice@example.com" }` 与 `{ email: "bob@example.com" }` 会共享同一个缓存条目。
+
+  如果不用变量，那么每输入一个新的邮箱地址，都会累积一次新的缓存未命中。使用变量后，你只需要预热一次缓存，之后就能持续命中。
+
+  ```typescript
+  async function example(stagehand: Stagehand) {
+    const page = stagehand.context.pages()[0];
+    await page.goto("https://example.com/login");
+
+    await page.waitForLoadState("networkidle");
+
+    // 首次使用 alice@example.com 运行 → MISS（预热缓存）
+    // 之后无论 email 是什么值 → HIT
+    await stagehand.act(
+      "type %email% into the Email address field",
+      { variables: { email: "alice@example.com" } },
+    );
+  }
+  ```
+</details>
+
+<details>
+  <summary>稳定运行环境</summary>
+
+  运行时状态中的微小差异，会生成不同的无障碍树，也就会产生不同的缓存键。请尽量让环境保持确定性：
+
+  - **固定视口大小** —— `await page.setViewportSize({ width: 1280, height: 720 })`
+  - **保持一致的 user agent 和 locale** —— 如果你的技术栈支持，请在浏览器启动选项中设置它们
+  - **拦截噪声较大的第三方请求** —— 分析脚本、A/B 测试脚本和广告跟踪器可能会注入 DOM 节点，导致每次加载时缓存键都发生偏移
+
+  ```typescript
+  const page = stagehand.context.pages()[0];
+
+  // 锁定视口，确保各次运行的布局一致
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  // 拦截会污染无障碍树的第三方噪声
+  await page.route("**/*.{png,jpg,gif,svg,woff,woff2}", (route) => route.abort());
+  ```
+</details>
+
+<details>
+  <summary>保持提示词可复现</summary>
+
+  指令字符串本身就是缓存键的一部分。哪怕只是措辞上的轻微变化——比如同义词、额外形容词或标点差异——都会生成新的键，导致缓存未命中。
+
+  - 将指令锚定到可见的 UI 标签：用 `"click the Sign in button"`，而不是 `"click the button to log me in"`
+  - 让指令简短，并避免填充词
+  - 避免把运行时变量文本直接内联进指令中——应改用 `variables`
+
+  ```typescript
+  // Good: 锚定到可见标签，没有变化空间
+  await stagehand.act("click the Sign in button");
+
+  // Bad: 内联动态值，每次都会产生新的缓存键
+  await stagehand.act(`type ${email} into the Email address field`);
+  ```
+</details>
+
+---
+
+## Local Cache
+
+Local Cache 会把操作结果写入你的文件系统，因此它可以在脚本多次运行之间持久保留。它同时适用于 `LOCAL` 与 `BROWSERBASE` 环境。当你指定 `cacheDir` 后，Stagehand 会在首次运行时把每个操作和 agent 步骤保存到本地文件，后续运行则直接回放这些缓存操作，不会调用 LLM、不会产生 token 成本，也无需与 Browserbase 进行网络往返。
+
+它尤其适合以下场景：
+
+- **CI/CD 流水线** —— 可以把缓存目录提交到版本控制中，从而在不同环境下获得一致、可复现的运行结果
+- **本地开发** —— 在重复调试自动化脚本时避免持续消耗 token
+- **跨机器共享** —— 缓存文件具备可移植性，可在多台机器之间共享
+
+### 配合 `act()` 使用缓存
+
+通过在 Stagehand 构造函数中指定缓存目录，即可缓存 `act()` 的操作结果。
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "act-cache", // 指定缓存目录
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+await page.goto("https://browserbase.github.io/stagehand-eval-sites/sites/iframe-same-proc-scroll/");
+
+// 首次运行：使用 LLM 推理并写入缓存
+// 后续运行：复用已缓存的操作
+await stagehand.act("scroll to the bottom of the iframe");
+
+// 变量同样可以和缓存一起使用
+await stagehand.act("fill the username field with %username%", {
+  variables: {
+    username: "fakeUsername",
+  },
+});
+```
+
+### 配合 `agent()` 使用缓存
+
+你也可以用同样方式缓存 agent 的操作（包括 Computer Use Agent 的操作）：只需指定 `cacheDir`。缓存键会根据指令、起始 URL、agent 执行选项以及 agent 配置自动生成。后续使用相同参数运行时，就会复用已缓存的操作。
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+
+const stagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "agent-cache", // 指定缓存目录
+});
+
+await stagehand.init();
+const page = stagehand.context.pages()[0];
+
+await page.goto("https://browserbase.github.io/stagehand-eval-sites/sites/drag-drop/");
+
+const agent = stagehand.agent({
+  mode: "cua",
+  model: "google/gemini-3-flash-preview",
+  systemPrompt: "You are a helpful assistant that can use a web browser.",
+});
+
+await page.goto("https://play2048.co/");
+
+// 首次运行：使用 LLM 推理并写入缓存
+// 后续运行：复用已缓存的操作
+const result = await agent.execute({
+  instruction: "play a game of 2048",
+  maxSteps: 20,
+});
+
+console.log(JSON.stringify(result, null, 2));
+```
+
+### 缓存目录组织
+
+你可以通过为不同工作流使用不同的目录名，来组织你的缓存：
+
+```typescript
+// 为自动化流程的不同部分分别建立缓存
+const loginStagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/login-flow"
+});
+
+const checkoutStagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/checkout-flow"
+});
+
+const dataExtractionStagehand = new Stagehand({
+  env: "BROWSERBASE",
+  cacheDir: "cache/data-extraction"
+});
+```
+
+### 最佳实践
+
+<details>
+  <summary>使用描述性缓存目录</summary>
+
+  按工作流或功能组织缓存，更便于管理：
+
+  ```typescript
+  // Good: 具有描述性的缓存名称
+  cacheDir: "cache/login-actions"
+  cacheDir: "cache/search-actions"
+  cacheDir: "cache/form-submissions"
+
+  // Avoid: 过于泛化的缓存名称
+  cacheDir: "cache"
+  cacheDir: "my-cache"
+  ```
+</details>
+
+<details>
+  <summary>当 DOM 变化时清理缓存</summary>
+
+  如果网站结构发生了明显变化，请清空缓存目录，以强制重新执行推理：
+
+  ```bash
+  rm -rf cache/login-actions
+  ```
+
+  或者以编程方式处理：
+
+  ```typescript
+  import { rmSync } from 'fs';
+
+  // 如有需要，运行前先清空缓存
+  if (shouldClearCache) {
+    rmSync('cache/login-actions', { recursive: true, force: true });
+  }
+
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    cacheDir: "cache/login-actions"
+  });
+  ```
+</details>
+
+<details>
+  <summary>在 CI/CD 中提交缓存</summary>
+
+  可以考虑把缓存目录提交到版本控制中，以便在不同环境下获得一致行为：
+
+  ```gitignore
+  # .gitignore
+  # 不要忽略缓存目录
+  !cache/
+  ```
+
+  这样可以确保你的 CI/CD 流水线直接使用相同的缓存操作，而不需要在首次执行时重新运行推理。
+</details>

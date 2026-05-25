@@ -1,0 +1,215 @@
+---
+title: 在 Convex 中使用 Stagehand
+description: 在你的 Convex 应用中配置 AI 驱动的浏览器自动化。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 在 Convex 中使用 Stagehand
+
+> 在你的 Convex 应用中配置 AI 驱动的浏览器自动化
+
+<Card title="查看 convex-stagehand 仓库" icon="code" href="https://github.com/browserbase/convex-stagehand">
+  克隆 [GitHub 仓库](https://github.com/browserbase/convex-stagehand)，开始在 Convex 中使用 Stagehand。
+</Card>
+
+## 安装
+
+安装 `convex-stagehand` 组件与用于 schema 校验的 Zod：
+
+```bash
+npm install @browserbasehq/convex-stagehand zod
+```
+
+## 配置
+
+将 Stagehand 组件添加到 `convex/convex.config.ts`：
+
+```typescript title="convex/convex.config.ts"
+import { defineApp } from 'convex/server';
+import stagehand from '@browserbasehq/convex-stagehand/convex.config';
+
+const app = defineApp();
+app.use(stagehand, { name: 'stagehand' });
+export default app;
+```
+
+## 环境变量
+
+在 [Convex Dashboard](https://dashboard.convex.dev) 中设置以下环境变量：
+
+| 变量 | 说明 |
+| --- | --- |
+| `BROWSERBASE_API_KEY` | 你的 Browserbase API Key |
+| `MODEL_API_KEY` | 你的 LLM 提供方 API Key（OpenAI、Anthropic 等） |
+
+## 基础用法
+
+### 初始化客户端
+
+在你的 Convex action 中创建一个 Stagehand 实例：
+
+```typescript title="convex/actions.ts"
+'use node';
+
+import { Stagehand } from '@browserbasehq/convex-stagehand';
+import { components } from './_generated/api';
+import { action } from './_generated/server';
+import { z } from 'zod';
+
+const stagehand = new Stagehand(components.stagehand, {
+  browserbaseApiKey: process.env.BROWSERBASE_API_KEY!,
+  modelApiKey: process.env.MODEL_API_KEY!,
+});
+```
+
+### 提取数据
+
+使用自然语言指令与 Zod schema 从网页中提取结构化数据：
+
+```typescript
+export const extractProducts = action({
+  handler: async (ctx) => {
+    const data = await stagehand.extract(ctx, {
+      url: 'https://example.com/products',
+      instruction: 'Extract all product names and prices',
+      schema: z.object({
+        products: z.array(z.object({
+          name: z.string(),
+          price: z.string(),
+        })),
+      }),
+    });
+
+    return data.products;
+  },
+});
+```
+
+### 执行动作
+
+使用自然语言执行浏览器交互：
+
+```typescript
+export const loginToSite = action({
+  handler: async (ctx) => {
+    const result = await stagehand.act(ctx, {
+      url: 'https://example.com/login',
+      action: 'Click the login button and wait for the page to load',
+    });
+
+    return result;
+  },
+});
+```
+
+### 观察元素
+
+识别页面上的交互元素：
+
+```typescript
+export const findNavLinks = action({
+  handler: async (ctx) => {
+    const actions = await stagehand.observe(ctx, {
+      url: 'https://example.com',
+      instruction: 'Find all clickable navigation links',
+    });
+
+    return actions;
+  },
+});
+```
+
+### 运行自主任务
+
+使用 agent API 执行复杂的多步骤工作流：
+
+```typescript
+export const searchAndExtract = action({
+  handler: async (ctx) => {
+    const result = await stagehand.agent(ctx, {
+      url: 'https://google.com',
+      instruction: "Search for 'convex database' and extract the top 3 results",
+      options: { maxSteps: 10 },
+    });
+
+    return result;
+  },
+});
+```
+
+## 会话管理
+
+对于跨多个操作的工作流，你可以复用浏览器会话：
+
+```typescript
+export const multiStepWorkflow = action({
+  handler: async (ctx) => {
+    // 启动会话
+    const session = await stagehand.startSession(ctx, {
+      url: 'https://example.com',
+      options: { timeout: 30000, waitUntil: 'networkidle' },
+    });
+
+    // 在同一会话中执行多个操作
+    await stagehand.act(ctx, {
+      sessionId: session.sessionId,
+      action: 'Click the login button',
+    });
+
+    const data = await stagehand.extract(ctx, {
+      sessionId: session.sessionId,
+      instruction: 'Extract the user profile information',
+      schema: z.object({
+        name: z.string(),
+        email: z.string(),
+      }),
+    });
+
+    // 结束会话
+    await stagehand.endSession(ctx, { sessionId: session.sessionId });
+
+    return data;
+  },
+});
+```
+
+会话持久化可以帮助你在多次操作之间保留认证状态与 cookie。
+
+## 模型配置
+
+默认模型是 `openai/gpt-4o`。你也可以配置其他提供方：
+
+```typescript
+const stagehand = new Stagehand(components.stagehand, {
+  browserbaseApiKey: process.env.BROWSERBASE_API_KEY!,
+  modelApiKey: process.env.ANTHROPIC_API_KEY!,
+  modelName: 'anthropic/claude-sonnet-4-5-20250929',
+});
+```
+
+## 要求
+
+- Convex 1.29.3 或更高版本
+- 一个带 API 凭据的 [Browserbase](https://browserbase.com) 账号
+- 来自受支持 LLM 提供方的 API Key（OpenAI、Anthropic 等）
+
+## 参考资料
+
+<CardGrid>
+  <Card title="源代码" icon="code" href="https://github.com/browserbase/convex-stagehand">
+    在 GitHub 上浏览完整仓库。
+  </Card>
+  <Card title="Convex 文档" icon="book" href="https://docs.convex.dev">
+    进一步了解 Convex。
+  </Card>
+</CardGrid>

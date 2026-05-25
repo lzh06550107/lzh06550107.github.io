@@ -1,0 +1,200 @@
+---
+title: Playwright
+description: 将 Stagehand 与 Playwright 结合进行浏览器自动化。
+editUrl: false
+sidebar:
+  order: 6
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# Playwright
+
+> 使用 Stagehand 与 Playwright 进行浏览器自动化
+
+## 概览
+
+Stagehand v3 可以与 Playwright 无缝协作，使你能够直接把 Playwright 的 `Page` 对象交给 Stagehand 的 AI 方法，例如 `act()`、`extract()` 和 `observe()`。
+
+## 安装
+
+先安装 Stagehand 与 Playwright：
+
+```bash
+npm install @browserbasehq/stagehand playwright-core
+```
+
+## 快速开始
+
+### 基础设置
+
+通过 Chrome DevTools Protocol（CDP）将 Playwright 连接到 Stagehand 的浏览器实例：
+
+```typescript
+import { Stagehand } from '@browserbasehq/stagehand';
+import { chromium } from 'playwright-core';
+
+const stagehand = new Stagehand({
+  env: 'BROWSERBASE', // 或 'LOCAL'
+  model: 'openai/gpt-5',
+});
+
+await stagehand.init();
+
+const browser = await chromium.connectOverCDP({
+  wsEndpoint: stagehand.connectURL(),
+});
+
+const pwContext = browser.contexts()[0];
+const pwPage = pwContext.pages()[0];
+```
+
+### 将 Playwright 页面交给 Stagehand 使用
+
+连接成功后，你就可以将 Playwright `Page` 对象传给 Stagehand 的 AI 方法：
+
+```typescript
+await pwPage.goto('https://example.com');
+
+await stagehand.act('click the login button', { page: pwPage });
+
+const data = await stagehand.extract(
+  'extract the article title',
+  z.object({ title: z.string() }),
+  { page: pwPage },
+);
+```
+
+## 多页面示例
+
+Stagehand 对多个 Playwright 页面也支持得很好：
+
+```typescript
+import { Stagehand } from '@browserbasehq/stagehand';
+import { chromium } from 'playwright-core';
+import { z } from 'zod';
+
+const stagehand = new Stagehand({
+  env: 'BROWSERBASE',
+  model: 'openai/gpt-5',
+});
+
+await stagehand.init();
+
+const browser = await chromium.connectOverCDP({
+  wsEndpoint: stagehand.connectURL(),
+});
+
+const pwContext = browser.contexts()[0];
+const pwPage1 = pwContext.pages()[0];
+const pwPage2 = await pwContext.newPage();
+
+await pwPage1.goto('https://docs.stagehand.dev/first-steps/introduction');
+await pwPage2.goto('https://docs.stagehand.dev/configuration/observability');
+
+const [page1Data, page2Data] = await Promise.all([
+  stagehand.extract(
+    'extract the names of the four stagehand primitives',
+    z.array(z.string()),
+    { page: pwPage1 },
+  ),
+  stagehand.extract(
+    'extract the list of session dashboard features',
+    z.array(z.string()),
+    { page: pwPage2 },
+  ),
+]);
+
+console.log('Page 1 primitives:', page1Data);
+console.log('Page 2 features:', page2Data);
+```
+
+## 完整示例
+
+```typescript
+import { Stagehand } from '@browserbasehq/stagehand';
+import { chromium } from 'playwright-core';
+import { z } from 'zod';
+
+async function main() {
+  const stagehand = new Stagehand({
+    env: 'BROWSERBASE',
+    model: 'openai/gpt-5',
+    verbose: 1,
+  });
+
+  await stagehand.init();
+  console.log('Stagehand initialized');
+
+  const browser = await chromium.connectOverCDP({
+    wsEndpoint: stagehand.connectURL(),
+  });
+
+  const pwContext = browser.contexts()[0];
+  const pwPage = pwContext.pages()[0];
+
+  await pwPage.goto('https://example.com');
+
+  const actions = await stagehand.observe('find the main heading', {
+    page: pwPage,
+  });
+
+  console.log('Found actions:', actions);
+
+  const heading = await stagehand.extract(
+    'extract the main heading text',
+    z.object({ heading: z.string() }),
+    { page: pwPage },
+  );
+
+  console.log('Heading:', heading);
+
+  await stagehand.close();
+}
+
+main();
+```
+
+## 关键点
+
+- **通过 CDP 连接**：使用 `chromium.connectOverCDP()`，并把 `stagehand.connectURL()` 作为 WebSocket 端点
+- **传入 page**：调用 Stagehand 方法时，始终通过 `{ page }` 传入 Playwright 的 `page` 对象
+- **支持多页面**：可使用 `pwContext.newPage()` 创建多个页面，并分别交给 Stagehand
+- **并发操作**：可通过 `Promise.all()` 在不同页面上并行运行多个 Stagehand 操作
+
+## 环境变量
+
+使用 Browserbase 时，请设置凭据：
+
+```bash
+BROWSERBASE_API_KEY=your_api_key
+```
+
+若使用 OpenAI（或其他提供方），还需要：
+
+```bash
+OPENAI_API_KEY=your_api_key
+```
+
+## 下一步
+
+<CardGrid>
+  <Card title="Agent" icon="robot" href="/stagehand/basics/agent/">
+    自动化完整工作流。
+  </Card>
+  <Card title="Act" icon="play" href="/stagehand/basics/act/">
+    在网页上执行动作。
+  </Card>
+  <Card title="Extract" icon="database" href="/stagehand/basics/extract/">
+    从页面提取结构化数据。
+  </Card>
+  <Card title="Observe" icon="eye" href="/stagehand/basics/observe/">
+    观察并查找页面元素。
+  </Card>
+</CardGrid>

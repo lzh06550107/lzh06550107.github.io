@@ -1,0 +1,261 @@
+---
+title: 部署 Stagehand
+description: 将你的 AI Agent 和自动化部署到云端。
+editUrl: false
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 部署 Stagehand
+
+> 将你的 AI Agent 和自动化部署到云端
+
+:::tip[提示]
+**🌟 预览版：Browser Functions** - 使用 browser functions，直接在 Browserbase 上部署你的 Web 自动化代码。无需任何基础设施设置，即可在云端扩展你的 `act()` 自动化。请联系 [hello@browserbase.com](mailto:hello@browserbase.com) 获取 Beta 访问权限。
+:::
+
+## 在 Vercel 上部署
+
+在 Vercel Function 中安全地运行基于 Browserbase 的 Stagehand。本指南展示了一个最小化、适用于生产环境的 HTTP 端点，你可以直接调用它，或按计划触发它。
+
+### 1. 安装 Vercel CLI
+
+要下载并安装 Vercel CLI，请运行以下任一命令：
+
+<Tabs>
+  <TabItem label="pnpm">
+
+  ```bash
+  pnpm i -g vercel
+  ```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+  ```bash
+  yarn global add vercel
+  ```
+
+  </TabItem>
+  <TabItem label="npm">
+
+  ```bash
+  npm i -g vercel
+  ```
+
+  </TabItem>
+  <TabItem label="bun">
+
+  ```bash
+  bun add -g vercel
+  ```
+
+  </TabItem>
+</Tabs>
+
+### 2. 项目结构
+
+```text
+your-project/
+  api/
+    run.ts
+  package.json
+  tsconfig.json
+  vercel.json
+```
+
+使用以下命令创建该结构：
+
+```bash
+mkdir -p api
+touch api/run.ts package.json vercel.json tsconfig.json
+```
+
+### 3. `api/run.ts`（Node.js 运行时）
+
+```ts
+// api/run.ts
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { Stagehand } from "@browserbasehq/stagehand";
+import { z } from "zod";
+
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  try {
+    const stagehand = new Stagehand({
+      env: "BROWSERBASE",
+      apiKey: process.env.BROWSERBASE_API_KEY!,
+      disablePino: true,
+      model: "google/gemini-2.5-flash",
+      // 可选的会话参数
+      browserbaseSessionCreateParams: {
+        region: "us-west-2",
+        browserSettings: {
+          blockAds: true,
+        },
+      },
+    });
+
+    await stagehand.init();
+    const page = stagehand.context.pages()[0];
+
+    await page.goto("https://www.stagehand.dev/");
+    await stagehand.act("click the evals button");
+
+    const fastestModel = await stagehand.extract("extract the fastest model", z.string());
+
+    await stagehand.close();
+
+    res.status(200).json({ ok: true, data: fastestModel });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ ok: false, error: msg });
+  }
+}
+```
+
+### 4. `package.json`
+
+```json
+{
+    "name": "bb-stagehand-on-vercel",
+    "private": true,
+    "type": "module",
+    "engines": { "node": ">=18" },
+    "dependencies": {
+      "@browserbasehq/stagehand": "^3.0.0"
+    },
+    "devDependencies": {
+      "@types/node": "^20.12.12",
+      "@vercel/node": "^3.2.20",
+      "typescript": "^5.2.2"
+    }
+}
+```
+
+### 5. `tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "outDir": ".vercel/output/functions",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["api/**/*.ts"]
+}
+```
+
+### 6. `vercel.json`
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/run.ts": {
+      "maxDuration": 60
+    }
+  }
+}
+```
+
+更多细节请参阅 Vercel 的[配置 Functions 文档](https://vercel.com/docs/functions/configuring-functions)。
+
+### 7. 关联你的项目
+
+在配置环境变量之前，先将你的本地文件夹关联到一个 Vercel 项目：
+
+```bash
+# 如有需要，先进行认证
+vercel login
+
+# 将当前目录关联到一个 Vercel 项目（交互式）
+vercel link
+```
+
+### 8. 环境变量
+
+不要在生产环境中提交 `.env`。请通过 Vercel CLI 添加变量：
+
+```bash
+vercel env add BROWSERBASE_API_KEY
+# （如果需要，也添加你的模型密钥）
+vercel env add GOOGLE_API_KEY
+```
+
+另请参阅：[Browser Environment](https://docs.stagehand.dev/v3/configuration/environment)，了解必需变量的详细信息。
+
+### 9. 本地测试
+
+在本地复现 Vercel 环境，以便在部署前先验证你的 Function。请在项目根目录运行。
+
+```bash
+# 确保依赖已安装
+npm install
+
+# 启动本地 Vercel 开发服务器
+vercel dev --listen 5005
+```
+
+### 10. 部署
+
+```bash
+vercel
+vercel --prod
+```
+
+### 执行该 Function
+
+#### 为自动化配置 Protection Bypass
+
+在调用生产环境 URL 之前，请先创建一个 Protection Bypass for Automation：
+
+1. 生成一个 32 字符的密钥（你可以使用 `openssl rand -hex 16`）
+2. 前往你在 Vercel 中的项目
+3. 导航到 Settings → Deployment Protection
+4. 将该密钥添加到 “Protection Bypass for Automation”
+
+然后带上 bypass 请求头调用该 Function：
+
+```bash
+curl -X POST \
+  -H "x-vercel-protection-bypass: <your-32-character-secret>" \
+  https://<your-deployment>/api/run
+```
+
+### 可选：在 Vercel 上使用 Cron
+
+通过扩展 `vercel.json`，按计划触发同一个端点：
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/run.ts": {
+      "maxDuration": 60
+    }
+  }
+  },
+  "crons": [
+    { "path": "/api/run", "schedule": "0 * * * *" }
+  ]
+}
+```
+
+### 特性
+
+- **无需本地浏览器**：使用 `env: "BROWSERBASE"` 即可。[Browserbase](https://www.browserbase.com/) 会提供浏览器。
+- **快速功能执行**：将浏览器工作卸载到 Browserbase，并快速返回 JSON。
+- **长时间运行任务**：可提高 `maxDuration`，并且/或者根据套餐考虑 Edge 运行时限制。

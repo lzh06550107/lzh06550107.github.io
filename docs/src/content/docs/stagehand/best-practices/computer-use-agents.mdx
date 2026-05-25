@@ -1,0 +1,237 @@
+---
+title: 计算机使用 Agent
+description: 在 Stagehand 中只需一行代码即可接入 Google、Anthropic、OpenAI 和 Microsoft 的 Computer Use API。
+editUrl: false
+sidebar:
+  order: 4
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+> **文档索引**
+>
+> 可在此获取完整文档索引：[https://docs.stagehand.dev/llms.txt](https://docs.stagehand.dev/llms.txt)
+>
+> 在进一步浏览前，可使用该文件发现所有可用页面。
+
+# 计算机使用 Agent
+
+> 在 Stagehand 中只需一行代码即可接入 Google、Anthropic、OpenAI 和 Microsoft 的 Computer Use API。
+
+## 什么是 Computer Use Agent？
+
+<div class="relative w-full">
+  <div class="relative w-full overflow-hidden rounded-md bg-gray-900 aspect-video">
+    <iframe
+      width="100%"
+      height="100%"
+      src="https://www.youtube.com/embed/ODaHJzOyVCQ"
+      title="Computer Use Agent 介绍视频"
+      frameBorder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+      class="absolute inset-0 h-full w-full"
+    />
+  </div>
+</div>
+
+你可能已经听说过 [Gemini Computer Use](https://blog.google/technology/google-deepmind/gemini-computer-use-model/)、[Claude Computer Use](https://www.anthropic.com/news/3-5-models-and-computer-use) 或 [OpenAI 的 Computer Using Agent](https://openai.com/index/computer-using-agent/)。
+
+这些都是强大的工具，能够将自然语言转换为计算机上的操作。不过，如果不使用 Stagehand，你通常需要自己编写代码，把这些操作转换成 Playwright 命令。
+
+Stagehand 不仅能够处理 Computer Use 输出的执行，还允许你只用一行代码就在 Google、OpenAI、Anthropic 和 Microsoft 模型之间热切换。关于不同 Computer Use 模型的性能，你可以访问我们的 [评测页面](https://www.stagehand.dev/agent-evals) 获取更多信息。
+
+## 如何在 Stagehand 中使用 Computer Use Agent
+
+Stagehand 让你只需一行代码就能使用 Computer Use Agent：
+
+:::warning[弃用通知]
+`cua: true` 选项已弃用，并将在未来版本中移除。请改用 `mode: "cua"`。
+:::
+
+:::note[重要]
+**请配置你的浏览器尺寸**
+
+Computer Use Agent 通常会返回要在屏幕上点击的 XY 坐标，因此你需要配置浏览器尺寸。
+
+如果未显式指定，默认浏览器尺寸为 `1288 x 711`。你也可以在 `browserbaseSessionCreateParams` 或 `localBrowserLaunchOptions` 选项中配置浏览器尺寸。
+:::
+
+### 配置浏览器尺寸
+
+浏览器配置会因运行环境而不同：
+
+<Tabs>
+  <TabItem label="BROWSERBASE">
+
+  ```typescript
+  import { Stagehand } from "@browserbasehq/stagehand";
+
+  const stagehand = new Stagehand({
+    env: "BROWSERBASE",
+    model: "google/gemini-2.5-flash",
+
+    browserbaseSessionCreateParams: {
+      browserSettings: {
+        blockAds: true,
+        viewport: {
+          width: 1288,
+          height: 711,
+        },
+      },
+    },
+  });
+
+  await stagehand.init();
+  ```
+
+  </TabItem>
+
+  <TabItem label="LOCAL">
+
+  ```typescript
+  import { Stagehand } from "@browserbasehq/stagehand";
+
+  const stagehand = new Stagehand({
+    env: "LOCAL",
+    localBrowserLaunchOptions: {
+      headless: false,
+      viewport: {
+        width: 1288,
+        height: 711,
+      },
+    }
+  });
+
+  await stagehand.init();
+  ```
+
+  </TabItem>
+</Tabs>
+
+### 指挥你的 Computer Use Agent
+
+在 agent 上调用 `execute`，即可为 agent 分配任务。
+
+<Tabs>
+  <TabItem label="Google">
+
+  ```typescript
+  await page.goto("https://www.google.com/");
+  const agent = stagehand.agent({
+    mode: "cua",
+    model: {
+      modelName: "google/gemini-2.5-computer-use-preview-10-2025",
+      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    },
+    systemPrompt: "You are a helpful assistant...",
+  });
+
+  await agent.execute({
+    instruction: "Go to Hacker News and find the most controversial post from today, then read the top 3 comments and summarize the debate.",
+    maxSteps: 20,
+    highlightCursor: true
+  })
+  ```
+
+  </TabItem>
+
+  <TabItem label="OpenAI">
+
+  ```typescript
+  await page.goto("https://www.google.com/");
+  const agent = stagehand.agent({
+    mode: "cua",
+    model: {
+      modelName: "openai/computer-use-preview",
+      apiKey: process.env.OPENAI_API_KEY
+    },
+    systemPrompt: "You are a helpful assistant...",
+  });
+
+  await agent.execute({
+    instruction: "Go to Hacker News and find the most controversial post from today, then read the top 3 comments and summarize the debate.",
+    maxSteps: 20,
+    highlightCursor: true
+  })
+  ```
+
+  </TabItem>
+
+  <TabItem label="Anthropic">
+
+  ```typescript
+  await page.goto("https://www.google.com/");
+  const agent = stagehand.agent({
+    mode: "cua",
+    model: {
+      modelName: "anthropic/claude-sonnet-4-6",
+      apiKey: process.env.ANTHROPIC_API_KEY
+    },
+    systemPrompt: "You are a helpful assistant...",
+  });
+
+  await agent.execute({
+    instruction: "Go to Hacker News and find the most controversial post from today, then read the top 3 comments and summarize the debate.",
+    maxSteps: 20,
+    highlightCursor: true
+  })
+  ```
+
+  </TabItem>
+</Tabs>
+
+你可以通过 `maxSteps` 定义 agent 最多可以执行多少步：
+
+```typescript
+await agent.execute({
+  instructions: "Apply for a library card at the San Francisco Public Library",
+  maxSteps: 10,
+});
+```
+
+### 选择你的 Computer Use 模型
+
+Stagehand 支持来自 Google、Anthropic、OpenAI 和 Microsoft 的 Computer Use 模型。你可以在[模型页面](/v3/configuration/models#agent-models-with-cua-support)查看所有受支持模型。
+
+<Tabs>
+  <TabItem label="Google">
+
+  ```typescript
+  const agent = stagehand.agent({
+    mode: "cua",
+    model: "google/gemini-2.5-computer-use-preview-10-2025",
+    // GOOGLE_GENERATIVE_AI_API_KEY 会被自动加载——请在你的 .env 中设置
+  });
+  ```
+
+  </TabItem>
+
+  <TabItem label="Anthropic">
+
+  ```typescript
+  const agent = stagehand.agent({
+    mode: "cua",
+    model: "anthropic/claude-sonnet-4-6",
+    // ANTHROPIC_API_KEY 会被自动加载——请在你的 .env 中设置
+  });
+  ```
+
+  </TabItem>
+
+  <TabItem label="OpenAI">
+
+  ```typescript
+  const agent = stagehand.agent({
+    mode: "cua",
+    model: "openai/computer-use-preview",
+    // OPENAI_API_KEY 会被自动加载——请在你的 .env 中设置
+  });
+  ```
+
+  </TabItem>
+</Tabs>
+
+:::tip[示例模板]
+可在[这里](https://www.browserbase.com/templates?category=Computer+Use+Agents)查看或运行示例模板。
+:::
