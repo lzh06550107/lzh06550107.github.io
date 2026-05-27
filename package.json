@@ -19,5 +19,9 @@
     "devDependencies": {
         "@antfu/eslint-config": "^8.2.0",
         "astro": "^6.1.9"
+    },
+    "dependencies": {
+        "@astrojs/check": "^0.9.9",
+        "typescript": "^6.0.3"
     }
 }
