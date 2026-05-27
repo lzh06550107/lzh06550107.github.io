@@ -1,0 +1,27 @@
+---
+title: Kernel
+description: 使用 Kernel 云浏览器。
+---
+
+# Kernel
+
+Kernel 为 AI Agent 提供云浏览器基础设施，包含 stealth mode 和持久 profile 等特性。
+
+## 设置
+
+```bash
+export KERNEL_API_KEY="your-api-key"
+agent-browser -p kernel open https://example.com
+```
+
+## 配置
+
+| 变量 | 说明 | 默认值 |
+|---|---|---|
+| `KERNEL_API_KEY` | API key | 必填 |
+| `KERNEL_HEADLESS` | headless 模式 | `true` |
+| `KERNEL_STEALTH` | stealth 模式 | `false` |
+| `KERNEL_TIMEOUT_SECONDS` | 会话超时秒数 | `300` |
+| `KERNEL_PROFILE_NAME` | 持久 profile 名称 | 无 |
+
+设置 `KERNEL_PROFILE_NAME` 后，cookies、登录状态和会话数据会在会话结束时保存回 profile。

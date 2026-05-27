@@ -1,0 +1,26 @@
+---
+title: Lightpanda
+description: 使用 Lightpanda 引擎。
+---
+
+# Lightpanda
+
+Lightpanda 是轻量浏览器引擎，适合需要更快启动、更低资源占用的场景。
+
+## 使用
+
+```bash
+agent-browser --engine lightpanda open https://example.com
+```
+
+或配置：
+
+```json
+{
+  "engine": "lightpanda"
+}
+```
+
+:::note
+Lightpanda 适合轻量页面自动化；如果需要完整 Chrome 兼容性，请使用 Chrome 引擎。
+:::

@@ -1,0 +1,37 @@
+---
+title: 选择器
+description: agent-browser 支持的选择器类型。
+---
+
+# 选择器
+
+agent-browser 支持三类定位方式：
+
+## Ref 选择器
+
+推荐 Agent 使用 `snapshot -i` 输出中的 refs：
+
+```bash
+agent-browser snapshot -i
+agent-browser click @e2
+agent-browser fill @e3 "test@example.com"
+```
+
+ref 指向快照中的确切元素，适合确定性交互。
+
+## CSS 选择器
+
+```bash
+agent-browser click "#submit"
+agent-browser fill "input[name=email]" "test@example.com"
+```
+
+## 语义定位器
+
+```bash
+agent-browser find role button click --name "Submit"
+agent-browser find label "Email" fill "test@example.com"
+agent-browser find text "Continue" click
+```
+
+语义定位器适合无稳定 CSS 选择器的页面。

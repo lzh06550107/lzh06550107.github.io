@@ -1,0 +1,66 @@
+---
+title: Streaming
+description: 通过 WebSocket 流式传输浏览器视口。
+---
+
+# Streaming
+
+Streaming 可通过 WebSocket 传输浏览器视口，用于实时预览或人类与 AI “结对浏览”。
+
+每个会话都会自动启动 WebSocket stream server，端口由系统分配。
+
+## 指定端口
+
+```bash
+AGENT_BROWSER_STREAM_PORT=9223 agent-browser open example.com
+```
+
+## 运行时管理
+
+```bash
+agent-browser stream status
+agent-browser stream enable --port 9223
+agent-browser stream disable
+```
+
+## 状态响应
+
+```bash
+agent-browser stream status --json
+```
+
+示例：
+
+```json
+{
+  "enabled": true,
+  "port": 9223,
+  "connected": true,
+  "screencasting": true
+}
+```
+
+## WebSocket 协议
+
+连接：
+
+```txt
+ws://localhost:9223
+```
+
+Frame 消息包含 base64 编码图片和视口元数据。
+
+## 输入注入
+
+支持鼠标、键盘、触摸事件，例如：
+
+```json
+{
+  "type": "input_mouse",
+  "eventType": "mousePressed",
+  "x": 100,
+  "y": 200,
+  "button": "left",
+  "clickCount": 1
+}
+```

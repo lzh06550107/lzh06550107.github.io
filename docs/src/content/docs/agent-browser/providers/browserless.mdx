@@ -1,0 +1,25 @@
+---
+title: Browserless
+description: 使用 Browserless 云浏览器。
+---
+
+# Browserless
+
+Browserless 提供带 Sessions API 的云浏览器基础设施。
+
+## 设置
+
+```bash
+export BROWSERLESS_API_KEY="your-api-token"
+agent-browser -p browserless open https://example.com
+```
+
+## 配置
+
+| 变量 | 说明 | 默认值 |
+|---|---|---|
+| `BROWSERLESS_API_KEY` | API token | 必填 |
+| `BROWSERLESS_API_URL` | Base API URL | `https://production-sfo.browserless.io` |
+| `BROWSERLESS_BROWSER_TYPE` | 浏览器类型 | `chromium` |
+| `BROWSERLESS_TTL` | 会话 TTL（毫秒） | `300000` |
+| `BROWSERLESS_STEALTH` | 启用 stealth 模式 | `true` |

@@ -1,0 +1,54 @@
+---
+title: Skills
+description: 为 AI 编码 Agent 提供 agent-browser 使用说明。
+---
+
+# Skills
+
+agent-browser 内置 skills，用于教 AI 编码 Agent 在特定工作流中使用它。安装 skill 后，Cursor、Claude Code 或 Codex 中的 Agent 就可以无需人工指导地执行浏览器任务。
+
+## 安装
+
+```bash
+npx skills add vercel-labs/agent-browser
+```
+
+这会安装一个 discovery skill，让 Agent 知道 agent-browser，并引导它使用 `agent-browser skills` CLI 命令获取当前版本的说明。
+
+## CLI 命令
+
+Agent 可在运行时通过 `agent-browser skills` 获取 skill 内容，确保说明始终与已安装 CLI 版本匹配：
+
+| 命令 | 说明 |
+|---|---|
+| `agent-browser skills` | 列出所有可用 skills |
+| `agent-browser skills list` | 列出名称和描述 |
+| `agent-browser skills get <name>` | 输出某个 skill 的完整内容 |
+| `agent-browser skills get <name> --full` | 包含引用和模板 |
+| `agent-browser skills get --all` | 输出全部 skills |
+| `agent-browser skills path [name]` | 打印 skill 目录路径 |
+
+所有命令都支持 `--json`。
+
+可通过 `AGENT_BROWSER_SKILLS_DIR` 覆盖 skills 目录。
+
+## 工作方式
+
+通过 `npx skills add` 安装的 discovery skill 有意保持很薄、很稳定。真正的命令参考、工作流和专业知识由 CLI 在运行时提供，从而解决版本漂移问题。
+
+## 可用 Skills
+
+- **core**：核心浏览器自动化，包括导航、快照、表单、截图、数据提取、会话、认证、diff 和完整命令参考。
+- **dogfood**：系统化探索测试，像真实用户一样浏览应用并输出问题报告。
+- **electron**：通过 CDP 自动化 Electron 应用。
+- **slack**：基于浏览器的 Slack 自动化。
+- **vercel-sandbox**：在 Vercel Sandbox microVM 中运行 agent-browser + headless Chrome。
+- **agentcore**：在 AWS Bedrock AgentCore 云浏览器中运行 agent-browser。
+
+建议大多数任务从：
+
+```bash
+agent-browser skills get core --full
+```
+
+开始。

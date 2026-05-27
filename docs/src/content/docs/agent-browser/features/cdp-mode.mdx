@@ -1,0 +1,49 @@
+---
+title: CDP 模式
+description: 通过 Chrome DevTools Protocol 连接已有浏览器。
+---
+
+# CDP 模式
+
+通过 Chrome DevTools Protocol 连接已有浏览器：
+
+```bash
+# 先用 google-chrome --remote-debugging-port=9222 启动 Chrome
+
+agent-browser connect 9222
+agent-browser snapshot
+agent-browser tab
+agent-browser close
+
+# 或每条命令传 --cdp
+agent-browser --cdp 9222 snapshot
+```
+
+## 远程 WebSocket URL
+
+```bash
+agent-browser --cdp "wss://browser-service.com/cdp?token=..." snapshot
+agent-browser --cdp "ws://localhost:9222/devtools/browser/abc123" open example.com
+```
+
+`--cdp` 可接受：
+
+- 端口号，例如 `9222`
+- 完整 WebSocket URL，例如 `wss://...` 或 `ws://...`
+
+## 自动连接
+
+```bash
+agent-browser --auto-connect open example.com
+AGENT_BROWSER_AUTO_CONNECT=1 agent-browser snapshot
+```
+
+适用于动态端口、已有 Chrome 或无需手动追踪端口的场景。
+
+## 使用场景
+
+- Electron 应用
+- 开启 remote debugging 的 Chrome/Chromium
+- WebView2 应用
+- 远程浏览器服务
+- 任何暴露 CDP endpoint 的浏览器

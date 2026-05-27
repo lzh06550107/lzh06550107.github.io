@@ -1,0 +1,97 @@
+---
+title: 命令参考
+description: agent-browser 常用命令参考。
+---
+
+# 命令参考
+
+## Core
+
+```bash
+agent-browser open
+agent-browser open <url>
+agent-browser click <sel>
+agent-browser dblclick <sel>
+agent-browser fill <sel> <text>
+agent-browser type <sel> <text>
+agent-browser press <key>
+agent-browser keyboard type <text>
+agent-browser keyboard inserttext <text>
+agent-browser keydown <key>
+agent-browser keyup <key>
+agent-browser hover <sel>
+agent-browser focus <sel>
+agent-browser select <sel> <val>
+agent-browser check <sel>
+agent-browser uncheck <sel>
+agent-browser scroll <dir> [px]
+agent-browser scrollintoview <sel>
+agent-browser drag <src> <dst>
+agent-browser upload <sel> <files>
+agent-browser screenshot [path]
+agent-browser screenshot --annotate
+agent-browser pdf <path>
+agent-browser snapshot
+agent-browser eval <js>
+agent-browser connect port|url
+agent-browser stream enable [--port <port>]
+agent-browser stream status
+agent-browser stream disable
+agent-browser close
+agent-browser close --all
+```
+
+## 获取信息
+
+```bash
+agent-browser get text <sel>
+agent-browser get html <sel>
+agent-browser get value <sel>
+agent-browser get attr <sel> <attr>
+agent-browser get title
+agent-browser get url
+agent-browser get cdp-url
+agent-browser get count <sel>
+agent-browser get box <sel>
+agent-browser get styles <sel>
+```
+
+## 检查状态
+
+```bash
+agent-browser is visible <sel>
+agent-browser is enabled <sel>
+agent-browser is checked <sel>
+```
+
+## 查找元素
+
+```bash
+agent-browser find role <role> <action> [value]
+agent-browser find text <text> <action>
+agent-browser find label <label> <action> [value]
+agent-browser find placeholder <ph> <action> [value]
+agent-browser find alt <text> <action>
+agent-browser find title <text> <action>
+agent-browser find testid <id> <action> [value]
+agent-browser find first <sel> <action> [value]
+agent-browser find last <sel> <action> [value]
+agent-browser find nth <n> <sel> <action> [value]
+```
+
+常用选项：
+
+- `--name <name>`：按可访问名称过滤 role。
+- `--exact`：要求文本精确匹配。
+
+## 等待
+
+```bash
+agent-browser wait <selector>
+agent-browser wait <ms>
+agent-browser wait --text "Welcome"
+agent-browser wait --url "**/dash"
+agent-browser wait --load networkidle
+agent-browser wait --fn "condition"
+agent-browser wait --download [path]
+```

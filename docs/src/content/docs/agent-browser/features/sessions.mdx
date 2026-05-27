@@ -1,0 +1,29 @@
+---
+title: 会话
+description: 管理多个隔离浏览器会话。
+---
+
+# 会话
+
+agent-browser 支持多个隔离浏览器会话。每个会话可以有独立的 Cookie、localStorage、标签页和登录状态。
+
+```bash
+agent-browser --session work open https://example.com
+agent-browser --session test open https://example.com
+```
+
+## 命名会话
+
+```bash
+agent-browser --session my-session open example.com
+agent-browser --session my-session snapshot
+agent-browser --session my-session close
+```
+
+## 关闭所有会话
+
+```bash
+agent-browser close --all
+```
+
+会话适合在同一机器上并行运行多个 Agent 或多个登录身份。

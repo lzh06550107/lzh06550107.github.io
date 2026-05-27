@@ -1,0 +1,96 @@
+---
+title: 配置
+description: 使用 agent-browser.json 设置持久默认值。
+---
+
+# 配置
+
+创建 `agent-browser.json` 文件，可以设置持久默认值，避免每次命令都重复传 flags。
+
+## 配置文件位置
+
+| 优先级 | 位置 | 范围 |
+|---|---|---|
+| 1（最低） | `~/.agent-browser/config.json` | 用户级默认值 |
+| 2 | `./agent-browser.json` | 项目级覆盖 |
+| 3 | `AGENT_BROWSER_*` 环境变量 | 覆盖配置值 |
+| 4（最高） | CLI flags | 覆盖所有内容 |
+
+也可以用 `--config <path>` 或 `AGENT_BROWSER_CONFIG` 加载指定配置：
+
+```bash
+agent-browser --config ./ci-config.json open example.com
+AGENT_BROWSER_CONFIG=./ci-config.json agent-browser open example.com
+```
+
+## 示例配置
+
+```json
+{
+  "headed": true,
+  "proxy": "http://localhost:8080",
+  "profile": "./browser-data",
+  "userAgent": "my-agent/1.0",
+  "ignoreHttpsErrors": true
+}
+```
+
+可通过 `$schema` 开启 IDE 自动补全：
+
+```json
+{
+  "$schema": "https://agent-browser.dev/schema.json",
+  "headed": true
+}
+```
+
+## 常用配置
+
+### 本地开发
+
+```json
+{
+  "headed": true,
+  "profile": "./browser-data"
+}
+```
+
+### 代理环境
+
+```json
+{
+  "proxy": "http://proxy.corp.example.com:8080",
+  "proxyBypass": "localhost,*.internal.com",
+  "ignoreHttpsErrors": true
+}
+```
+
+### CI / Devcontainer
+
+```json
+{
+  "args": "--no-sandbox,--disable-gpu",
+  "ignoreHttpsErrors": true
+}
+```
+
+### AI Agent 安全
+
+```json
+{
+  "contentBoundaries": true,
+  "maxOutput": 50000,
+  "allowedDomains": ["your-app.com", "*.your-app.com"],
+  "actionPolicy": "./policy.json"
+}
+```
+
+## 布尔选项覆盖
+
+布尔 flags 可传可选的 `true` / `false`：
+
+```bash
+agent-browser --headed false open example.com
+```
+
+裸 flag 等价于 `true`。

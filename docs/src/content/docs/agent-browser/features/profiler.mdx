@@ -1,0 +1,19 @@
+---
+title: Profiler
+description: 性能分析与调试。
+---
+
+# Profiler
+
+Profiler 用于分析浏览器自动化过程中的性能问题，帮助定位慢加载、慢交互和页面瓶颈。
+
+常见流程：
+
+```bash
+agent-browser open https://example.com
+agent-browser profiler start
+# 执行操作
+agent-browser profiler stop
+```
+
+结合截图、网络命令和 diff，可用于 CI 中的性能回归排查。

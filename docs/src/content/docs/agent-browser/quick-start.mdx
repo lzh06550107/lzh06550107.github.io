@@ -1,0 +1,92 @@
+---
+title: 快速开始
+description: agent-browser 的核心工作流。
+---
+
+# 快速开始
+
+## 核心工作流
+
+每次浏览器自动化通常遵循以下模式：
+
+```bash
+# 1. 导航
+agent-browser open example.com
+
+# 2. 获取元素 ref 快照
+agent-browser snapshot -i
+# 输出：
+# @e1 [heading] "Example Domain"
+# @e2 [link] "More information..."
+
+# 3. 使用 refs 交互
+agent-browser click @e2
+
+# 4. 页面变化后重新获取快照
+agent-browser snapshot -i
+```
+
+## 常用命令
+
+```bash
+agent-browser open example.com
+agent-browser snapshot -i
+agent-browser click @e2
+agent-browser fill @e3 "test@example.com"
+agent-browser get text @e1
+agent-browser screenshot
+agent-browser screenshot page.png
+agent-browser close
+```
+
+## 传统选择器
+
+也支持 CSS 选择器和语义定位器：
+
+```bash
+agent-browser click "#submit"
+agent-browser fill "#email" "test@example.com"
+agent-browser find role button click --name "Submit"
+```
+
+## 有头模式
+
+显示浏览器窗口以便调试：
+
+```bash
+agent-browser open example.com --headed
+```
+
+## 等待内容
+
+```bash
+agent-browser wait @e1
+agent-browser wait --load networkidle
+agent-browser wait --url "**/dashboard"
+agent-browser wait 2000
+```
+
+## 命令链
+
+可以用 `&&` 在一次 shell 调用中串联命令。浏览器通过后台守护进程保持，所以链式调用安全且高效：
+
+```bash
+agent-browser open example.com && agent-browser wait --load networkidle && agent-browser snapshot -i
+
+agent-browser fill @e1 "user@example.com" && agent-browser fill @e2 "pass" && agent-browser click @e3
+```
+
+当不需要中间输出时使用 `&&`。如果需要先解析输出（例如先用 snapshot 发现 refs），则应分开运行命令。
+
+## JSON 输出
+
+脚本中需要结构化解析时：
+
+```bash
+agent-browser snapshot --json
+agent-browser get text @e1 --json
+```
+
+:::note
+默认文本输出更紧凑，更适合 AI Agent。
+:::

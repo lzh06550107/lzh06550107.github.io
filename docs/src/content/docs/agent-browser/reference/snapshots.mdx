@@ -1,0 +1,52 @@
+---
+title: 快照
+description: 使用 accessibility snapshot 获取页面元素 refs。
+---
+
+# 快照
+
+`snapshot` 返回页面的可访问性树，并为元素分配稳定 refs，供后续命令使用。
+
+```bash
+agent-browser snapshot -i
+```
+
+示例输出：
+
+```txt
+@e1 [heading] "Example Domain"
+@e2 [link] "More information..."
+```
+
+## 交互式快照
+
+`-i` 只输出可交互元素，更适合 Agent：
+
+```bash
+agent-browser snapshot -i
+```
+
+## 紧凑输出
+
+可使用 compact 格式降低上下文占用：
+
+```bash
+agent-browser snapshot --compact
+```
+
+## 作用域
+
+可对局部区域生成快照：
+
+```bash
+agent-browser snapshot --selector "#main"
+agent-browser snapshot --selector @e4
+```
+
+## JSON
+
+```bash
+agent-browser snapshot --json
+```
+
+默认文本输出更适合 LLM 直接阅读。

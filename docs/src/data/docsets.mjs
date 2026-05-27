@@ -470,6 +470,76 @@ export const docsets = [
                 ],
             },
         ],
+    },
+    {
+        id: 'agent-browser',
+        title: 'agent-browser',
+        cardLabel: 'agent-browser 文档集',
+        description: 'agent-browser 是一个专为 AI Agent 设计的浏览器自动化 CLI',
+        landing: '/agent-browser/',
+        ctaLabel: '进入 agent-browser 文档',
+        featuredLinks: [
+            { label: 'Introduction 简介', href: '/agent-browser/' },
+            { label: '安装', href: '/agent-browser/installation/' },
+            { label: '快速开始', href: '/agent-browser/quick-start/' },
+            { label: '命令参考', href: '/agent-browser/reference/commands/' },
+        ],
+        sections: [
+            {
+                label: 'Introduction',
+                items: [
+                    { label: 'agent-browser', link: '/agent-browser/' },
+                    { label: '安装', link: '/agent-browser/installation/' },
+                    { label: '快速开始', link: '/agent-browser/quick-start/' },
+                    { label: 'Skills', link: '/agent-browser/skills/' },
+                ],
+            },
+            {
+                label: 'Reference',
+                items: [
+                    { label: '命令参考', link: '/agent-browser/reference/commands/' },
+                    { label: '配置', link: '/agent-browser/reference/configuration/' },
+                    { label: '选择器', link: '/agent-browser/reference/selectors/' },
+                    { label: '快照', link: '/agent-browser/reference/snapshots/' },
+                ],
+            },
+            {
+                label: 'Features',
+                items: [
+                    { label: '会话', link: '/agent-browser/features/sessions/' },
+                    { label: 'Dashboard', link: '/agent-browser/features/dashboard/' },
+                    { label: 'Diffing', link: '/agent-browser/features/diffing/' },
+                    { label: 'CDP 模式', link: '/agent-browser/features/cdp-mode/' },
+                    { label: 'Streaming', link: '/agent-browser/features/streaming/' },
+                    { label: 'Profiler', link: '/agent-browser/features/profiler/' },
+                    { label: 'iOS Simulator', link: '/agent-browser/features/ios/' },
+                    { label: '安全', link: '/agent-browser/features/security/' },
+                    { label: 'Next.js + Vercel', link: '/agent-browser/features/next/' },
+                    { label: 'Native Mode', link: '/agent-browser/features/native-mode/' },
+                ],
+            },
+            {
+                label: 'Providers',
+                items: [
+                    { label: 'AgentCore', link: '/agent-browser/providers/agentcore/' },
+                    { label: 'Browser Use', link: '/agent-browser/providers/browser-use/' },
+                    { label: 'Browserbase', link: '/agent-browser/providers/browserbase/' },
+                    { label: 'Browserless', link: '/agent-browser/providers/browserless/' },
+                    { label: 'Kernel', link: '/agent-browser/providers/kernel/' },
+                ],
+            },
+            {
+                label: 'Engines',
+                items: [
+                    { label: 'Chrome', link: '/agent-browser/engines/chrome/' },
+                    { label: 'Lightpanda', link: '/agent-browser/engines/lightpanda/' },
+                ],
+            },
+            {
+                label: '更新日志',
+                link: '/agent-browser/changelog/',
+            },
+        ]
     }
 ];
 

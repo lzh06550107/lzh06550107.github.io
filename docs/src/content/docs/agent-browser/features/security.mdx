@@ -1,0 +1,46 @@
+---
+title: 安全
+description: Agent 自动化场景中的安全控制。
+---
+
+# 安全
+
+agent-browser 提供多种安全控制，帮助限制 AI Agent 的访问范围和操作能力。
+
+## 限制域名
+
+```json
+{
+  "allowedDomains": ["your-app.com", "*.your-app.com"]
+}
+```
+
+## 内容边界
+
+```json
+{
+  "contentBoundaries": true,
+  "maxOutput": 50000
+}
+```
+
+## 操作策略
+
+```json
+{
+  "actionPolicy": "./policy.json"
+}
+```
+
+## 交互确认
+
+可配置某些高风险操作需要确认：
+
+```json
+{
+  "confirmActions": "click,fill,upload",
+  "confirmInteractive": true
+}
+```
+
+建议在生产、真实账号或敏感数据环境中启用这些限制。

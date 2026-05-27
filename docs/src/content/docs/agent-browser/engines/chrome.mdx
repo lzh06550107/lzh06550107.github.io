@@ -1,0 +1,30 @@
+---
+title: Chrome
+description: 使用 Chrome 引擎。
+---
+
+# Chrome
+
+Chrome 是 agent-browser 的默认本地浏览器引擎。
+
+## 安装
+
+```bash
+agent-browser install
+```
+
+## 使用
+
+```bash
+agent-browser --engine chrome open https://example.com
+```
+
+也可以通过配置：
+
+```json
+{
+  "engine": "chrome"
+}
+```
+
+Chrome 引擎适合完整浏览器兼容性、截图、PDF、扩展和 CDP 功能。

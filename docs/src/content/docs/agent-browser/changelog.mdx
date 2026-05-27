@@ -1,0 +1,52 @@
+---
+title: 更新日志
+description: agent-browser 版本更新记录。
+---
+
+# 更新日志
+
+## v0.27.0
+
+2026 年 5 月 7 日
+
+### 新功能
+
+- **React introspection**：新增一等 React DevTools 集成，包含 `react tree`、`react inspect <fiberId>`、`react renders start|stop` 和 `react suspense`。
+- **Web Vitals**：新增 `vitals [url]`，报告 LCP、CLS、TTFB、FCP、INP 以及 React hydration 阶段。
+- **SPA navigation**：新增 `pushstate <url>`，可在不完整加载页面的情况下执行客户端 SPA 导航。
+- **Init scripts 和 feature flags**：新增 `--init-script <path>` 与 `--enable <feature>`。
+- **Network route resource type filter**：`network route` 支持 `--resource-type <csv>`。
+- **cURL cookie import**：`cookies set --curl <file>` 可自动识别 JSON、cURL 和 Cookie-header 格式。
+- **Dashboard proxy support**：Dashboard 支持代理源。
+
+### Bug Fixes
+
+- 修复 `doctor` 命令在同一进程多次调用时生成重复 check id 的问题。
+
+## v0.26.0
+
+2026 年 4 月 16 日
+
+### 新功能
+
+- 新增 `doctor` 命令，用于一次性诊断安装环境。
+- 稳定 tab id 和 label，例如 `t1`、`t2`、`t3`。
+- 内置 skill 重命名为 `core`，并扩展为更完整的使用指南。
+- 新增 config JSON Schema，可用于 IDE 自动补全和校验。
+
+### Bug Fixes
+
+- 修复 `--state` / `AGENT_BROWSER_STATE` 未在启动时加载保存状态的问题。
+
+## v0.25.5
+
+2026 年 4 月 16 日
+
+### Bug Fixes
+
+- 修复 `--auto-connect` CDP 发现优先级问题。
+- 修复录制上下文视口未继承当前视口尺寸的问题。
+
+:::note
+此文件保留了最新几个版本的中文摘要。若需要完整历史版本，可继续扩展本 MDX。
+:::

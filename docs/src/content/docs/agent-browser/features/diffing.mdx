@@ -1,0 +1,40 @@
+---
+title: Diffing
+description: 比较页面状态变化。
+---
+
+# Diffing
+
+Diffing 可比较页面状态：通过 accessibility tree 做结构化对比，通过像素对比做视觉比较，或比较两个 URL。
+
+## 命令
+
+| 命令 | 说明 |
+|---|---|
+| `diff snapshot` | 将当前快照和本会话上一个快照比较 |
+| `diff snapshot --baseline <file>` | 与保存的快照文件比较 |
+| `diff screenshot --baseline <file>` | 与基准图做像素级视觉 diff |
+| `diff url <url1> <url2>` | 比较两个页面 |
+
+## 验证 Agent 操作
+
+```bash
+agent-browser snapshot -i
+agent-browser fill @e3 "test@example.com"
+agent-browser click @e4
+agent-browser diff snapshot
+```
+
+## 视觉回归
+
+```bash
+agent-browser open https://staging.example.com && agent-browser screenshot baseline.png
+# 部署后
+agent-browser open https://staging.example.com && agent-browser diff screenshot --baseline baseline.png
+```
+
+## 比较环境
+
+```bash
+agent-browser diff url https://staging.example.com https://prod.example.com --screenshot
+```

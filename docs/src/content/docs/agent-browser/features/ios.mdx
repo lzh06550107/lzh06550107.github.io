@@ -1,0 +1,25 @@
+---
+title: iOS Simulator
+description: 在 iOS 模拟器中运行浏览器自动化。
+---
+
+# iOS Simulator
+
+iOS Provider 可用于在 iOS 模拟器中执行浏览器自动化测试。
+
+## 配置
+
+```json
+{
+  "provider": "ios",
+  "device": "iPhone 16 Pro"
+}
+```
+
+或命令行：
+
+```bash
+agent-browser -p ios --device "iPhone 16 Pro" open https://example.com
+```
+
+适合验证移动端页面、响应式布局和 iOS Safari 行为。

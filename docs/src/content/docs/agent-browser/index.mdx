@@ -1,0 +1,69 @@
+---
+title: agent-browser
+description: 浏览器自动化 CLI，专为 AI Agent 设计。
+---
+
+# agent-browser
+
+`agent-browser` 是一个专为 AI Agent 设计的浏览器自动化 CLI。它使用紧凑的文本输出，尽量减少上下文占用；底层为 100% 原生 Rust。
+
+```bash
+npm install -g agent-browser      # 所有平台
+brew install agent-browser        # macOS
+agent-browser install             # 首次下载 Chrome
+
+# 或者不安装直接试用
+npx agent-browser open example.com
+```
+
+## 特性
+
+- **Agent 优先**：紧凑文本输出比 JSON 更节省 token，适合 AI 上下文。
+- **基于 ref**：`snapshot` 返回带 ref 的可访问性树，方便确定性选择元素。
+- **快速**：原生 Rust CLI，命令解析开销极低。
+- **完整**：提供 50+ 个导航、表单、截图、网络、存储等命令。
+- **会话**：支持多个隔离浏览器实例和独立登录状态。
+- **跨平台**：支持 macOS、Linux、Windows 原生二进制。
+
+## 适用于
+
+Claude Code、Cursor、GitHub Copilot、OpenAI Codex、Google Gemini、opencode，以及任何可以运行 shell 命令的 Agent。
+
+## 示例
+
+```bash
+# 导航并获取快照
+agent-browser open example.com
+agent-browser snapshot -i
+
+# 输出：
+# - heading "Example Domain" [ref=e1]
+# - link "More information..." [ref=e2]
+
+# 使用 refs 交互
+agent-browser click @e2
+agent-browser screenshot page.png
+agent-browser close
+```
+
+## 为什么使用 refs？
+
+`snapshot` 命令会返回紧凑的可访问性树，每个元素都有类似 `@e1`、`@e2` 的唯一 ref。这带来：
+
+- **上下文高效**：文本输出通常约 200–400 tokens，而完整 DOM 可能需要 3000–5000 tokens。
+- **确定性**：ref 指向快照中的具体元素。
+- **快速**：无需再次查询 DOM。
+- **适合 AI**：LLM 能自然解析文本输出。
+
+## 架构
+
+采用客户端-守护进程架构：
+
+1. **Rust CLI**：解析命令并与守护进程通信。
+2. **原生守护进程**：纯 Rust 守护进程，通过 CDP 管理 Chrome。
+
+守护进程会自动启动，并在命令之间保持运行。
+
+## 平台
+
+提供 macOS（ARM64、x64）、Linux（ARM64、x64）和 Windows（x64）的原生 Rust 二进制文件。

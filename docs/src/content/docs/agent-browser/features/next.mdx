@@ -1,0 +1,24 @@
+---
+title: Next.js + Vercel
+description: 在 Next.js 和 Vercel 环境中使用 agent-browser。
+---
+
+# Next.js + Vercel
+
+在 Next.js、Vercel 或 serverless 环境中，通常不能依赖本地持久浏览器。可使用远程 Provider 或自定义 Chromium。
+
+## 使用云 Provider
+
+```bash
+export AGENT_BROWSER_PROVIDER=browserbase
+export BROWSERBASE_API_KEY="your-api-key"
+agent-browser open https://example.com
+```
+
+## 使用自定义 Chromium
+
+```bash
+agent-browser --executable-path /path/to/chromium open https://example.com
+```
+
+serverless 场景可结合 `@sparticuz/chromium` 提供轻量 Chromium。

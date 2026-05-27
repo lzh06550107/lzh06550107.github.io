@@ -1,0 +1,55 @@
+---
+title: 可观测性 Dashboard
+description: 实时查看 agent-browser 会话。
+---
+
+# 可观测性 Dashboard
+
+Dashboard 可实时监控 agent-browser 会话，显示浏览器实时视口和命令活动流。
+
+## 使用
+
+```bash
+agent-browser dashboard start
+agent-browser open example.com
+```
+
+然后打开：
+
+```txt
+http://localhost:4848
+```
+
+所有会话会自动流式传输到 Dashboard，无需额外 flags。
+
+## 自定义流端口
+
+```bash
+AGENT_BROWSER_STREAM_PORT=9223 agent-browser open example.com
+```
+
+也可以运行时控制：
+
+```bash
+agent-browser stream enable --port 9223
+agent-browser stream status
+agent-browser stream disable
+```
+
+## 功能
+
+| 区域 | 说明 |
+|---|---|
+| Live viewport | 实时 JPEG 浏览器画面 |
+| Activity feed | 命令、结果、console 消息时间线 |
+| Session creation | 从 Dashboard 创建本地或云 Provider 会话 |
+| Status bar | 连接状态、视口尺寸和 WebSocket endpoint |
+
+## AI Chat
+
+Dashboard 包含可选 AI Chat 面板，使用 Vercel AI Gateway：
+
+```bash
+export AI_GATEWAY_API_KEY=gw_your_key_here
+agent-browser dashboard start
+```

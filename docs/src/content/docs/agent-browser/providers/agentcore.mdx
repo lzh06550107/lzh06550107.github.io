@@ -1,0 +1,44 @@
+---
+title: AgentCore
+description: 使用 AWS Bedrock AgentCore 云浏览器。
+---
+
+# AgentCore
+
+AWS Bedrock AgentCore 提供带 SigV4 认证的云浏览器会话。适合 AWS 环境或需要 AWS 托管云浏览器的场景。
+
+## 设置
+
+凭据会自动从以下位置解析：
+
+1. 环境变量：`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`
+2. AWS CLI：`aws configure export-credentials`
+
+```bash
+agent-browser -p agentcore open https://example.com
+```
+
+CI 中可使用：
+
+```bash
+export AGENT_BROWSER_PROVIDER=agentcore
+agent-browser open https://example.com
+```
+
+## 配置
+
+| 变量 | 说明 | 默认值 |
+|---|---|---|
+| `AGENTCORE_REGION` | AWS 区域 | `us-east-1` |
+| `AGENTCORE_BROWSER_ID` | 浏览器标识 | `aws.browser.v1` |
+| `AGENTCORE_PROFILE_ID` | 持久状态 profile | 无 |
+| `AGENTCORE_SESSION_TIMEOUT` | 会话超时秒数 | `3600` |
+| `AWS_PROFILE` | AWS CLI profile | `default` |
+
+## 浏览器 Profile
+
+```bash
+AGENTCORE_PROFILE_ID=my-profile agent-browser -p agentcore open https://example.com
+```
+
+设置 profile 后，AgentCore 会自动保存并恢复 cookies、localStorage。
