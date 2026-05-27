@@ -211,7 +211,7 @@ Hermes 会自动检测本地端点（localhost、LAN IP），并放宽其流式�
 
 如果你仍然遇到超时错误（例如在较慢硬件上使用非常大的上下文），可以覆盖流式读取超时时间：
 
-```env
+```bash
 # 在你的 .env 中 —— 从默认 120s 提高到 30 分钟
 HERMES_STREAM_READ_TIMEOUT=1800
 ```

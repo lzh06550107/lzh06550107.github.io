@@ -15,7 +15,7 @@ API 服务器将 `hermes-agent` 暴露为兼容 OpenAI 的 HTTP 端点。任何�
 
 添加到 `~/.hermes/.env`：
 
-```env
+```bash
 API_SERVER_ENABLED=true
 API_SERVER_KEY=change-me-local-dev
 # 可选：仅当浏览器必须直接调用 Hermes 时需要
@@ -369,7 +369,7 @@ API 服务器默认不启用浏览器 CORS。
 
 对于直接浏览器访问，请设置明确的允许列表：
 
-```env
+```bash
 API_SERVER_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 

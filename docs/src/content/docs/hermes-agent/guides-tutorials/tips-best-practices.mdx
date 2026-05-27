@@ -176,7 +176,7 @@ Hermes 会在会话启动时，从当前工作目录加载顶层的 `AGENTS.md`�
 
 在处理不可信仓库或运行不熟悉的代码时，请使用 Docker 或 Daytona 作为你的终端后端。在 `.env` 中设置 `TERMINAL_BACKEND=docker`。容器内的破坏性命令无法伤害你的宿主系统。
 
-```env id="q2jct7"
+```bash id="q2jct7"
 # 在你的 .env 中：
 TERMINAL_BACKEND=docker
 TERMINAL_DOCKER_IMAGE=hermes-sandbox:latest
@@ -217,7 +217,7 @@ Hermes 会在执行前根据一组精选的危险模式检查每个命令。这�
 
 永远不要在拥有终端访问权限的 bot 上设置 `GATEWAY_ALLOW_ALL_USERS=true`。始终使用平台特定的允许列表（`TELEGRAM_ALLOWED_USERS`、`DISCORD_ALLOWED_USERS`）或 DM pairing 来控制谁可以与你的 Agent 交互。
 
-```env id="e7j9m7"
+```bash id="e7j9m7"
 # 推荐：按平台设置显式允许列表
 TELEGRAM_ALLOWED_USERS=123456789,987654321
 DISCORD_ALLOWED_USERS=123456789012345678

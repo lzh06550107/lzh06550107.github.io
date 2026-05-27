@@ -60,7 +60,7 @@ hermes gateway setup
 
 当 Hermes 运行在你的笔记本电脑、工作站或私有服务器上时，使用 WebSocket 模式。不需要公网 URL。官方 Lark SDK 会打开并维护一个持久的出站 WebSocket 连接，并自动重连。
 
-```env
+```bash
 FEISHU_CONNECTION_MODE=websocket
 ```
 
@@ -72,7 +72,7 @@ FEISHU_CONNECTION_MODE=websocket
 
 只有当你已经将 Hermes 运行在一个可访问的 HTTP endpoint 后面时，才使用 webhook 模式。
 
-```env
+```bash
 FEISHU_CONNECTION_MODE=webhook
 ```
 
@@ -86,7 +86,7 @@ FEISHU_CONNECTION_MODE=webhook
 
 你可以自定义 webhook server 的绑定地址和路径：
 
-```env
+```bash
 FEISHU_WEBHOOK_HOST=127.0.0.1   # 默认：127.0.0.1
 FEISHU_WEBHOOK_PORT=8765         # 默认：8765
 FEISHU_WEBHOOK_PATH=/feishu/webhook  # 默认：/feishu/webhook
@@ -108,7 +108,7 @@ hermes gateway setup
 
 将以下内容添加到 `~/.hermes/.env`：
 
-```env
+```bash
 FEISHU_APP_ID=cli_xxx
 FEISHU_APP_SECRET=secret_xxx
 FEISHU_DOMAIN=feishu
@@ -138,7 +138,7 @@ hermes gateway
 
 你也可以预先配置它：
 
-```env
+```bash
 FEISHU_HOME_CHANNEL=oc_xxx
 ```
 
@@ -148,7 +148,7 @@ FEISHU_HOME_CHANNEL=oc_xxx
 
 生产环境使用时，请设置 Feishu Open IDs 的 allowlist：
 
-```env
+```bash
 FEISHU_ALLOWED_USERS=ou_xxx,ou_yyy
 ```
 
@@ -158,7 +158,7 @@ FEISHU_ALLOWED_USERS=ou_xxx,ou_yyy
 
 在 webhook 模式下运行时，请设置 encryption key，以启用对入站 webhook payloads 的签名验证：
 
-```env
+```bash
 FEISHU_ENCRYPT_KEY=your-encrypt-key
 ```
 
@@ -178,7 +178,7 @@ SHA256(timestamp + nonce + encrypt_key + body)
 
 这是额外一层认证，用于检查 webhook payloads 内部的 `token` 字段：
 
-```env
+```bash
 FEISHU_VERIFICATION_TOKEN=your-verification-token
 ```
 
@@ -190,7 +190,7 @@ FEISHU_VERIFICATION_TOKEN=your-verification-token
 
 `FEISHU_GROUP_POLICY` 环境变量控制 Hermes 是否以及如何在群聊中回复：
 
-```env
+```bash
 FEISHU_GROUP_POLICY=allowlist   # 默认
 ```
 
@@ -204,7 +204,7 @@ FEISHU_GROUP_POLICY=allowlist   # 默认
 
 设置 `FEISHU_REQUIRE_MENTION=false` 可以让 Hermes 读取所有群流量，而不要求 @提及：
 
-```env
+```bash
 FEISHU_REQUIRE_MENTION=false
 ```
 
@@ -214,7 +214,7 @@ FEISHU_REQUIRE_MENTION=false
 
 Hermes 会在启动时自动检测 bot 的 `open_id` 和显示名称。只有当自动检测无法访问 Feishu API，或者你的 app 使用 tenant-scoped user IDs 时，才需要手动设置这些：
 
-```env
+```bash
 FEISHU_BOT_OPEN_ID=ou_xxx     # 仅在自动检测失败时使用
 FEISHU_BOT_USER_ID=xxx        # 如果你的 app 使用 sender_id_type=user_id，则需要
 FEISHU_BOT_NAME=MyBot         # 仅在自动检测失败时使用
@@ -224,7 +224,7 @@ FEISHU_BOT_NAME=MyBot         # 仅在自动检测失败时使用
 
 默认情况下，Hermes 会忽略其他 bots 发送的消息。当你希望 Hermes 参与 A2A 编排，或接收同一群组中其他 bots 的通知时，可以启用 bot-to-bot messaging。
 
-```env
+```bash
 FEISHU_ALLOW_BOTS=mentions   # 默认：none
 ```
 

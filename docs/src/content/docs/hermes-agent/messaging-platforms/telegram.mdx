@@ -100,7 +100,7 @@ hermes gateway setup
 
 将以下内容添加至 `~/.hermes/.env` 中：
 
-```env
+```bash
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
 TELEGRAM_ALLOWED_USERS=123456789    # 多个用户请用逗号分隔
 ```
@@ -172,7 +172,7 @@ terminal:
 
 将以下内容添加至 `~/.hermes/.env` 中：
 
-```env
+```bash
 TELEGRAM_WEBHOOK_URL=https://my-app.fly.dev/telegram
 TELEGRAM_WEBHOOK_SECRET="$(openssl rand -hex 32)"  # 必填
 # TELEGRAM_WEBHOOK_PORT=8443        # 选填，默认 8443
@@ -228,7 +228,7 @@ telegram:
 
 ### 选项 2：环境变量
 
-```env
+```bash
 TELEGRAM_PROXY=socks5://127.0.0.1:1080
 ```
 
@@ -242,7 +242,7 @@ TELEGRAM_PROXY=socks5://127.0.0.1:1080
 
 您也可以在 `~/.hermes/.env` 中手动进行设置：
 
-```env
+```bash
 TELEGRAM_HOME_CHANNEL=-1001234567890
 TELEGRAM_HOME_CHANNEL_NAME="My Notes"
 ```
@@ -668,7 +668,7 @@ gateway:
 
 等效的环境变量：
 
-```env
+```bash
 TELEGRAM_ALLOWED_USERS="123456789"
 TELEGRAM_GROUP_ALLOWED_USERS="987654321"
 TELEGRAM_GROUP_ALLOWED_CHATS="-1001234567890"
@@ -686,7 +686,7 @@ TELEGRAM_GROUP_ALLOWED_CHATS="-1001234567890"
 
 在此次分离之前，`TELEGRAM_GROUP_ALLOWED_USERS` 是唯一的调节开关，用户会将**聊天 ID**填入其中。为了保持向后兼容性，在 `TELEGRAM_GROUP_ALLOWED_USERS` 中形如聊天 ID 的值（以 `-` 开头）仍会被视作聊天 ID 处理，并会记录一次弃用警告。迁移示例：
 
-```env
+```bash
 # 旧版本（仍有效，但已弃用）
 TELEGRAM_GROUP_ALLOWED_USERS="-1001234567890"
 
@@ -765,7 +765,7 @@ gateway:
 
 ### 配置 (Configuration)
 
-```env
+```bash
 # 显式指定后备 IP（用逗号分隔）
 TELEGRAM_FALLBACK_IPS=149.154.167.220,149.154.167.221
 ```
@@ -808,7 +808,7 @@ hermes gateway
 
 或者将其添加至 `~/.hermes/.env` 中：
 
-```env
+```bash
 HTTPS_PROXY=http://proxy.example.com:8080
 ```
 
@@ -835,7 +835,7 @@ telegram:
 
 或者通过环境变量启用：
 
-```env
+```bash
 TELEGRAM_REACTIONS=true
 ```
 

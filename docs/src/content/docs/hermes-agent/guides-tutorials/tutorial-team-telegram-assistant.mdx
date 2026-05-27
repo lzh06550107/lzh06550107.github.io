@@ -96,7 +96,7 @@ hermes gateway setup
 
 将以下内容添加到 `~/.hermes/.env`：
 
-```env
+```bash
 # 来自 BotFather 的 Telegram bot token
 TELEGRAM_BOT_TOKEN=7123456789:AAH1bGciOiJSUzI1NiIsInR5cCI6Ikp...
 
@@ -191,7 +191,7 @@ hermes gateway status
 
 收集每位团队成员的 Telegram user ID（让他们给 `@userinfobot` 发送消息），并将它们作为逗号分隔列表添加：
 
-```env
+```bash
 # 在 ~/.hermes/.env 中
 TELEGRAM_ALLOWED_USERS=123456789,987654321,555555555
 ```
@@ -258,7 +258,7 @@ Home channel 是 bot 投递 cron job 结果和主动消息的地方。没有它�
 
 选项 2：在 `~/.hermes/.env` 中手动设置：
 
-```env
+```bash
 TELEGRAM_HOME_CHANNEL=-1001234567890
 TELEGRAM_HOME_CHANNEL_NAME="Team Updates"
 ```
@@ -364,7 +364,7 @@ Cron job prompts 会在完全全新的 sessions 中运行，不会记住之前�
 
 在共享团队 bot 上，使用 Docker 作为 terminal backend，这样 agent 命令会在容器中运行，而不是在你的宿主机上运行：
 
-```env
+```bash
 # 在 ~/.hermes/.env 中
 TERMINAL_BACKEND=docker
 TERMINAL_DOCKER_IMAGE=nikolaik/python-nodejs:python3.11-nodejs20
