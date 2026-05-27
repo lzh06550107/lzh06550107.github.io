@@ -1,0 +1,56 @@
+---
+title: "快速开始"
+description: "几分钟内构建第一个 Agent。"
+---
+
+
+本页展示如何在几分钟内创建一个可运行的 AI Agent。
+
+## 安装依赖
+
+```bash
+uv init
+uv add langchain deepagents
+uv sync
+```
+
+或使用 pip：
+
+```bash
+pip install -U langchain deepagents
+```
+
+## 设置 API Key
+
+```bash
+export OPENAI_API_KEY="your-api-key"
+export GOOGLE_API_KEY="your-api-key"
+export ANTHROPIC_API_KEY="your-api-key"
+```
+
+## 构建基础 Agent
+
+```python
+from langchain.agents import create_agent
+
+
+def get_weather(city: str) -> str:
+    """Get weather for a given city."""
+    return f"It's always sunny in {city}!"
+
+
+agent = create_agent(
+    model="openai:gpt-5.4",
+    tools=[get_weather],
+    system_prompt="You are a helpful assistant",
+)
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "What's the weather in San Francisco?"}]}
+)
+print(result["messages"][-1].content_blocks)
+```
+
+## 下一步
+
+继续学习工具、模型、消息、短期记忆、流式输出和结构化输出等核心组件。

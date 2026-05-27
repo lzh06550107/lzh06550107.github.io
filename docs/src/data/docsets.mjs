@@ -540,6 +540,32 @@ export const docsets = [
                 link: '/agent-browser/changelog/',
             },
         ]
+    },
+    {
+    id: 'langchain',
+    title: 'LangChain Python',
+    cardLabel: 'LangChain Python 文档集',
+    description: 'LangChain Python 官方文档的简体中文 Starlight 版本，覆盖概览、快速开始、核心组件、Middleware、Frontend、高级用法、Agent 开发与部署。',
+    landing: '/langchain/',
+    ctaLabel: '进入 LangChain 文档',
+    featuredLinks: [
+        { label: '概览', href: '/langchain/' },
+        { label: '安装', href: '/langchain/get-started/install/' },
+        { label: '快速开始', href: '/langchain/get-started/quickstart/' },
+        { label: 'Agents', href: '/langchain/core-components/agents/' },
+    ],
+    sections: [
+        { label: 'LangChain 概览', link: '/langchain/' },
+        { label: 'Get started', autogenerate: { directory: 'langchain/get-started' } },
+        { label: 'Core components', autogenerate: { directory: 'langchain/core-components' } },
+        { label: 'Middleware', autogenerate: { directory: 'langchain/middleware' } },
+        { label: 'Frontend', autogenerate: { directory: 'langchain/frontend' } },
+        { label: 'Advanced usage', autogenerate: { directory: 'langchain/advanced' } },
+        { label: 'Multi-agent', autogenerate: { directory: 'langchain/multi-agent' } },
+        { label: 'Agent development', autogenerate: { directory: 'langchain/agent-development' } },
+        { label: 'Deploy with LangSmith', autogenerate: { directory: 'langchain/deploy' } },
+        { label: 'Examples', autogenerate: { directory: 'langchain/examples' } },
+    ],
     }
 ];
 
@@ -551,6 +577,13 @@ export function buildDocsetSidebar() {
                 return {
                     label: section.label,
                     items: section.items,
+                };
+            }
+
+            if (section.autogenerate) {
+                return {
+                    label: section.label,
+                    autogenerate: section.autogenerate,
                 };
             }
 

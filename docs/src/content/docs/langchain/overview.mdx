@@ -1,0 +1,61 @@
+---
+title: "LangChain 概览"
+description: "LangChain 提供 create_agent：一个极简且高度可配置的 Agent 运行框架，可组合模型、工具、提示词和中间件。"
+---
+
+
+LangChain 提供 `create_agent`：一个极简、可高度配置的 Agent harness。你可以从模型、工具、提示词和中间件开始，组合出刚好满足业务需求的 Agent。
+
+> 官方文档建议通过 `llms.txt` 获取完整文档索引，用于发现全部可用页面。
+
+## Agent = Model + Harness
+
+在 LangChain 中，Agent 可以理解为：
+
+```txt
+Agent = Model + Harness
+```
+
+其中 harness 指围绕模型循环的一切：提示词、工具，以及影响行为的 middleware。
+
+## 创建 Agent
+
+```python
+# pip install -qU langchain "langchain[openai]"
+from langchain.agents import create_agent
+
+
+def get_weather(city: str) -> str:
+    """Get weather for a given city."""
+    return f"It's always sunny in {city}!"
+
+
+agent = create_agent(
+    model="openai:gpt-5.4",
+    tools=[get_weather],
+    system_prompt="You are a helpful assistant",
+)
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "What's the weather in San Francisco?"}]}
+)
+print(result["messages"][-1].content_blocks)
+```
+
+## 核心优势
+
+### 标准模型接口
+
+不同模型供应商的 API 和响应格式不完全一致。LangChain 会标准化模型交互方式，让你更容易切换 provider，降低锁定风险。
+
+### 高度可配置的 Agent 框架
+
+`create_agent` 只保留最小核心：model、tools、prompt、loop。你可以用 middleware 对每一步进行扩展。
+
+### 构建在 LangGraph 之上
+
+LangChain Agent 基于 LangGraph 构建，因此可以利用持久执行、人机协作、状态持久化等能力。
+
+### 使用 LangSmith 调试
+
+LangSmith 可以追踪请求、调试 Agent 行为并评估输出。

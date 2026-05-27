@@ -1,0 +1,34 @@
+---
+title: "安装 LangChain"
+description: "安装 LangChain 核心包和 provider 集成包。"
+---
+
+
+## 安装 LangChain
+
+使用 pip 安装：
+
+```bash
+pip install -U langchain
+# Requires Python 3.10+
+```
+
+如果你使用 `uv`：
+
+```bash
+uv add langchain
+```
+
+## 安装模型供应商集成
+
+LangChain 的模型和工具集成通常拆分在独立 provider 包中。
+
+```bash
+# OpenAI 集成
+pip install -U langchain-openai
+
+# Anthropic 集成
+pip install -U langchain-anthropic
+```
+
+安装完成后，可以继续阅读快速开始，创建你的第一个 Agent。
