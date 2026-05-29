@@ -1,0 +1,45 @@
+---
+title: Agent Chat UI
+description: 为 LangGraph 应用接入聊天 UI
+---
+
+# Agent Chat UI
+
+> 本页根据 LangChain 官方 Python LangGraph 文档整理为 Astro Starlight MDX。
+> 原文：[Agent Chat UI](https://docs.langchain.com/oss/python/langgraph/ui.md)
+
+## 页面定位
+
+为 LangGraph 应用接入聊天 UI。
+
+## 核心要点
+
+- LangGraph 面向长时间运行、有状态、需要可靠编排的智能体和工作流。
+- 它强调可控的状态流转、节点执行、持久化、流式输出和人工介入。
+- 在生产环境中，通常会与 LangSmith 的调试、可观测性、部署和评估能力配合使用。
+
+## 适用场景
+
+- 需要跨多轮会话保存状态的智能体。
+- 需要失败恢复、重试、中断恢复或长任务执行的流程。
+- 需要人工审批、人工输入或人机协作的 Agent 工作流。
+- 需要显式控制执行路径，而不是只依赖一次性 LLM 调用的应用。
+
+## 示例结构
+
+```python
+from langgraph.graph import StateGraph, MessagesState, START, END
+
+def node(state: MessagesState):
+    return {"messages": [{"role": "ai", "content": "hello world"}]}
+
+graph = StateGraph(MessagesState)
+graph.add_node(node)
+graph.add_edge(START, "node")
+graph.add_edge("node", END)
+app = graph.compile()
+```
+
+## 阅读建议
+
+建议先阅读「概览」「安装」「快速开始」，再根据需求进入 Capabilities、Production、Frontend 或 LangGraph APIs 章节。

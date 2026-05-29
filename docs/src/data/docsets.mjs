@@ -566,6 +566,84 @@ export const docsets = [
         { label: 'Deploy with LangSmith', autogenerate: { directory: 'langchain/deploy' } },
         { label: 'Examples', autogenerate: { directory: 'langchain/examples' } },
     ],
+    },
+    {
+        id: 'langgraph',
+        title: 'LangGraph',
+        cardLabel: 'LangGraph 文档集',
+        description: 'LangGraph Python 官方文档的简体中文 Starlight 版本，覆盖入门、核心能力、生产部署、前端和 API 使用。',
+        landing: '/langgraph/',
+        ctaLabel: '进入 LangGraph 文档',
+        featuredLinks: [
+            { label: '概览', href: '/langgraph/' },
+            { label: '快速开始', href: '/langgraph/quickstart/' },
+            { label: '持久化', href: '/langgraph/persistence/' },
+            { label: 'Graph API', href: '/langgraph/graph-api/' },
+        ],
+        sections: [
+            {
+                label: 'Get started',
+                items: [
+                    { label: '安装 LangGraph', link: '/langgraph/install/' },
+                    { label: '快速开始', link: '/langgraph/quickstart/' },
+                    { label: '运行本地服务器', link: '/langgraph/local-server/' },
+                    { label: '更新日志', link: '/langgraph/changelog-py/' },
+                    { label: '以 LangGraph 的方式思考', link: '/langgraph/thinking-in-langgraph/' },
+                    { label: '工作流与智能体', link: '/langgraph/workflows-agents/' },
+                ],
+            },
+            {
+                label: 'Capabilities',
+                items: [
+                    { label: '持久化', link: '/langgraph/persistence/' },
+                    { label: '容错', link: '/langgraph/fault-tolerance/' },
+                    { label: '事件流', link: '/langgraph/event-streaming/' },
+                    { label: '流式输出', link: '/langgraph/streaming/' },
+                    { label: '中断与人工介入', link: '/langgraph/interrupts/' },
+                    { label: '时间旅行', link: '/langgraph/use-time-travel/' },
+                    { label: '记忆', link: '/langgraph/add-memory/' },
+                    { label: '子图', link: '/langgraph/use-subgraphs/' },
+                ],
+            },
+            {
+                label: 'Production',
+                items: [
+                    { label: '应用结构', link: '/langgraph/application-structure/' },
+                    { label: '测试', link: '/langgraph/test/' },
+                    { label: '向后兼容', link: '/langgraph/backward-compatibility/' },
+                    { label: 'LangSmith Studio', link: '/langgraph/studio/' },
+                    { label: 'Agent Chat UI', link: '/langgraph/ui/' },
+                    { label: 'LangSmith 部署', link: '/langgraph/deploy/' },
+                    { label: 'LangSmith 可观测性', link: '/langgraph/observability/' },
+                ],
+            },
+            {
+                label: 'Frontend',
+                items: [
+                    { label: '前端概览', link: '/langgraph/frontend/overview/' },
+                    { label: '图执行可视化', link: '/langgraph/frontend/graph-execution/' },
+                ],
+            },
+            {
+                label: 'LangGraph APIs',
+                items: [
+                    { label: 'Graph API 概览', link: '/langgraph/graph-api/' },
+                    { label: 'Functional API 概览', link: '/langgraph/functional-api/' },
+                    { label: 'LangGraph Runtime', link: '/langgraph/pregel/' },
+                    { label: '使用 Graph API', link: '/langgraph/use-graph-api/' },
+                    { label: '使用 Functional API', link: '/langgraph/use-functional-api/' },
+                    { label: '选择 Graph API 还是 Functional API', link: '/langgraph/choosing-apis/' },
+                ],
+            },
+            {
+                label: 'Guides',
+                items: [
+                    { label: '构建自定义 RAG 智能体', link: '/langgraph/agentic-rag/' },
+                    { label: '构建自定义 SQL 智能体', link: '/langgraph/sql-agent/' },
+                    { label: '案例研究', link: '/langgraph/case-studies/' },
+                ],
+            },
+        ],
     }
 ];
 

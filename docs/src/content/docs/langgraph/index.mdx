@@ -1,0 +1,34 @@
+---
+title: LangGraph
+description: LangGraph 是一个用于构建有状态、多角色 LLM 应用的底层框架，专注于可控的智能体与工作流编排。
+---
+
+# LangGraph
+
+LangGraph 是一个用于构建有状态、多角色 LLM 应用的底层框架。它提供了图结构的执行模型，让你可以精确控制 Agent 的状态流转、节点执行、持久化和人工介入。
+
+## 核心特性
+
+- **StateGraph** — 基于状态图的显式执行模型，精确控制流程
+- **Persistence（持久化）** — 支持长时间运行任务的跨会话状态保存
+- **Fault Tolerance（容错）** — 失败恢复、重试和中断恢复能力
+- **Streaming（流式）** — 实时流式传输节点执行和 LLM 输出
+- **Human-in-the-Loop（人工介入）** — 支持审批、输入和人机协作
+- **Memory（记忆）** — 跨会话短期和长期记忆管理
+
+## 快速开始
+
+```bash
+pip install langgraph
+```
+
+更多安装和快速入门说明，参见 [安装](/langgraph/install/) 和 [快速开始](/langgraph/quickstart/) 页面。
+
+## 文档结构
+
+- **Get started** — 安装、快速开始、本地服务器、LangGraph 式思维、工作流与智能体
+- **Capabilities** — 持久化、容错、事件流、流式输出、中断、时间旅行、记忆、子图
+- **Production** — 应用结构、测试、向后兼容、Studio、Agent Chat UI、部署、可观测性
+- **Frontend** — 前端概览、图执行可视化
+- **LangGraph APIs** — Graph API、Functional API、Pregel Runtime、API 选择
+- **Guides** — Agentic RAG、SQL Agent、案例研究
