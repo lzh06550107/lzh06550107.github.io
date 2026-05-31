@@ -1,0 +1,14 @@
+---
+title: Python 接口
+description: Camoufox Python 封装
+---
+
+# Python 接口
+
+#### 对 Playwright API 的轻量封装，用于帮助启动 Camoufox。🚀
+
+Camoufox 的 Python 库围绕 Playwright API 进行了封装，用于自动生成并注入唯一设备特征到 Camoufox 中，例如操作系统、设备信息、navigator、字体、请求头、屏幕/视口尺寸、插件等。
+
+底层使用 BrowserForge 生成指纹，以模拟现实世界流量中设备特征的统计分布。
+
+此外，它还会计算您的目标地理位置、时区和语言区域，以避免代理检测。

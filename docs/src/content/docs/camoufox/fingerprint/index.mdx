@@ -1,0 +1,37 @@
+---
+title: 指纹注入
+description: Camoufox 指纹注入概览
+---
+
+在 Camoufox 中，数据是在 C++ 实现层被拦截的，这使得通过 JavaScript 检查无法检测到这些更改。
+
+要欺骗指纹属性，请将包含要欺骗属性的 JSON 传递给 [Python 接口](https://github.com/daijro/camoufox/tree/main/pythonlib#camoufox-python-interface)：
+
+```py
+>>> with Camoufox(config={"property": "value"}) as browser:
+```
+
+未由用户设置的配置数据将使用 [BrowserForge](https://github.com/daijro/browserforge) 指纹自动填充，这些指纹模拟了现实世界流量中设备特征的统计分布。
+
+:::note
+Camoufox **不**支持注入 Chromium 指纹。任何合格的 WAF（Web 应用防火墙）都会测试 V8 引擎特有的 JavaScript 行为，而这是无法欺骗的。
+:::
+
+## 开始使用 (Getting started)
+
+Camoufox 接受以下属性：
+
+[!ref 导航器 (Navigator)](https://www.google.com/search?q=/fingerprint/navigator.md)
+[!ref 光标移动 (Cursor Movement)](https://www.google.com/search?q=/fingerprint/cursor-movement.md)
+[!ref 字体 (Fonts)](https://www.google.com/search?q=/fingerprint/fonts.md)
+[!ref 屏幕 (Screen)](https://www.google.com/search?q=/fingerprint/screen.md)
+[!ref 窗口 (Window)](https://www.google.com/search?q=/fingerprint/window.md)
+[!ref 文档 (Document)](https://www.google.com/search?q=/fingerprint/document.md)
+[!ref HTTP 请求头 (HTTP Headers)](https://www.google.com/search?q=/fingerprint/headers.md)
+[!ref 地理位置与语言区域 (Geolocation & Intl)](https://www.google.com/search?q=/fingerprint/geolocation.md)
+[!ref WebRTC IP](https://www.google.com/search?q=/fingerprint/webrtc.md)
+[!ref WebGL](https://www.google.com/search?q=/fingerprint/webgl.md)
+[!ref stream媒体与音频 (Media & Audio)](https://www.google.com/search?q=/fingerprint/media-audio.md)
+[!ref 声音 (Voices)](https://www.google.com/search?q=/fingerprint/voices.md)
+[!ref 扩展插件 (Addons)](https://www.google.com/search?q=/fingerprint/addons.md)
+[!ref 杂项 (Miscellaneous)](https://www.google.com/search?q=/fingerprint/miscellaneous.md)

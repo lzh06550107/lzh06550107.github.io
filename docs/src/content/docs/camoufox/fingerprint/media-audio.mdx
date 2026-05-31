@@ -1,0 +1,28 @@
+---
+title: Media & Audio
+description: Media & Audio 相关伪装
+---
+
+## 媒体设备 (Media Devices)
+
+欺骗可用的麦克风、摄像头和扬声器的数量。
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) | 默认值 (Default) |
+| --- | --- | --- | --- |
+| `mediaDevices:enabled` | bool | 是否启用媒体设备欺骗 | `false` |
+| `mediaDevices:micros` | uint | 麦克风数量 | `3` |
+| `mediaDevices:webcams` | uint | 摄像头数量 | `1` |
+| `mediaDevices:speakers` | uint | 扬声器数量 | `1` |
+
+## 音频上下文 (AudioContext)
+
+欺骗 AudioContext 的采样率（sample rate）、输出延迟（output latency）和最大通道数（max channel count）。
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) |
+| --- | --- | --- |
+| `AudioContext:sampleRate` | uint | AudioContext 采样率 |
+| `AudioContext:outputLatency` | double | AudioContext 输出延迟 |
+| `AudioContext:maxChannelCount` | uint | AudioContext 最大通道数 |
+
+[!ref 测试网站](https://audiofingerprint.openwpm.com/)
+

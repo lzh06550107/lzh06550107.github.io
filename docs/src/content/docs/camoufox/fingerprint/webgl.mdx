@@ -1,0 +1,38 @@
+---
+title: WebGL
+description: WebGL 指纹伪装
+---
+
+:::note[研究]
+随着越来越多的用户访问该站点并选择帮助 Camoufox 进行 WebGL 研究，系统将能够为每一种 GPU 参数、支持扩展、上下文属性和着色器精度格式建立更可靠的画像。
+:::
+
+## 演示站点
+
+仓库中包含一个 [演示站点](https://camoufox.com/tests/webgl)，会打印你的浏览器 WebGL 参数。你可以利用该站点从其他设备生成 Camoufox 所需的 WebGL 指纹。
+
+## 属性
+
+Camoufox 支持伪装 WebGL 参数、支持的扩展、上下文属性与着色器精度格式。
+
+:::warning
+**不要** 随机分配这些属性的值。WAF 会对你的 WebGL 指纹做哈希并与数据集比对。随机赋值会导致你被识别为未知设备。
+:::
+
+| 属性 | 说明 | 示例 |
+|---|---|---|
+| `webGl:renderer` | 伪装未屏蔽的 WebGL renderer 名称 | `"NVIDIA GeForce GTX 980, or similar"` |
+| `webGl:vendor` | 伪装未屏蔽的 WebGL vendor 名称 | `"NVIDIA Corporation"` |
+| `webGl:supportedExtensions` | 支持的 WebGL 扩展数组 | `["ANGLE_instanced_arrays", "EXT_color_buffer_float"]` |
+| `webGl2:supportedExtensions` | WebGL2 支持的扩展数组 | `["ANGLE_instanced_arrays", "EXT_color_buffer_float"]` |
+| `webGl:contextAttributes` | WebGL 上下文属性字典 | `{"alpha": true, "antialias": true, "depth": true}` |
+| `webGl2:contextAttributes` | WebGL2 上下文属性字典 | `{"alpha": true, "antialias": true, "depth": true}` |
+| `webGl:parameters` | WebGL 参数字典 | `{"2849": 1, "2884": false}` |
+| `webGl2:parameters` | WebGL2 参数字典 | `{"2849": 1, "2884": false}` |
+| `webGl:parameters:blockIfNotDefined` | 若为 `true`，仅允许 `webGl:parameters` 中定义的参数 | `true` / `false` |
+| `webGl2:parameters:blockIfNotDefined` | 若为 `true`，仅允许 `webGl2:parameters` 中定义的参数 | `true` / `false` |
+| `webGl:shaderPrecisionFormats` | WebGL 着色器精度格式字典 | `{"35633,36336": {"rangeMin": 127, "rangeMax": 127, "precision": 23}}` |
+| `webGl2:shaderPrecisionFormats` | WebGL2 着色器精度格式字典 | `{"35633,36336": {"rangeMin": 127, "rangeMax": 127, "precision": 23}}` |
+| `webGl:shaderPrecisionFormats:blockIfNotDefined` | 若为 `true`，仅允许已定义的 shader precision | `true` / `false` |
+| `webGl2:shaderPrecisionFormats:blockIfNotDefined` | 若为 `true`，仅允许已定义的 shader precision | `true` / `false` |
+

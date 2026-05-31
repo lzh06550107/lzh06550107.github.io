@@ -1,0 +1,38 @@
+---
+title: Navigator
+description: Navigator 相关伪装
+---
+
+Navigator 属性可以完全欺骗为其他的 Firefox 指纹，并且这是 **完全安全** 的！
+
+## 属性 (Properties)
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) |
+| --- | --- | --- |
+| `navigator.userAgent` | str | 浏览器和系统信息 |
+| `navigator.doNotTrack` | str | 用户的追踪偏好设置 |
+| `navigator.appCodeName` | str | 浏览器的代号 |
+| `navigator.appName` | str | 浏览器的名称 |
+| `navigator.appVersion` | str | 浏览器的版本 |
+| `navigator.oscpu` | str | 操作系统和 CPU 信息 |
+| `navigator.language` | str | 用户首选的语言 |
+| `navigator.languages` | array | 用户首选的语言列表 |
+| `navigator.platform` | str | 运行浏览器的平台 |
+| `navigator.hardwareConcurrency` | uint | 逻辑处理器的数量 |
+| `navigator.product` | str | 浏览器的产品名称 |
+| `navigator.productSub` | str | 浏览器的构建版本号 |
+| `navigator.maxTouchPoints` | uint | 支持的最大同时触摸点数 |
+| `navigator.cookieEnabled` | bool | 是否启用了 Cookie |
+| `navigator.globalPrivacyControl` | bool | 用户的全局隐私控制偏好设置 |
+| `navigator.buildID` | str | 浏览器的构建标识符 |
+| `navigator.onLine` | bool | 浏览器是否在线 |
+
+:::note
+* **navigator.webdriver** 在任何时候都会被设置为 false。
+* 如果未设置 `navigator.language` 和 `navigator.languages`，它们将回退到 `locale:language`/`locale:region` 的值。
+* 当欺骗 Chrome 指纹时，以下内容可能会发生泄漏：
+    * `navigator.userAgentData` 缺失。
+    * `navigator.deviceMemory` 缺失。
+* 更改所呈现的 Firefox 版本可能会被某些测试网站检测到，但通常不会被生产环境的 WAF（Web 应用防火墙）标记。
+:::
+

@@ -1,0 +1,21 @@
+---
+title: 杂项
+description: 杂项相关伪装
+---
+
+欺骗电池状态和 PDF 查看器。
+
+## 属性 (Properties)
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) |
+| --- | --- | --- |
+| `pdfViewerEnabled` | bool | 设置 `navigator.pdfViewerEnabled`。不过请保持此项开启，因为许多网站会将缺失 PDF 查看器标记为无头（headless）浏览器。 |
+| `battery:charging` | bool | 电池充电状态 |
+| `battery:chargingTime` | double | 电池充满电所需时间 |
+| `battery:dischargingTime` | double | 电池电量耗尽所需时间 |
+| `battery:level` | double | 电池电量级别 |
+
+:::note
+请保持 pdfViewer 开启，因为许多网站会将缺失 PDF 查看器标记为无头（headless）浏览器。
+:::
+

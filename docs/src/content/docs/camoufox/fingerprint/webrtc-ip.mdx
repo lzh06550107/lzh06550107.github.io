@@ -1,0 +1,17 @@
+---
+title: webrtc IP
+description: webrtc IP 相关伪装
+---
+
+Camoufox 通过在发送前修改 ICE 候选者（ICE candidates）和 SDP，在协议层实现了 WebRTC IP 欺骗。
+
+## 属性 (Properties)
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) |
+| --- | --- | --- |
+| `webrtc:ipv4` | str | 要使用的 IPv4 地址 |
+| `webrtc:ipv6` | str | 要使用的 IPv6 地址 |
+
+:::note
+要彻底禁用 WebRTC，请将 `media.peerconnection.enabled` 首选项设置为 `false`。
+:::

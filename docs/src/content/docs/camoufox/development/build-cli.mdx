@@ -1,0 +1,55 @@
+---
+title: 在 CLI 中构建
+description: 在 Linux 上通过命令行构建 Camoufox
+---
+
+:::warning
+Camoufox 的构建系统设计为在 Linux 上使用。**WSL 不可用。**
+:::
+
+首先，使用 Git 克隆仓库：
+
+```bash
+git clone --depth 1 https://github.com/daijro/camoufox
+cd camoufox
+```
+
+接着，使用以下命令构建 Camoufox 源代码：
+
+```bash
+make dir
+```
+
+之后，你需要引导系统以便能够进行构建。这个步骤只需做一次：
+
+```bash
+make bootstrap
+```
+
+最后，你可以使用以下命令构建并打包 Camoufox：
+
+```bash
+python3 multibuild.py --target linux windows macos --arch x86_64 arm64 i686
+```
+
+## CLI 参数
+
+- `-h, --help`：显示帮助信息并退出
+- `--target {linux,windows,macos}`：要构建的目标平台
+- `--arch {x86_64,arm64,i686}`：每个目标平台要构建的架构
+- `--bootstrap`：引导构建系统
+- `--clean`：构建前清理构建目录
+
+```bash
+Options:
+  -h, --help            show this help message and exit
+  --target {linux,windows,macos} [{linux,windows,macos} ...]
+                        Target platforms to build
+  --arch {x86_64,arm64,i686} [{x86_64,arm64,i686} ...]
+                        Target architectures to build for each platform
+  --bootstrap           Bootstrap the build system
+  --clean               Clean the build directory before starting
+
+Example:
+$ python3 multibuild.py --target linux windows macos --arch x86_64 arm64
+```

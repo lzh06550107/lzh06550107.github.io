@@ -1,0 +1,63 @@
+---
+title: 介绍
+description: Camoufox 文档首页
+---
+
+# 介绍
+
+> 2026 年新版本警告！
+
+Camoufox 目前正在积极开发中，以恢复到其原有性能。最新版本高度实验性，可能包含破坏性变更。预览版可用，但并不稳定，也不适合生产环境。
+
+## 特性
+
+- 为 AI 智能体而构建
+  - 即插即用兼容 Playwright，可与任何自动化技术栈配合使用
+  - 以无头模式优先，内存占用低于 200MB
+  - 无 CSS 动画，也没有遥测噪音，能为 LLM 提供更干净的 DOM
+- 天生不可检测
+  - 详见“隐身”页面
+- 指纹注入与轮换（无需 JavaScript 注入）
+  - 所有 navigator 属性（设备、操作系统、硬件、浏览器等）
+  - 屏幕尺寸、分辨率、窗口与视口属性
+  - 地理位置、时区、区域设置与 Intl 伪装
+  - 在协议层伪装 WebRTC IP
+  - 语音、语音播放速率等
+  - 以及更多！
+- 图形指纹防护
+  - WebGL 参数、支持的扩展、上下文属性与着色器精度格式
+  - 字体伪装与反指纹追踪
+- 体验增强特性
+  - 类人鼠标移动
+  - 屏蔽与绕过广告
+  - 无 CSS 动画
+- 移除臃肿内容并优化内存效率
+- 提供 PyPI 包用于更新与自动指纹注入
+- 跟进最新 Firefox 版本
+
+## 设计与实现
+
+Camoufox 围绕三项原则构建，使其成为大规模运行 AI 智能体时合适的浏览器层。
+
+### 1. 轻量
+
+AI 自动化需要并行运行多个智能体。Camoufox 是一个经过瘦身的 Firefox 构建，移除了遥测、后台服务与 UI 开销，运行内存约为 200MB，而 Chrome 往往在 800MB 以上。
+
+### 2. 难以检测
+
+Camoufox 在 C++ 实现层修改指纹数据，而不是通过 JavaScript 注入完成；后者会留下可检测痕迹。它基于 Firefox，并借鉴了 Tor Project、Arkenfox 与 CreepJS 的研究，在属性到达网页之前就拦截 navigator、WebGL、screen、fonts、WebRTC 等内容。Playwright 的内部 Page Agent 运行在隔离沙箱世界中，因此几乎不可能通过页面 JavaScript 发现自动化痕迹。
+
+### 3. 一致性
+
+真实的指纹必须在内部保持一致。比如 Windows 的 User-Agent 却配上 Apple GPU，或者桌面浏览器却使用移动设备分辨率，都会立刻被标记。Camoufox 使用 BrowserForge 轮换与现实流量分布相匹配的设备特征，确保每个会话都像一个合理的人类用户。
+
+## 为什么选择 Firefox 而不是 Chromium？
+
+1. Chrome 自带某些 Chromium 没有的特性。反机器人提供商可以识别你使用的是 Chromium 而不是 Chrome。由于 Chrome 闭源，修补它也更困难。
+2. CDP 更常见、更广泛使用，因此更容易成为反机器人系统的检测目标。
+3. Juggler 的工作层级比 CDP 更低，不容易出现 JavaScript 泄漏。
+4. Firefox 更适合做指纹轮换。针对 Firefox 抗指纹追踪的研究比 Chromium 更多。
+
+## Camoufox 是否开源？
+
+截至 v146.0.1-beta.25（2026 年 1 月），Camoufox 的全部源代码都已公开。未来某些补丁可能会再次闭源，但已经开源的代码始终可以自行构建。不过，v135.0.1-beta.24 及更低版本的官方 GitHub release 中包含一个闭源 Canvas 补丁；你仍然可以在不使用该补丁的前提下自行构建。

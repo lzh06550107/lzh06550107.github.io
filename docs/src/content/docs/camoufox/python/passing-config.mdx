@@ -1,0 +1,26 @@
+---
+title: 传递配置
+description: 通过 config 参数覆盖 Camoufox 配置
+---
+
+如果需要，可以通过 `config` 参数以字典形式覆盖/传入 Camoufox 的 `config` 数据。这可用于启用那些尚未在 Python 库中实现的功能。
+
+ 
+:::warning
+不推荐这样做，因为 Camoufox 会自动为你填充这些数据。更合适的用法请参见参数列表。
+:::
+
+```python
+from camoufox.sync_api import Camoufox
+
+with Camoufox(
+    config={
+        'webrtc:ipv4': '123.45.67.89',
+        'webrtc:ipv6': 'e791:d37a:88f6:48d1:2cad:2667:4582:1d6d',
+    }
+) as browser:
+    page = browser.new_page()
+    page.goto("https://www.browserscan.net/webrtc")
+```
+
+如果您正在手动设置 Python 库内部处理的属性，Camoufox 将会发出警告。

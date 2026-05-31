@@ -1,0 +1,64 @@
+---
+title: 远程服务器
+description: Camoufox 可以作为一个远程 WebSocket 服务器运行
+---
+
+:::warning
+警告！此功能目前处于实验性阶段。它使用了一种黑客式的变通方案（workaround）来获取对未公开的 Playwright 方法的访问权限。
+:::
+
+Camoufox 可以作为一个远程 WebSocket 服务器运行。它可以从其他设备以及除 Python 之外支持 Playwright API 的语言中进行访问。
+
+## 启动 (Launching)
+
+要启动远程服务器，请运行以下 CLI 命令：
+
+```bash
+python -m camoufox server
+```
+
+或者，通过启动脚本来配置服务器：
+
+```python
+from camoufox.server import launch_server
+
+launch_server(
+    headless=True,
+    geoip=True,
+    proxy={
+        'server': 'http://example.com:8080',
+        'username': 'username',
+        'password': 'password'
+    },
+    port=1234,
+    ws_path='hello'
+)
+```
+
+服务器的端口和 URL 路径将使用 `port` 和 `ws_path` 参数进行定义，如果未定义，则会随机生成。
+
+```
+Websocket endpoint: ws://localhost:1234/hello 
+```
+
+同时还支持以下所有参数：
+
+[!ref 查看参数列表](https://www.google.com/search?q=/python/usage%23parameters-list)
+
+## 连接 (Connecting)
+
+要连接到远程服务器，请使用 Playwright 的 `connect` 方法：
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    # 示例端点
+    browser = p.firefox.connect('ws://localhost:1234/hello')
+    page = browser.new_page()
+    ...
+```
+
+:::note
+因为服务器仅使用**一个浏览器实例**，所以指纹不会在不同会话（session）之间轮换。如果您计划大规模使用 Camoufox，请考虑在不同会话之间轮换服务器。
+:::

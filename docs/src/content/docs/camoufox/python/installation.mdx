@@ -1,0 +1,68 @@
+---
+title: 安装
+description: 安装 Camoufox Python 包与浏览器
+---
+
+# 安装
+
+首先，安装 `camoufox` 包：
+
+```bash
+pip install -U camoufox[geoip]
+```
+
+`geoip` 参数是可选的，但如果你使用代理，强烈建议启用。它会额外下载一个数据集，用于确定用户的经度、纬度、时区、国家与区域设置。
+
+## 下载浏览器
+
+### Windows
+
+```bash
+camoufox fetch
+```
+
+### MacOS
+
+```bash
+python3 -m camoufox fetch
+```
+
+### Linux
+
+```bash
+python -m camoufox fetch
+```
+
+在全新安装的 Linux 上，你可能还需要下面这些 Firefox 依赖：
+
+### Debian 系发行版
+
+```bash
+sudo apt install -y libgtk-3-0 libx11-xcb1 libasound2
+```
+
+### Arch 系发行版
+
+```bash
+sudo pacman -S gtk3 libx11 libxcb cairo libasound alsa-lib
+```
+
+卸载时，执行 `camoufox remove`。
+
+## Camoufox CLI
+
+```bash
+Usage: python -m camoufox [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  fetch    Fetch the latest version of Camoufox
+  path     Display the path to the Camoufox executable
+  remove   Remove all downloaded files
+  server   Launch a Playwright server
+  test     Open the Playwright inspector
+  version  Display the current version
+```
+

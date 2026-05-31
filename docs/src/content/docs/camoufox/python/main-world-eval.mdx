@@ -1,0 +1,60 @@
+---
+title: 主世界执行
+description: 在主世界执行 JavaScript
+---
+
+## 读取 DOM —— 隔离世界（Isolated World）
+
+默认情况下，所有 JavaScript 执行都运行在一个隔离作用域中，对页面本身不可见。
+
+这使得页面无法检测到 JavaScript 对 DOM 的读取操作：
+
+```python
+>>> page.goto("https://example.com/")
+>>> page.evaluate("document.querySelector('h1').innerText")
+'Example Domain'
+```
+
+然而，你的 JavaScript **无法** 修改 DOM：
+
+```python
+>>> page.evaluate("document.querySelector('h1').remove()")
+# 不会生效！
+```
+
+## 修改 DOM —— 主世界（Main World）
+
+要能够修改 DOM，需要在 **主世界（main world）** 中运行 JavaScript——即非隔离作用域。
+
+:::warning[泄露警告]
+所有在主世界中执行的代码都可能被目标网站检测到。只有在绝对必要时，才应在主世界中执行 JavaScript。
+:::
+
+要启用主世界执行，请将 `main_world_eval` 参数设置为 `True`：
+
+```python #
+with Camoufox(main_world_eval=True) as browser:
+    page = browser.new_page()
+    page.goto("https://example.com/")
+```
+
+现在，你可以通过在代码前添加 `mw:` 前缀，在主世界中注入 JavaScript：
+
+```python
+>>> page.evaluate("mw:document.querySelector('h1').remove()")
+# h1 现已被移除！
+```
+
+你还可以从主世界返回可 JSON 序列化的数据：
+
+```python
+>>> page.evaluate("mw:{key: 'value'}")
+{'key': 'value'}
+```
+
+:::note
+由于 Playwright 的工具函数并不运行在主世界中，因此不支持从主世界返回节点/元素引用。 
+
+如需获取节点引用，请改用隔离世界。
+:::
+

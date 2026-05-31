@@ -1,0 +1,337 @@
+---
+title: 用法
+description: Camoufox Python 用法与参数
+---
+
+# 用法
+
+Camoufox 与你现有的 Playwright 代码完全兼容。你只需要更改浏览器初始化方式。
+
+## 同步 API
+
+```python
+from camoufox.sync_api import Camoufox
+with Camoufox() as browser:
+    page = browser.new_page()
+    page.goto("https://example.com")
+```
+
+## 异步 API
+
+```python
+from camoufox.async_api import AsyncCamoufox
+
+async with AsyncCamoufox() as browser:
+    page = await browser.new_page()
+    await page.goto("https://example.com")
+```
+
+# 参数列表
+
+接受所有 Playwright Firefox 启动参数，以及以下参数。
+
+## 设备轮换
+
+Camoufox 会根据以下参数为你生成设备信息。
+
+### `os`
+
+类型：`Optional[ListOrString]`
+
+用于指纹生成的目标操作系统。可为 `"windows"`、`"macos"`、`"linux"`，也可传入列表随机选择。默认会在三者中随机选择。
+
+```python
+# 使用指定操作系统
+with Camoufox(os="windows") as browser:
+    ...
+
+# 从列表中随机选择操作系统
+with Camoufox(os=["windows", "macos", "linux"]) as browser:
+    ...
+```
+
+### `fonts`
+
+类型：`Optional[List[str]]`
+
+除目标 `os` 默认字体外，额外加载到 Camoufox 中的字体。传入系统中已安装的字体族名称列表。
+
+```python
+custom_fonts = ["Arial", "Helvetica", "Times New Roman"]
+with Camoufox(fonts=custom_fonts) as browser:
+    ...
+```
+
+### `screen`
+
+类型：`Optional[Screen]`
+
+约束生成指纹的屏幕尺寸。传入 `browserforge.fingerprints.Screen` 实例。
+
+:::note
+虽然这设置了屏幕尺寸，但它对窗口大小的影响非常微弱。有时窗口会变大，有时会变小。
+:::
+
+```python
+from browserforge.fingerprints import Screen
+
+constrains = Screen(max_width=1920, max_height=1080)
+with Camoufox(screen=constrains) as browser:
+    ...
+```
+
+### `webgl_config`
+
+类型：`Optional[Tuple[str, str]]`
+
+使用特定的 WebGL 供应商/渲染器对（vendor/renderer pair）。以元组 `(vendor, renderer)` 的形式传递。该供应商与渲染器的组合必须受到目标操作系统的支持，否则会导致泄漏。
+
+请在 [此处](https://camoufox.com/webgl-research/) 检查 Camoufox 支持的供应商和渲染器组合列表。
+
+```python
+with Camoufox(
+    webgl_config=("Apple", "Apple M1, or similar"),
+    os="macos",
+) as browser:
+    ...
+```
+
+### `config`
+
+类型：`Optional[Dict[str, Any]]`
+
+如果需要，可以通过将各个 Camoufox 配置属性作为字典传递给 `config` 参数来对其进行覆写。这可用于启用尚未实现到 Python 库中的功能。
+
+:::warning
+这是高级功能，应谨慎使用。Camoufox Python 库的设计目标是自动为你填充这些属性。
+:::
+
+## 配置 (Configuration)
+
+额外功能配置与易用性选项。
+
+### humanize
+
+**类型 (Type):** `Optional[Union[bool, float]]`
+
+拟人化光标移动。可接受 `True`，或光标移动的最大持续时间（以秒为单位）。光标在窗口中移动通常最多需要 1.5 秒。
+
+```python
+# 使用默认设置启用拟人化
+with Camoufox(humanize=True) as browser:
+    ...
+
+# 设置自定义的光标移动最大持续时间
+with Camoufox(humanize=2.0) as browser:
+    ...
+
+```
+
+### headless
+
+**类型 (Type):** `Optional[Union[bool, Literal['virtual']]]`
+
+是否在无头模式下运行浏览器。默认为 `False`。如果你运行的是 Linux 系统，传入 `'virtual'` 将使用 Xvfb。
+
+```python
+# 在无头模式下运行
+with Camoufox(headless=True) as browser:
+    ...
+
+# 在 Linux 上以虚拟显示模式运行
+with Camoufox(headless="virtual") as browser:
+    ...
+
+```
+
+### addons
+
+**类型 (Type):** `Optional[List[str]]`
+
+要使用的 Firefox 扩展插件列表。必须是已解压扩展插件的路径。
+
+要加载 `.xpi` 文件，请将其重命名为 `.zip` 文件，解压它，并传入解压后的文件夹路径。
+
+```python
+addons = ["/path/to/addon1", "/path/to/addon2"]
+with Camoufox(addons=addons) as browser:
+    ...
+
+```
+
+### exclude_addons
+
+**类型 (Type):** `Optional[List[DefaultAddons]]`
+
+排除默认的扩展插件。作为 `camoufox.DefaultAddons` 枚举的列表传递。
+
+### window
+
+**类型 (Type):** `Optional[Tuple[int, int]]`
+
+以 `(width, height)` 像素形式设置窗口大小。这同时也会设置 `window.screenX` 和 `window.screenY` 属性，以将窗口居中定位在生成的屏幕上。
+
+:::note
+Camoufox 会自动为你生成窗口大小。使用固定的窗口大小可能会导致被识别出指纹。除非用于调试目的，否则请勿将窗口大小设置为固定值。
+:::
+
+```python
+with Camoufox(window=(1282, 955)) as browser:
+    ...
+
+```
+
+### main_world_eval
+
+**类型 (Type):** `Optional[bool]`
+
+当带有 `mw:` 前缀时，是否向主环境（main world）中注入脚本。
+
+```python
+with Camoufox(main_world_eval=True) as browser:
+    page = browser.new_page()
+    page.goto("https://example.com")
+    # 修改 DOM
+    page.evaluate("mw:document.querySelector('h1').remove()")
+
+```
+
+### enable_cache
+
+**类型 (Type):** `Optional[bool]`
+
+是否缓存先前的页面、请求等。默认禁用，因为这会消耗更多内存。
+
+:::note
+保持此项禁用将无法使用 `page.go_back()` 或 `page.go_forward()` 方法。
+:::
+
+```python
+with Camoufox(enable_cache=True) as browser:
+    ...
+
+```
+
+### persistent_context
+
+**类型 (Type):** `Optional[bool]`
+
+是否创建持久化上下文。需要配置 `user_data_dir`。
+
+```python
+with Camoufox(
+    persistent_context=True,
+    user_data_dir='/path/to/profile/dir',
+) as context:
+    ...
+
+```
+
+## 位置与语言 (Location & Language)
+
+通过将您的地理位置和语言区域与您的目标 IP 进行匹配来防止代理检测。这将为您填充 Geolocation 和 Intl 属性。
+
+### geoip
+
+**类型 (Type):** `Optional[Union[str, bool]]`
+
+根据 IP 地址计算经度、纬度、时区、国家和语言区域。传入要使用的目标 IP 地址，或传入 `True` 以自动获取 IP 地址。
+
+```python
+# 使用特定的 IP 地址
+with Camoufox(geoip="203.0.113.0", proxy=...) as browser:
+    ...
+
+# 自动获取 IP 地址
+with Camoufox(geoip=True, proxy=...) as browser:
+    ...
+
+```
+
+### locale
+
+**类型 (Type):** `Optional[Union[str, List[str]]]`
+
+在 Camoufox 中使用的语言区域（Locale）。可以是一个字符串列表，也可以是用逗号分隔的单个字符串。列表中的第一个语言区域将用于 Intl API。
+
+```python
+# 使用单个语言区域
+with Camoufox(locale="en-US") as browser:
+    ...
+
+# 根据美国（US）语言使用者的分布情况生成语言
+with Camoufox(locale="US") as browser:
+    ...
+
+# 使用多个可接受的语言区域
+with Camoufox(locale=["en-US", "fr-FR", "de-DE"]) as browser:
+    ...
+
+with Camoufox(locale="en-US,fr-FR,de-DE") as browser:
+    ...
+
+```
+
+## 开关切换 (Toggles)
+
+常用 Firefox 首选项和安全开关的快捷方式。
+
+### block_images
+
+**类型 (Type):** `Optional[bool]`
+
+拦截所有图片请求。这有助于节省您的代理流量。
+
+```python
+with Camoufox(block_images=True) as browser:
+    ...
+
+```
+
+### block_webrtc
+
+**类型 (Type):** `Optional[bool]`
+
+彻底禁用 WebRTC。
+
+```python
+with Camoufox(block_webrtc=True) as browser:
+    ...
+
+```
+
+### block_webgl
+
+**类型 (Type):** `Optional[bool]`
+
+是否禁用 WebGL。为了防止泄漏，请仅在特殊情况下使用此选项。
+
+```python
+with Camoufox(block_webgl=True) as browser:
+    ...
+
+```
+
+### disable_coop
+
+**类型 (Type):** `Optional[bool]`
+
+禁用跨源开放者策略（Cross-Origin-Opener-Policy, COOP）。这允许点击跨源 iframe 中的元素，例如 Turnstile 复选框。
+
+```python
+# Cloudflare turnstile 示例
+with Camoufox(disable_coop=True, window=(1280, 720)) as browser:
+    page = browser.new_page()
+    page.goto('https://nopecha.com/demo/cloudflare')
+    page.wait_for_load_state(state="domcontentloaded")
+    page.wait_for_load_state('networkidle')
+    page.wait_for_timeout(5000)  # 5 秒
+    page.mouse.click(210, 290)
+    ...
+
+```
+
+:::note
+如果您传入的配置可能会导致泄漏，Camoufox 将会发出警告。
+:::
+

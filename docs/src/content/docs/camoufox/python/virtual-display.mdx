@@ -1,0 +1,55 @@
+---
+title: 虚拟显示
+description: 使用 xvfb 运行 Camoufox
+---
+
+虽然 Camoufox 自带补丁以防止无头模式被检测，但未来直接使用无头模式仍可能被识别。建议使用虚拟显示缓冲区，以无界面方式运行 Camoufox。
+
+如果你在 Linux 上运行 Camoufox，并希望在虚拟显示中以无头模式运行，请安装 `xvfb`：
+
+### Debian 系发行版
+
+```bash
+sudo apt-get install xvfb
+```
+
+### Arch 系发行版
+
+```bash
+sudo pacman -S xorg-server-xvfb
+```
+
+确认 `xvfb` 安装成功：
+
+```bash
+$ which Xvfb
+/usr/bin/Xvfb
+```
+
+## 用法
+
+传入 `headless="virtual"` 将在后台启动一个新的轻量虚拟显示供 Camoufox 运行。
+
+### 同步 API
+
+```python
+from camoufox.sync_api import Camoufox
+
+with Camoufox(
+    headless="virtual"
+) as browser:
+    page = browser.new_page()
+    page.goto("https://example.com")
+```
+
+### 异步 API
+
+```python
+from camoufox.async_api import AsyncCamoufox
+
+async with AsyncCamoufox(
+    headless="virtual"
+) as browser:
+    page = await browser.new_page()
+    await page.goto("https://example.com")
+```

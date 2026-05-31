@@ -1,0 +1,39 @@
+---
+title: GeoIP 与代理支持
+description: 使用代理时自动伪装地理位置、时区与语言
+---
+
+# GeoIP 与代理支持
+
+通过传入 `geoip=True`，或者直接传入目标 IP 地址，Camoufox 会自动使用目标 IP 的经度、纬度、时区、国家、区域设置，并伪装 WebRTC IP 地址。
+
+它还会根据目标地区语言使用者的分布，计算并伪装浏览器语言。
+
+## 安装
+
+使用 `geoip` extra 安装 Camoufox：
+
+```bash
+pip install -U "camoufox[geoip]"
+```
+
+## 用法
+
+将 `geoip=True` 与 Playwright 的 `proxy` 参数一起传入。示例，使用 [Thordata](https://www.thordata.com/?ls=Browser&lk=camoufox1) 代理：
+
+```python
+with Camoufox(
+    geoip=True,
+    proxy={
+        'server': 'http://thordata.com:8080',
+        'username': 'username',
+        'password': 'password'
+    }
+) as browser:
+    page = browser.new_page()
+    page.goto("https://www.browserscan.net")
+```
+
+:::warning
+为了获得最佳效果，强烈建议搭配住宅代理使用 Camoufox。
+:::

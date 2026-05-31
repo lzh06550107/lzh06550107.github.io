@@ -1,0 +1,101 @@
+---
+title: 功能列表
+description: 以下是 Camoufox 中实现的所有补丁和功能的完整列表。
+---
+
+### 指纹欺骗 (Fingerprint spoofing)
+
+* Navigator 属性欺骗（设备、浏览器、语言区域等）
+* 支持模拟屏幕尺寸、分辨率等
+* 欺骗 WebGL 参数、支持的扩展、上下文属性和着色器精度格式
+* 欺骗内部和外部窗口视口尺寸
+* 欺骗 AudioContext 采样率、输出延迟和最大通道数
+* 欺骗设备声音和播放速率
+* 欺骗可用麦克风、摄像头和扬声器的数量
+* 网络请求头（Accept-Languages 和 User-Agent）经过欺骗以与 navigator 属性相匹配
+* 在协议层进行 WebRTC IP 欺骗
+* 地理位置、时区和语言区域欺骗
+* 电池 API (Battery API) 欺骗
+* 等等
+
+### 隐身补丁 (Stealth patches)
+
+* 避免主环境（main world）执行泄漏。所有页面代理 JavaScript 均经过沙盒化处理
+* 避免 frame 执行上下文泄漏
+* 修复 `navigator.webdriver` 检测
+* 通过指针类型修复 Firefox 无头模式检测（[#26](https://github.com/daijro/camoufox/issues/26)）
+* 移除了可能导致泄漏的反缩放/meta 视口处理补丁
+* 使用非默认的屏幕和窗口尺寸
+* 重新启用 fission 内容隔离
+* 重新启用 PDF.js
+* 修改了其他可能导致泄漏的配置属性
+* 拟人化光标移动
+
+### 反字体指纹 (Anti font fingerprinting)
+
+* 根据您的 User Agent 自动使用正确的系统字体
+* 捆绑了 Windows、Mac 和 Linux 系统字体
+* 通过随机偏移字距来防止字体度量（font metrics）指纹检测
+
+### Playwright 支持 (Playwright support)
+
+* 针对最新版 Firefox 的 Playwright 自定义实现
+* 各种用于规避机器人检测的配置补丁
+
+### 瘦身/优化 (Debloat/Optimizations)
+
+* 剥离/禁用了*非常多*的 Mozilla 服务。运行速度比原生 Mozilla Firefox 更快，且占用更少的内存（200mb）
+* 引入了来自 LibreWolf 和 Ghostery 的补丁，以帮助移除遥测与臃肿功能
+* 引入了来自 PeskyFox、LibreWolf 等项目的瘦身配置
+* 引入了来自 FastFox 的速度与网络优化
+* 移除了所有 CSS 动画
+* 极简主义主题
+* 等等
+
+### 扩展插件 (Addons)
+
+* 通过将路径列表传递给 `addons` 属性，无需调试服务器即可加载 Firefox 扩展插件
+* 添加了带有自定义隐私过滤规则的 uBlock Origin
+* 不允许扩展插件打开新标签页
+* 在隐私浏览模式下自动启用扩展插件
+* 扩展插件会自动固定到工具栏
+* 修复了 uBO 预解析导致的 DNS 泄漏问题
+
+### Python 接口 (Python Interface)
+
+* 根据真实世界的分布情况，自动生成并向 Camoufox 注入唯一的设备特征
+* WebGL 指纹注入与轮换
+* 根据您的目标操作系统，使用正确的系统字体、次像素抗锯齿和微调（hinting）
+* 通过根据您代理的目标区域计算目标地理位置、时区和语言区域，来避免代理检测
+* 根据代理目标区域中语言使用者的分布情况，计算并欺骗浏览器的语言
+* 远程服务器托管，以便在其他支持 Playwright 的语言中使用 Camoufox
+* 内置虚拟显示缓冲区，可在无头服务器上以有头（headfully）模式运行 Camoufox
+* 切换图片加载、WebRTC 和 WebGL 的开启与关闭
+* 等等
+
+---
+
+### 致谢 :heart:
+
+Camoufox 的设计和实现灵感来自以下项目：
+
+瘦身与参考：
+
+* **[LibreWolf](https://gitlab.com/librewolf-community/browser/source)** - 遥测补丁 [:icon-link-external:](https://github.com/daijro/camoufox/tree/main/patches/librewolf) 及构建系统启发
+* **[BetterFox](https://github.com/yokoffing/BetterFox)** - 速度与瘦身偏好设置
+* **[Ghostery](https://github.com/ghostery/user-agent-desktop)** - 用于禁用 FF 引导页面的小补丁 [:icon-link-external:](https://github.com/daijro/camoufox/blob/main/patches/ghostery/Disable-Onboarding-Messages.patch)
+
+驱动：
+
+* **[Playwright](https://github.com/microsoft/playwright/tree/main/browser_patches/firefox)** - Juggler 的原始实现 [:icon-link-external:](https://github.com/daijro/camoufox/tree/main/additions/juggler)
+* **[riflosnake/HumanCursor](https://github.com/riflosnake/HumanCursor)** - 原始的拟人化光标移动算法，已移植到 C++ [:icon-link-external:](https://github.com/daijro/camoufox/tree/main/additions/human_cursor)
+
+界面：
+
+* **[Jamir-boop/minimalisticfox](https://github.com/Jamir-boop/minimalisticfox)** - 在 css 主题方面提供了帮助 [:icon-link-external:](https://github.com/daijro/camoufox/blob/main/settings/chrome.css)
+* **[nicoth-in/Dark-Space-Theme](https://github.com/nicoth-in/Dark-Space-Theme)** - 黑色调主题 [:icon-link-external:](https://github.com/daijro/camoufox/blob/main/additions/browser/themes/addons/dark/manifest.json)
+
+酷炫实用的东西：
+
+* [CreepJS](https://github.com/abrahamjuliot/creepjs), [Browserleaks](https://browserleaks.com), [BrowserScan](https://www.browserscan.net/) - 宝贵的泄漏测试网站
+* *[The Design and Implementation of the Tor Browser [DRAFT]](https://2019.www.torproject.org/projects/torbrowser/design/)* - 反指纹技术报告

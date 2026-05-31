@@ -1,0 +1,19 @@
+---
+title: HTTP Headers
+description: HTTP Headers 相关伪装
+---
+
+Camoufox 可以覆写以下网络请求头。
+
+## 属性 (Properties)
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) |
+| --- | --- | --- |
+| `headers.User-Agent` | str | 浏览器和系统信息 |
+| `headers.Accept-Language` | str | 响应可接受的语言 |
+| `headers.Accept-Encoding` | str | 响应可接受的编码 |
+
+:::note
+如果未设置 `headers.User-Agent`，它将回退到 `navigator.userAgent` 的值。
+:::
+

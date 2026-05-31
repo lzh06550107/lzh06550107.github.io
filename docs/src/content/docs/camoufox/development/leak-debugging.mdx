@@ -1,0 +1,41 @@
+---
+title: 泄漏调试
+description: 泄漏调试工作流程
+---
+
+这是一个流程图，展示了我在不反混淆 WAF JavaScript 的情况下确定泄漏的过程。该方法将 Camoufox 的功能逐步重新引入到 Firefox 的源码中，直到测试网站将其标记（flag）为止。
+
+此过程需要 Linux 系统，并假设您已安装 Firefox 构建工具（参见 [此处](https://github.com/daijro/camoufox?tab=readme-ov-file#build-cli)）。
+
+## 流程图 (Flowchart)
+
+```mermaid
+flowchart TD
+    A[开始] --> B[官方 Firefox 中<br>网站是否会标记?]
+    B -->|是| C[可能是糟糕的 IP 或<br>频率限制。如果网站在<br>官方 Firefox 发行版的<br>无头和有头模式下都<br>失败，则问题不在于<br>浏览器。]
+    B -->|否| D["运行 make ff-dbg(1) 并<br>构建(2)一个干净的<br>Firefox 发行版。<br>网站在 Firefox 的<br>**无头**模式(4)下会标记吗？"]
+    D -->|是| E["网站在有头模式(3)和<br>无头模式(4)下<br>都会标记吗？"]
+    D -->|否| F["打开开发者 UI(5)，<br>应用 config.patch，然后<br>重新构建(2)。网站<br>是否依然标记(3)？"]
+    E -->|否| G["在配置中启用<br>privacy.resistFingerprinting(6)。<br>网站是否依然标记(3)？"]
+    E -->|是| C
+    G -->|否| H["在配置(6)中启用 FPP，<br>并开始逐个省略覆写项，<br>直到找到修复了<br>泄漏的那一项。"]
+    G -->|是| I[如果走到这一步，<br>您可能需要反混淆网站<br>背后的 Javascript，以<br>确定它正在测试什么。]
+    F -->|是| K["打开开发者 UI，<br>应用 playwright<br>引导补丁，然后<br>重新构建。是否依然标记？"]
+    F -->|否| J["从 camoufox.cfg(6) 中<br>省略选项并重新运行(3)，<br>直到找到导致<br>泄漏的选项。"]
+    K -->|否| M[需要对 Juggler 进行<br>调试以定位泄漏。]
+    K -->|是| L[该问题与 Playwright <br>毫无关系。逐个应用<br>其余的 Camoufox 补丁，<br>直到找到导致<br>泄漏的补丁。]
+    M --> I
+
+```
+
+## 引用的命令 (Cited Commands)
+
+| # | 命令 (Command) | 说明 (Description) |
+| --- | --- | --- |
+| (1) | `make ff-dbg` | 设置带有极简补丁的原生 Firefox。 |
+| (2) | `make build` | 构建源代码。 |
+| (3) | `make run` | 运行构建好的浏览器。 |
+| (4) | `make run args="--headless https://test.com"` | 在无头（headless）模式下运行某个 URL。所有的重定向信息都将打印到控制台，以判断测试是否通过。 |
+| (5) | `make edits` | 打开开发者 UI。允许用户应用/撤销补丁，并查看当前已应用了哪些补丁。 |
+| (6) | `make edit-cfg` | 在系统默认编辑器中编辑 camoufox.cfg。 |
+

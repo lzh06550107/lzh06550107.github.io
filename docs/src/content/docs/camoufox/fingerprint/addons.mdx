@@ -1,0 +1,32 @@
+---
+title: 插件
+description: 在 Camoufox 中加载扩展插件
+---
+
+在 Camoufox Python 库中，可以使用 `addons` 参数来加载扩展插件。
+
+Camoufox 接收解压后的扩展插件。要加载一个 `.xpi` 文件，请将其重命名为 `.zip` 文件并进行解压，然后传入解压后的文件夹路径。
+
+```python
+from camoufox.sync_api import Camoufox
+
+with Camoufox(addons=['/path/to/addon', '/path/to/addon2']) as browser:
+    page = browser.new_page()
+
+```
+
+## 默认扩展插件 (Default Addons)
+
+Camoufox 会自动下载并使用带有自定义隐私/广告拦截过滤规则的最新版 [uBlock Origin](https://ublockorigin.com/)，以帮助规避广告。
+
+您也可以使用 `exclude_addons` 参数来 **排除** 默认的扩展插件：
+
+```python
+from camoufox.sync_api import Camoufox
+from camoufox import DefaultAddons
+
+with Camoufox(exclude_addons=[DefaultAddons.UBO]) as browser:
+    page = browser.new_page()
+
+```
+

@@ -1,0 +1,52 @@
+---
+title: 在 Docker 中构建
+description: 在 Linux 上通过 Docker构建 Camoufox
+---
+
+要在非 Linux 系统上构建 Camoufox，您可以使用 Docker。
+
+1. 创建包含 Firefox 源代码的 Docker 镜像：
+
+```bash
+docker build -t camoufox-builder .
+```
+
+2. 将 Camoufox 补丁构建到目标平台和架构：
+
+```bash
+docker run -v "$(pwd)/dist:/app/dist" camoufox-builder --target <os> --arch <arch>
+```
+
+如果您想使用宿主机的 .mozbuild 目录，可以使用以下命令来运行 docker：
+
+```bash
+docker run \
+  -v "$HOME/.mozbuild":/root/.mozbuild:rw,z \
+  -v "$(pwd)/dist:/app/dist" \
+  camoufox-builder \
+  --target <os> \
+  --arch <arch>
+```
+
+=== Docker CLI 参数 (Docker CLI Parameters)
+
+```bash
+Options:
+  -h, --help            显示此帮助信息并退出
+  --target {linux,windows,macos} [{linux,windows,macos} ...]
+                        要构建的目标平台
+  --arch {x86_64,arm64,i686} [{x86_64,arm64,i686} ...]
+                        每个平台要构建的目标架构
+  --bootstrap           引导（Bootstrap）构建系统
+  --clean               在开始前清理构建目录
+
+Example:
+$ docker run -v "$(pwd)/dist:/app/dist" camoufox-builder --target windows macos linux --arch x86_64 arm64 i686
+
+```
+
+===
+
+构建产物现在将生成并写入到 `dist/` 文件夹下。
+
+

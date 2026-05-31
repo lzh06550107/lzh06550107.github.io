@@ -1,0 +1,51 @@
+---
+title: 与 BrowserForge 集成
+description: Camoufox 兼容 BrowserForge 指纹生成器
+---
+
+Camoufox 与 [BrowserForge](https://github.com/daijro/browserforge) 指纹兼容。
+
+默认情况下，Camoufox 将根据目标 `os`（操作系统）和 `screen`（屏幕）限制，自动生成并使用一个随机的 BrowserForge 指纹。
+
+```python #5-6
+from camoufox.sync_api import Camoufox
+from browserforge.fingerprints import Screen
+
+with Camoufox(
+    os=('windows', 'macos', 'linux'),
+    screen=Screen(max_width=1920, max_height=1080),
+) as browser:
+    page = browser.new_page()
+    page.goto("https://example.com/")
+
+```
+
+如果 Camoufox 在有头（headful）模式下运行，除非另有指定，否则最大屏幕尺寸将根据您监视器的实际分辨率来生成。
+
+:::note
+为了防止 UA（User Agent）不匹配检测，默认情况下 Camoufox 仅生成与当前 Camoufox 版本相同的浏览器版本的指纹。如果绝对有必要轮换 Firefox 版本，更建议在不同旧版本的 Camoufox 之间进行轮换。
+:::
+
+### 直接注入 BrowserForge 指纹
+
+:::warning
+建议改为向 Camoufox 传入 `os` 和 `screen` 限制。Camoufox 会为您处理指纹生成。此方法在未来将会被弃用。
+:::
+
+您也可以将自己生成的 Firefox BrowserForge 指纹注入到 Camoufox 中。
+
+```python
+from camoufox.sync_api import Camoufox
+from browserforge.fingerprints import FingerprintGenerator
+
+fg = FingerprintGenerator(browser='firefox')
+
+# 使用随机的 Firefox 指纹启动 Camoufox
+with Camoufox(fingerprint=fg.generate()) as browser:
+    page = browser.new_page()
+    page.goto("https://example.com/")
+
+```
+
+**注意：** 截至目前，来自 BrowserForge 指纹的某些属性将不会传递给 Camoufox。这是由于 Apify 的 fingerprint-suite 数据集过时所致（参见[此处](https://github.com/apify/fingerprint-suite/discussions/308)）。一旦有更新的数据集可用，这些属性将重新启用。
+

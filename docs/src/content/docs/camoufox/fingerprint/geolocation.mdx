@@ -1,0 +1,28 @@
+---
+title: 地理位置与 Intl
+description: 地理位置与国际化相关伪装
+---
+
+本页面对应 Camoufox 的地理位置、时区、区域设置与 Intl 相关伪装能力。结合 GeoIP 功能时，Camoufox 可以根据目标 IP 自动推断并伪装国家、地区、时区与语言环境等信息。
+
+## 属性 (Properties)
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) | 必需的键 (Required Keys) |
+| --- | --- | --- | --- |
+| `geolocation:latitude` | double | 要使用的纬度。 | `geolocation:longitude` |
+| `geolocation:longitude` | double | 要使用的经度。 | `geolocation:latitude` |
+| `geolocation:accuracy` | double | 精度（以米为单位）。如果未设置，将根据 `geolocation:latitude` 和 `geolocation:longitude` 的十进制精度自动计算。 |  |
+| `timezone` | str | 设置自定义的 TZ 时区（例如 "America/Chicago"）。这也会改变 `Date()` 以返回当地时间。 |  |
+| `locale:language` | str | 欺骗 Intl API 和系统语言（例如 "en"）。 | `locale:region` |
+| `locale:region` | str | 欺骗 Intl API 和系统区域（例如 "US"）。 | `locale:language` |
+| `locale:script` | str | 设置自定义脚本（例如 "Latn"）。如果未指定，将自动设置。 |  |
+| `locale:all` | str | 所有可接受的语言区域值列表（用逗号分隔）。第一项应与 Intl API 匹配。如果未传递，它将默认使用 Intl API 中使用的语言区域，格式为 "en-US, en"。 |  |
+
+必需的键（Required Keys）是指为了使该属性正常生效而必须同时设置的键。
+
+:::note
+* 如果设置了 `geolocation:latitude` 和 `geolocation:longitude`，地理位置权限提示将被自动接受。
+* `timezone` 必须设置为有效的 TZ 标识符。请在此处查看有效时区列表。
+* `locale:language` 和 `locale:region` 必须设置为有效的语言区域及区域值。请在此处查看有效的语言区域-区域（locale-region）值列表。
+:::
+

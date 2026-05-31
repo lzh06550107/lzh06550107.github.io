@@ -1,0 +1,32 @@
+---
+title: Voices
+description: Voices 相关伪装
+---
+
+欺骗浏览器 Web Speech API 中使用的语音（voices）。
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) | 示例 (Example) |
+| --- | --- | --- | --- |
+| `voices` | array | 包含每个语音映射（map）的数组。每个映射必须包含以下键：`isLocalService`、`isDefault`、`voiceUri`、`name` 和 `lang`。 | 见下方 JSON 示例 |
+| `voices:blockIfNotDefined` | bool | 是否拦截系统语音。默认为 `false`。 | `true` |
+| `voices:fakeCompletion` | bool | 当使用虚假语音时，返回一个成功的 TTS（文字转语音）完成状态。如果禁用，则会抛出错误（RFP 中的默认行为）。默认为 `false`。 | `true` |
+| `voices:fakeCompletion:charsPerSecond` | double | 虚假语音的播放速率，以每秒字符数为单位。默认为 `12.5`，大约相当于每分钟 150 个单词（150wpm）。 | `15.0` |
+
+## `voices` 示例
+
+```json
+[
+  {
+    "isLocalService": true,
+    "isDefault": true,
+    "voiceUri": "Ting-Ting",
+    "name": "Ting-Ting",
+    "lang": "zh-CN"
+  }
+]
+```
+
+:::warning
+使用 `voices:fakeCompletion` 功能目前尚未完全实现。如果网站测量话语持续时间并将其与所花费的流逝时间进行比较，理论上它是可以被检测到的。然而，反机器人系统（anti-bots）绝不会通过播放 TTS 来检测您。
+:::
+

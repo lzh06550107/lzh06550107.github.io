@@ -1,0 +1,28 @@
+---
+title: Window
+description: Window 相关伪装
+---
+
+欺骗内部/外部窗口尺寸、滚动偏移量、窗口位置、历史记录长度等。
+
+## 属性 (Properties)
+
+| 属性 (Property) | 类型 (Type) | 说明 (Description) |
+| --- | --- | --- |
+| `window.scrollMinX` | int | 最小水平滚动偏移量 |
+| `window.scrollMinY` | int | 最小垂直滚动偏移量 |
+| `window.scrollMaxX` | int | 最大水平滚动偏移量 |
+| `window.scrollMaxY` | int | 最大垂直滚动偏移量 |
+| `window.outerHeight` | uint | 浏览器窗口的总高度 |
+| `window.outerWidth` | uint | 浏览器窗口的总宽度 |
+| `window.innerHeight` | uint | 浏览器视口（viewport）的高度 |
+| `window.innerWidth` | uint | 浏览器视口（viewport）的宽度 |
+| `window.screenX` | int | 距离屏幕左边界的水平距离 |
+| `window.screenY` | int | 距离屏幕上边界的垂直距离 |
+| `window.history.length` | uint | 当前会话历史记录中的条目数 |
+| `window.devicePixelRatio` | double | 物理像素与 CSS 像素的比率 |
+
+:::note
+如果用户尝试手动调整窗口大小，设置外部窗口视口会导致 Camoufox 窗口出现一些外观缺陷。在任何情况下，Camoufox 都不允许调整外部窗口视口的大小。
+:::
+

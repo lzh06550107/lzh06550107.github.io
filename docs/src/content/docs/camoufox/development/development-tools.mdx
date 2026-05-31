@@ -1,0 +1,26 @@
+---
+title: 开发工具
+description: 开发工具
+---
+
+该仓库在 `scripts/developer.py` 下自带了一个开发者 UI：
+
+```
+make edits
+```
+
+补丁可以通过这里进行编辑、创建、删除和管理。
+
+## 如何制作补丁 (How to make a patch)
+
+1. 在开发者 UI 中，点击 **Reset workspace**（重置工作区）。
+2. 根据需要在 `camoufox-*/` 文件夹中进行修改。您可以使用 `make build` 和 `make run` 来测试您的修改。
+3. 完成修改后，点击 **Write workspace to patch**（将工作区写入补丁）并保存补丁文件。
+
+## 如何处理现有补丁 (How to work on an existing patch)
+
+1. 在开发者 UI 中，点击 **Edit a patch**（编辑补丁）。
+2. 选择您想要编辑的补丁。您的工作区将被重置为所选补丁的状态。
+3. 完成修改后，点击 **Write workspace to patch**（将工作区写入补丁）并覆盖现有的补丁文件。
+
+

@@ -1,0 +1,65 @@
+---
+title: 隐身概览
+description: Camoufox 隐身与反检测机制说明
+---
+
+# 隐身概览
+
+##### 截至 2026 年的当前状态
+
+由于个人原因，项目曾有一年的维护空档。由于底层 Firefox 版本以及新发现的指纹一致性问题，Camoufox 的表现有所下降。Camoufox 目前已恢复积极开发。
+
+## 说明
+
+### Camoufox 如何隐藏其自动化库
+
+在 Camoufox 中，Playwright 内部 Page Agent 的所有代码都被沙箱化并隔离。这使得页面无法通过 JavaScript 检查来检测 Playwright 的存在。
+
+通常情况下，Playwright 会向页面注入一些 JavaScript，例如 `window.__playwright__binding__`，以及用于查询元素、执行 JavaScript 或运行初始化脚本的逻辑。这些都可能被网站检测到。在 Camoufox 中，这些操作在页面之外的隔离作用域中完成。换句话说，网站不再“看得见” Playwright 通常会注入的任何 JavaScript，从而避免留下 Playwright 痕迹。
+
+不过，即使隐藏了自动化库，Camoufox 仍然可能因为指纹轮换不一致而被识别。这仍然需要持续维护与修复。
+
+### 页面交互
+
+反机器人系统也会运行客户端脚本来监控行为，比如鼠标移动、点击、滚动和操作时序等模式。
+
+Camoufox 使用类人鼠标移动算法尽力模拟自然行为。该自然运动算法最初源自 riflosnake 的 HumanCursor，之后被重写为 C++ 并针对距离感知轨迹做了修改。
+
+这仍然并不完美。在足够复杂的分析下，依然可能被检测出来。
+
+### Camoufox 如何轮换身份
+
+除了隐藏自动化库，你还需要在每个实例中随机化身份，以避免被限流和检测。仅仅轮换 IP 并没有意义，如果每次都仍然明显是“你”。
+
+Camoufox 使用 BrowserForge 的指纹生成器，来模拟真实世界流量中设备数据的统计分布。例如，如果 Linux 的市场份额是 5%，那么 Camoufox 只会在约 5% 的情况下让你的浏览器看起来像 Linux 用户；在这 5% 中，又会按统计概率分配如 2560x1440 分辨率、Intel HD GPU 等特征。
+
+### Camoufox 如何被检测？
+
+Camoufox 可以按照正确的市场份额来伪造指纹。然而，指纹也必须在内部保持一致。带有 Apple M1 GPU 的 Windows 用户代理、带有 Windows DirectX 渲染器的 MacOS 用户代理，以及具有桌面屏幕分辨率的移动设备，都是不可能的情况，并且会因可疑而被标记。
+
+在为了创建一个可信的伪造指纹而必须更改的数千个可能数据点中，每一项更改都必须与其他更改保持一致，而 Camoufox 并不总是能做到这一点。反机器人服务提供商会一次又一次地测试 Camoufox，以找出哪怕 1 个独特的不一致之处，然后他们会立即更新其后台脚本来检测它。
+
+## Camoufox 与其他解决方案相比如何？
+
+### 基于 JavaScript 的解决方案
+
+在过去，开发者尝试通过注入 JavaScript 来欺骗这些数值，但这并不能稳定奏效，因为 JavaScript 无法伪造所有内容。不完整的覆盖会导致指纹不一致。例如，如果你的网络请求的 User Agent 与你 navigator 的 User Agent 不匹配，反机器人系统就会对你进行标记。
+
+此外，所有注入的 JavaScript 都能以某种方式被检测到。反机器人系统可以检查 `Object.getOwnPropertyDescriptor` 是否暴露了被覆写的属性，检查某个函数的 `toString()` 是否不再返回 `[native code]`（从而暴露其被劫持的事实），或者检查 window 上下文中的数据是否与 worker 线程上下文中的数据不匹配。规避方法只能帮你走到这一步，但只要挖得足够深，总能找到检测 JS 注入的方法。
+
+#### Camoufox 的方法
+
+由于 Camoufox 是在浏览器的 C++ 实现层拦截调用的，因此所有被劫持的对象和属性看起来都是原生的。不存在可以被检测到的 JavaScript 劫持行为。
+同时，Camoufox 还尝试结合 Browserforge 来生成一致且可信的指纹。然而，这仍然可能被复杂的指纹检测方法识别出来，比如前文提到的数据不匹配。
+
+### 基于 CDP 的库
+
+CDP（Chrome DevTools Protocol，Chrome 开发者工具协议）是内置于 Chromium 和 Firefox 中的一种自动化协议。然而，CDP 并不会特意去隐藏它是一个自动化协议的事实，并且在页面作用域中暴露了其大部分功能。一些常见的检测方法包括：检查 `navigator.webdriver` 是否为 true、捕捉其读取堆栈调试器（stack debugger）的行为、检查 ChromeDriver 为了内部通信而注入到 document 对象中的变量等。
+
+#### Camoufox 的方法
+
+虽然 Playwright 使用 CDP 来控制 Chromium，但它对 Firefox 使用的是 Juggler。Juggler 是在 Firefox 支持 CDP 之前开发的一种自定义协议（原仓库）。它是 Firefox 内部的一个独立模块，而不是其浏览器内核的一部分。这使得修改和控制向页面暴露的内容变得更加容易。
+
+Camoufox 对 Juggler 进行了补丁处理，使其拥有一个独立的页面 “副本” 来供其工作。Playwright 可以自由地读取和修改它自己版本的页面。在它看来一切运作正常，但真实的页面完全不受这些修改的影响。页面也无法检测到何时内容被读取（通过诸如劫持 getter 的技巧）或检测到用于监视元素的监听器被添加。
+
+此外，Juggler 将其输入直接发送到 Firefox 原生的用户输入处理器中，这意味着它们的处理方式与你正常使用浏览器时完全相同。Camoufox 还对 Firefox 的无头模式（headless mode）进行了补丁，使其看起来与在正常窗口中运行一样。但作为后备方案，如果无头模式发生泄漏，Python 库可以在虚拟显示器（virtual display）中运行 Camoufox。
