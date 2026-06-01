@@ -6,6 +6,7 @@ category: chrome
 readingTime: 8 min read
 draft: false
 ---
+
 ## wsl 中 hermes 如何控制 windows 系统中的 chrome
 
 下面是在 WSL 中用 Hermes 控制 Windows Chrome 的完整方案。
