@@ -19,7 +19,7 @@ Playwright 测试可以在任何 CI 提供商上运行。本指南介绍了一�
 
 在使用 VS Code 扩展安装 Playwright，或使用 `npm init playwright@latest` 时，系统会为你提供添加 GitHub Actions 工作流的选项。这会在 `.github/workflows` 文件夹中创建一个 `playwright.yml` 文件，其中包含了在每次向 `main/master` 分支推送代码以及提交拉取请求时运行测试所需的一切。该文件如下所示：
 
-```yml
+```yml title=".github/workflows/playwright.yml"
 name: Playwright Tests
 on:
   push:
@@ -64,13 +64,19 @@ jobs:
 
 一旦你设置好了 GitHub Actions 工作流，你只需要在 GitHub 上创建一个仓库，或者将代码推送到一个已有仓库中。按照 GitHub 上的说明进行操作，不要忘记使用 `git init` 命令初始化一个 Git 仓库，这样你就可以 `add`、`commit` 和 `push` 你的代码。
 
+(图略)
+
 ## 打开工作流
 
 点击 **Actions** 标签页即可查看工作流。在这里，你可以看到测试是通过还是失败。
 
+(图略)
+
 ## 查看测试日志
 
 点击某次工作流运行后，你会看到 GitHub 执行的所有操作。点击 **Run Playwright tests**，即可查看错误消息、预期结果与实际结果，以及调用日志。
+
+(图略)
 
 ## HTML 报告
 
@@ -80,6 +86,8 @@ HTML 报告会展示你测试的完整报告。你可以按浏览器、通过的
 
 在 **Artifacts** 部分，点击 `playwright-report`，即可将报告下载为一个 zip 文件。
 
+(图略)
+
 ### 查看 HTML 报告
 
 直接在本地打开报告并不会按预期工作，因为你需要一个 Web 服务器才能让所有内容正常运行。请先解压 zip 文件，最好解压到一个已经安装了 Playwright 的文件夹中。然后在命令行中切换到报告所在目录，并使用 `npx playwright show-report`，后跟解压后的文件夹名称。这样会启动一个服务，并允许你在浏览器中查看报告。
@@ -88,11 +96,15 @@ HTML 报告会展示你测试的完整报告。你可以按浏览器、通过的
 npx playwright show-report name-of-my-extracted-playwright-report
 ```
 
+(图略)
+
 要了解更多关于报告的信息，请查看我们关于 HTML Reporter 的详细指南。
 
 ## 查看跟踪
 
 在你使用 `npx playwright show-report` 启动报告服务后，点击测试文件名旁边的跟踪图标，就可以打开该测试的跟踪。然后你可以查看测试的跟踪，并检查每一个操作，尝试找出测试失败的原因。
+
+(图略)
 
 ## 在 Web 上发布报告
 
@@ -116,19 +128,19 @@ az ad sp create-for-rbac --name "github-actions" --role "Storage Blob Data Contr
 
 5. 添加一个步骤，将 HTML 报告上传到 Azure Storage。
 
-```yml
+```yml title=".github/workflows/playwright.yml"
 ...
-- name: Upload HTML report to Azure
-  shell: bash
-  run: |
-    REPORT_DIR='run-${{ github.run_id }}-${{ github.run_attempt }}'
-    azcopy cp --recursive "./playwright-report/*" "https://<STORAGE_ACCOUNT_NAME>.blob.core.windows.net/$web/$REPORT_DIR"
-    echo "::notice title=HTML report url::https://<STORAGE_ACCOUNT_NAME>.z1.web.core.windows.net/$REPORT_DIR/index.html"
-  env:
-    AZCOPY_AUTO_LOGIN_TYPE: SPN
-    AZCOPY_SPA_APPLICATION_ID: '${{ secrets.AZCOPY_SPA_APPLICATION_ID }}'
-    AZCOPY_SPA_CLIENT_SECRET: '${{ secrets.AZCOPY_SPA_CLIENT_SECRET }}'
-    AZCOPY_TENANT_ID: '${{ secrets.AZCOPY_TENANT_ID }}'
+  - name: Upload HTML report to Azure
+    shell: bash
+    run: |
+      REPORT_DIR='run-${{ github.run_id }}-${{ github.run_attempt }}'
+      azcopy cp --recursive "./playwright-report/*" "https://<STORAGE_ACCOUNT_NAME>.blob.core.windows.net/$web/$REPORT_DIR"
+      echo "::notice title=HTML report url::https://<STORAGE_ACCOUNT_NAME>.z1.web.core.windows.net/$REPORT_DIR/index.html"
+    env:
+      AZCOPY_AUTO_LOGIN_TYPE: SPN
+      AZCOPY_SPA_APPLICATION_ID: '${{ secrets.AZCOPY_SPA_APPLICATION_ID }}'
+      AZCOPY_SPA_CLIENT_SECRET: '${{ secrets.AZCOPY_SPA_CLIENT_SECRET }}'
+      AZCOPY_TENANT_ID: '${{ secrets.AZCOPY_TENANT_ID }}'
 ```
 
 `$web` 存储容器中的内容可以通过该网站的公共 URL 在浏览器中访问。

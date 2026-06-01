@@ -23,6 +23,8 @@ description: 学习如何在 Playwright 中运行测试、调试测试以及查�
 npx playwright test
 ```
 
+(图略)
+
 ### 在 UI 模式下运行测试
 
 我们强烈建议你使用 UI 模式运行测试，以获得更好的开发体验。在该模式下，你可以轻松逐步查看测试的每一步，并以可视化方式看到每一步之前、期间以及之后发生了什么。UI 模式还带有许多其他功能，例如定位器选择器、监视模式等。
@@ -30,6 +32,8 @@ npx playwright test
 ```bash
 npx playwright test --ui
 ```
+
+(图略)
 
 查看我们的 UI Mode 详细指南，了解其更多功能。
 
@@ -91,7 +95,9 @@ npx playwright test --last-failed
 
 ### 在 VS Code 中运行测试
 
-可以直接在 VS Code 中使用 VS Code 扩展来运行测试。安装后，你只需点击目标测试旁边的绿色三角形，或从测试侧边栏运行全部测试。更多细节请查看我们的《开始使用 VS Code》指南。
+可以直接在 VS Code 中使用 [VS Code 扩展](https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright) 来运行测试。安装后，你只需点击目标测试旁边的绿色三角形，或从测试侧边栏运行全部测试。更多细节请查看我们的《开始使用 VS Code》指南。
+
+(图略)
 
 ## 调试测试
 
@@ -105,7 +111,11 @@ npx playwright test --last-failed
 npx playwright test --ui
 ```
 
+(图略)
+
 在调试时，你可以使用 Pick Locator 按钮在页面上选择一个元素，并查看 Playwright 将使用什么定位器来查找该元素。你也可以在定位器游乐场中编辑定位器，并实时看到它在浏览器窗口中高亮显示。使用 Copy Locator 按钮可以将定位器复制到剪贴板，然后粘贴到你的测试中。
+
+(图略)
 
 查看我们的 UI Mode 详细指南，了解其更多功能。
 
@@ -116,6 +126,8 @@ npx playwright test --ui
 ```bash
 npx playwright test --debug
 ```
+
+(图略)
 
 该命令会打开一个浏览器窗口以及 Playwright Inspector。你可以使用 Inspector 顶部的单步跳过按钮逐步执行测试。或者，按下播放按钮让测试从头到尾运行。测试完成后，浏览器窗口会关闭。
 
@@ -133,6 +145,8 @@ npx playwright test example.spec.ts:10 --debug
 
 在调试时，你可以使用 Pick Locator 按钮在页面上选择一个元素，并查看 Playwright 将使用什么定位器来查找该元素。你也可以编辑该定位器，并实时看到它在浏览器窗口中高亮显示。使用 Copy Locator 按钮可以将定位器复制到剪贴板，然后粘贴到你的测试中。
 
+(图略)
+
 查看我们的调试指南，进一步了解如何使用 VS Code 调试器、UI 模式和 Playwright Inspector 进行调试，以及如何结合浏览器开发者工具进行调试。
 
 ## 测试报告
@@ -143,7 +157,11 @@ HTML Reporter 会向你显示完整的测试报告，你可以按浏览器、通
 npx playwright show-report
 ```
 
+(图略)
+
 你可以筛选和搜索测试，也可以点击每个测试来查看测试错误，并探索测试的每一步。
+
+(图略)
 
 ## 接下来做什么
 

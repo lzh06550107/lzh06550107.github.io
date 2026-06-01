@@ -59,7 +59,7 @@ tests/
 
 [playwright.config](https://playwright.dev/docs/test-configuration) 集中管理配置：目标浏览器、超时时间、重试次数、项目（projects）、报告器（reporters）等。在现有项目中，依赖项会被添加到您当前的 `package.json` 中。
 
-tests/ 包含一个最简的初始测试。
+`tests/` 包含一个最简的初始测试。
 
 ## 运行示例测试
 
@@ -97,7 +97,7 @@ pnpm exec playwright test
 
 ## HTML 测试报告
 
-测试运行结束后，HTML 报告器将提供一个仪表盘，可按浏览器、已通过、已失败、已跳过、不稳定（flaky）等进行过滤。点击某个测试可以检查错误、附件和步骤。它仅在发生失败时才会自动打开；使用以下命令可手动打开。
+测试运行结束后，[HTML 报告器](https://playwright.dev/docs/test-reporters#html-reporter) 将提供一个仪表盘，可按浏览器、已通过、已失败、已跳过、不稳定（flaky）等进行过滤。点击某个测试可以检查错误、附件和步骤。它仅在发生失败时才会自动打开；使用以下命令可手动打开。
 
 ### npm
 

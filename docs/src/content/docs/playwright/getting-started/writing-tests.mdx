@@ -3,6 +3,8 @@ title: 编写测试
 description: Playwright 测试通过执行操作并使用断言来验证结果。
 ---
 
+## 简介
+
 Playwright 测试很简单：它们 **执行操作**，并使用 **断言来验证状态** 是否符合预期。
 
 Playwright 在执行每个操作之前，都会自动等待可操作性检查（actionability checks）通过。您无需添加手动等待或处理竞态条件（race conditions）。Playwright 的断言旨在描述最终会被满足的预期，从而消除了不稳定的超时（flaky timeouts）和多变的检查（racy checks）。
@@ -19,7 +21,7 @@ Playwright 在执行每个操作之前，都会自动等待可操作性检查（
 
 请看下面的示例，了解如何编写测试。
 
-```ts [tests/example.spec.ts]
+```ts title="tests/example.spec.ts"
 import { test, expect } from '@playwright/test';
 
 test('has title', async ({ page }) => {
@@ -40,7 +42,7 @@ test('get started link', async ({ page }) => {
 });
 ```
 
-:::tip
+:::note
 在 VS Code 中使用 JavaScript 时，在每个测试文件的开头添加 `// @ts-check` 以获取自动类型检查。
 :::
 
@@ -127,9 +129,7 @@ expect(success).toBeTruthy();
 
 Playwright Test 基于测试夹具（test fixtures）的概念，例如内置的 `page` 夹具，它会被传递到您的测试中。由于浏览器上下文（Browser Context）的存在，页面在测试之间是相互隔离的，这相当于一个全新的浏览器配置文件。即使在单个浏览器中运行多个测试，每个测试也会获得一个干净的环境。
 
-`tests/example.spec.ts`
-
-```typescript
+```typescript title="tests/example.spec.ts"
 import { test } from '@playwright/test';
 
 test('example test', async ({ page }) => {
@@ -139,16 +139,13 @@ test('example test', async ({ page }) => {
 test('another test', async ({ page }) => {
   // 第二个测试中的 "page" 与第一个测试完全隔离。
 });
-
 ```
 
 ### 使用测试钩子（Using Test Hooks）
 
-您可以使用各种测试钩子，例如用于声明测试组的 `test.describe`，以及在每个测试之前/之后执行的 `test.beforeEach` 和 `test.afterEach`。其他钩子还包括 `test.beforeAll` 和 `test.afterAll`，它们在所有测试之前/之后在每个 worker 中执行一次。
+您可以使用各种 [测试钩子](https://playwright.dev/docs/api/class-test)，例如用于声明测试组的 `test.describe`，以及在每个测试之前/之后执行的 `test.beforeEach` 和 `test.afterEach`。其他钩子还包括 `test.beforeAll` 和 `test.afterAll`，它们在所有测试之前/之后在每个 worker 中执行一次。
 
-`tests/example.spec.ts`
-
-```typescript
+```typescript title="tests/example.spec.ts"
 import { test, expect } from '@playwright/test';
 
 test.describe('navigation', () => {
@@ -162,7 +159,6 @@ test.describe('navigation', () => {
     await expect(page).toHaveURL('https://playwright.dev/');
   });
 });
-
 ```
 
 ### 下一步做什么
