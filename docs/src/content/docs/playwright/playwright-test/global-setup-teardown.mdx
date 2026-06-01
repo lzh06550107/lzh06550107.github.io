@@ -1,0 +1,273 @@
+---
+title: 全局设置与清理
+description: Playwright Test 全局设置与清理
+sidebar:
+  order: 8
+---
+
+## 介绍
+
+有两种方式可以配置全局 setup 和 teardown：一种是使用全局 setup 文件，并在配置中通过 `globalSetup` 设置它；另一种是使用项目依赖。使用项目依赖时，你定义一个在所有其他项目之前运行的项目。**这是推荐方式**，因为它能更好地与 Playwright 测试运行器集成：HTML 报告会包含全局 setup、可以记录 trace，并且可以使用 fixtures。 citeturn638141view0
+
+有关这两种方式的详细对比，请参阅下表。 citeturn638141view0
+
+| 特性 | 项目依赖（推荐） | `globalSetup`（配置选项） |
+|---|---|---|
+| 在所有测试之前运行 | ✅ Yes | ✅ Yes |
+| 在 HTML 报告中可见 | ✅ 显示为单独项目 | ❌ 不显示 |
+| 记录 Trace | ✅ 提供完整 trace | ❌ 不支持 |
+| Playwright Fixtures | ✅ 完全支持 | ❌ 不支持 |
+| 浏览器管理 | ✅ 通过 `browser` fixture | ❌ 需要手动通过 `browserType.launch()` 管理 |
+| 并行与重试 | ✅ 通过标准配置支持 | ❌ 不适用 |
+| `headless`、`testIdAttribute` 等配置项 | ✅ 自动应用 | ❌ 会被忽略 |
+
+## 选项 1：项目依赖
+
+项目依赖是一个项目列表，它们必须在另一个项目中的测试运行之前先执行。它们非常适合用来配置全局 setup 操作，使一个项目依赖于这个 setup 项目先运行。使用依赖关系还允许全局 setup 生成 trace 和其他产物。 citeturn638141view0
+
+### Setup
+
+首先，我们添加一个名为 `'setup db'` 的新项目。然后给它一个 `testProject.testMatch` 属性，以匹配名为 `global.setup.ts` 的文件： citeturn638141view0
+
+```ts
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  testDir: './tests',
+  // ...
+  projects: [
+    {
+      name: 'setup db',
+      testMatch: /global\.setup\.ts/,
+    },
+    // {
+    //   other project
+    // }
+  ]
+});
+```
+
+然后，我们给依赖该 setup 项目的项目添加 `testProject.dependencies` 属性，并在数组中传入我们上一步定义的依赖项目名称： citeturn638141view0
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests',
+  // ...
+  projects: [
+    {
+      name: 'setup db',
+      testMatch: /global\.setup\.ts/,
+    },
+    {
+      name: 'chromium with db',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup db'],
+    },
+  ]
+});
+```
+
+在这个例子中，`'chromium with db'` 项目依赖于 `'setup db'` 项目。接着我们创建一个 setup 测试，并将其保存在项目根级别（注意，setup 和 teardown 代码必须通过调用 `test()` 函数定义为常规测试）： citeturn638141view0
+
+```ts
+import { test as setup } from '@playwright/test';
+
+setup('create new database', async ({ }) => {
+  console.log('creating new database...');
+  // Initialize the database
+});
+```
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test('menu', async ({ page }) => {
+  // Your test that depends on the database
+});
+```
+
+### Teardown
+
+你可以通过给 setup 项目添加 `testProject.teardown` 属性来清理 setup。这会在所有依赖项目运行结束后执行。 citeturn638141view0
+
+首先，我们为 setup 项目添加 `testProject.teardown` 属性，并将其值设置为 `'cleanup db'`，也就是我们为 teardown 项目定义的名称： citeturn638141view0
+
+```ts
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  testDir: './tests',
+  // ...
+  projects: [
+    {
+      name: 'setup db',
+      testMatch: /global\.setup\.ts/,
+      teardown: 'cleanup db',
+    },
+    {
+      name: 'cleanup db',
+      testMatch: /global\.teardown\.ts/,
+    },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup db'],
+    },
+  ]
+});
+```
+
+然后，在项目的 `tests` 目录中创建一个 `global.teardown.ts` 文件。它会在所有测试运行结束后用于删除数据库中的数据。 citeturn638141view0
+
+```ts
+import { test as teardown } from '@playwright/test';
+
+teardown('delete database', async ({ }) => {
+  console.log('deleting test database...');
+  // Delete the database
+});
+```
+
+### 测试过滤
+
+所有测试过滤选项，例如 `--grep` / `--grep-invert`、`--shard`、在命令行中按位置直接过滤，或者使用 `test.only()`，都会直接选择需要运行的主测试。如果这些测试属于一个带依赖的项目，那么这些依赖中的所有测试也会一起运行。你可以传递 `--no-deps` 命令行选项来忽略所有依赖和 teardown，这样只会运行你直接选中的项目。 citeturn638141view0
+
+### 更多示例
+
+如需更详细的示例，请查看：
+
+- 认证指南
+- 博客文章 *A better global setup in Playwright reusing login with project dependencies*
+- v1.31 发布视频演示 citeturn638141view0
+
+## 选项 2：配置 globalSetup 和 globalTeardown
+
+你可以在配置文件中使用 `globalSetup` 选项，在所有测试运行之前只执行一次 setup。全局 setup 文件必须导出一个接受配置对象的单个函数。这个函数会在所有测试之前只运行一次。类似地，可以使用 `globalTeardown` 在所有测试之后只运行一次清理逻辑。另一种方式是让 `globalSetup` 返回一个函数，并将其作为全局 teardown 使用。你可以通过环境变量把诸如端口号、认证 token 等数据从全局 setup 传递给测试。 citeturn638141view0
+
+:::note
+请注意，`globalSetup` 和 `globalTeardown` 缺少一些能力。请查看介绍部分中的详细对比。若想获得完整功能支持，建议优先使用项目依赖。 citeturn638141view0
+:::
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  globalSetup: require.resolve('./global-setup'),
+  globalTeardown: require.resolve('./global-teardown'),
+});
+```
+
+### 示例
+
+下面是一个全局 setup 的示例：它只进行一次认证，并在测试中复用认证状态。它使用了配置文件中的 `baseURL` 和 `storageState` 选项。 citeturn638141view0
+
+```ts
+import { chromium, type FullConfig } from '@playwright/test';
+
+async function globalSetup(config: FullConfig) {
+  const { baseURL, storageState } = config.projects[0].use;
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.goto(baseURL!);
+  await page.getByLabel('User Name').fill('user');
+  await page.getByLabel('Password').fill('password');
+  await page.getByText('Sign in').click();
+  await page.context().storageState({ path: storageState as string });
+  await browser.close();
+}
+
+export default globalSetup;
+```
+
+在配置文件中指定 `globalSetup`、`baseURL` 和 `storageState`： citeturn638141view0
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  globalSetup: require.resolve('./global-setup'),
+  use: {
+    baseURL: 'http://localhost:3000/',
+    storageState: 'state.json',
+  },
+});
+```
+
+由于我们指定了由 global setup 填充的 `storageState`，测试在开始时就已经完成登录。 citeturn638141view0
+
+```ts
+import { test } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  await page.goto('/');
+  // You are signed in!
+});
+```
+
+你也可以通过在 `globalSetup` 中设置 `process.env` 环境变量，把任意数据提供给测试使用。 citeturn638141view0
+
+```ts
+import type { FullConfig } from '@playwright/test';
+
+async function globalSetup(config: FullConfig) {
+  process.env.FOO = 'some data';
+  // Or a more complicated data structure as JSON:
+  process.env.BAR = JSON.stringify({ some: 'data' });
+}
+
+export default globalSetup;
+```
+
+测试可以访问在全局 setup 中设置的 `process.env` 属性。 citeturn638141view0
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  // environment variables which are set in globalSetup are only available inside test().
+  const { FOO, BAR } = process.env;
+
+  // FOO and BAR properties are populated.
+  expect(FOO).toEqual('some data');
+
+  const complexData = JSON.parse(BAR!);
+  expect(complexData).toEqual({ some: 'data' });
+});
+```
+
+### 在全局 setup 期间捕获失败的 trace
+
+在某些场景下，记录全局 setup 期间失败的 trace 会非常有用。为此，你必须在 setup 中启动 tracing，并且确保如果在抛出错误前发生异常时，会先停止 tracing。这可以通过用 `try...catch` 包裹 setup 来实现。下面的示例是在前面的 global setup 示例基础上扩展而来，用于捕获 trace。 citeturn638141view0
+
+```ts
+import { chromium, type FullConfig } from '@playwright/test';
+
+async function globalSetup(config: FullConfig) {
+  const { baseURL, storageState } = config.projects[0].use;
+  const browser = await chromium.launch();
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  try {
+    await context.tracing.start({ screenshots: true, snapshots: true });
+    await page.goto(baseURL!);
+    await page.getByLabel('User Name').fill('user');
+    await page.getByLabel('Password').fill('password');
+    await page.getByText('Sign in').click();
+    await context.storageState({ path: storageState as string });
+    await context.tracing.stop({
+      path: './test-results/setup-trace.zip',
+    });
+    await browser.close();
+  } catch (error) {
+    await context.tracing.stop({
+      path: './test-results/failed-setup-trace.zip',
+    });
+    await browser.close();
+    throw error;
+  }
+}
+
+export default globalSetup;
+```
+

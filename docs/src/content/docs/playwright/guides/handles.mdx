@@ -1,0 +1,121 @@
+---
+title: "句柄"
+description: "介绍 ElementHandle 与 JSHandle 的用途及与 Locator 的区别。"
+sidebar:
+  label: "句柄"
+  order: 20
+---
+
+## 介绍
+
+Playwright 可以为页面中的 DOM 元素，或页面内部的其它对象创建句柄。这些句柄存在于 Playwright 进程中，而真实对象存在于浏览器中。句柄主要有两种类型：
+
+- `JSHandle`：用于引用页面中的任意 JavaScript 对象。
+- `ElementHandle`：用于引用页面中的 DOM 元素。它提供了额外方法，可对元素执行操作并断言其属性。
+
+由于页面中的任何 DOM 元素本身也是 JavaScript 对象，因此任何 `ElementHandle` 同时也是一个 `JSHandle`。
+
+句柄用于对页面中的真实对象执行操作。你可以基于句柄进行求值、获取句柄属性、将句柄作为求值参数传入、把页面对象序列化为 JSON 等。更多方法请参考 `JSHandle` 类 API。
+
+### API 参考
+
+- `JSHandle`
+- `ElementHandle`
+
+获取 `JSHandle` 最简单的方式如下：
+
+```ts
+const jsHandle = await page.evaluateHandle('window');
+// 使用 jsHandle 进行求值。
+```
+
+## Element Handles
+
+:::caution[不推荐]
+不推荐使用 `ElementHandle`。请优先使用 `Locator` 对象和面向 Web 的断言。
+:::
+
+当确实需要 `ElementHandle` 时，推荐通过 `page.waitForSelector()` 或 `frame.waitForSelector()` 方法获取。这些 API 会等待元素被附加到 DOM 并变为可见。
+
+```ts
+// 获取元素句柄
+const elementHandle = page.waitForSelector('#box');
+
+// 断言元素的边界框
+const boundingBox = await elementHandle.boundingBox();
+expect(boundingBox.width).toBe(100);
+
+// 断言元素属性
+const classNames = await elementHandle.getAttribute('class');
+expect(classNames.includes('highlighted')).toBeTruthy();
+```
+
+## 将句柄作为参数
+
+句柄可以传递给 `page.evaluate()` 以及类似方法。下面的代码片段会在页面中创建一个新数组，使用数据初始化它，并把该数组的句柄返回给 Playwright。随后可以在后续求值中继续使用这个句柄：
+
+```ts
+// 在页面中创建新数组。
+const myArrayHandle = await page.evaluateHandle(() => {
+  window.myArray = [1];
+  return myArray;
+});
+
+// 获取数组长度。
+const length = await page.evaluate(a => a.length, myArrayHandle);
+
+// 使用句柄向数组添加一个元素。
+await page.evaluate(arg => arg.myArray.push(arg.newElement), {
+  myArray: myArrayHandle,
+  newElement: 2
+});
+
+// 不再需要时释放该对象。
+await myArrayHandle.dispose();
+```
+
+## 句柄生命周期
+
+可以通过页面方法获取句柄，例如 `page.evaluateHandle()`、`page.$()`、`page.$$()`，也可以通过对应的 frame 方法获取，例如 `frame.evaluateHandle()`、`frame.$()`、`frame.$$()`。
+
+句柄创建后，会使对象不被垃圾回收，直到页面发生导航，或通过 `jsHandle.dispose()` 方法手动释放该句柄。
+
+### API 参考
+
+- `JSHandle`
+- `ElementHandle`
+- `elementHandle.boundingBox()`
+- `elementHandle.getAttribute()`
+- `elementHandle.innerText()`
+- `elementHandle.innerHTML()`
+- `elementHandle.textContent()`
+- `jsHandle.evaluate()`
+- `page.evaluateHandle()`
+- `page.$()`
+- `page.$$()`
+
+## Locator 与 ElementHandle
+
+:::caution
+只有在极少数情况下，例如需要在静态页面上执行大量 DOM 遍历时，才建议使用 `ElementHandle`。对于所有用户操作和断言，请使用 locator。
+:::
+
+`Locator` 与 `ElementHandle` 的区别在于：`ElementHandle` 指向某一个具体元素，而 `Locator` 保存的是如何查找该元素的逻辑。
+
+在下面的示例中，handle 指向页面中的某个具体 DOM 元素。如果该元素的文本发生变化，或者 React 使用同一个位置渲染了完全不同的组件，handle 仍然会指向那个已经过期的 DOM 元素。这可能导致意外行为。
+
+```ts
+const handle = await page.$('text=Submit');
+// ...
+await handle.hover();
+await handle.click();
+```
+
+使用 locator 时，每次使用 locator，都会基于选择器在页面中重新定位最新的 DOM 元素。因此在下面的代码片段中，底层 DOM 元素会被定位两次。
+
+```ts
+const locator = page.getByText('Submit');
+// ...
+await locator.hover();
+await locator.click();
+```

@@ -1,0 +1,267 @@
+---
+title: "操作"
+description: "介绍点击、输入、选择、拖拽、键盘和鼠标等页面交互操作。"
+sidebar:
+  label: "操作"
+  order: 3
+---
+
+## 简介
+
+Playwright 可以与 HTML 输入元素进行交互，例如文本输入框、复选框、单选按钮、下拉选项、鼠标点击、字符输入、按键和快捷键，也可以上传文件并聚焦元素。
+
+## 文本输入
+
+使用 `locator.fill()` 是填写表单字段最简单的方式。它会聚焦元素，并通过输入的文本触发 `input` 事件。该方法适用于 `<input>`、`<textarea>` 和 `[contenteditable]` 元素。
+
+```ts
+// 文本输入
+await page.getByRole('textbox').fill('Peter');
+
+// 日期输入
+await page.getByLabel('Birth date').fill('2020-02-02');
+
+// 时间输入
+await page.getByLabel('Appointment time').fill('13:15');
+
+// 本地日期时间输入
+await page.getByLabel('Local time').fill('2020-03-02T05:15');
+```
+
+## 复选框和单选按钮
+
+使用 `locator.setChecked()` 是勾选和取消勾选复选框或单选按钮最简单的方式。该方法可用于 `input[type=checkbox]`、`input[type=radio]` 和 `[role=checkbox]` 元素。
+
+```ts
+// 勾选复选框
+await page.getByLabel('I agree to the terms above').check();
+
+// 断言勾选状态
+expect(page.getByLabel('Subscribe to newsletter')).toBeChecked();
+
+// 选择单选按钮
+await page.getByLabel('XL').check();
+```
+
+## 选择选项
+
+可以使用 `locator.selectOption()` 在 `<select>` 元素中选择一个或多个选项。你可以通过选项的 `value` 或 `label` 来指定要选择的内容，也可以一次选择多个选项。
+
+```ts
+// 根据 value 或 label 进行单选
+await page.getByLabel('Choose a color').selectOption('blue');
+
+// 根据 label 进行单选
+await page.getByLabel('Choose a color').selectOption({ label: 'Blue' });
+
+// 选择多个项目
+await page.getByLabel('Choose multiple colors').selectOption(['red', 'green', 'blue']);
+```
+
+## 鼠标点击
+
+执行一次普通的人类点击操作。
+
+```ts
+// 普通点击
+await page.getByRole('button').click();
+
+// 双击
+await page.getByText('Item').dblclick();
+
+// 右键点击
+await page.getByText('Item').click({ button: 'right' });
+
+// Shift + 点击
+await page.getByText('Item').click({ modifiers: ['Shift'] });
+
+// Windows 和 Linux 上的 Ctrl + 点击
+// macOS 上的 Meta + 点击
+await page.getByText('Item').click({ modifiers: ['ControlOrMeta'] });
+
+// 悬停到元素上
+await page.getByText('Item').hover();
+
+// 点击左上角
+await page.getByText('Item').click({ position: { x: 0, y: 0 } });
+```
+
+在底层，该方法以及其他与指针相关的方法会执行以下检查：
+
+- 等待指定选择器对应的元素出现在 DOM 中。
+- 等待元素变为可显示状态，例如元素不为空，没有 `display: none`，也没有 `visibility: hidden`。
+- 等待元素停止移动，例如等待 CSS 过渡完成。
+- 将元素滚动到视口中。
+- 等待元素在操作点可以接收指针事件，例如等待元素不再被其他元素遮挡。
+- 如果元素在上述任意检查过程中从 DOM 中分离，则进行重试。
+
+### 强制点击
+
+有时，应用会使用较复杂的逻辑：当鼠标悬停到某个元素上时，会出现另一个覆盖层并拦截点击。这个行为和元素被意外遮挡、点击被派发到其他位置的 bug 很难区分。如果你确认这是预期行为，可以跳过可操作性检查并强制点击：
+
+```ts
+await page.getByRole('button').click({ force: true });
+```
+
+### 程序化点击
+
+如果你并不关心在真实用户条件下测试应用，只是想用任何可能的方式模拟点击，可以通过 `locator.dispatchEvent()` 在元素上派发 `click` 事件，从而触发 `HTMLElement.click()` 行为：
+
+```ts
+await page.getByRole('button').dispatchEvent('click');
+```
+
+## 输入字符
+
+:::caution
+大多数情况下，你应该使用 `locator.fill()` 输入文本。请参阅上面的“文本输入”部分。只有当页面存在特殊键盘处理逻辑时，才需要逐个输入字符。
+:::
+
+可以使用 `locator.pressSequentially()` 像真实用户使用键盘一样，逐个字符输入到字段中。
+
+```ts
+// 逐个按键输入
+await page.locator('#area').pressSequentially('Hello World!');
+```
+
+该方法会发送所有必要的键盘事件，包括 `keydown`、`keyup` 和 `keypress`。你还可以指定按键之间的可选 `delay`，以模拟真实用户行为。
+
+## 按键和快捷键
+
+```ts
+// 按下 Enter
+await page.getByText('Submit').press('Enter');
+
+// 派发 Control+Right
+await page.getByRole('textbox').press('Control+ArrowRight');
+
+// 按下键盘上的 $ 符号
+await page.getByRole('textbox').press('$');
+```
+
+`locator.press()` 方法会聚焦所选元素，并产生一次按键。它接受键盘事件的 `keyboardEvent.key` 属性中会出现的逻辑键名，例如：
+
+```text
+Backquote, Minus, Equal, Backslash, Backspace, Tab, Delete, Escape,
+ArrowDown, End, Enter, Home, Insert, PageDown, PageUp, ArrowRight,
+ArrowUp, F1 - F12, Digit0 - Digit9, KeyA - KeyZ, etc.
+```
+
+- 你也可以指定希望产生的单个字符，例如 `"a"` 或 `"#"`。
+- 还支持以下修饰键快捷方式：`Shift`、`Control`、`Alt`、`Meta`。
+
+简单形式会产生单个字符。该字符区分大小写，因此 `"a"` 和 `"A"` 会产生不同结果。
+
+```ts
+// <input id=name>
+await page.locator('#name').press('Shift+A');
+
+// <input id=name>
+await page.locator('#name').press('Shift+ArrowLeft');
+```
+
+也支持 `"Control+o"` 或 `"Control+Shift+T"` 这样的快捷键。指定修饰键后，修饰键会在后续按键被按下时保持按住状态。
+
+请注意，如果要产生大写字符，仍然需要在 `Shift-A` 中指定大写的 `A`。`Shift-a` 会产生小写字符，就像开启了 `CapsLock` 一样。
+
+## 上传文件
+
+可以使用 `locator.setInputFiles()` 方法选择要上传的输入文件。第一个参数应指向类型为 `"file"` 的 `input` 元素。可以通过数组传入多个文件。如果某些文件路径是相对路径，它们会相对于当前工作目录解析。传入空数组会清空已选择的文件。
+
+```ts
+// 选择一个文件
+await page.getByLabel('Upload file').setInputFiles(path.join(__dirname, 'myfile.pdf'));
+
+// 选择多个文件
+await page.getByLabel('Upload files').setInputFiles([
+  path.join(__dirname, 'file1.txt'),
+  path.join(__dirname, 'file2.txt'),
+]);
+
+// 选择目录
+await page.getByLabel('Upload directory').setInputFiles(path.join(__dirname, 'mydir'));
+
+// 移除所有已选择的文件
+await page.getByLabel('Upload file').setInputFiles([]);
+
+// 从内存上传 buffer
+await page.getByLabel('Upload file').setInputFiles({
+  name: 'file.txt',
+  mimeType: 'text/plain',
+  buffer: Buffer.from('this is test')
+});
+```
+
+如果你手上没有输入元素，例如该元素是动态创建的，可以处理 `page.on('filechooser')` 事件，或者在执行操作时使用相应的等待方法：
+
+```ts
+// 在点击之前开始等待文件选择器。注意这里没有 await。
+const fileChooserPromise = page.waitForEvent('filechooser');
+await page.getByLabel('Upload file').click();
+const fileChooser = await fileChooserPromise;
+await fileChooser.setFiles(path.join(__dirname, 'myfile.pdf'));
+```
+
+## 聚焦元素
+
+对于处理焦点事件的动态页面，可以使用 `locator.focus()` 聚焦指定元素。
+
+```ts
+await page.getByLabel('Password').focus();
+```
+
+## 拖放
+
+可以使用 `locator.dragTo()` 执行拖放操作。该方法会：
+
+- 悬停到将被拖拽的元素上。
+- 按下鼠标左键。
+- 将鼠标移动到接收放置的元素上。
+- 松开鼠标左键。
+
+```ts
+await page.locator('#item-to-be-dragged').dragTo(page.locator('#item-to-drop-at'));
+```
+
+### 手动拖拽
+
+如果你想精确控制拖拽操作，可以使用更底层的方法，例如 `locator.hover()`、`mouse.down()`、`mouse.move()` 和 `mouse.up()`。
+
+```ts
+await page.locator('#item-to-be-dragged').hover();
+await page.mouse.down();
+await page.locator('#item-to-drop-at').hover();
+await page.mouse.up();
+```
+
+:::note
+如果页面依赖 `dragover` 事件被派发，那么为了在所有浏览器中可靠触发它，至少需要两次鼠标移动。要可靠地发出第二次鼠标移动，可以重复调用 `mouse.move()` 或 `locator.hover()`。操作顺序可以是：悬停到拖拽元素、按下鼠标、悬停到放置元素、第二次悬停到放置元素、松开鼠标。
+:::
+
+## 滚动
+
+大多数情况下，Playwright 会在执行任何操作之前自动为你滚动页面。因此，你通常不需要显式滚动。
+
+```ts
+// 会自动滚动，使按钮可见
+await page.getByRole('button').click();
+```
+
+但是在少数情况下，你可能需要手动滚动。例如，你可能想强制“无限列表”加载更多元素，或者为了特定截图调整页面位置。在这种情况下，最可靠的方式是找到你希望在底部显示的元素，并将它滚动到视口中。
+
+```ts
+// 将页脚滚动到视口中，从而强制“无限列表”加载更多内容
+await page.getByText('Footer text').scrollIntoViewIfNeeded();
+```
+
+如果你想更精确地控制滚动，可以使用 `mouse.wheel()` 或 `locator.evaluate()`：
+
+```ts
+// 定位鼠标并使用鼠标滚轮滚动
+await page.getByTestId('scrolling-container').hover();
+await page.mouse.wheel(0, 10);
+
+// 或者，以编程方式滚动特定元素
+await page.getByTestId('scrolling-container').evaluate(e => e.scrollTop += 100);
+```
+

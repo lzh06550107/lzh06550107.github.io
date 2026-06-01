@@ -1,0 +1,163 @@
+---
+title: "页面对象模型"
+description: "介绍如何用 Page Object Model 封装页面交互，提高测试可维护性。"
+sidebar:
+  label: "页面对象模型"
+  order: 29
+---
+
+## Introduction
+
+大型测试套件可以通过结构化来优化编写和维护的便利性。页面对象模型就是组织测试套件的一种方法。
+
+页面对象表示你的 Web 应用程序的一部分。一个电子商务 Web 应用程序可能有首页、列表页和结账页。它们中的每一个都可以用页面对象模型来表示。
+
+页面对象通过创建适合你的应用程序的更高级 API 来简化编写，并通过将元素选择器集中在一个地方、创建可复用代码来避免重复，从而简化维护。
+
+## Implementation
+
+我们将创建一个 `PlaywrightDevPage` 辅助类，用来封装 `playwright.dev` 页面上的常见操作。在内部，它将使用 `page` 对象。
+
+<Tabs>
+<TabItem label="Test">
+
+**playwright-dev-page.ts**
+
+```ts
+import { expect, type Locator, type Page } from '@playwright/test';
+
+export class PlaywrightDevPage {
+  readonly page: Page;
+  readonly getStartedLink: Locator;
+  readonly gettingStartedHeader: Locator;
+  readonly pomLink: Locator;
+  readonly tocList: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.getStartedLink = page.locator('a', { hasText: 'Get started' });
+    this.gettingStartedHeader = page.locator('h1', { hasText: 'Installation' });
+    this.pomLink = page.locator('li', {
+      hasText: 'Guides',
+    }).locator('a', {
+      hasText: 'Page Object Model',
+    });
+    this.tocList = page.locator('article div.markdown ul > li > a');
+  }
+
+  async goto() {
+    await this.page.goto('https://playwright.dev');
+  }
+
+  async getStarted() {
+    await this.getStartedLink.first().click();
+    await expect(this.gettingStartedHeader).toBeVisible();
+  }
+
+  async pageObjectModel() {
+    await this.getStarted();
+    await this.pomLink.click();
+  }
+}
+```
+
+</TabItem>
+<TabItem label="Library">
+
+**models/PlaywrightDevPage.js**
+
+```js
+class PlaywrightDevPage {
+  /**
+   * @param {import('playwright').Page} page
+   */
+  constructor(page) {
+    this.page = page;
+    this.getStartedLink = page.locator('a', { hasText: 'Get started' });
+    this.gettingStartedHeader = page.locator('h1', { hasText: 'Installation' });
+    this.pomLink = page.locator('li', {
+      hasText: 'Playwright Test',
+    }).locator('a', {
+      hasText: 'Page Object Model',
+    });
+    this.tocList = page.locator('article div.markdown ul > li > a');
+  }
+
+  async getStarted() {
+    await this.getStartedLink.first().click();
+    await expect(this.gettingStartedHeader).toBeVisible();
+  }
+
+  async pageObjectModel() {
+    await this.getStarted();
+    await this.pomLink.click();
+  }
+}
+module.exports = { PlaywrightDevPage };
+```
+
+</TabItem>
+</Tabs>
+
+现在我们可以在测试中使用 `PlaywrightDevPage` 类。
+
+<Tabs>
+<TabItem label="Test">
+
+**example.spec.ts**
+
+```ts
+import { test, expect } from '@playwright/test';
+import { PlaywrightDevPage } from './playwright-dev-page';
+
+test('getting started should contain table of contents', async ({ page }) => {
+  const playwrightDev = new PlaywrightDevPage(page);
+  await playwrightDev.goto();
+  await playwrightDev.getStarted();
+  await expect(playwrightDev.tocList).toHaveText([
+    `How to install Playwright`,
+    `What's installed`,
+    `How to run the example test`,
+    `How to open the HTML test report`,
+    `Write tests using web-first assertions, fixtures and locators`,
+    `Run single or multiple tests; headed mode`,
+    `Generate tests with Codegen`,
+    `View a trace of your tests`,
+  ]);
+});
+
+test('should show Page Object Model article', async ({ page }) => {
+  const playwrightDev = new PlaywrightDevPage(page);
+  await playwrightDev.goto();
+  await playwrightDev.pageObjectModel();
+  await expect(page.locator('article')).toContainText('Page Object Model is a common pattern');
+});
+```
+
+</TabItem>
+<TabItem label="Library">
+
+**example.spec.js**
+
+```js
+const { PlaywrightDevPage } = require('./playwright-dev-page');
+
+// In the test
+const page = await browser.newPage();
+await playwrightDev.goto();
+await playwrightDev.getStarted();
+await expect(playwrightDev.tocList).toHaveText([
+  `How to install Playwright`,
+  `What's installed`,
+  `How to run the example test`,
+  `How to open the HTML test report`,
+  `Write tests using web-first assertions, fixtures and locators`,
+  `Run single or multiple tests; headed mode`,
+  `Generate tests with Codegen`,
+  `View a trace of your tests`,
+]);
+```
+
+</TabItem>
+</Tabs>
+

@@ -1,0 +1,133 @@
+---
+title: "触摸事件（旧版）"
+description: "介绍旧式触摸事件支持和移动端交互注意事项。"
+sidebar:
+  label: "触摸事件（旧版）"
+  order: 34
+---
+
+## 简介
+
+处理旧版 [触摸事件](https://developer.mozilla.org/en-US/docs/Web/API/Touch_events) 以响应滑动、捏合和点击等手势的 Web 应用程序，可以通过手动向页面分发 [TouchEvent](https://developer.mozilla.org/en-US/docs/Web/API/TouchEvent) 来进行测试。下面的示例演示如何使用 [`locator.dispatchEvent()`](https://playwright.dev/docs/api/class-locator#locator-dispatch-event) 并将 [Touch](https://developer.mozilla.org/en-US/docs/Web/API/Touch) 点作为参数传递。
+
+请注意，[`locator.dispatchEvent()`](https://playwright.dev/docs/api/class-locator#locator-dispatch-event) 不会设置 [Event.isTrusted](https://developer.mozilla.org/en-US/docs/Web/API/Event/isTrusted) 属性。如果你的网页依赖它，请确保在测试期间禁用 `isTrusted` 检查。
+
+### 模拟平移手势
+
+在下面的示例中，我们模拟预期会移动地图的平移手势。被测试应用只使用触摸点的 `clientX/clientY` 坐标，因此我们只初始化这些坐标。在更复杂的场景中，如果你的应用需要它们，你可能还需要设置 `pageX/pageY/screenX/screenY`。
+
+```ts
+import { test, expect, devices, type Locator } from '@playwright/test';
+
+test.use({ ...devices['Pixel 7'] });
+async function pan(locator: Locator, deltaX?: number, deltaY?: number, steps?: number) {
+  const { centerX, centerY } = await locator.evaluate((target: HTMLElement) => {
+    const bounds = target.getBoundingClientRect();
+    const centerX = bounds.left + bounds.width / 2;
+    const centerY = bounds.top + bounds.height / 2;
+    return { centerX, centerY };
+  });
+  // 仅提供 clientX 和 clientY，因为应用只关心这些。
+  const touches = [{
+    identifier: 0,
+    clientX: centerX,
+    clientY: centerY,
+  }];
+  await locator.dispatchEvent('touchstart',
+      { touches, changedTouches: touches, targetTouches: touches });
+  steps = steps ?? 5;
+  deltaX = deltaX ?? 0;
+  deltaY = deltaY ?? 0;
+  for (let i = 1; i <= steps; i++) {
+    const touches = [{
+      identifier: 0,
+      clientX: centerX + deltaX * i / steps,
+      clientY: centerY + deltaY * i / steps,
+    }];
+    await locator.dispatchEvent('touchmove',
+        { touches, changedTouches: touches, targetTouches: touches });
+  }
+
+  await locator.dispatchEvent('touchend');
+}
+test(`pan gesture to move the map`, async ({ page }) => {
+  await page.goto('https://www.google.com/maps/place/@37.4117722,-122.0713234,15z',
+      { waitUntil: 'commit' });
+  await page.getByRole('button', { name: 'Keep using web' }).click();
+  await expect(page.getByRole('button', { name: 'Keep using web' })).not.toBeVisible();
+  // 获取地图元素。
+  const met = page.locator('[data-test-id="met"]');
+  for (let i = 0; i < 5; i++)
+    await pan(met, 200, 100);
+  // 确保地图已经被移动。
+  await expect(met).toHaveScreenshot();
+});
+```
+
+### 模拟捏合手势
+
+在下面的示例中，我们模拟捏合手势，即两个触摸点彼此靠近。预期结果是缩小地图。被测试应用只使用触摸点的 `clientX/clientY` 坐标，因此我们只初始化这些坐标。在更复杂的场景中，如果你的应用需要它们，你可能还需要设置 `pageX/pageY/screenX/screenY`。
+
+```ts
+import { test, expect, devices, type Locator } from '@playwright/test';
+
+test.use({ ...devices['Pixel 7'] });
+async function pinch(locator: Locator,
+  arg: { deltaX?: number, deltaY?: number, steps?: number, direction?: 'in' | 'out' }) {
+  const { centerX, centerY } = await locator.evaluate((target: HTMLElement) => {
+    const bounds = target.getBoundingClientRect();
+    const centerX = bounds.left + bounds.width / 2;
+    const centerY = bounds.top + bounds.height / 2;
+    return { centerX, centerY };
+  });
+  const deltaX = arg.deltaX ?? 50;
+  const steps = arg.steps ?? 5;
+  const stepDeltaX = deltaX / (steps + 1);
+  // 两个触摸点与元素中心等距。
+  const touches = [
+    {
+      identifier: 0,
+      clientX: centerX - (arg.direction === 'in' ? deltaX : stepDeltaX),
+      clientY: centerY,
+    },
+    {
+      identifier: 1,
+      clientX: centerX + (arg.direction === 'in' ? deltaX : stepDeltaX),
+      clientY: centerY,
+    },
+  ];
+  await locator.dispatchEvent('touchstart',
+      { touches, changedTouches: touches, targetTouches: touches });
+  // 将触摸点彼此靠近或远离。
+  for (let i = 1; i <= steps; i++) {
+    const offset = (arg.direction === 'in' ? (deltaX - i * stepDeltaX) : (stepDeltaX * (i + 1)));
+    const touches = [
+      {
+        identifier: 0,
+        clientX: centerX - offset,
+        clientY: centerY,
+      },
+      {
+        identifier: 0,
+        clientX: centerX + offset,
+        clientY: centerY,
+      },
+    ];
+    await locator.dispatchEvent('touchmove',
+        { touches, changedTouches: touches, targetTouches: touches });
+  }
+  await locator.dispatchEvent('touchend', { touches: [], changedTouches: [], targetTouches: [] });
+}
+test(`pinch in gesture to zoom out the map`, async ({ page }) => {
+  await page.goto('https://www.google.com/maps/place/@37.4117722,-122.0713234,15z',
+      { waitUntil: 'commit' });
+  await page.getByRole('button', { name: 'Keep using web' }).click();
+  await expect(page.getByRole('button', { name: 'Keep using web' })).not.toBeVisible();
+  // 获取地图元素。
+  const met = page.locator('[data-test-id="met"]');
+  for (let i = 0; i < 5; i++)
+    await pinch(met, { deltaX: 40, direction: 'in' });
+  // 确保地图已经缩小。
+  await expect(met).toHaveScreenshot();
+});
+```

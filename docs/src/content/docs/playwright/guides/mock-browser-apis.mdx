@@ -1,0 +1,164 @@
+---
+title: "模拟浏览器 API"
+description: "介绍如何模拟浏览器端 API，如时间、权限、地理位置等。"
+sidebar:
+  label: "模拟浏览器 API"
+  order: 24
+---
+
+## 简介
+
+Playwright 原生支持大多数浏览器功能。但是，有一些实验性 API，以及一些尚未被所有浏览器完全支持的 API。对于这类情况，Playwright 通常不会提供专门的自动化 API。你可以使用 mock 来测试应用程序在这些场景下的行为。本指南给出了一些示例。
+
+假设有一个 Web 应用使用 Battery API 来显示设备的电池状态。我们将模拟 Battery API，并检查页面是否正确显示了电池状态。
+
+## 创建 mock
+
+由于页面可能在加载的很早阶段就调用 API，因此在页面开始加载之前设置好所有 mock 非常重要。最简单的方式是调用 `page.addInitScript()`：
+
+```ts
+await page.addInitScript(() => {
+  const mockBattery = {
+    level: 0.75,
+    charging: true,
+    chargingTime: 1800,
+    dischargingTime: Infinity,
+    addEventListener: () => { }
+  };
+  // 覆盖该方法，使其始终返回模拟的电池信息。
+  window.navigator.getBattery = async () => mockBattery;
+});
+```
+
+完成之后，就可以导航页面并检查它的 UI 状态：
+
+```ts
+// 在每个测试之前配置模拟 API。
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    const mockBattery = {
+      level: 0.90,
+      charging: true,
+      chargingTime: 1800, // 秒
+      dischargingTime: Infinity,
+      addEventListener: () => { }
+    };
+    // 覆盖该方法，使其始终返回模拟的电池信息。
+    window.navigator.getBattery = async () => mockBattery;
+  });
+});
+
+test('show battery status', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.battery-percentage')).toHaveText('90%');
+  await expect(page.locator('.battery-status')).toHaveText('Adapter');
+  await expect(page.locator('.battery-fully')).toHaveText('00:30');
+});
+```
+
+## 模拟只读 API
+
+有些 API 是只读的，因此你无法直接给 navigator 的属性赋值。例如：
+
+```ts
+// 下面这行不会产生效果。
+navigator.cookieEnabled = true;
+```
+
+不过，如果该属性是可配置的，你仍然可以使用普通 JavaScript 覆盖它：
+
+```ts
+await page.addInitScript(() => {
+  Object.defineProperty(Object.getPrototypeOf(navigator), 'cookieEnabled', { value: false });
+});
+```
+
+## 验证 API 调用
+
+有时检查页面是否执行了所有预期的 API 调用会很有用。你可以记录所有 API 方法调用，然后将它们与基准结果进行比较。`page.exposeFunction()` 可以用于把消息从页面传回测试代码：
+
+```ts
+test('log battery calls', async ({ page }) => {
+  const log = [];
+  // 暴露一个函数，用于向 Node.js 脚本推送消息。
+  await page.exposeFunction('logCall', msg => log.push(msg));
+  await page.addInitScript(() => {
+    const mockBattery = {
+      level: 0.75,
+      charging: true,
+      chargingTime: 1800,
+      dischargingTime: Infinity,
+      // 记录 addEventListener 调用。
+      addEventListener: (name, cb) => logCall(`addEventListener:${name}`)
+    };
+    // 覆盖该方法，使其始终返回模拟的电池信息。
+    window.navigator.getBattery = async () => {
+      logCall('getBattery');
+      return mockBattery;
+    };
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.battery-percentage')).toHaveText('75%');
+
+  // 将实际调用与基准结果比较。
+  expect(log).toEqual([
+    'getBattery',
+    'addEventListener:chargingchange',
+    'addEventListener:levelchange'
+  ]);
+});
+```
+
+## 更新 mock
+
+为了测试应用是否能正确反映电池状态更新，需要确保模拟的 battery 对象会触发与浏览器实现相同的事件。下面的测试演示了如何实现这一点：
+
+```ts
+test('update battery status (no golden)', async ({ page }) => {
+  await page.addInitScript(() => {
+    // 模拟类：当电池状态变化时通知对应监听器。
+    class BatteryMock {
+      level = 0.10;
+      charging = false;
+      chargingTime = 1800;
+      dischargingTime = Infinity;
+      _chargingListeners = [];
+      _levelListeners = [];
+      addEventListener(eventName, listener) {
+        if (eventName === 'chargingchange')
+          this._chargingListeners.push(listener);
+        if (eventName === 'levelchange')
+          this._levelListeners.push(listener);
+      }
+      // 将由测试调用。
+      _setLevel(value) {
+        this.level = value;
+        this._levelListeners.forEach(cb => cb());
+      }
+      _setCharging(value) {
+        this.charging = value;
+        this._chargingListeners.forEach(cb => cb());
+      }
+    }
+    const mockBattery = new BatteryMock();
+    // 覆盖该方法，使其始终返回模拟的电池信息。
+    window.navigator.getBattery = async () => mockBattery;
+    // 将 mock 对象保存到 window 上，便于访问。
+    window.mockBattery = mockBattery;
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.battery-percentage')).toHaveText('10%');
+
+  // 将电量更新为 27.5%
+  await page.evaluate(() => window.mockBattery._setLevel(0.275));
+  await expect(page.locator('.battery-percentage')).toHaveText('27.5%');
+  await expect(page.locator('.battery-status')).toHaveText('Battery');
+
+  // 模拟连接电源适配器
+  await page.evaluate(() => window.mockBattery._setCharging(true));
+  await expect(page.locator('.battery-status')).toHaveText('Adapter');
+  await expect(page.locator('.battery-fully')).toHaveText('00:30');
+});
+```

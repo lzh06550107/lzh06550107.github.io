@@ -1,0 +1,43 @@
+---
+title: "截图"
+description: "介绍页面截图、元素截图、全页截图和截图选项。"
+sidebar:
+  label: "截图"
+  order: 30
+---
+
+## 简介
+
+下面是一种快速捕获截图并将其保存到文件中的方法：
+
+```js
+await page.screenshot({ path: 'screenshot.png' });
+```
+
+[Screenshots API](https://playwright.dev/docs/api/class-page#page-screenshot) 接受许多参数，用于设置图像格式、裁剪区域、质量等。请务必查看这些参数。
+
+## 全页面截图
+
+全页面截图是对完整可滚动页面的截图，就好像你有一个非常高的屏幕，并且页面可以完整地适配其中。
+
+```js
+await page.screenshot({ path: 'screenshot.png', fullPage: true });
+```
+
+## 捕获到缓冲区
+
+你可以不写入文件，而是获取包含图像的缓冲区，然后对其进行后处理，或者将其传递给第三方像素差异对比工具。
+
+```js
+const buffer = await page.screenshot();
+console.log(buffer.toString('base64'));
+```
+
+## 元素截图
+
+有时，对单个元素进行截图很有用。
+
+```js
+await page.locator('.header').screenshot({ path: 'screenshot.png' });
+```
+

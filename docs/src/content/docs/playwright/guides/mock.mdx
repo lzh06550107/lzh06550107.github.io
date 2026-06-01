@@ -1,0 +1,168 @@
+---
+title: "模拟 API"
+description: "介绍如何拦截、模拟、修改 API 请求和响应。"
+sidebar:
+  label: "模拟 API"
+  order: 23
+---
+
+## 简介
+
+Web API 通常会实现为 HTTP 端点。Playwright 提供了用于模拟和修改网络流量的 API，HTTP 和 HTTPS 都支持。页面发出的任何请求，包括 XHR 和 `fetch` 请求，都可以被跟踪、修改和模拟。Playwright 还可以使用 HAR 文件进行模拟，HAR 文件中可以包含页面发出的多个网络请求。
+
+## 模拟 API 请求
+
+下面的代码会拦截所有发往 `*/**/api/v1/fruits` 的调用，并返回一个自定义响应。请求不会真正发送到 API。测试会访问使用该模拟路由的 URL，并断言模拟数据已经出现在页面上。
+
+```ts
+test("mocks a fruit and doesn't call api", async ({ page }) => {
+  // 在导航前模拟 API 调用
+  await page.route('*/**/api/v1/fruits', async route => {
+    const json = [{ name: 'Strawberry', id: 21 }];
+    await route.fulfill({ json });
+  });
+
+  // 访问页面
+  await page.goto('https://demo.playwright.dev/api-mocking');
+
+  // 断言 Strawberry 水果可见
+  await expect(page.getByText('Strawberry')).toBeVisible();
+});
+```
+
+从该示例测试的 trace 中可以看到，API 从未被真正调用，而是使用模拟数据完成了响应。
+
+更多内容可以阅读网络相关的高级指南。
+
+## 修改 API 响应
+
+有时必须真正发起 API 请求，但为了让测试结果可复现，需要对响应进行修补。在这种情况下，可以不直接模拟请求，而是先执行请求，再用修改后的响应完成它。
+
+下面的示例会拦截对水果 API 的调用，并向数据中添加一个名为 `Loquat` 的新水果。然后访问 URL，并断言该数据存在：
+
+```ts
+test('gets the json from api and adds a new fruit', async ({ page }) => {
+  // 获取响应并添加内容
+  await page.route('*/**/api/v1/fruits', async route => {
+    const response = await route.fetch();
+    const json = await response.json();
+    json.push({ name: 'Loquat', id: 100 });
+
+    // 使用原始响应完成请求，同时用给定 JSON 对象修补响应体。
+    await route.fulfill({ response, json });
+  });
+
+  // 访问页面
+  await page.goto('https://demo.playwright.dev/api-mocking');
+
+  // 断言新水果可见
+  await expect(page.getByText('Loquat', { exact: true })).toBeVisible();
+});
+```
+
+在该测试的 trace 中，可以看到 API 被调用了，并且响应被修改了。
+
+检查响应时可以看到，新水果已经被添加到列表中。
+
+更多内容可以阅读网络相关的高级指南。
+
+## 使用 HAR 文件进行模拟
+
+HAR 文件是 HTTP Archive 文件，它记录了页面加载时发出的所有网络请求。它包含请求和响应头、cookie、内容、耗时等信息。你可以在测试中使用 HAR 文件模拟网络请求。通常需要：
+
+1. 录制 HAR 文件。
+2. 将 HAR 文件与测试一起提交。
+3. 在测试中使用保存的 HAR 文件路由请求。
+
+### 录制 HAR 文件
+
+可以使用 `page.routeFromHAR()` 或 `browserContext.routeFromHAR()` 方法录制 HAR 文件。该方法接收 HAR 文件路径，以及一个可选的配置对象。配置对象可以包含 URL，这样只有与指定 glob 模式匹配的请求才会从 HAR 文件提供。如果未指定，则所有请求都会从 HAR 文件提供。
+
+将 `update` 选项设置为 `true` 时，会使用真实网络信息创建或更新 HAR 文件，而不是从 HAR 文件提供请求。创建测试并需要用真实数据填充 HAR 时，可以使用这个选项。
+
+另外，也可以在创建浏览器上下文时，通过 `browser.newContext()` 的 `recordHar` 选项录制 HAR 文件。这样可以捕获整个上下文的全部网络流量，直到上下文被关闭。
+
+### 修改 HAR 文件
+
+录制 HAR 文件后，可以打开 `hars` 文件夹中的哈希 `.txt` 文件，并编辑其中的 JSON。该文件应该提交到源码管理中。之后每次使用 `update: true` 运行这个测试时，HAR 文件都会根据 API 请求进行更新。
+
+```json
+[
+  {
+    "name": "Playwright",
+    "id": 100
+  }
+]
+```
+
+### 从 HAR 回放
+
+录制 HAR 文件并修改模拟数据后，就可以在测试中用它提供匹配的响应。为此，只需关闭或移除 `update` 选项。这样测试会基于 HAR 文件运行，而不是访问真实 API。
+
+```ts
+test('gets the json from HAR and checks the new fruit has been added', async ({ page }) => {
+  // 从 HAR 回放 API 请求。
+  // 要么使用 HAR 中匹配的响应，
+  // 要么在没有匹配项时中止请求。
+  await page.routeFromHAR('./hars/fruit.har', {
+    url: '*/**/api/v1/fruits',
+    update: false,
+  });
+
+  // 访问页面
+  await page.goto('https://demo.playwright.dev/api-mocking');
+
+  // 断言 Playwright 水果可见
+  await expect(page.getByText('Playwright', { exact: true })).toBeVisible();
+});
+```
+
+在该测试的 trace 中可以看到，该路由是从 HAR 文件完成的，API 没有被调用。
+
+检查响应时可以看到，新的水果已经被添加到 JSON 中，这是通过手动更新 `hars` 文件夹中的哈希 `.txt` 文件完成的。
+
+HAR 回放会严格匹配 URL 和 HTTP 方法。对于 POST 请求，也会严格匹配 POST 负载。如果多个录制项都匹配请求，会选择请求头匹配最多的一项。会自动跟随产生重定向的条目。
+
+与录制时类似，如果给定的 HAR 文件名以 `.zip` 结尾，则它会被视为一个归档文件，其中包含 HAR 文件以及作为独立条目存储的网络负载。你也可以解压该归档，手动编辑负载或 HAR 日志，然后指向解压后的 HAR 文件。所有负载都会基于文件系统中解压后的 HAR 文件所在位置进行解析。
+
+#### 使用 CLI 录制 HAR
+
+推荐使用 `update` 选项为测试录制 HAR 文件。不过，也可以使用 Playwright CLI 录制 HAR。
+
+使用 Playwright CLI 打开浏览器，并传入 `--save-har` 选项来生成 HAR 文件。也可以选择使用 `--save-har-glob`，只保存你关心的请求，例如 API 端点。如果 HAR 文件名以 `.zip` 结尾，产物会被写入为独立文件，并一起压缩为单个 `zip` 文件。
+
+```bash
+# 将 example.com 的 API 请求保存为 "example.har" 归档。
+npx playwright open --save-har=example.har --save-har-glob="**/api/**" https://example.com
+```
+
+更多内容可以阅读网络相关的高级指南。
+
+## 模拟 WebSocket
+
+下面的代码会拦截 WebSocket 连接，并模拟 WebSocket 上的全部通信，而不是连接到服务器。此示例会对 `"request"` 返回 `"response"`。
+
+```ts
+await page.routeWebSocket('wss://example.com/ws', ws => {
+  ws.onMessage(message => {
+    if (message === 'request')
+      ws.send('response');
+  });
+});
+```
+
+或者，你可能希望连接到真实服务器，但拦截中间消息并修改或阻止它们。下面的示例会修改页面发送给服务器的部分消息，其余消息保持不变。
+
+```ts
+await page.routeWebSocket('wss://example.com/ws', ws => {
+  const server = ws.connectToServer();
+  ws.onMessage(message => {
+    if (message === 'request')
+      server.send('request2');
+    else
+      server.send(message);
+  });
+});
+```
+
+更多细节请查看 `WebSocketRoute`。

@@ -1,0 +1,257 @@
+---
+title: "调试测试"
+description: "介绍 UI Mode、Inspector、VS Code、Trace Viewer 和调试变量。"
+sidebar:
+  label: "调试测试"
+  order: 13
+---
+
+## VS Code 调试器
+
+建议使用 VS Code 扩展进行调试，以获得更好的开发体验。借助 VS Code 扩展，你可以直接在 VS Code 中调试测试、查看错误消息、设置断点，并逐步执行测试。
+
+### 错误消息
+
+如果测试失败，VS Code 会直接在编辑器中显示错误消息，包括期望结果、实际结果以及完整的调用日志。
+
+### 实时调试
+
+你可以在 VS Code 中实时调试测试。使用 `Show Browser` 选项运行测试后，在 VS Code 中点击任意 locator，它会在浏览器窗口中高亮显示。Playwright 还会显示是否存在多个匹配项。
+
+你也可以在 VS Code 中编辑 locator，Playwright 会在浏览器窗口中实时显示更改。
+
+### 选择定位器
+
+点击测试侧边栏中的 **Pick locator** 按钮，可以选择一个 locator 并将其复制到测试文件中。然后在浏览器中点击你需要的元素，它会显示在 VS Code 的 Pick locator 输入框中。按键盘上的 `Enter` 可将 locator 复制到剪贴板，然后粘贴到代码中的任意位置。按 `Escape` 可取消操作。
+
+Playwright 会检查页面并计算出最佳 locator，优先使用 role、text 和 test id locator。如果 Playwright 发现多个元素匹配该 locator，它会改进 locator，使其更稳健并唯一标识目标元素，因此你无需担心因 locator 不稳定而导致测试失败。
+
+### 以调试模式运行
+
+要设置断点，请点击需要设置断点的行号旁边，直到出现红点。然后右键点击你想运行的测试所在行旁边的位置，以调试模式运行测试。
+
+浏览器窗口会打开，测试会运行并在设置断点的位置暂停。你可以在 VS Code 菜单中逐步执行测试、暂停测试并重新运行测试。
+
+### 使用 Chrome DevTools 调试测试
+
+在 VS Code 中不要选择 `Debug Test`，而是选择 `Run Test`。启用 `Show Browser` 后，浏览器会话会被复用，你可以打开 Chrome DevTools，对测试和 Web 应用进行持续调试。
+
+### 在不同浏览器中调试
+
+默认情况下，调试使用 Chromium 配置。你可以在测试侧边栏中右键点击调试图标，然后从下拉菜单中点击 `Select Default Profile`，从而在不同浏览器中调试测试。
+
+然后选择你希望用于调试测试的测试配置文件。之后每次以调试模式运行测试时，都会使用你选择的配置文件。你可以右键点击测试所在的行号，并从菜单中选择 `Debug Test` 来以调试模式运行测试。
+
+## Playwright Inspector
+
+Playwright Inspector 是一个图形界面工具，可帮助你调试 Playwright 测试。它允许你逐步执行测试、实时编辑 locator、选择 locator，并查看可操作性日志。
+
+### 以调试模式运行
+
+使用 `--debug` 标志运行测试即可打开 Inspector。这会将 Playwright 配置为调试模式并打开 Inspector。使用 `--debug` 时，还会配置一些有用的默认设置：
+
+- 浏览器以 headed 模式启动
+- 默认超时设置为 `0`，也就是没有超时
+
+#### 调试所有浏览器上的所有测试
+
+要调试所有测试，请使用 `--debug` 标志运行 test 命令。这会逐个运行测试，并为每个测试打开 Inspector 和浏览器窗口。
+
+```bash
+npx playwright test --debug
+```
+
+#### 调试所有浏览器上的一个测试
+
+要调试指定行上的一个测试，请运行 test 命令，后面跟上测试文件名和要调试的测试所在行号，再加上 `--debug` 标志。这会在 `playwright.config` 中配置的每个浏览器中运行单个测试，并打开 Inspector。
+
+```bash
+npx playwright test example.spec.ts:10 --debug
+```
+
+#### 在指定浏览器上调试
+
+在 Playwright 中，你可以在 `playwright.config` 中配置 projects。配置完成后，可以使用 `--project` 标志并跟上 `playwright.config` 中配置的 project 名称，在指定浏览器或移动端视口上调试测试。
+
+```bash
+npx playwright test --project=chromium --debug
+npx playwright test --project="Mobile Safari" --debug
+npx playwright test --project="Microsoft Edge" --debug
+```
+
+#### 在指定浏览器上调试一个测试
+
+要在指定浏览器上运行一个测试，请添加测试文件名和要调试的测试所在行号，同时添加 `--project` 标志并跟上 project 名称。
+
+```bash
+npx playwright test example.spec.ts:10 --project=webkit --debug
+```
+
+### 逐步执行测试
+
+你可以使用 Inspector 顶部工具栏播放、暂停或逐步执行测试中的每个操作。你可以看到当前操作在测试代码中被高亮显示，同时匹配的元素也会在浏览器窗口中高亮显示。
+
+### 从指定断点运行测试
+
+为了加快调试过程，你可以在测试中添加 `page.pause()` 方法。这样就不需要逐步执行测试中的每个操作，才能到达你想调试的位置。
+
+```ts
+await page.pause();
+```
+
+添加 `page.pause()` 调用后，以调试模式运行测试。在 Inspector 中点击 “Resume” 按钮后，测试会继续运行，并且只会在 `page.pause()` 处停止。
+
+### 实时编辑 locator
+
+在调试模式运行时，你可以实时编辑 locator。`Pick Locator` 按钮旁边有一个字段，会显示测试暂停时使用的 locator。你可以直接在 Pick Locator 字段中编辑该 locator，匹配的元素会在浏览器窗口中高亮显示。
+
+### 选择 locator
+
+调试时，你可能需要选择一个更稳健的 locator。可以点击 **Pick Locator** 按钮，然后将鼠标悬停在浏览器窗口中的任意元素上。悬停在元素上时，下方会高亮显示定位该元素所需的代码。点击浏览器中的某个元素后，locator 会添加到字段中，你可以继续调整它，或者复制到代码中。
+
+Playwright 会检查页面并计算出最佳 locator，优先使用 role、text 和 test id locator。如果 Playwright 发现多个元素匹配该 locator，它会改进 locator，使其更稳健并唯一标识目标元素，因此你无需担心因 locator 不稳定而导致测试失败。
+
+### 可操作性日志
+
+当 Playwright 在点击操作上暂停时，它已经执行了可操作性检查，这些检查可以在日志中找到。这可以帮助你了解测试过程中发生了什么，以及 Playwright 执行或尝试执行了什么。日志会告诉你元素是否可见、启用且稳定，locator 是否解析到了元素，元素是否已滚动到视图中，以及更多信息。如果无法达到可操作状态，它会将该操作显示为 pending。
+
+## Trace Viewer
+
+Playwright Trace Viewer 是一个图形界面工具，可用于探索测试中记录的 Playwright trace。你可以在左侧前后切换每个操作，并以可视方式查看执行该操作时发生的情况。屏幕中间可以看到该操作的 DOM 快照。右侧可以看到操作详情，例如时间、参数、返回值和日志。你还可以查看控制台消息、网络请求和源代码。
+
+要了解如何记录 trace 和使用 Trace Viewer，请查看 Trace Viewer 指南。
+
+## 浏览器开发者工具
+
+当使用 `PWDEBUG=console` 以调试模式运行时，开发者工具控制台中会提供一个 `playwright` 对象。开发者工具可以帮助你：
+
+- 检查 DOM 树并查找元素选择器
+- 查看执行期间的控制台日志，或学习如何通过 API 读取日志
+- 检查网络活动以及其他开发者工具功能
+
+要使用浏览器开发者工具调试测试，首先在测试中设置断点，使用 `page.pause()` 方法暂停执行。
+
+```ts
+await page.pause();
+```
+
+在测试中设置断点后，就可以使用 `PWDEBUG=console` 运行测试。
+
+#### Bash
+
+```bash
+PWDEBUG=console npx playwright test
+```
+
+#### PowerShell
+
+```powershell
+$env:PWDEBUG="console"
+npx playwright test
+```
+
+#### Batch
+
+```bat
+set PWDEBUG=console
+npx playwright test
+```
+
+Playwright 启动浏览器窗口后，你可以打开开发者工具。`playwright` 对象会出现在 Console 面板中。
+
+#### `playwright.$(selector)`
+
+使用真实的 Playwright 查询引擎查询 Playwright selector，例如：
+
+```js
+playwright.$('.auth-form >> text=Log in');
+```
+
+```html
+<button>Log in</button>
+```
+
+#### `playwright.$$(selector)`
+
+与 `playwright.$` 相同，但会返回所有匹配元素。
+
+```js
+playwright.$$('li >> text=John')
+```
+
+```js
+[<li>, <li>, <li>, <li>]
+```
+
+#### `playwright.inspect(selector)`
+
+在 Elements 面板中显示元素。
+
+```js
+playwright.inspect('text=Log in')
+```
+
+#### `playwright.locator(selector)`
+
+创建 locator 并查询匹配的元素，例如：
+
+```js
+playwright.locator('.auth-form', { hasText: 'Log in' });
+```
+
+```text
+Locator ()
+  - element: button
+  - elements: [button]
+```
+
+#### `playwright.selector(element)`
+
+为给定元素生成 selector。例如，在 Elements 面板中选择一个元素并传入 `$0`：
+
+```js
+playwright.selector($0)
+```
+
+```text
+"div[id=\"glow-ingress-block\"] >> text=/.*Hello.*/"
+```
+
+## 详细 API 日志
+
+Playwright 支持通过 `DEBUG` 环境变量启用详细日志。
+
+#### Bash
+
+```bash
+DEBUG=pw:api npx playwright test
+```
+
+#### PowerShell
+
+```powershell
+$env:DEBUG="pw:api"
+npx playwright test
+```
+
+#### Batch
+
+```bat
+set DEBUG=pw:api
+npx playwright test
+```
+
+:::note
+对于 WebKit：在执行过程中启动 WebKit Inspector 会阻止 Playwright 脚本继续执行，并会重置预先配置的 user agent 和设备模拟设置。
+:::
+
+## Headed 模式
+
+Playwright 默认以 headless 模式运行浏览器。要更改此行为，请在启动选项中使用 `headless: false`。
+
+你也可以使用 `slowMo` 选项来降低执行速度，也就是每个操作延迟 N 毫秒，以便在调试时跟随观察。
+
+```ts
+// Chromium、Firefox 或 WebKit
+await chromium.launch({ headless: false, slowMo: 100 });
+```

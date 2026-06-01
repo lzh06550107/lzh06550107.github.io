@@ -1,0 +1,502 @@
+---
+title: "最佳实践"
+description: "介绍编写稳定、可维护端到端测试的建议。"
+sidebar:
+  label: "最佳实践"
+  order: 8
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## 介绍
+
+本指南用于帮助你遵循 Playwright 推荐的最佳实践，编写更加健壮、稳定、易维护的测试。
+
+## 测试理念
+
+### 测试用户可见行为
+
+自动化测试应该验证应用代码对最终用户是否正常工作，并避免依赖实现细节。例如，不要依赖用户通常不会使用、看见或知道的信息，比如某个函数名、某个值是否为数组、某个元素的 CSS 类名等。
+
+最终用户看到并交互的是页面上渲染出来的内容，因此测试通常也应该只观察和操作这些渲染结果。
+
+### 尽可能让测试相互隔离
+
+每个测试都应该与其他测试完全隔离，并且能够独立运行，拥有自己的 localStorage、sessionStorage、数据、Cookie 等。测试隔离可以提升可复现性，让调试更容易，并防止一个测试失败导致后续测试连锁失败。
+
+为了避免在测试中重复某些步骤，可以使用 `before` 和 `after` 钩子。在测试文件中添加 `beforeEach` 钩子，可以在每个测试运行前执行一段公共逻辑，例如打开某个 URL，或登录应用的某个部分。这样可以保持测试隔离，因为任何一个测试都不依赖另一个测试。
+
+不过，当测试足够简单时，保留少量重复也是可以接受的，尤其是在这样做能让测试更清晰、更容易阅读和维护时。
+
+```ts
+import { test } from '@playwright/test';
+
+test.beforeEach(async ({ page }) => {
+  // 在每个测试之前运行，并在每个页面中登录。
+  await page.goto('https://github.com/login');
+  await page.getByLabel('Username or email address').fill('username');
+  await page.getByLabel('Password').fill('password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+});
+
+test('first', async ({ page }) => {
+  // page 已经登录。
+});
+
+test('second', async ({ page }) => {
+  // page 已经登录。
+});
+```
+
+你也可以通过 setup project 在测试中复用已登录状态。这样只需要登录一次，然后所有测试都可以跳过登录步骤。
+
+### 避免测试第三方依赖
+
+只测试你能够控制的内容。不要尝试测试外部网站链接或你无法控制的第三方服务器。这不仅耗时，并且会拖慢测试；同时你无法控制链接页面的内容，也无法控制是否存在 Cookie 横幅、覆盖层页面或其他可能导致测试失败的因素。
+
+更好的方式是使用 Playwright Network API，并保证测试需要的响应内容。
+
+```ts
+await page.route('**/api/fetch_data_third_party_dependency', route => route.fulfill({
+  status: 200,
+  body: testData,
+}));
+await page.goto('https://example.com');
+```
+
+### 使用数据库进行测试
+
+如果测试涉及数据库，请确保你能够控制数据。建议针对 staging 环境进行测试，并确保数据不会被随意改变。
+
+对于视觉回归测试，请确保操作系统和浏览器版本保持一致。
+
+## 最佳实践
+
+### 使用定位器
+
+在编写端到端测试时，首先需要找到网页上的元素。可以使用 Playwright 内置的 locators。定位器具有自动等待和重试能力。
+
+自动等待意味着 Playwright 在执行点击等操作之前，会对元素进行一系列可操作性检查，例如确认元素可见、可用等。
+
+为了让测试更稳定，建议优先使用面向用户的属性和明确的契约。
+
+```ts
+// 推荐
+page.getByRole('button', { name: 'submit' });
+```
+
+#### 使用链式调用和过滤
+
+定位器可以链式调用，从而将搜索范围缩小到页面中的特定区域。
+
+```ts
+const product = page.getByRole('listitem').filter({ hasText: 'Product 2' });
+```
+
+你也可以按文本或另一个定位器过滤定位器。
+
+```ts
+await page
+  .getByRole('listitem')
+  .filter({ hasText: 'Product 2' })
+  .getByRole('button', { name: 'Add to cart' })
+  .click();
+```
+
+#### 优先使用面向用户的属性，而不是 XPath 或 CSS 选择器
+
+DOM 很容易变化。如果测试依赖 DOM 结构，就更容易因为页面结构调整而失败。例如，如果通过 CSS class 选择按钮，设计师稍微修改样式或类名，就可能破坏测试。
+
+```ts
+// 不推荐
+page.locator('button.buttonIcon.episode-actions-later');
+```
+
+应该使用对 DOM 变化更稳定的定位器。
+
+```ts
+// 推荐
+page.getByRole('button', { name: 'submit' });
+```
+
+### 生成定位器
+
+Playwright 提供了 test generator，可以为你生成测试并选择定位器。它会分析页面，并优先选择 role、text 和 test id 等定位器。
+
+如果生成器发现多个元素匹配同一个定位器，它会改进定位器，使其更加稳定，并能够唯一识别目标元素。这样你就不必担心定位器不唯一而导致测试失败。
+
+#### 使用 `codegen` 生成定位器
+
+要选择定位器，可以运行 `codegen` 命令，并在命令后添加要选择定位器的 URL。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npx playwright codegen playwright.dev
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn playwright codegen playwright.dev
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm exec playwright codegen playwright.dev
+```
+
+  </TabItem>
+</Tabs>
+
+该命令会打开一个新的浏览器窗口以及 Playwright Inspector。要选择定位器，首先点击 `Record` 按钮停止录制。默认情况下，运行 `codegen` 命令会开始新的录制。停止录制后，`Pick Locator` 按钮就可以点击了。
+
+然后你可以在浏览器窗口中将鼠标悬停在页面任意元素上，查看光标下方高亮显示的定位器。点击某个元素后，该定位器会被添加到 Playwright Inspector 中。
+
+你可以复制定位器并粘贴到测试文件中，也可以继续在 Playwright Inspector 中编辑定位器，例如修改文本，并在浏览器窗口中查看结果。
+
+#### 使用 VS Code 扩展生成定位器
+
+你也可以使用 VS Code Extension 来生成定位器以及录制测试。VS Code 扩展还可以在编写、运行和调试测试时提供良好的开发体验。
+
+### 使用 Web-first 断言
+
+断言用于验证预期结果和实际结果是否匹配。使用 web-first assertions 时，Playwright 会一直等待，直到预期条件满足。
+
+例如，在测试警告消息时，测试可能会点击一个按钮，让消息出现，然后检查该警告消息是否存在。如果警告消息需要半秒才出现，`toBeVisible()` 这样的断言会等待并在需要时重试。
+
+```ts
+// 推荐
+await expect(page.getByText('welcome')).toBeVisible();
+```
+
+```ts
+// 不推荐
+expect(await page.getByText('welcome').isVisible()).toBe(true);
+```
+
+#### 不要使用手动断言
+
+不要使用不会等待 `expect` 的手动断言。在下面的代码中，`await` 写在了 `expect` 内部，而不是写在 `expect` 之前。
+
+当使用 `isVisible()` 这样的断言时，测试不会等待，它只会立即检查定位器是否存在并返回结果。
+
+```ts
+// 不推荐
+expect(await page.getByText('welcome').isVisible()).toBe(true);
+```
+
+应该使用 `toBeVisible()` 这样的 web-first 断言。
+
+```ts
+// 推荐
+await expect(page.getByText('welcome')).toBeVisible();
+```
+
+### 配置调试
+
+#### 本地调试
+
+对于本地调试，推荐安装 VS Code 扩展，并在 VS Code 中实时调试测试。你可以右键点击要运行的测试旁边的行，然后以调试模式运行测试。这会打开浏览器窗口，并在断点处暂停。
+
+你也可以通过点击或编辑 VS Code 中测试里的定位器来实时调试。对应定位器会在浏览器窗口中高亮显示，同时也会显示页面上其他匹配的定位器。
+
+还可以使用 `--debug` 标志运行测试，通过 Playwright Inspector 调试测试。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npx playwright test --debug
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn playwright test --debug
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm exec playwright test --debug
+```
+
+  </TabItem>
+</Tabs>
+
+你可以逐步执行测试，查看可操作性日志，并实时编辑定位器，在浏览器窗口中查看高亮结果。它还会显示哪些定位器匹配、匹配了多少个元素。
+
+要调试特定测试，可以添加测试文件名和测试所在行号，然后加上 `--debug` 标志。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npx playwright test example.spec.ts:9 --debug
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn playwright test example.spec.ts:9 --debug
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm exec playwright test example.spec.ts:9 --debug
+```
+
+  </TabItem>
+</Tabs>
+
+#### 在 CI 上调试
+
+对于 CI 上的失败，建议使用 Playwright trace viewer，而不是只依赖视频和截图。Trace viewer 会提供测试的完整 trace，并以本地 PWA 的形式查看，方便分享。
+
+使用 trace viewer 可以查看时间线、通过开发者工具检查每个操作的 DOM 快照、查看网络请求等。
+
+Trace 在 Playwright 配置文件中配置，通常设置为在 CI 上失败测试的第一次重试时运行。不建议设置为 `on`，因为这会为每个测试都记录 trace，性能开销很大。
+
+不过在本地开发时，可以通过 `--trace` 标志运行 trace。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npx playwright test --trace on
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn playwright test --trace on
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm exec playwright test --trace on
+```
+
+  </TabItem>
+</Tabs>
+
+运行该命令后，每个测试都会记录 trace，并且可以直接从 HTML 报告中查看。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npx playwright show-report
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn playwright show-report
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm exec playwright show-report
+```
+
+  </TabItem>
+</Tabs>
+
+可以点击测试文件名旁边的图标打开 trace，也可以打开每个测试报告并向下滚动到 traces 部分。
+
+### 使用 Playwright 工具链
+
+Playwright 附带了一系列工具，帮助你编写测试。
+
+- VS Code extension：在编写、运行和调试测试时提供良好的开发体验。
+- test generator：可以生成测试并为你选择定位器。
+- trace viewer：提供测试的完整 trace，可作为本地 PWA 查看并方便分享。可以查看时间线、检查每个操作的 DOM 快照、查看网络请求等。
+- UI Mode：允许你通过类似时间旅行的体验探索、运行和调试测试，并支持 watch mode。所有测试文件都会加载到测试侧边栏中，你可以展开每个文件和 describe 块，单独运行、查看、监听和调试测试。
+- TypeScript：Playwright 可以开箱即用地支持 TypeScript，并提供更好的 IDE 集成。IDE 会显示可用操作，并在你写错时提示。你不需要具备 TypeScript 经验，也不要求你的代码一定使用 TypeScript；只需要用 `.ts` 扩展名创建测试即可。
+
+### 跨所有浏览器测试
+
+Playwright 可以很容易地在所有浏览器上测试网站，无论你使用什么平台。跨浏览器测试可以确保你的应用对所有用户都可用。
+
+在配置文件中，可以通过 projects 添加项目名称，并指定要使用的浏览器或设备。
+
+```ts title="playwright.config.ts"
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+  ],
+});
+```
+
+### 保持 Playwright 依赖为最新版本
+
+保持 Playwright 版本更新，可以使用最新浏览器版本测试应用，并在最新浏览器版本向公众发布前发现问题。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npm install -D @playwright/test@latest
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn add --dev @playwright/test@latest
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm install --save-dev @playwright/test@latest
+```
+
+  </TabItem>
+</Tabs>
+
+可以查看 release notes 了解最新版本以及发布了哪些变更。
+
+可以通过下面的命令查看当前安装的 Playwright 版本。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npx playwright --version
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn playwright --version
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm exec playwright --version
+```
+
+  </TabItem>
+</Tabs>
+
+### 在 CI 上运行测试
+
+设置 CI/CD，并频繁运行测试。测试运行得越频繁越好。理想情况下，应该在每次提交和每个 pull request 上运行测试。
+
+Playwright 附带 GitHub Actions workflow，可以让测试在 CI 上运行，并且几乎不需要额外配置。Playwright 也可以配置在你选择的其他 CI 环境中。
+
+在 CI 上运行测试时建议使用 Linux，因为成本更低。本地开发时开发者可以使用任意环境，但 CI 上建议使用 Linux。可以考虑配置 Sharding，让 CI 更快。
+
+#### 优化 CI 上的浏览器下载
+
+只安装实际需要的浏览器，尤其是在 CI 中。例如，如果你只测试 Chromium，就只安装 Chromium。
+
+```yaml title=".github/workflows/playwright.yml"
+# 不要安装所有浏览器
+npx playwright install --with-deps
+
+# 只安装 Chromium
+npx playwright install chromium --with-deps
+```
+
+这样可以节省 CI 机器上的下载时间和磁盘空间。
+
+### 对测试进行 lint
+
+建议在测试中使用 TypeScript 和 ESLint，以便尽早发现错误。
+
+可以使用 `@typescript-eslint/no-floating-promises` ESLint 规则，确保调用 Playwright API 的异步方法之前没有遗漏 `await`。
+
+在 CI 中可以运行 `tsc --noEmit`，确保函数调用使用正确的签名。
+
+### 使用并行和分片
+
+Playwright 默认并行运行测试。单个文件中的测试会按顺序运行，并在同一个 worker 进程中执行。
+
+如果一个文件中有很多相互独立的测试，可以将它们设置为并行运行。
+
+```ts
+import { test } from '@playwright/test';
+
+test.describe.configure({ mode: 'parallel' });
+
+test('runs in parallel 1', async ({ page }) => { /* ... */ });
+test('runs in parallel 2', async ({ page }) => { /* ... */ });
+```
+
+Playwright 也可以对测试套件进行分片，使其可以在多台机器上执行。
+
+<Tabs>
+  <TabItem label="npm">
+
+```bash
+npx playwright test --shard=1/3
+```
+
+  </TabItem>
+  <TabItem label="yarn">
+
+```bash
+yarn playwright test --shard=1/3
+```
+
+  </TabItem>
+  <TabItem label="pnpm">
+
+```bash
+pnpm exec playwright test --shard=1/3
+```
+
+  </TabItem>
+</Tabs>
+
+## 生产力技巧
+
+### 使用软断言
+
+如果测试失败，Playwright 会提供错误消息，说明测试失败的位置。你可以在 VS Code、终端、HTML 报告或 trace viewer 中查看这些信息。
+
+此外，也可以使用 soft assertions。软断言不会立即终止测试执行，而是在测试结束后汇总并显示失败断言列表。
+
+```ts
+// 执行一些检查，即使失败也不会中止测试……
+await expect.soft(page.getByTestId('status')).toHaveText('Success');
+
+// ……继续测试，检查更多内容。
+await page.getByRole('link', { name: 'next page' }).click();
+```

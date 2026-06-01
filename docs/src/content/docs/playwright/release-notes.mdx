@@ -1,0 +1,495 @@
+---
+title: 发布说明
+description: Playwright 发布说明。
+---
+
+## Version 1.60
+
+### 在 Tracing 中记录 HAR
+
+`tracing.startHar()` / `tracing.stopHar()` 将 HAR 记录作为一等 tracing API 暴露出来，并提供与 `recordHar` 相同的 `content`、`mode` 和 `urlFilter` 选项。返回的 `Disposable` 使你能够通过 `await using` 轻松限定记录范围：
+
+```ts
+await using har = await context.tracing.startHar('trace.har');
+const page = await context.newPage();
+await page.goto('https://playwright.dev');
+// 当 `har` 超出作用域时，HAR 会被最终写出。
+```
+
+### Drop API
+
+新的 `locator.drop()` 可以模拟将文件或类似剪贴板的数据从外部拖放到元素上。Playwright 会在页面上下文中分发带有合成 `DataTransfer` 的 `dragenter`、`dragover` 和 `drop` 事件——可跨浏览器工作，非常适合测试上传区域：
+
+```ts
+await page.locator('#dropzone').drop({
+  files: { name: 'note.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') },
+});
+await page.locator('#dropzone').drop({
+  data: {
+    'text/plain': 'hello world',
+    'text/uri-list': 'https://example.com',
+  },
+});
+```
+
+### Aria 快照
+
+- `expect(page).toMatchAriaSnapshot()` 现在除了 `Locator` 之外，也可以直接作用于 `Page`——等价于对 `page.locator('body')` 进行断言。
+- `locator.ariaSnapshot()` / `page.ariaSnapshot()` 新增 `boxes` 选项，可将每个元素的边界框以 `[box=x,y,width,height]` 的形式附加到结果中，这对 AI 消费很有帮助。
+
+### `test.abort()`
+
+新的 `test.abort()` 可以在 fixture、hook 或 route handler 中中止当前正在运行的测试，并可附带可选消息。当你检测到无法恢复的误用，并希望立刻使测试失败时，可以使用它：
+
+```ts
+test('does not publish to the shared page', async ({ page }) => {
+  await page.route('**/publish', route => {
+    test.abort('Tests must not publish to the shared page. Use the `clone` option.');
+    return route.abort();
+  });
+  // ...
+});
+```
+
+### 新 API
+
+#### Browser、Context 和 Page
+
+- 新增事件 `browser.on('context')` —— 当浏览器上创建新的 context 时触发。
+- `BrowserContext` 现在会镜像其页面的生命周期事件：`browserContext.on('download')`、`browserContext.on('frameattached')`、`browserContext.on('framedetached')`、`browserContext.on('framenavigated')`、`browserContext.on('pageclose')`、`browserContext.on('pageload')`。
+
+#### Locators 和 Assertions
+
+- `page.getByRole()` / `locator.getByRole()` / `frame.getByRole()` / `frameLocator.getByRole()` 新增 `description` 选项，用于匹配可访问性描述（accessible description）。
+- `expect(locator).toHaveCSS()` 新增 `pseudo` 选项，可读取 `::before` 或 `::after` 的计算样式。
+- `locator.highlight()` 新增 `style` 选项，可为高亮覆盖层应用额外的内联 CSS；同时新增 `page.hideHighlight()` 用于清除所有高亮。
+
+#### Network
+
+- `webSocketRoute.protocols()` 返回页面请求的 WebSocket 子协议。
+- `browserType.connectOverCDP()` 新增 `noDefaults` 选项，可禁用 Playwright 在默认 context 上的默认覆盖行为（下载行为、焦点模拟、媒体模拟），这样连接到用户日常使用的浏览器时不会干扰其状态。
+
+#### Errors 和 Reporting
+
+- 新增 `webError.location()`，与 `consoleMessage.location()` 对齐。
+- `consoleMessage.location()` 现在暴露 `line` / `column` 属性（`lineNumber` / `columnNumber` 已弃用）。
+- 新增 `testInfoError.errorContext`，用于暴露额外的诊断上下文，例如在 `expect(...)` 匹配器失败时接收方的 aria 快照。
+- `reporter.onError()` 现在会收到一个 `workerInfo` 参数，其中包含有关 worker 的详细信息，可用于 fixture teardown 错误。
+
+#### Test runner
+
+- `testProject.snapshotPathTemplate` 新增 `{testFileBaseName}` 标记——表示不带扩展名的文件名。
+- 当配置试图覆盖非 option fixture 时，测试运行器现在会报错；同时拒绝 `workers: 0` 或负值。
+
+### 其他改进
+
+- HTML reporter：
+  - `npx playwright show-report` 现在可直接接受 `.zip` 文件——无需先解压。
+  - 当嵌套子步骤中包含附件时，父步骤上会显示一个指示器。
+  - 当 `repeatEachIndex` 非零时，会在测试头部显示它。
+- Trace Viewer 在网络详情面板中为 JSON / 表单请求与响应体新增了 pretty-print 切换开关。
+
+### Breaking Changes ⚠️
+
+移除了长期已弃用的 API：
+
+- `Locator.ariaRef()` —— 请改用标准的 `locator.ariaSnapshot()` 流程。
+- `BrowserContext.exposeBinding` 和 `Page.exposeBinding` 上的 `handle` 选项。
+- `BrowserType.connect` 和 `BrowserType.connectOverCDP` 上的 `logger` 选项——请改用 tracing。
+- context 选项 `videosPath` / `videoSize` —— 请改用 `recordVideo`。
+
+### Browser Versions
+
+- Chromium 148.0.7778.96
+- Mozilla Firefox 150.0.2
+- WebKit 26.4
+
+该版本也针对以下稳定通道进行了测试：
+
+- Google Chrome 147
+- Microsoft Edge 147
+
+## Version 1.59
+
+### Screencast
+
+新的 `page.screencast` API 提供了一个统一接口，用于捕获页面内容，支持：
+
+- Screencast 录制
+- 操作注释
+- 可视化覆盖层
+- 实时帧捕获
+- Agent 化视频回执
+
+Screencast 录制——以精确的开始/停止控制来录制视频，作为 `recordVideo` 选项的替代方案：
+
+```ts
+await page.screencast.start({ path: 'video.webm' });
+// ... 执行动作 ...
+await page.screencast.stop();
+```
+
+操作注释——启用内置的可视化注释，在录制期间高亮交互元素并显示操作标题：
+
+```ts
+await page.screencast.showActions({ position: 'top-right' });
+```
+
+`screencast.showActions()` 接受 `position`（`'top-left'`、`'top'`、`'top-right'`、`'bottom-left'`、`'bottom'`、`'bottom-right'`）、`duration`（每条注释的毫秒数）和 `fontSize`（像素）参数。它会返回一个 disposable，用于停止显示操作。
+
+也可以通过 `video` 选项在测试 fixture 中启用操作注释：
+
+```ts
+// playwright.config.ts
+export default defineConfig({
+  use: {
+    video: {
+      mode: 'on',
+      show: {
+        actions: { position: 'top-left' },
+        test: { position: 'top-right' },
+      },
+    },
+  },
+});
+```
+
+可视化覆盖层——在页面上方添加章节标题和自定义 HTML 覆盖层，以提供更丰富的叙述：
+
+```ts
+await page.screencast.showChapter('Adding TODOs', {
+  description: 'Type and press enter for each TODO',
+  duration: 1000,
+});
+
+await page.screencast.showOverlay('<div style="color: red">Recording</div>');
+```
+
+实时帧捕获——流式输出 JPEG 编码帧，用于缩略图、实时预览、AI 视觉等自定义处理：
+
+```ts
+await page.screencast.start({
+  onFrame: ({ data }) => sendToVisionModel(data),
+  size: { width: 800, height: 600 },
+});
+```
+
+Agent 化视频回执——编码代理可以生成其工作的可视化证据。任务完成后，代理可以录制一个带有丰富注释的演示视频，供人工审核：
+
+```ts
+await page.screencast.start({ path: 'receipt.webm' });
+await page.screencast.showActions({ position: 'top-right' });
+
+await page.screencast.showChapter('Verifying checkout flow', {
+  description: 'Added coupon code support per ticket #1234',
+});
+// Agent 执行验证步骤...
+await page.locator('#coupon').fill('SAVE20');
+await page.locator('#apply-coupon').click();
+await expect(page.locator('.discount')).toContainText('20%');
+
+await page.screencast.showChapter('Done', {
+  description: 'Coupon applied, discount reflected in total',
+});
+
+await page.screencast.stop();
+```
+
+最终得到的视频可作为回执：章节标题提供上下文，操作注释高亮每次交互，而可视化演示比文本日志更易于审查。
+
+### Interoperability
+
+新的 `browser.bind()` API 使启动后的浏览器可供 `playwright-cli`、`@playwright/mcp` 以及其他客户端连接。
+
+绑定一个浏览器——启动浏览器并将其绑定，以便其他客户端连接：
+
+```ts
+const { endpoint } = await browser.bind('my-session', {
+  workspaceDir: '/my/project',
+});
+```
+
+从 `playwright-cli` 连接：
+
+```bash
+playwright-cli attach my-session
+playwright-cli -s my-session snapshot
+```
+
+从 `@playwright/mcp` 连接：
+
+```bash
+@playwright/mcp --endpoint=my-session
+```
+
+从 Playwright 客户端连接——支持同时多个客户端连接：
+
+```ts
+const browser = await chromium.connect(endpoint);
+```
+
+传入 `host` 和 `port` 选项可通过 WebSocket 而不是命名管道进行绑定：
+
+```ts
+const { endpoint } = await browser.bind('my-session', {
+  host: 'localhost',
+  port: 0,
+});
+// endpoint 是一个 ws:// URL
+```
+
+调用 `browser.unbind()` 可停止接受新的连接。
+
+### Observability
+
+运行 `playwright-cli show` 以打开 Dashboard，其中会列出所有已绑定的浏览器、它们的状态，并允许你与其交互：
+
+- 查看你的 agent 在后台浏览器中做了什么
+- 点击进入会话以进行人工干预
+- 打开 DevTools 检查后台浏览器中的页面
+
+### CLI debugger for agents
+
+Playwright 还提供了可供代理使用的 CLI 调试能力，可配合 trace 命令按操作检查失败步骤。
+
+### `await using`
+
+许多 API 现在返回 async disposables，因此可以使用 `await using` 语法进行自动清理：
+
+```ts
+await using page = await context.newPage();
+{
+  await using route = await page.route('**/*', route => route.continue());
+  await using script = await page.addInitScript('console.log("init script here")');
+  await page.goto('https://playwright.dev');
+  // do something
+}
+// 此时 route 和 init script 已被移除
+```
+
+### Snapshots 和 Locators
+
+- 新增 `page.ariaSnapshot()`，用于捕获页面的 aria 快照——等价于 `page.locator('body').ariaSnapshot()`。
+- `locator.ariaSnapshot()` 新增 `depth` 和 `mode` 选项。
+- 新增 `locator.normalize()`，可将 locator 转换为遵循最佳实践的形式，例如 test id 和 aria role。
+
+## Version 1.57
+
+### Speedboard
+
+在 HTML reporter 中，新增了一个名为 “Speedboard” 的标签页。
+
+它会按测试的慢速程度对所有已执行测试进行排序，帮助你了解测试套件在哪些地方比预期更慢。看一看你的 Speedboard，也许你会发现某些测试等待的时间比应有的更长。
+
+### Chrome for Testing
+
+Playwright 现在运行在 Chrome for Testing 构建上，而不是 Chromium。headed 模式使用 `chrome`；headless 模式使用 `chrome-headless-shell`。升级到 v1.57 后，现有测试应该仍然能够通过。
+
+我们预计这次切换不会带来功能上的变化。最大的改变是你的工具栏中会出现新的图标和标题。
+
+如果你仍然看到意料之外的行为变化，请提交 issue。
+在 Arm64 Linux 上，Playwright 仍继续使用 Chromium。
+
+### 等待 webserver 输出
+
+`testConfig.webServer` 新增了一个 `wait` 字段。传入一个正则表达式后，Playwright 会一直等待，直到 webserver 日志与该表达式匹配为止。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  webServer: {
+    command: 'npm run start',
+    wait: {
+      stdout: /Listening on port (?<my_server_port>\d+)/
+    },
+  },
+});
+```
+
+如果你在表达式中包含了一个命名捕获组，那么 Playwright 会通过环境变量提供该捕获组的内容：
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.use({ baseURL: `http://localhost:${process.env.MY_SERVER_PORT ?? 3000}` });
+
+test('homepage', async ({ page }) => {
+  await page.goto('/');
+});
+```
+
+这不仅对捕获开发服务器变化的端口有用。你也可以用它等待那些没有暴露 HTTP readiness 检查、而是通过 stdout 或 stderr 打印 ready 消息的服务。
+
+### Breaking Change
+
+经过 3 年的弃用之后，我们从 API 中移除了 `page.accessibility`。如果你需要测试页面可访问性，请改用其他库，例如 Axe。请参阅我们的 Node.js 指南，了解如何与 Axe 集成。
+
+### New APIs
+
+- 新增属性 `testConfig.tag`，可为本次运行中的所有测试添加一个标签。这在使用 `merge-reports` 时很有帮助。
+- 新增 `worker.on('console')` 事件，当 worker 内的 JavaScript 调用 console API（例如 `console.log` 或 `console.dir`）时会触发。可通过 `worker.waitForEvent()` 等待该事件。
+- `locator.description()` 现在会返回此前通过 `locator.describe()` 设置的 locator 描述，而 `locator.toString()` 在可用时也会使用该描述。
+- `locator.click()` 和 `locator.dragTo()` 新增 `steps` 选项，用于配置将鼠标指针移动到目标元素时发出的 `mousemove` 事件数量。
+- 由 Service Workers 发出的网络请求现在会被报告，并且在 Chromium 中可通过 `BrowserContext` 进行路由。你可以通过环境变量 `PLAYWRIGHT_DISABLE_SERVICE_WORKER_NETWORK` 选择退出。
+- 来自 Service Workers 的控制台消息现在会通过 `worker.on('console')` 分发。你可以通过环境变量 `PLAYWRIGHT_DISABLE_SERVICE_WORKER_CONSOLE` 选择退出。
+
+### Miscellaneous
+
+- Playwright Docker 镜像已从 Node.js v22 切换到 Node.js v24 LTS。
+
+### Browser Versions
+
+- Chromium 143.0.7499.4
+- Mozilla Firefox 144.0.2
+- WebKit 26.0
+
+## Version 1.56
+
+### Playwright Test Agents
+
+引入 Playwright Test Agents——三种自定义 agent 定义，旨在引导 LLM 完成构建 Playwright 测试的核心流程：
+
+- planner：探索应用并生成 Markdown 测试计划
+- generator：将 Markdown 计划转换为 Playwright Test 文件
+- healer：执行测试套件并自动修复失败测试
+
+使用你选择的客户端运行 `npx playwright init-agents`，即可生成最新的 agent 定义。
+
+## Version 1.55
+
+### New APIs
+
+- 新增属性 `testStepInfo.titlePath`。它会返回从测试文件开始的完整标题路径，其中包括测试标题和步骤标题。
+
+### Codegen
+
+- 自动 `toBeVisible()` 断言：Codegen 现在可以为常见 UI 交互自动生成 `toBeVisible()` 断言。该功能可以在 Codegen 设置界面中启用。
+
+### Breaking Changes
+
+- ⚠️ 已移除对 Chromium 扩展 manifest v2 的支持。
+
+### Miscellaneous
+
+- 新增对 Debian 13 “Trixie” 的支持。
+
+### Browser Versions
+
+- Chromium 140.0.7339.16
+- Mozilla Firefox 141.0
+- WebKit 26.0
+
+该版本也针对以下稳定通道进行了测试：
+
+- Google Chrome 139
+- Microsoft Edge 139
+
+## Version 1.54
+
+### Highlights
+
+- `browserContext.cookies()` 和 `browserContext.addCookies()` 新增 cookie 属性 `partitionKey`。该属性允许保存和恢复分区 cookie。请参阅 CHIPS 相关文章。注意，不同浏览器对 cookie 分区的支持和默认行为并不相同。
+- HTML 报告新增 `noSnippets` 选项，用于禁用代码片段。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  reporter: [['html', { noSnippets: true }]]
+});
+```
+
+- 测试注释新增 `location` 属性，例如在 `testResult.annotations` 和 `testInfo.annotations` 中。它会显示 `test.skip` 或 `test.fixme` 等注释是在哪里添加的。
+
+### Command Line
+
+- 多个命令新增 `--user-data-dir` 选项。你可以指定相同的 user data dir，以在多个会话之间复用浏览状态，例如认证状态。
+
+```bash
+npx playwright codegen --user-data-dir=./user-data
+```
+
+- 已从 `npx playwright test` 命令中移除 `-gv` 选项。请改用 `--grep-invert`。
+- `npx playwright open` 不再打开测试录制器。请改用 `npx playwright codegen`。
+
+### Miscellaneous
+
+- 已移除对 Node.js 16 的支持。
+- 对 Node.js 18 的支持已弃用，并将在未来移除。
+
+### Browser Versions
+
+- Chromium 139.0.7258.5
+- Mozilla Firefox 140.0.2
+- WebKit 26.0
+
+该版本也针对以下稳定通道进行了测试：
+
+- Google Chrome 140
+- Microsoft Edge 140
+
+## Version 1.53
+
+### Trace Viewer 和 HTML Reporter 更新
+
+- Trace Viewer 和 HTML Reporter 中新增 Steps。
+- `'html'` reporter 新增选项，可为特定测试运行设置标题：
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  reporter: [['html', { title: 'Custom test run #1028' }]]
+});
+```
+
+### Miscellaneous
+
+- `testInfo.snapshotPath()` 新增 `kind` 选项，用于控制使用哪一个快照路径模板。
+- 新增 `locator.describe()`，用于描述 locator。该描述会用于 trace viewer 和报告中。
+
+```ts
+const button = page.getByTestId('btn-sub').describe('Subscribe button');
+await button.click();
+```
+
+- `npx playwright install --list` 现在会列出所有已安装浏览器、其版本和位置。
+
+### Browser Versions
+
+- Chromium 138.0.7204.4
+- Mozilla Firefox 139.0
+- WebKit 18.5
+
+该版本也针对以下稳定通道进行了测试：
+
+- Google Chrome 137
+- Microsoft Edge 137
+
+## Version 1.52
+
+### Highlights
+
+- 新增方法 `expect(locator).toContainClass()`，可更方便地断言元素上的单个类名。
+
+```ts
+await expect(page.getByRole('listitem', { name: 'Ship v1.52' })).toContainClass('done');
+```
+
+- Aria Snapshots 新增两个属性：`/children` 用于严格匹配，`/url` 用于链接。
+
+```ts
+await expect(locator).toMatchAriaSnapshot(`
+  - list
+    - /children: equal
+    - listitem: Feature A
+    - listitem:
+      - link "Feature B":
+        - /url: "https://playwright.dev"
+`);
+```
+
+### Test Runner
+
+- 新增属性 `testProject.workers`，可用于指定测试项目使用的并发 worker 进程数量。`testConfig.workers` 的全局限制仍然适用。

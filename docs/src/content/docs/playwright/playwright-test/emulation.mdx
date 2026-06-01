@@ -1,0 +1,394 @@
+---
+title: 模拟
+description: Playwright Test 设备与环境模拟
+sidebar:
+  order: 6
+---
+
+## 介绍
+
+使用 Playwright，你可以在任意浏览器上测试应用，也可以模拟真实设备，例如手机或平板。只需配置你想模拟的设备，Playwright 就会模拟浏览器行为，例如 `"userAgent"`、`"screenSize"`、`"viewport"`，以及是否启用了 `"hasTouch"`。你还可以为所有测试或某个特定测试模拟 `"geolocation"`、`"locale"` 和 `"timezone"`，也可以设置 `"permissions"` 来显示通知，或者更改 `"colorScheme"`。
+
+## 设备
+
+Playwright 自带一个设备参数注册表，并通过 `playwright.devices` 提供所选桌面、平板和移动设备的参数。它可用于模拟特定设备的浏览器行为，例如用户代理、屏幕尺寸、视口，以及是否启用了触摸。所有测试都将使用指定的设备参数运行。
+
+```ts
+import { defineConfig, devices } from '@playwright/test'; // 导入 devices
+export default defineConfig({
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      name: 'Mobile Safari',
+      use: {
+        ...devices['iPhone 13'],
+      },
+    },
+  ],
+});
+```
+
+```ts
+const { chromium, devices } = require('playwright');
+const browser = await chromium.launch();
+const iphone13 = devices['iPhone 13'];
+const context = await browser.newContext({
+  ...iphone13,
+});
+```
+
+注意：预配置设备假定了特定平台。例如，`"Desktop Chrome"` 会提供一个特定于 Windows 的 user agent 字符串。
+
+如果你想使用当前运行测试的平台对应的 user agent，建议将 user agent 属性取消设置。
+
+```ts
+const context = await browser.newContext({
+  ...devices['Desktop Chrome'],
+  userAgent: undefined,
+});
+```
+
+## 视口
+
+视口已包含在设备配置中，但你可以使用 `page.setViewportSize()` 为某些测试覆盖它。
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+export default defineConfig({
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // 必须在展开 `devices` 之后定义 `viewport`，
+        // 因为设备配置本身也定义了该设备的 `viewport`。
+        viewport: { width: 1280, height: 720 },
+      },
+    },
+  ]
+});
+```
+
+```ts
+// 使用给定视口创建 context
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 1024 }
+});
+```
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.use({
+  viewport: { width: 1600, height: 1200 },
+});
+
+test('my test', async ({ page }) => {
+  // ...
+});
+```
+
+```ts
+// 使用给定视口创建 context
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 1024 }
+});
+
+// 为单个页面调整视口大小
+await page.setViewportSize({ width: 1600, height: 1200 });
+
+// 模拟高 DPI
+const context2 = await browser.newContext({
+  viewport: { width: 2560, height: 1440 },
+  deviceScaleFactor: 2,
+});
+```
+
+同样的方式也适用于测试文件内部。
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.describe('specific viewport block', () => {
+  test.use({ viewport: { width: 1600, height: 1200 } });
+
+  test('my test', async ({ page }) => {
+    // ...
+  });
+});
+```
+
+```ts
+// 使用给定视口创建 context
+const context = await browser.newContext({
+  viewport: { width: 1600, height: 1200 }
+});
+const page = await context.newPage();
+```
+
+## isMobile
+
+它决定是否考虑 meta viewport 标签，以及是否启用触摸事件。
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+export default defineConfig({
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // 必须在展开 `devices` 之后定义 `isMobile`，
+        // 因为设备配置本身也定义了该设备的 `isMobile`。
+        isMobile: false,
+      },
+    },
+  ]
+});
+```
+
+## Locale 与 Timezone
+
+模拟浏览器的 Locale 与 Timezone。你可以在配置中为所有测试全局设置它们，然后为特定测试覆盖这些值。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // 模拟浏览器语言区域。
+    locale: 'en-GB',
+
+    // 模拟浏览器时区。
+    timezoneId: 'Europe/Paris',
+  },
+});
+```
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.use({
+  locale: 'de-DE',
+  timezoneId: 'Europe/Berlin',
+});
+
+test('my test for de lang in Berlin timezone', async ({ page }) => {
+  await page.goto('https://www.bing.com');
+  // ...
+});
+```
+
+```ts
+const context = await browser.newContext({
+  locale: 'de-DE',
+  timezoneId: 'Europe/Berlin',
+});
+```
+
+注意，这只影响浏览器的时区和语言区域，不影响测试运行器的时区。若要设置测试运行器时区，可以使用 `TZ` 环境变量。
+
+## 权限
+
+允许应用显示系统通知。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // 向浏览器上下文授予指定权限。
+    permissions: ['notifications'],
+  },
+});
+```
+
+```ts
+const context = await browser.newContext({
+  permissions: ['notifications'],
+});
+```
+
+为特定域名允许通知。
+
+```ts
+import { test } from '@playwright/test';
+
+test.beforeEach(async ({ context }) => {
+  // 在每个测试前运行，并为每个页面完成登录。
+  await context.grantPermissions(['notifications'], { origin: 'https://skype.com' });
+});
+
+test('first', async ({ page }) => {
+  // page 对 https://skype.com 拥有 notifications 权限。
+});
+```
+
+```ts
+await context.grantPermissions(['notifications'], { origin: 'https://skype.com' });
+```
+
+可以使用 `browserContext.clearPermissions()` 撤销所有权限。
+
+```ts
+await context.clearPermissions();
+```
+
+## 地理位置
+
+授予 `"geolocation"` 权限，并将地理位置设置为某个特定区域。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // 上下文地理位置
+    geolocation: { longitude: 12.492507, latitude: 41.889938 },
+    permissions: ['geolocation'],
+  },
+});
+```
+
+```ts
+import { test, expect } from '@playwright/test';
+test.use({
+  geolocation: { longitude: 41.890221, latitude: 12.492348 },
+  permissions: ['geolocation'],
+});
+
+test('my test with geolocation', async ({ page }) => {
+  // ...
+});
+```
+
+```ts
+const context = await browser.newContext({
+  geolocation: { longitude: 41.890221, latitude: 12.492348 },
+  permissions: ['geolocation']
+});
+```
+
+之后再更改位置：
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.use({
+  geolocation: { longitude: 41.890221, latitude: 12.492348 },
+  permissions: ['geolocation'],
+});
+
+test('my test with geolocation', async ({ page, context }) => {
+  // 为该测试覆盖位置
+  await context.setGeolocation({ longitude: 48.858455, latitude: 2.294474 });
+});
+```
+
+```ts
+await context.setGeolocation({ longitude: 48.858455, latitude: 2.294474 });
+```
+
+注意：你只能为 context 中的所有页面统一更改地理位置。
+
+## 颜色方案与媒体
+
+模拟用户的 `"colorScheme"`。支持的值为 `'light'` 和 `'dark'`。你也可以通过 `page.emulateMedia()` 模拟媒体类型。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    colorScheme: 'dark',
+  },
+});
+```
+
+```ts
+import { test, expect } from '@playwright/test';
+test.use({
+  colorScheme: 'dark' // 或 'light'
+});
+
+test('my test with dark mode', async ({ page }) => {
+  // ...
+});
+```
+
+```ts
+// 创建带有深色模式的 context
+const context = await browser.newContext({
+  colorScheme: 'dark' // 或 'light'
+});
+
+// 创建带有深色模式的 page
+const page = await browser.newPage({
+  colorScheme: 'dark' // 或 'light'
+});
+
+// 为页面更改颜色方案
+await page.emulateMedia({ colorScheme: 'dark' });
+
+// 为页面更改媒体类型
+await page.emulateMedia({ media: 'print' });
+```
+
+## User Agent
+
+User Agent 已包含在设备配置中，因此你通常不需要更改它；但如果你确实需要测试不同的 user agent，则可以使用 `userAgent` 属性进行覆盖。
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.use({ userAgent: 'My user agent' });
+
+test('my user agent test', async ({ page }) => {
+  // ...
+});
+```
+
+```ts
+const context = await browser.newContext({
+  userAgent: 'My user agent'
+});
+```
+
+## 离线
+
+模拟网络处于离线状态。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    offline: true
+  },
+});
+```
+
+## 启用 JavaScript
+
+模拟用户禁用 JavaScript 的场景。
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.use({ javaScriptEnabled: false });
+
+test('test with no JavaScript', async ({ page }) => {
+  // ...
+});
+```
+
+```ts
+const context = await browser.newContext({
+  javaScriptEnabled: false
+});
+```

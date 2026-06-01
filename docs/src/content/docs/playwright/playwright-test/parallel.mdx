@@ -1,0 +1,288 @@
+---
+title: 并行
+description: Playwright Test 并行执行
+sidebar:
+  order: 9
+---
+
+## 介绍
+
+Playwright Test 会并行运行测试。为实现这一点，它会同时运行多个 worker 进程。默认情况下，测试文件会并行运行。单个文件中的测试则会按顺序在同一个 worker 进程中运行。
+
+- 你可以使用 `test.describe.configure()` 将单个文件中的测试配置为并行运行。
+- 你可以使用 `testProject.fullyParallel` 或 `testConfig.fullyParallel`，将整个项目中的所有文件里的测试都配置为并行运行。
+- 若要禁用并行，只需把 `workers` 数量限制为 1。
+
+你还可以控制并行 worker 进程的数量，并为整个测试套件设置失败上限，以提高执行效率。 citeturn890666view0
+
+## Worker 进程
+
+所有测试都会在 worker 进程中运行。这些进程是操作系统级进程，彼此独立，由测试运行器进行调度。所有 worker 都拥有相同的环境，并且每个 worker 都会启动自己的浏览器。
+
+worker 之间不能通信。Playwright Test 会尽可能复用同一个 worker 以加快测试速度，因此多个测试文件通常会在同一个 worker 中依次运行。
+
+为保证后续测试拥有干净的执行环境，在测试失败后，worker 总是会被关闭。 citeturn890666view0
+
+## 限制 workers 数量
+
+你可以通过命令行或配置文件控制最大并行 worker 进程数。 citeturn890666view0
+
+### 命令行
+
+```bash
+npx playwright test --workers 4
+```
+
+### 配置文件
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // 在 CI 上限制 worker 数量，本地使用默认值
+  workers: process.env.CI ? 2 : undefined,
+});
+```
+
+## 禁用并行
+
+你可以通过只允许单个 worker 同时运行来禁用所有并行。要么在配置文件中设置 `workers: 1`，要么在命令行中传入 `--workers=1`。 citeturn890666view0
+
+```bash
+npx playwright test --workers=1
+```
+
+## 在单个文件中并行执行测试
+
+默认情况下，单个文件中的测试会按顺序运行。如果一个文件中包含许多彼此独立的测试，你可能希望使用 `test.describe.configure()` 让它们并行运行。 citeturn890666view0
+
+请注意，并行测试会在不同的 worker 进程中执行，因此不能共享任何状态或全局变量。每个测试都会单独执行它自身相关的所有 hook，包括 `beforeAll` 和 `afterAll`。 citeturn890666view0
+
+```ts
+import { test } from '@playwright/test';
+
+test.describe.configure({ mode: 'parallel' });
+
+test('并行运行 1', async ({ page }) => { /* ... */ });
+test('并行运行 2', async ({ page }) => { /* ... */ });
+```
+
+你也可以在配置文件中启用 fully-parallel 模式，让所有测试都进入该模式： citeturn890666view0
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  fullyParallel: true,
+});
+```
+
+你还可以只为少数几个项目启用 fully-parallel 模式： citeturn890666view0
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  // 让特定项目中所有文件里的所有测试都并行运行
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      fullyParallel: true,
+    },
+  ]
+});
+```
+
+## 串行模式
+
+你可以把彼此相互依赖的测试标注为串行。如果串行测试中的某个测试失败，后续所有测试都会被跳过。整个组会一起重试。 citeturn890666view0
+
+:::note
+不推荐使用串行模式。通常更好的做法是让测试保持隔离，从而能够独立运行。
+:::
+
+```ts
+import { test, type Page } from '@playwright/test';
+
+// 将整个文件标注为串行模式。
+test.describe.configure({ mode: 'serial' });
+
+let page: Page;
+
+test.beforeAll(async ({ browser }) => {
+  page = await browser.newPage();
+});
+
+test.afterAll(async () => {
+  await page.close();
+});
+
+test('先运行', async () => {
+  await page.goto('https://playwright.dev/');
+});
+
+test('后运行', async () => {
+  await page.getByText('Get Started').click();
+});
+```
+
+## 退出 fully parallel 模式
+
+如果你的配置通过 `testConfig.fullyParallel` 对所有测试启用了并行模式，你可能仍然希望某些测试保持默认执行方式。你可以按 `describe` 块覆盖其模式： citeturn890666view0
+
+```ts
+import { test } from '@playwright/test';
+
+test.describe('与其他 describe 并行运行', () => {
+  test.describe.configure({ mode: 'default' });
+
+  test('按顺序运行 1', async ({ page }) => {});
+  test('按顺序运行 2', async ({ page }) => {});
+});
+```
+
+## 在多台机器之间分片测试
+
+Playwright Test 可以对测试套件进行分片，从而在多台机器上执行。更多细节请参阅分片指南。 citeturn890666view0
+
+```bash
+npx playwright test --shard=2/3
+```
+
+## 限制失败数量并快速失败
+
+你可以通过设置 `maxFailures` 配置项，或传递 `--max-failures` 命令行参数，来限制整个测试套件中允许失败的测试数量。 citeturn890666view0
+
+当设置了“最大失败数”后，一旦达到该数量，Playwright Test 就会停止执行，并跳过尚未运行的测试。这对于避免在已经损坏的测试套件上浪费资源非常有用。 citeturn890666view0
+
+### 命令行
+
+```bash
+npx playwright test --max-failures=10
+```
+
+### 配置文件
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // 在 CI 上限制失败数量以节省资源
+  maxFailures: process.env.CI ? 10 : undefined,
+});
+```
+
+## Worker index 与 parallel index
+
+每个 worker 进程都会分配两个 id：一个从 1 开始的唯一 `workerIndex`，以及一个介于 `0` 到 `workers - 1` 之间的 `parallelIndex`。当某个 worker 被重启时，例如测试失败后，新 worker 会拥有相同的 `parallelIndex`，但会分配新的 `workerIndex`。 citeturn890666view0
+
+你可以从环境变量 `process.env.TEST_WORKER_INDEX` 和 `process.env.TEST_PARALLEL_INDEX` 读取这些索引，也可以通过 `testInfo.workerIndex` 和 `testInfo.parallelIndex` 访问它们。 citeturn890666view0
+
+### 在并行 worker 之间隔离测试数据
+
+你可以利用上面提到的 `process.env.TEST_WORKER_INDEX` 或 `testInfo.workerIndex`，在不同 worker 运行的测试之间隔离数据库中的用户数据。某个 worker 运行的所有测试都会复用同一个用户。 citeturn890666view0
+
+创建 `playwright/fixtures.ts` 文件，用来创建 `dbUserName` fixture，并在测试数据库中初始化一个新用户。使用 `testInfo.workerIndex` 区分不同 worker。 citeturn890666view0
+
+```ts
+import { test as baseTest, expect } from '@playwright/test';
+// 导入项目中用于管理测试数据库用户的工具函数。
+import { createUserInTestDatabase, deleteUserFromTestDatabase } from './my-db-utils';
+
+export * from '@playwright/test';
+
+export const test = baseTest.extend<{}, { dbUserName: string }>({
+  // 返回 worker 唯一的数据库用户名。
+  dbUserName: [async ({ }, use) => {
+    // 使用 workerIndex 作为每个 worker 的唯一标识。
+    const userName = `user-${test.info().workerIndex}`;
+    // 在数据库中初始化用户。
+    await createUserInTestDatabase(userName);
+    await use(userName);
+    // 测试结束后清理。
+    await deleteUserFromTestDatabase(userName);
+  }, { scope: 'worker' }],
+});
+```
+
+现在，每个测试文件都应从我们的 fixtures 文件中导入 `test`，而不是直接从 `@playwright/test` 导入。 citeturn890666view0
+
+```ts
+// 重要：导入我们的 fixtures。
+import { test, expect } from '../playwright/fixtures';
+
+test('test', async ({ dbUserName }) => {
+  // 在测试中使用该用户名。
+});
+```
+
+## 控制测试顺序
+
+Playwright Test 会按照声明顺序运行单个文件中的测试，除非你启用了单文件内并行执行。 citeturn890666view0
+
+对于跨文件的测试执行顺序则没有保证，因为 Playwright Test 默认会并行运行测试文件。不过，如果你禁用了并行执行，就可以通过按字母顺序命名文件，或者使用“test list”文件来控制测试顺序。 citeturn890666view0
+
+### 按字母顺序排序测试文件
+
+当你禁用并行测试执行时，Playwright Test 会按字母顺序运行测试文件。你可以使用某种命名约定来控制测试顺序，例如 `001-user-signin-flow.spec.ts`、`002-create-new-document.spec.ts` 等。 citeturn890666view0
+
+### 使用 “test list” 文件
+
+:::caution
+不推荐使用 test list。它仅以“尽力支持”的方式提供，一些功能，如 VS Code 扩展和 tracing，在 test list 模式下可能无法正常工作。
+:::
+
+你可以把测试放在多个文件中的辅助函数里。考虑下面的示例，其中测试不是直接定义在文件中，而是定义在一个包装函数里。 citeturn890666view0
+
+`feature-a.spec.ts`
+
+```ts
+import { test, expect } from '@playwright/test';
+
+export default function createTests() {
+  test('feature-a 示例测试', async ({ page }) => {
+    // ... 这里是测试代码
+  });
+}
+```
+
+`feature-b.spec.ts`
+
+```ts
+import { test, expect } from '@playwright/test';
+
+export default function createTests() {
+  test.use({ viewport: { width: 500, height: 500 } });
+
+  test('feature-b 示例测试', async ({ page }) => {
+    // ... 这里是测试代码
+  });
+}
+```
+
+你可以创建一个 test list 文件，用于控制测试顺序——先运行 `feature-b`，再运行 `feature-a`。注意，每个测试文件都被包裹在 `test.describe()` 块中，并在其中调用定义测试的函数。这样，`test.use()` 调用就只会影响来自单个文件的测试。 citeturn890666view0
+
+`test.list.ts`
+
+```ts
+import { test } from '@playwright/test';
+import featureBTests from './feature-b.spec.ts';
+import featureATests from './feature-a.spec.ts';
+
+test.describe(featureBTests);
+test.describe(featureATests);
+```
+
+现在，设置 `workers` 为 1 来禁用并行执行，并指定你的 test list 文件。 citeturn890666view0
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  workers: 1,
+  testMatch: 'test.list.ts',
+});
+```

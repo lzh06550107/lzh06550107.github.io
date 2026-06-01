@@ -1,0 +1,136 @@
+---
+title: Web 服务器
+description: Playwright Test Web 服务器
+sidebar:
+  order: 18
+---
+
+## 简介
+
+Playwright 的配置文件支持 `webServer` 选项。通过这个选项，可以在测试开始之前自动启动本地开发服务器。
+
+这种方式非常适合开发阶段编写测试，或者当前没有可用于测试的 staging / production 地址时使用。
+
+## 配置 Web 服务器
+
+在 Playwright 配置中使用 `webServer` 属性，可以让测试运行期间启动一个开发服务器。
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // 在开始测试之前运行本地开发服务器
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
+});
+```
+
+| 属性 | 说明 |
+| --- | --- |
+| `testConfig.webServer` | 在测试过程中启动一个或多个开发 Web 服务器。 |
+| `command` | 用于启动本地开发服务器的 Shell 命令。 |
+| `cwd` | 子进程的当前工作目录。默认是配置文件所在目录。 |
+| `env` | 传递给命令的环境变量。默认继承 `process.env`，并额外添加 `PLAYWRIGHT_TEST=1`。 |
+| `gracefulShutdown` | 指定如何关闭进程。如果没有配置，进程组会被强制 `SIGKILL`。例如设置为 `{ signal: 'SIGTERM', timeout: 500 }` 时，会先向进程组发送 `SIGTERM`，如果 500ms 内没有退出，再发送 `SIGKILL`。也可以使用 `SIGINT`。`timeout` 为 `0` 表示不会发送 `SIGKILL`。Windows 不支持 `SIGTERM` 和 `SIGINT`，因此该选项在 Windows 上会被忽略。关闭 Docker 容器通常需要 `SIGTERM`。 |
+| `ignoreHTTPSErrors` | 获取 `url` 时是否忽略 HTTPS 错误。默认值为 `false`。 |
+| `name` | 指定 Web 服务器的自定义名称。该名称会作为日志消息的前缀。默认值为 `[WebServer]`。 |
+| `port` | 已废弃，推荐使用 `url`。表示 HTTP 服务器预计监听的端口。Playwright 会等待该端口可以接受连接。`port` 和 `url` 至少要配置一个。 |
+| `reuseExistingServer` | 如果为 `true`，当 `port` 或 `url` 上已有服务器时会复用它；如果没有服务器运行，则执行 `command` 启动新的服务器。如果为 `false`，当已有进程监听该 `port` 或 `url` 时会抛出错误。通常设置为 `!process.env.CI`，这样本地测试可以复用已有开发服务器，而 CI 中不会复用。 |
+| `stderr` | 是否将命令的 stderr 输出到当前进程 stderr，或忽略它。默认值为 `"pipe"`。 |
+| `stdout` | 如果为 `"pipe"`，会将命令的 stdout 输出到当前进程 stdout；如果为 `"ignore"`，则忽略 stdout。默认值为 `"ignore"`。 |
+| `timeout` | 等待进程启动并可用的最长时间，单位为毫秒。默认值为 `60000`。 |
+| `url` | HTTP 服务器的 URL。服务器准备好接受连接时，该 URL 应返回 `2xx`、`3xx`、`400`、`401`、`402` 或 `403` 状态码。`port` 和 `url` 至少要配置一个。如果同时配置了 `url` 和 `wait`，只要其中任意一个条件满足，就认为服务器已经启动。 |
+| `wait` | 只有当指定输出出现后，才认为命令已经启动。它接收一个对象，可包含可选的 `stdout` 和 / 或 `stderr` 正则表达式。正则中的命名捕获组会保存到环境变量中。例如 `/Listening on port (?<my_server_port>\d+)/` 会把端口号保存到 `process.env['MY_SERVER_PORT']`。如果同时配置了 `url` 和 `wait`，任意一个条件满足即可认为服务器启动完成。 |
+
+## 添加服务器超时时间
+
+有些 Web 服务器启动时间可能较长。这种情况下，可以增加等待服务器启动的超时时间。
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // 你的其它配置...
+
+  // 在开始测试之前运行本地开发服务器
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+  },
+});
+```
+
+## 添加 baseURL
+
+推荐在配置文件的 `use: {}` 部分指定 `baseURL`。这样测试中可以使用相对 URL，不需要反复写完整地址。
+
+当使用 `page.goto()`、`page.route()`、`page.waitForURL()`、`page.waitForRequest()` 或 `page.waitForResponse()` 时，Playwright 会结合 `baseURL`，通过 `URL()` 构造器生成对应的完整 URL。
+
+例如，将 `baseURL` 设置为 `http://localhost:3000` 后，在测试中访问 `/login`，Playwright 实际会访问 `http://localhost:3000/login`。
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // 你的其它配置...
+
+  // 在开始测试之前运行本地开发服务器
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+  },
+  use: {
+    baseURL: 'http://localhost:3000',
+  },
+});
+```
+
+现在，在页面导航时就可以使用相对路径：
+
+```ts title="test.spec.ts"
+import { test } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  // 这里会导航到 http://localhost:3000/login
+  await page.goto('./login');
+});
+```
+
+## 多个 Web 服务器
+
+可以通过为 `webServer` 提供配置数组，同时启动多个 Web 服务器，或多个后台进程。
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  webServer: [
+    {
+      command: 'npm run start',
+      url: 'http://localhost:3000',
+      name: 'Frontend',
+      timeout: 120 * 1000,
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: 'npm run backend',
+      url: 'http://localhost:3333',
+      name: 'Backend',
+      timeout: 120 * 1000,
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
+  use: {
+    baseURL: 'http://localhost:3000',
+  },
+});
+```
+

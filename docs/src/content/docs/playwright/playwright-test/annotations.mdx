@@ -1,0 +1,275 @@
+---
+title: 注解
+description: Playwright Test 注解
+sidebar:
+  order: 2
+---
+
+## 介绍
+
+Playwright 支持标签和注解，它们会显示在测试报告中。你可以在任何时候添加自己的标签和注解，不过 Playwright 也内置了一些常用注解：
+
+- `test.skip` 将测试标记为不相关。Playwright 不会运行这样的测试。当测试在某些配置下不适用时，使用这个注解。
+- `test.fail` 将测试标记为预期失败。Playwright 会运行这个测试，并确保它确实失败；如果它没有失败，Playwright 会报错。
+- `test.fixme` 也将测试标记为失败，但与 `fail` 不同，Playwright 不会运行这个测试。当运行测试很慢或会崩溃时，使用 `fixme`。
+- `test.slow` 将测试标记为慢速，并把测试超时时间扩大为原来的三倍。
+
+注解可以添加到单个测试，也可以添加到一组测试上。
+
+内置注解还可以是条件式的，在条件为真时生效，并且可以依赖测试夹具。同一个测试上可以有多个注解，也可以在不同配置下拥有不同注解。
+
+## 聚焦测试
+
+你可以聚焦部分测试。当存在聚焦测试时，只会运行这些测试。
+
+```ts
+test.only('聚焦这个测试', async ({ page }) => {
+  // 只运行整个项目中被聚焦的测试
+});
+```
+
+## 跳过测试
+
+把测试标记为跳过。
+
+```ts
+test.skip('跳过这个测试', async ({ page }) => {
+  // 这个测试不会运行
+});
+```
+
+## 条件跳过测试
+
+你可以根据条件跳过某些测试。
+
+```ts
+test('跳过这个测试', async ({ page, browserName }) => {
+  test.skip(browserName === 'firefox', '仍在处理');
+});
+```
+
+## 对测试分组
+
+你可以对测试进行分组，为它们赋予逻辑名称，或者把 before/after 钩子的作用范围限定在这个组里。
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.describe('两个测试', () => {
+  test('one', async ({ page }) => {
+    // ...
+  });
+
+  test('two', async ({ page }) => {
+    // ...
+  });
+});
+```
+
+## 给测试打标签
+
+有时你希望把测试标记为 `@fast` 或 `@slow`，然后在测试报告中按标签筛选，或者只运行拥有特定标签的测试。
+
+要给测试打标签，可以在声明测试时传入一个额外的 details 对象，或者直接在测试标题中加入 `@` 标记。
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test('test login page', {
+  tag: '@fast',
+}, async ({ page }) => {
+  // ...
+});
+
+test('test full report @slow', async ({ page }) => {
+  // ...
+});
+```
+
+您也可以标记一个分组中的所有测试，或者提供多个标记：
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.describe('group', {
+  tag: '@report',
+}, () => {
+  test('test report header', async ({ page }) => {
+    // ...
+  });
+
+  test('test full report', {
+    tag: ['@slow', '@vrt'],
+  }, async ({ page }) => {
+    // ...
+  });
+});
+```
+
+您现在可以使用 `--grep` 命令行选项来运行带有特定标记的测试。
+
+
+### Bash
+
+```bash
+npx playwright test --grep @fast
+```
+
+### PowerShell
+
+```powershell
+npx playwright test --grep "@fast"
+```
+
+### Batch
+
+```batch
+npx playwright test --grep @fast
+```
+
+或者，如果您想要相反的操作，可以跳过带有特定标记的测试：
+
+### Bash
+
+```bash
+npx playwright test --grep-invert @fast
+```
+
+### PowerShell
+
+```powershell
+npx playwright test --grep-invert "@fast"
+```
+
+### Batch
+
+```batch
+npx playwright test --grep-invert @fast
+```
+
+要运行包含任一标记的测试（逻辑或运算符）：
+
+### Bash
+
+```bash
+npx playwright test --grep "@fast|@slow"
+```
+
+### PowerShell
+
+```powershell
+npx playwright test --grep --% "@fast^|@slow"
+```
+
+### Batch
+
+```batch
+npx playwright test --grep "@fast^|@slow"
+```
+
+或者使用正则表达式正向先行断言（lookaheads）来运行同时包含两个标记的测试（逻辑与运算符）：
+
+```bash
+npx playwright test --grep "(?=.*@fast)(?=.*@slow)"
+``` 
+
+您还可以通过配置文件中的 `testConfig.grep` 和 `testProject.grep` 来过滤测试。
+
+## 给测试添加注解
+
+如果您想用比标记（tag）更实质性的内容来为您的测试添加注解（annotate），您可以在声明测试时进行操作。注解包含类型（type）和描述（description）以提供更多上下文信息，并且可以在报告器（reporter）API 中获取。Playwright 内置的 HTML 报告器会显示所有的注解，但类型以 `_` 符号开头的注解除外。
+
+例如，使用一个议题（issue）的 URL 来为测试添加注解：
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test('test login page', {
+  annotation: {
+    type: 'issue',
+    description: 'https://github.com/microsoft/playwright/issues/23180',
+  },
+}, async ({ page }) => {
+  // ...
+});
+```
+
+您也可以为一个分组中的所有测试添加注解，或者提供多个注解：
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('report tests', {
+  annotation: { type: 'category', description: 'report' },
+}, () => {
+  test('test report header', async ({ page }) => {
+    // ...
+  });
+
+  test('test full report', {
+    annotation: [
+      { type: 'issue', description: 'https://github.com/microsoft/playwright/issues/23180' },
+      { type: 'performance', description: 'very slow test!' },
+    ],
+  }, async ({ page }) => {
+    // ...
+  });
+});
+```
+
+## 条件性地跳过一个测试分组
+
+例如，您可以通过传递一个回调函数，来让一个测试分组仅在 Chromium 中运行。
+`example.spec.ts`
+
+```typescript
+test.describe('chromium only', () => {
+  test.skip(({ browserName }) => browserName !== 'chromium', 'Chromium only!');
+
+  test.beforeAll(async () => {
+    // 此钩子仅在 Chromium 中运行。
+  });
+
+  test('test 1', async ({ page }) => {
+    // 此测试仅在 Chromium 中运行。
+  });
+
+  test('test 2', async ({ page }) => {
+    // 此测试仅在 Chromium 中运行。
+  });
+});
+```
+
+## 在 beforeEach 钩子中使用 fixme
+
+为了避免运行 `beforeEach` 钩子，您可以将注解直接放在钩子内部。
+`example.spec.ts`
+
+```typescript
+test.beforeEach(async ({ page, isMobile }) => {
+  test.fixme(isMobile, 'Settings page does not work in mobile yet');
+
+  await page.goto('http://localhost:3000/settings');
+});
+
+test('user profile', async ({ page }) => {
+  await page.getByText('My Profile').click();
+  // ...
+});
+```
+
+## 运行时注解（Runtime annotations）
+
+在测试已经运行的过程中，您可以将注解添加到 `test.info().annotations` 中。
+`example.spec.ts`
+
+```typescript
+test('example test', async ({ page, browser }) => {
+  test.info().annotations.push({
+    type: 'browser version',
+    description: browser.version(),
+  });
+
+  // ...
+});
+```

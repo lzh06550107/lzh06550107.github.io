@@ -1,0 +1,123 @@
+---
+title: "WebView2"
+description: "介绍如何连接和测试 Microsoft WebView2 控件。"
+sidebar:
+  label: "WebView2"
+  order: 38
+---
+
+## 简介
+
+下面将说明如何将 Playwright 与 [Microsoft Edge WebView2](https://docs.microsoft.com/microsoft-edge/webview2/) 一起使用。WebView2 是一个 WinForms 控件，它会在底层使用 Microsoft Edge 来渲染 Web 内容。它是 Microsoft Edge 浏览器的一部分，可在 Windows 10 和 Windows 11 上使用。Playwright 可用于自动化 WebView2 应用程序，并可用于测试 WebView2 中的 Web 内容。
+
+为了连接到 WebView2，Playwright 使用 [`browserType.connectOverCDP()`](https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp)，它会通过 Chrome DevTools Protocol（CDP）连接到 WebView2。
+
+## 概览
+
+可以通过设置 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 环境变量为 `--remote-debugging-port=9222`，或者调用带有 `--remote-debugging-port=9222` 参数的 [`EnsureCoreWebView2Async`](https://docs.microsoft.com/microsoft-edge/webview2/reference/winforms/webview2#ensurecorewebview2async)，来指示 WebView2 控件监听传入的 CDP 连接。这会启动启用了 Chrome DevTools Protocol 的 WebView2 进程，从而允许 Playwright 对其进行自动化。在这个示例中，`9222` 是示例端口，但也可以使用任何其他未被占用的端口。
+
+```csharp
+await this.webView.EnsureCoreWebView2Async(await CoreWebView2Environment.CreateAsync(null, null, new CoreWebView2EnvironmentOptions()
+{
+  AdditionalBrowserArguments = "--remote-debugging-port=9222",
+})).ConfigureAwait(false);
+```
+
+一旦带有 WebView2 控件的应用程序正在运行，你就可以通过 Playwright 连接到它：
+
+```js
+const browser = await playwright.chromium.connectOverCDP('http://localhost:9222');
+const context = browser.contexts()[0];
+const page = context.pages()[0];
+```
+
+为了确保 WebView2 控件已经准备就绪，你可以等待 [`CoreWebView2InitializationCompleted`](https://learn.microsoft.com/dotnet/api/microsoft.web.webview2.wpf.webview2.corewebview2initializationcompleted) 事件：
+
+```csharp
+this.webView.CoreWebView2InitializationCompleted += (_, e) =>
+{
+    if (e.IsSuccess)
+    {
+        Console.WriteLine("WebView2 initialized");
+    }
+};
+```
+
+## 编写和运行测试
+
+默认情况下，WebView2 控件会为所有实例使用相同的用户数据目录。这意味着如果你并行运行多个测试，它们会互相干扰。为了避免这种情况，你应该将 `WEBVIEW2_USER_DATA_FOLDER` 环境变量（或使用 [`WebView2.EnsureCoreWebView2Async` 方法](https://docs.microsoft.com/microsoft-edge/webview2/reference/winforms/webview2#ensurecorewebview2async)）设置为每个测试不同的文件夹。这将确保每个测试都在自己的用户数据目录中运行。
+
+使用以下代码，Playwright 会将你的 WebView2 应用程序作为子进程运行，为其分配一个唯一的用户数据目录，并向你的测试提供 [`Page`](https://playwright.dev/docs/api/class-page) 实例：
+
+**webView2Test.ts**
+
+```ts
+import { test as base } from '@playwright/test';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import childProcess from 'child_process';
+
+const EXECUTABLE_PATH = path.join(
+    __dirname,
+    '../../webview2-app/bin/Debug/net8.0-windows/webview2.exe',
+);
+
+export const test = base.extend({
+  browser: async ({ playwright }, use, testInfo) => {
+    const cdpPort = 10000 + testInfo.workerIndex;
+    // 确保可执行文件存在并且可执行
+    fs.accessSync(EXECUTABLE_PATH, fs.constants.X_OK);
+    const userDataDir = path.join(
+        fs.realpathSync.native(os.tmpdir()),
+        `playwright-webview2-tests/user-data-dir-${testInfo.workerIndex}`,
+    );
+    const webView2Process = childProcess.spawn(EXECUTABLE_PATH, [], {
+      shell: true,
+      env: {
+        ...process.env,
+        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${cdpPort}`,
+        WEBVIEW2_USER_DATA_FOLDER: userDataDir,
+      }
+    });
+    await new Promise<void>(resolve => webView2Process.stdout.on('data', data => {
+      if (data.toString().includes('WebView2 initialized'))
+        resolve();
+    }));
+    const browser = await playwright.chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
+    await use(browser);
+    await browser.close();
+    childProcess.execSync(`taskkill /pid ${webView2Process.pid} /T /F`);
+    fs.rmdirSync(userDataDir, { recursive: true });
+  },
+  context: async ({ browser }, use) => {
+    const context = browser.contexts()[0];
+    await use(context);
+  },
+  page: async ({ context }, use) => {
+    const page = context.pages()[0];
+    await use(page);
+  },
+});
+
+export { expect } from '@playwright/test';
+```
+
+**example.spec.ts**
+
+```ts
+import { test, expect } from './webView2Test';
+
+test('test WebView2', async ({ page }) => {
+  await page.goto('https://playwright.dev');
+  const getStarted = page.getByText('Get Started');
+  await expect(getStarted).toBeVisible();
+});
+```
+
+## 调试
+
+在你的 WebView2 控件内部，你可以直接右键单击以打开上下文菜单，然后选择“Inspect”来打开 DevTools，或者按 `F12`。你也可以使用 [`WebView2.CoreWebView2.OpenDevToolsWindow`](https://learn.microsoft.com/dotnet/api/microsoft.web.webview2.core.corewebview2.opendevtoolswindow) 方法以编程方式打开 DevTools。
+
+有关调试测试，请参阅 Playwright 的 [调试指南](https://playwright.dev/docs/debug)。
+

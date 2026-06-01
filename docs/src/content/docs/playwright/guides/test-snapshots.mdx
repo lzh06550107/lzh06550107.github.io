@@ -1,0 +1,140 @@
+---
+title: "视觉对比"
+description: "介绍截图基线、更新快照和视觉比较选项。"
+sidebar:
+  label: "视觉对比"
+  order: 37
+---
+
+## 简介
+
+Playwright Test 包含使用 `await expect(page).toHaveScreenshot()` 生成截图并进行视觉比较的能力。首次执行时，Playwright Test 将生成参考截图。后续运行将与参考截图进行比较。
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+
+test('example test', async ({ page }) => {
+  await page.goto('https://playwright.dev');
+  await expect(page).toHaveScreenshot();
+});
+```
+
+:::caution
+浏览器渲染可能会因主机操作系统、版本、设置、硬件、电源来源（电池与电源适配器）、无头模式以及其他因素而有所不同。为了获得一致的截图，请在生成基线截图的相同环境中运行测试。
+:::
+
+## 生成截图
+
+首次运行上面的代码时，测试运行器会提示：
+
+```txt
+Error: A snapshot doesn't exist at example.spec.ts-snapshots/example-test-1-chromium-darwin.png, writing actual.
+```
+
+这是因为还没有黄金文件。此方法会截取多张截图，直到连续两张截图匹配，然后将最后一张截图保存到文件系统中。现在它可以被添加到仓库中。
+
+包含黄金期望的文件夹名称以测试文件名开头：
+
+```txt
+drwxr-xr-x  5 user  group  160 Jun  4 11:46 .
+drwxr-xr-x  6 user  group  192 Jun  4 11:45 ..
+-rw-r--r--  1 user  group  231 Jun  4 11:16 example.spec.ts
+drwxr-xr-x  3 user  group   96 Jun  4 11:46 example.spec.ts-snapshots
+```
+
+快照名称 `example-test-1-chromium-darwin.png` 由几个部分组成：
+
+- `example-test-1.png` - 自动生成的快照名称。或者，你可以将快照名称指定为 `toHaveScreenshot()` 方法的第一个参数：
+
+  ```ts
+  await expect(page).toHaveScreenshot('landing.png');
+  ```
+
+- `chromium-darwin` - 浏览器名称和平台。由于不同的渲染、字体等原因，不同浏览器和平台之间的截图会有所不同，因此你需要为它们准备不同的快照。如果你在[配置文件](/docs/test-configuration)中使用多个项目，则会使用项目名称而不是 `chromium`。
+
+快照名称和路径可以在 Playwright 配置中通过 [`testConfig.snapshotPathTemplate`](/docs/api/class-testconfig#test-config-snapshot-path-template) 进行配置。
+
+:::note
+请注意，`toHaveScreenshot()` 也接受由路径片段组成的数组作为快照文件路径，例如 `expect().toHaveScreenshot(['relative', 'path', 'to', 'snapshot.png'])`。但是，此路径必须保留在每个测试文件的快照目录内（即 `a.spec.js-snapshots`），否则会抛出错误。
+:::
+
+## 更新截图
+
+有时你需要更新参考截图，例如页面发生变化时。可以使用 `--update-snapshots` 标志执行此操作。
+
+```bash
+npx playwright test --update-snapshots
+```
+
+## 选项
+
+### maxDiffPixels
+
+Playwright Test 使用 [`pixelmatch`](https://github.com/mapbox/pixelmatch) 库。你可以[传递各种选项](/docs/api/class-snapshotassertions#snapshot-assertions-to-have-screenshot-1)来修改其行为：
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+
+test('example test', async ({ page }) => {
+  await page.goto('https://playwright.dev');
+  await expect(page).toHaveScreenshot({ maxDiffPixels: 100 });
+});
+```
+
+如果你希望在项目中的所有测试之间共享默认值，可以在 Playwright 配置中指定它，可以是全局配置，也可以是按项目配置：
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  expect: {
+    toHaveScreenshot: { maxDiffPixels: 100 },
+  },
+});
+```
+
+### stylePath
+
+你可以在截图时将自定义样式表应用到页面。这允许过滤掉动态或易变元素，从而提高截图的确定性。
+
+```css title="screenshot.css"
+iframe {
+  visibility: hidden;
+}
+```
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+test('example test', async ({ page }) => {
+  await page.goto('https://playwright.dev');
+  await expect(page).toHaveScreenshot({ stylePath: path.join(__dirname, 'screenshot.css') });
+});
+```
+
+如果你希望在项目中的所有测试之间共享默认值，可以在 Playwright 配置中指定它，可以是全局配置，也可以是按项目配置：
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  expect: {
+    toHaveScreenshot: {
+      stylePath: './screenshot.css'
+    },
+  },
+});
+```
+
+## 非图片快照
+
+除了截图之外，你还可以使用 `expect(value).toMatchSnapshot(snapshotName)` 来比较文本或任意二进制数据。Playwright Test 会自动检测内容类型，并使用适当的比较算法。
+
+这里我们将文本内容与参考内容进行比较。
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+test('example test', async ({ page }) => {
+  await page.goto('https://playwright.dev');
+  expect(await page.textContent('.hero__title')).toMatchSnapshot('hero.txt');
+});
+```
+
+快照存储在测试文件旁边的单独目录中。例如，`my.spec.ts` 文件将在 `my.spec.ts-snapshots` 目录中生成并存储快照。你应该将此目录提交到版本控制系统（例如 `git`），并审查其中的任何更改。

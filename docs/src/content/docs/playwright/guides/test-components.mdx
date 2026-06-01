@@ -1,0 +1,720 @@
+---
+title: "组件测试（实验性）"
+description: "介绍 Playwright 组件测试的基本用法和限制。"
+sidebar:
+  label: "组件测试（实验性）"
+  order: 12
+---
+
+## 简介
+
+Playwright Test 现在可以测试你的组件。
+
+## 示例
+
+下面是一个典型的组件测试示例：
+
+```tsx
+test('event should work', async ({ mount }) => {
+  let clicked = false;
+
+  // 挂载组件。返回指向该组件的 locator。
+  const component = await mount(
+    <Button title="Submit" onClick={() => { clicked = true }}></Button>
+  );
+
+  // 与任何 Playwright 测试一样，断言 locator 文本。
+  await expect(component).toContainText('Submit');
+  // 执行 locator 点击。这会触发事件。
+  await component.click();
+
+  // 断言相应事件已经被触发。
+  expect(clicked).toBeTruthy();
+});
+```
+
+## 如何开始
+
+将 Playwright Test 添加到现有项目很简单。下面是在 React 或 Vue 项目中启用 Playwright Test 组件测试的步骤。
+
+### 第 1 步：为对应框架安装组件版 Playwright Test
+
+:::code-group
+
+```bash [npm]
+npm init playwright@latest -- --ct
+```
+
+```bash [yarn]
+yarn create playwright --ct
+```
+
+```bash [pnpm]
+pnpm create playwright --ct
+```
+
+:::
+
+这一步会在你的工作区创建几个文件。
+
+`playwright/index.html`
+
+```html
+<html lang="en">
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>
+```
+
+这个文件定义了测试期间用于渲染组件的 HTML 文件。它必须包含 `id="root"` 的元素，组件会被挂载到这里。它还必须链接名为 `playwright/index.{js,ts,jsx,tsx}` 的脚本。
+
+你可以通过这个脚本在组件挂载页面中引入样式表、应用主题并注入代码。该脚本可以是 `.js`、`.ts`、`.jsx` 或 `.tsx` 文件。
+
+`playwright/index.ts`
+
+```ts
+// 在这里应用主题，添加组件运行时需要的任何内容。
+```
+
+### 第 2 步：创建测试文件 `src/App.spec.{ts,tsx}`
+
+:::code-group
+
+```tsx [React: app.spec.tsx]
+import { test, expect } from '@playwright/experimental-ct-react';
+import App from './App';
+
+test('should work', async ({ mount }) => {
+  const component = await mount(<App />);
+  await expect(component).toContainText('Learn React');
+});
+```
+
+```ts [Vue: app.spec.ts]
+import { test, expect } from '@playwright/experimental-ct-vue';
+import App from './App.vue';
+
+test('should work', async ({ mount }) => {
+  const component = await mount(App);
+  await expect(component).toContainText('Learn Vue');
+});
+```
+
+```tsx [Vue JSX: app.spec.tsx]
+import { test, expect } from '@playwright/experimental-ct-vue';
+import App from './App.vue';
+
+test('should work', async ({ mount }) => {
+  const component = await mount(<App />);
+  await expect(component).toContainText('Learn Vue');
+});
+```
+
+:::
+
+如果使用 TypeScript 和 Vue，请确保向项目添加 `vue.d.ts` 文件：
+
+```ts
+declare module '*.vue';
+```
+
+### 第 3 步：运行测试
+
+你可以使用 VS Code 扩展或命令行运行测试。
+
+```bash
+npm run test-ct
+```
+
+### 进一步阅读：配置报告、浏览器、追踪
+
+请参考 Playwright 配置文档来配置你的项目。
+
+## 测试 stories
+
+当 Playwright Test 用于测试 Web 组件时，测试在 Node.js 中运行，而组件在真实浏览器中运行。这结合了两者的优点：组件运行在真实浏览器环境中，真实点击会被触发，真实布局会被执行，也可以进行视觉回归测试。同时，测试可以使用 Node.js 的全部能力以及 Playwright Test 的所有功能。
+
+因此，在组件测试中，同样可以使用并行测试、参数化测试以及失败后追踪分析等能力。
+
+不过，这也带来了一些限制：
+
+- 你不能把复杂的实时对象传给组件。只能传递普通 JavaScript 对象以及字符串、数字、日期等内置类型。
+
+```tsx
+test('this will work', async ({ mount }) => {
+  const component = await mount(<ProcessViewer process={{ name: 'playwright' }}/>);
+});
+
+test('this will not work', async ({ mount }) => {
+  // `process` 是 Node 对象，不能把它传给浏览器并期望它正常工作。
+  const component = await mount(<ProcessViewer process={process}/>);
+});
+```
+
+- 你不能通过回调同步地向组件传递数据：
+
+```tsx
+test('this will not work', async ({ mount }) => {
+  // () => 'red' 回调存在于 Node 中。如果浏览器中的 `ColorPicker` 组件调用参数函数
+  // `colorGetter`，它无法同步获得结果。它可以通过 await 获取，但组件通常不是这样构建的。
+  const component = await mount(<ColorPicker colorGetter={() => 'red'}/>);
+});
+```
+
+绕过这些限制以及其他限制的方式很简单也很优雅：针对被测试组件的每一种使用场景，创建一个专门用于测试的组件包装器。这样不仅可以缓解这些限制，还能为测试提供强大的抽象，你可以在其中定义环境、主题以及组件渲染的其他方面。
+
+假设你想测试下面的组件：
+
+`input-media.tsx`
+
+```tsx
+import React from 'react';
+
+type InputMediaProps = {
+  // Media 是复杂的浏览器对象，测试时不能发送到 Node。
+  onChange(media: Media): void;
+};
+
+export function InputMedia(props: InputMediaProps) {
+  return <></> as any;
+}
+```
+
+为你的组件创建一个 story 文件：
+
+`input-media.story.tsx`
+
+```tsx
+import React from 'react';
+import InputMedia from './import-media';
+
+type InputMediaForTestProps = {
+  onMediaChange(mediaName: string): void;
+};
+
+export function InputMediaForTest(props: InputMediaForTestProps) {
+  // 不把复杂的 `media` 对象发送到测试中，而是发送媒体名称。
+  return <InputMedia onChange={media => props.onMediaChange(media.name)} />;
+}
+
+// 在这里导出更多 stories。
+```
+
+然后通过测试 story 来测试组件：
+
+`input-media.spec.tsx`
+
+```tsx
+import { test, expect } from '@playwright/experimental-ct-react';
+import { InputMediaForTest } from './input-media.story.tsx';
+
+test('changes the image', async ({ mount }) => {
+  let mediaSelected: string | null = null;
+
+  const component = await mount(
+    <InputMediaForTest
+      onMediaChange={mediaName => {
+        mediaSelected = mediaName;
+      }}
+    />
+  );
+
+  await component
+    .getByTestId('imageInput')
+    .setInputFiles('src/assets/logo.png');
+  await expect(component.getByAltText(/selected image/i)).toBeVisible();
+  await expect.poll(() => mediaSelected).toBe('logo.png');
+});
+```
+
+这样一来，每个组件都会有一个 story 文件，用于导出实际被测试的所有 stories。这些 stories 存在于浏览器中，并把复杂对象“转换”为测试中可以访问的简单对象。
+
+## 底层原理
+
+组件测试的工作方式如下：
+
+- 测试执行后，Playwright 会创建测试所需组件的列表。
+- 然后它会编译一个包含这些组件的 bundle，并通过本地静态 Web 服务器提供服务。
+- 当测试中调用 `mount` 时，Playwright 会导航到该 bundle 的门面页面 `/playwright/index.html`，并告诉它渲染组件。
+- 事件会被编组回 Node.js 环境，以便进行验证。
+
+Playwright 使用 Vite 来创建组件 bundle 并提供服务。
+
+## 最佳实践和陷阱
+
+当组件测试接受“测试运行在 Node.js 中，而挂载的组件运行在浏览器中”这一事实时，测试会最可靠。
+
+### 优先在每个测试中挂载
+
+让 `mount()` 靠近使用它的断言。把挂载放在 `beforeEach` 中，会让人更难看出哪个组件状态属于哪个测试，也容易隐藏测试之间意外产生的耦合。
+
+```tsx
+test('renders the product name', async ({ mount }) => {
+  const component = await mount(<ProductCard name="Playwright" />);
+  await expect(component).toContainText('Playwright');
+});
+```
+
+### 模块 mock 不会跨越 Node/浏览器边界
+
+`vi.mock()` 或 `jest.mock()` 这类模块级 mock 运行在测试进程中。组件 bundle 运行在浏览器中，因此这些 mock 不会自动影响组件运行时导入的内容。优先通过 `hooksConfig` 传入测试专用行为，并在 `playwright/index.{js,ts,jsx,tsx}` 中使用 `beforeMount` 进行配置。
+
+### 当组件依赖全局状态时重置浏览器状态
+
+为了优化性能，组件测试可能会在测试之间复用浏览器 `context` 和 `page`。如果组件依赖 `localStorage`、cookies、单例服务或路由状态等全局浏览器状态，请在测试设置或 `beforeMount` 中重置这些状态，让每个测试都从已知基线开始。
+
+## API 参考
+
+### props
+
+挂载组件时向组件提供 props。
+
+:::code-group
+
+```tsx [React]
+import { test } from '@playwright/experimental-ct-react';
+
+test('props', async ({ mount }) => {
+  const component = await mount(<Component msg="greetings" />);
+});
+```
+
+```ts [Vue]
+import { test } from '@playwright/experimental-ct-vue';
+
+test('props', async ({ mount }) => {
+  const component = await mount(Component, { props: { msg: 'greetings' } });
+});
+```
+
+```tsx [Vue JSX]
+// 或者，也可以使用 `jsx` 风格
+import { test } from '@playwright/experimental-ct-vue';
+
+test('props', async ({ mount }) => {
+  const component = await mount(<Component msg="greetings" />);
+});
+```
+
+:::
+
+### callbacks / events
+
+挂载组件时向组件提供回调或事件。
+
+:::code-group
+
+```tsx [React]
+import { test } from '@playwright/experimental-ct-react';
+
+test('callback', async ({ mount }) => {
+  const component = await mount(<Component onClick={() => {}} />);
+});
+```
+
+```ts [Vue]
+import { test } from '@playwright/experimental-ct-vue';
+
+test('event', async ({ mount }) => {
+  const component = await mount(Component, { on: { click() {} } });
+});
+```
+
+```tsx [Vue JSX]
+// 或者，也可以使用 `jsx` 风格
+import { test } from '@playwright/experimental-ct-vue';
+
+test('event', async ({ mount }) => {
+  const component = await mount(<Component v-on:click={() => {}} />);
+});
+```
+
+:::
+
+### children / slots
+
+挂载组件时向组件提供 children 或 slots。
+
+:::code-group
+
+```tsx [React]
+import { test } from '@playwright/experimental-ct-react';
+
+test('children', async ({ mount }) => {
+  const component = await mount(<Component>Child</Component>);
+});
+```
+
+```ts [Vue]
+import { test } from '@playwright/experimental-ct-vue';
+
+test('slot', async ({ mount }) => {
+  const component = await mount(Component, { slots: { default: 'Slot' } });
+});
+```
+
+```tsx [Vue JSX]
+// 或者，也可以使用 `jsx` 风格
+import { test } from '@playwright/experimental-ct-vue';
+
+test('children', async ({ mount }) => {
+  const component = await mount(<Component>Child</Component>);
+});
+```
+
+:::
+
+### hooks
+
+你可以使用 `beforeMount` 和 `afterMount` hooks 来配置应用。这让你可以设置应用路由、伪服务器等内容，从而获得所需的灵活性。你也可以从测试中的 `mount` 调用传递自定义配置，并通过 `hooksConfig` fixture 访问它。这包括任何需要在挂载组件前后运行的配置。下面是配置路由的示例：
+
+:::code-group
+
+```tsx [React: playwright/index.tsx]
+import { beforeMount, afterMount } from '@playwright/experimental-ct-react/hooks';
+import { BrowserRouter } from 'react-router-dom';
+
+export type HooksConfig = {
+  enableRouting?: boolean;
+}
+
+beforeMount<HooksConfig>(async ({ App, hooksConfig }) => {
+  if (hooksConfig?.enableRouting)
+    return <BrowserRouter><App /></BrowserRouter>;
+});
+```
+
+```tsx [React: src/pages/ProductsPage.spec.tsx]
+import { test, expect } from '@playwright/experimental-ct-react';
+import type { HooksConfig } from '../playwright';
+import { ProductsPage } from './pages/ProductsPage';
+
+test('configure routing through hooks config', async ({ page, mount }) => {
+  const component = await mount<HooksConfig>(<ProductsPage />, {
+    hooksConfig: { enableRouting: true },
+  });
+  await expect(component.getByRole('link')).toHaveAttribute('href', '/products/42');
+});
+```
+
+```ts [Vue: playwright/index.ts]
+import { beforeMount, afterMount } from '@playwright/experimental-ct-vue/hooks';
+import { router } from '../src/router';
+
+export type HooksConfig = {
+  enableRouting?: boolean;
+}
+
+beforeMount<HooksConfig>(async ({ app, hooksConfig }) => {
+  if (hooksConfig?.enableRouting)
+    app.use(router);
+});
+```
+
+```ts [Vue: src/pages/ProductsPage.spec.ts]
+import { test, expect } from '@playwright/experimental-ct-vue';
+import type { HooksConfig } from '../playwright';
+import ProductsPage from './pages/ProductsPage.vue';
+
+test('configure routing through hooks config', async ({ page, mount }) => {
+  const component = await mount<HooksConfig>(ProductsPage, {
+    hooksConfig: { enableRouting: true },
+  });
+  await expect(component.getByRole('link')).toHaveAttribute('href', '/products/42');
+});
+```
+
+:::
+
+### unmount
+
+从 DOM 中卸载已挂载的组件。这对于测试组件卸载时的行为很有用。使用场景包括测试“你确定要离开吗？”弹窗，或确保事件处理器被正确清理以避免内存泄漏。
+
+:::code-group
+
+```tsx [React]
+import { test } from '@playwright/experimental-ct-react';
+
+test('unmount', async ({ mount }) => {
+  const component = await mount(<Component/>);
+  await component.unmount();
+});
+```
+
+```ts [Vue]
+import { test } from '@playwright/experimental-ct-vue';
+
+test('unmount', async ({ mount }) => {
+  const component = await mount(Component);
+  await component.unmount();
+});
+```
+
+```tsx [Vue JSX]
+// 或者，也可以使用 `jsx` 风格
+import { test } from '@playwright/experimental-ct-vue';
+
+test('unmount', async ({ mount }) => {
+  const component = await mount(<Component/>);
+  await component.unmount();
+});
+```
+
+:::
+
+### update
+
+更新已挂载组件的 props、slots/children 和/或 events/callbacks。这些组件输入可能随时变化，通常由父组件提供；但有时需要确保组件能够正确响应新的输入。
+
+:::code-group
+
+```tsx [React]
+import { test } from '@playwright/experimental-ct-react';
+
+test('update', async ({ mount }) => {
+  const component = await mount(<Component/>);
+  await component.update(
+      <Component msg="greetings" onClick={() => {}}>Child</Component>
+  );
+});
+```
+
+```ts [Vue]
+import { test } from '@playwright/experimental-ct-vue';
+
+test('update', async ({ mount }) => {
+  const component = await mount(Component);
+  await component.update({
+    props: { msg: 'greetings' },
+    on: { click() {} },
+    slots: { default: 'Child' }
+  });
+});
+```
+
+```tsx [Vue JSX]
+// 或者，也可以使用 `jsx` 风格
+import { test } from '@playwright/experimental-ct-vue';
+
+test('update', async ({ mount }) => {
+  const component = await mount(<Component/>);
+  await component.update(
+      <Component msg="greetings" v-on:click={() => {}}>Child</Component>
+  );
+});
+```
+
+:::
+
+### 处理网络请求
+
+Playwright 提供了实验性的 `router` fixture，用来拦截和处理网络请求。使用 `router` fixture 有两种方式：
+
+- 调用 `router.route(url, handler)`，其行为类似 `page.route()`。更多细节请参阅网络 mock 指南。
+- 调用 `router.use(handlers)` 并把 MSW 库的请求处理器传给它。
+
+下面是一个在测试中复用现有 MSW handlers 的示例。
+
+```ts
+import { handlers } from '@src/mocks/handlers';
+
+test.beforeEach(async ({ router }) => {
+  // 在每个测试之前安装通用 handlers
+  await router.use(...handlers);
+});
+
+test('example test', async ({ mount }) => {
+  // 像平常一样测试，你的 handlers 已经生效
+  // ...
+});
+```
+
+你也可以为某个特定测试引入一次性的 handler。
+
+```ts
+import { http, HttpResponse } from 'msw';
+
+test('example test', async ({ mount, router }) => {
+  await router.use(http.get('/data', async ({ request }) => {
+    return HttpResponse.json({ value: 'mocked' });
+  }));
+
+  // 像平常一样测试，你的 handler 已经生效
+  // ...
+});
+```
+
+## 常见问题
+
+### `@playwright/test` 和 `@playwright/experimental-ct-{react,vue}` 有什么区别？
+
+```ts
+test('…', async ({ mount, page, context }) => {
+  // …
+});
+```
+
+`@playwright/experimental-ct-{react,vue}` 包装了 `@playwright/test`，并额外提供了一个内置的、组件测试专用的 fixture：`mount`。
+
+:::code-group
+
+```tsx [React]
+import { test, expect } from '@playwright/experimental-ct-react';
+import HelloWorld from './HelloWorld';
+
+test.use({ viewport: { width: 500, height: 500 } });
+
+test('should work', async ({ mount }) => {
+  const component = await mount(<HelloWorld msg="greetings" />);
+  await expect(component).toContainText('Greetings');
+});
+```
+
+```ts [Vue]
+import { test, expect } from '@playwright/experimental-ct-vue';
+import HelloWorld from './HelloWorld.vue';
+
+test.use({ viewport: { width: 500, height: 500 } });
+
+test('should work', async ({ mount }) => {
+  const component = await mount(HelloWorld, {
+    props: {
+      msg: 'Greetings',
+    },
+  });
+  await expect(component).toContainText('Greetings');
+});
+```
+
+:::
+
+此外，它还添加了一些可以在 `playwright-ct.config.{ts,js}` 中使用的配置选项。
+
+最后，在底层，为了优化组件测试速度，每个测试都会复用 `context` 和 `page` fixture。它会在每个测试之间重置它们，因此在功能上应等同于 `@playwright/test` 所保证的“每个测试都有新的、隔离的 `context` 和 `page` fixture”。
+
+### 我的项目已经使用 Vite。可以复用配置吗？
+
+目前，Playwright 与具体打包器保持无关，因此不会复用你已有的 Vite 配置。你的配置中可能包含很多 Playwright 无法复用的内容。因此目前需要把路径映射和其他高层设置复制到 Playwright 配置的 `ctViteConfig` 属性中。
+
+```ts
+import { defineConfig } from '@playwright/experimental-ct-react';
+
+export default defineConfig({
+  use: {
+    ctViteConfig: {
+      // ...
+    },
+  },
+});
+```
+
+你可以通过 Vite 配置为测试设置指定插件。请注意，一旦开始指定插件，你也需要负责指定框架插件，例如 Vue 场景中的 `vue()`：
+
+```ts
+import { defineConfig, devices } from '@playwright/experimental-ct-vue';
+import { resolve } from 'path';
+import vue from '@vitejs/plugin-vue';
+import AutoImport from 'unplugin-auto-import/vite';
+import Components from 'unplugin-vue-components/vite';
+
+export default defineConfig({
+  testDir: './tests/component',
+  use: {
+    trace: 'on-first-retry',
+    ctViteConfig: {
+      plugins: [
+        vue(),
+        AutoImport({
+          imports: [
+            'vue',
+            'vue-router',
+            '@vueuse/head',
+            'pinia',
+            {
+              '@/store': ['useStore'],
+            },
+          ],
+          dts: 'src/auto-imports.d.ts',
+          eslintrc: {
+            enabled: true,
+          },
+        }),
+        Components({
+          dirs: ['src/components'],
+          extensions: ['vue'],
+        }),
+      ],
+      resolve: {
+        alias: {
+          '@': resolve(__dirname, './src'),
+        },
+      },
+    },
+  },
+});
+```
+
+### 如何使用 CSS imports？
+
+如果组件导入 CSS，Vite 会自动处理。你也可以使用 Sass、Less 或 Stylus 等 CSS 预处理器，Vite 也会自动处理它们，无需额外配置。不过，需要安装对应的 CSS 预处理器。
+
+Vite 对 CSS Modules 有硬性要求：所有 CSS Modules 都必须命名为 `*.module.[css extension]`。如果你的项目通常使用自定义构建配置，并且有 `import styles from 'styles.css'` 这种形式的导入，就必须重命名文件，以正确表示它们应被当作模块处理。你也可以编写 Vite 插件来处理这种情况。
+
+更多细节请查看 Vite 文档。
+
+### 如何测试使用 Pinia 的组件？
+
+Pinia 需要在 `playwright/index.{js,ts,jsx,tsx}` 中初始化。如果在 `beforeMount` hook 中执行这一点，则可以针对每个测试覆盖 `initialState`：
+
+`playwright/index.ts`
+
+```ts
+import { beforeMount, afterMount } from '@playwright/experimental-ct-vue/hooks';
+import { createTestingPinia } from '@pinia/testing';
+import type { StoreState } from 'pinia';
+import type { useStore } from '../src/store';
+
+export type HooksConfig = {
+  store?: StoreState<ReturnType<typeof useStore>>;
+}
+
+beforeMount<HooksConfig>(async ({ hooksConfig }) => {
+  createTestingPinia({
+    initialState: hooksConfig?.store,
+    /**
+     * 改用 HTTP 拦截来 mock API 调用：
+     * https://playwright.dev/docs/mock#mock-api-requests
+     */
+    stubActions: false,
+    createSpy(args) {
+      console.log('spy', args)
+      return () => console.log('spy-returns')
+    },
+  });
+});
+```
+
+`src/pinia.spec.ts`
+
+```ts
+import { test, expect } from '@playwright/experimental-ct-vue';
+import type { HooksConfig } from '../playwright';
+import Store from './Store.vue';
+
+test('override initialState ', async ({ mount }) => {
+  const component = await mount<HooksConfig>(Store, {
+    hooksConfig: {
+      store: { name: 'override initialState' }
+    }
+  });
+  await expect(component).toContainText('override initialState');
+});
+```
+
+### 如何访问组件的方法或实例？
+
+不建议也不支持在测试代码中访问组件的内部方法或实例。相反，应从用户视角观察并交互组件，通常是点击或验证页面上是否可见某些内容。当测试避免接触组件实例或方法等内部实现细节时，会更不脆弱，也更有价值。
+
+请记住，如果从用户视角运行的测试失败，这通常意味着自动化测试发现了代码中的真实 bug。

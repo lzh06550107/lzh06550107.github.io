@@ -1,0 +1,221 @@
+---
+title: 项目
+description: Playwright Test 项目
+sidebar:
+  order: 11
+---
+
+## 介绍
+
+项目是一组在相同配置下运行的测试的逻辑分组。我们使用项目，以便在不同浏览器和设备上运行测试。项目在 `playwright.config.ts` 文件中进行配置；配置完成后，你就可以在所有项目上运行测试，或只运行某一个特定项目。你也可以使用项目在不同配置下运行同一组测试。例如，你可以让同一组测试分别在已登录和未登录状态下运行。 citeturn209536view0
+
+通过设置项目，你还可以让一组测试使用不同的超时或重试次数，或者针对不同环境（如预发布和生产）运行一组测试，还可以按包 / 功能拆分测试等。 citeturn209536view0
+
+## 为多个浏览器配置项目
+
+通过使用项目，你可以在多个浏览器上运行测试，例如 chromium、webkit 和 firefox，也可以在品牌浏览器上运行，例如 Google Chrome 和 Microsoft Edge。Playwright 还可以在模拟的平板和移动设备上运行。完整设备列表请参阅设备参数注册表。 citeturn209536view0
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+export default defineConfig({
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+
+    /* 针对移动端视口进行测试。 */
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 12'] },
+    },
+
+    /* 针对品牌浏览器进行测试。 */
+    {
+      name: 'Microsoft Edge',
+      use: {
+        ...devices['Desktop Edge'],
+        channel: 'msedge'
+      },
+    },
+    {
+      name: 'Google Chrome',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome'
+      },
+    },
+  ],
+});
+```
+
+## 运行项目
+
+默认情况下，Playwright 会运行所有项目。 citeturn209536view0
+
+```bash
+npx playwright test
+```
+
+```txt
+Running 7 tests using 5 workers
+  ✓ [chromium] › example.spec.ts:3:1 › basic test (2s)
+  ✓ [firefox] › example.spec.ts:3:1 › basic test (2s)
+  ✓ [webkit] › example.spec.ts:3:1 › basic test (2s)
+  ✓ [Mobile Chrome] › example.spec.ts:3:1 › basic test (2s)
+  ✓ [Mobile Safari] › example.spec.ts:3:1 › basic test (2s)
+  ✓ [Microsoft Edge] › example.spec.ts:3:1 › basic test (2s)
+  ✓ [Google Chrome] › example.spec.ts:3:1 › basic test (2s)
+```
+
+使用 `--project` 命令行选项可以只运行单个项目。 citeturn209536view0
+
+```bash
+npx playwright test --project=firefox
+```
+
+```txt
+Running 1 test using 1 worker
+
+  ✓ [firefox] › example.spec.ts:3:1 › basic test (2s)
+```
+
+VS Code 测试运行器会默认在 Chrome 浏览器上运行测试。若要在其他 / 多个浏览器上运行，请在测试侧边栏中点击播放按钮的下拉菜单，选择其他配置文件；或者点击 **Select Default Profile** 修改默认配置，并选择你希望运行测试的浏览器。 citeturn209536view0
+
+## 为多个环境配置项目
+
+通过设置项目，我们也可以让一组测试拥有不同的超时或重试次数，或者针对不同环境运行一组测试。例如，我们可以让测试在 staging 环境中运行并重试 2 次，在 production 环境中运行并且不重试。 citeturn209536view0
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig } from '@playwright/test';
+export default defineConfig({
+  timeout: 60000, // 超时在所有测试之间共享。
+  projects: [
+    {
+      name: 'staging',
+      use: {
+        baseURL: 'staging.example.com',
+      },
+      retries: 2,
+    },
+    {
+      name: 'production',
+      use: {
+        baseURL: 'production.example.com',
+      },
+      retries: 0,
+    },
+  ],
+});
+```
+
+## 将测试拆分为多个项目
+
+我们可以把测试拆分到不同项目中，并使用过滤器只运行其中一部分测试。例如，我们可以创建一个项目，使用过滤条件匹配具有特定文件名的所有测试；然后再创建另一个项目，忽略这些特定测试文件。 citeturn209536view0
+
+下面的示例定义了一个公共超时和两个项目。`"Smoke"` 项目运行一小部分测试且不重试，`"Default"` 项目运行其余所有测试并进行重试。 citeturn209536view0
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  timeout: 60000, // 超时在所有测试之间共享。
+  projects: [
+    {
+      name: 'Smoke',
+      testMatch: /.*smoke.spec.ts/,
+      retries: 0,
+    },
+    {
+      name: 'Default',
+      testIgnore: /.*smoke.spec.ts/,
+      retries: 2,
+    },
+  ],
+});
+```
+
+## 依赖
+
+依赖是一组必须先于另一个项目中的测试运行的项目列表。它们对于配置全局 setup 操作很有帮助，这样一个项目就可以依赖 setup 项目先运行。当使用项目依赖时，测试报告器会显示 setup 测试，Trace Viewer 也会记录 setup 的 trace。你还可以使用 inspector 检查 setup 测试 trace 中的 DOM 快照，并且可以在 setup 中使用 fixtures。 citeturn209536view0
+
+在下面这个示例中，chromium、firefox 和 webkit 项目都依赖于 setup 项目。 citeturn209536view0
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+export default defineConfig({
+  projects: [
+    {
+      name: 'setup',
+      testMatch: '**/*.setup.ts',
+    },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+      dependencies: ['setup'],
+    },
+  ],
+});
+```
+
+### 运行顺序
+
+在处理具有依赖关系的测试时，依赖项目总会先运行；当该项目中的所有测试都通过后，其他项目才会并行运行。 citeturn209536view0
+
+运行顺序：
+
+1. `'setup'` 项目中的测试先运行。只有当该项目中的所有测试都通过后，依赖项目中的测试才会开始运行。
+2. `'chromium'`、`'webkit'` 和 `'firefox'` 项目中的测试会一起运行。默认情况下，这些项目会并行运行，但会受到最大 worker 数量限制。 citeturn209536view0
+
+如果存在多个依赖项目，这些依赖项目会先运行，并且彼此之间是并行的。如果某个依赖项目中的测试失败，则依赖该项目的测试不会运行。 citeturn209536view0
+
+运行顺序：
+
+1. `'Browser Login'` 和 `'DataBase'` 项目中的测试并行运行：
+   - `'Browser Login'` 通过
+   - ❌ `'DataBase'` 失败
+2. `'e2e tests'` 项目不会运行。 citeturn209536view0
+
+### Teardown
+
+你也可以通过在 setup 项目中添加 `testProject.teardown` 属性来清理 setup。teardown 会在所有依赖项目运行完成之后执行。更多内容请参阅 teardown 指南。 citeturn209536view0
+
+### 测试过滤
+
+所有测试过滤选项，例如 `--grep` / `--grep-invert`、`--shard`、在命令行中直接按位置过滤，或者使用 `test.only()`，都会直接选中需要运行的主测试。如果这些测试属于一个带依赖关系的项目，那么这些依赖项目中的所有测试也会一起运行。 citeturn209536view0
+
+你可以传递 `--no-deps` 命令行选项，以忽略所有依赖和 teardown。这样只会运行你直接选中的项目。 citeturn209536view0
+
+## 自定义项目参数
+
+项目也可以用于通过自定义配置对测试进行参数化。请参阅单独的参数化指南。 citeturn209536view0

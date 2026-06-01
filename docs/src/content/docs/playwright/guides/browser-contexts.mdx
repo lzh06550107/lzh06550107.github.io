@@ -1,0 +1,105 @@
+---
+title: "隔离"
+description: "介绍浏览器上下文如何为每个测试提供独立环境。"
+sidebar:
+  label: "隔离"
+  order: 21
+---
+
+## 简介
+
+使用 Playwright 编写的测试会在称为浏览器上下文的、干净且相互隔离的环境中执行。这种隔离模型可以提升测试的可复现性，并防止一个测试失败影响其它测试。
+
+## 什么是测试隔离？
+
+测试隔离指的是每个测试都与其它测试完全隔离。每个测试都会独立运行，不依赖任何其它测试。这意味着每个测试都拥有自己的 local storage、session storage、cookies 等。
+
+Playwright 通过 `BrowserContext` 实现这一点。`BrowserContext` 相当于类似无痕模式的浏览器配置文件。它们创建速度快、开销低，并且即使在同一个浏览器实例中运行，也能做到完全隔离。
+
+Playwright 会为每个测试创建一个上下文，并在该上下文中提供默认的 `Page`。
+
+## 为什么测试隔离很重要？
+
+- 不会发生失败传递。如果一个测试失败，它不会影响其它测试。
+- 更容易调试错误或不稳定测试，因为你可以按需多次单独运行某一个测试。
+- 在并行运行、分片运行等场景中，不需要考虑测试执行顺序。
+
+## 测试隔离的两种方式
+
+测试隔离通常有两种策略：从零开始，或者在测试之间进行清理。
+
+在测试之间进行清理的问题是：你很容易忘记清理某些状态，而且有些状态本身无法完全清理，例如“已访问链接”。一个测试中的状态可能泄漏到下一个测试中，从而导致测试失败，并让调试变得更困难，因为问题可能来自另一个测试。
+
+从零开始意味着一切都是新的。因此，如果测试失败，你只需要在当前测试内部查找问题。
+
+## Playwright 如何实现测试隔离
+
+Playwright 使用浏览器上下文来实现测试隔离。每个测试都有自己的 `BrowserContext`。每次运行测试时，都会创建新的浏览器上下文。
+
+当使用 Playwright 作为测试运行器时，浏览器上下文会默认创建。否则，你也可以手动创建浏览器上下文。
+
+### Test
+
+```ts
+import { test } from '@playwright/test';
+
+test('example test', async ({ page, context }) => {
+  // "context" 是一个隔离的 BrowserContext，
+  // 它是为这个特定测试创建的。
+  // "page" 属于这个 context。
+});
+
+test('another test', async ({ page, context }) => {
+  // 第二个测试中的 "context" 和 "page"
+  // 与第一个测试完全隔离。
+});
+```
+
+### Library
+
+```ts
+const browser = await chromium.launch();
+const context = await browser.newContext();
+const page = await context.newPage();
+```
+
+浏览器上下文也可以用于模拟涉及移动设备、权限、区域设置和配色方案的多页面场景。更多细节可以查看 Playwright 的仿真指南。
+
+## 在单个测试中使用多个上下文
+
+Playwright 可以在单个场景中创建多个浏览器上下文。当你需要测试多用户功能时，这会很有用，例如聊天应用。
+
+### Test
+
+```ts
+import { test } from '@playwright/test';
+
+test('admin and user', async ({ browser }) => {
+  // 创建两个相互隔离的浏览器上下文
+  const adminContext = await browser.newContext();
+  const userContext = await browser.newContext();
+
+  // 创建页面，并分别与不同上下文交互
+  const adminPage = await adminContext.newPage();
+  const userPage = await userContext.newPage();
+});
+```
+
+### Library
+
+```ts
+const { chromium } = require('playwright');
+
+// 创建一个 Chromium 浏览器实例
+const browser = await chromium.launch();
+
+// 创建两个相互隔离的浏览器上下文
+const userContext = await browser.newContext();
+const adminContext = await browser.newContext();
+
+// 创建页面，并分别与不同上下文交互
+const adminPage = await adminContext.newPage();
+const userPage = await userContext.newPage();
+```
+
+

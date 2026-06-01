@@ -701,6 +701,123 @@ export const docsets = [
                 { label: '泄漏调试', link: '/camoufox/development/leak-debugging/' },
             ]},
         ],
+    },
+    {
+    id: 'comfy',
+    title: 'ComfyUI',
+    cardLabel: 'ComfyUI 文档集',
+    description: 'ComfyUI 官方文档的简体中文 Starlight 版本（按官方菜单顺序整理）',
+    landing: '/comfy/',
+    ctaLabel: '进入 ComfyUI 文档',
+    featuredLinks: [
+        { label: '介绍', href: '/comfy/' },
+        { label: '系统要求', href: '/comfy/installation/system-requirements/' },
+        { label: '开始 AI 绘图之旅', href: '/comfy/get-started/first-generation/' },
+        { label: '界面概览', href: '/comfy/interface/overview/' },
+    ],
+    sections: [
+        {
+        label: '开始使用',
+        items: [
+            { label: '介绍', link: '/comfy/' },
+            {
+            label: '本地（自托管）',
+            items: [
+                { label: '系统要求', link: '/comfy/installation/system-requirements/' },
+                { label: '手动安装', link: '/comfy/installation/manual-install/' },
+            ],
+            },
+            {
+            label: '安装自定义节点',
+            items: [
+                { label: '如何安装自定义节点', link: '/comfy/installation/install-custom-node/' },
+                {
+                label: 'ComfyUI-Manager',
+                items: [
+                    { label: '概述', link: '/comfy/manager/overview/' },
+                    { label: '安装', link: '/comfy/manager/install/' },
+                ],
+                },
+            ],
+            },
+            { label: '开始 AI 绘图之旅', link: '/comfy/get-started/first-generation/' },
+        ],
+        },
+        {
+        label: '基础概念',
+        items: [
+            { label: '工作流', link: '/comfy/development/core-concepts/workflow/' },
+        ],
+        },
+        {
+        label: '界面指南',
+        items: [
+            { label: '界面概览', link: '/comfy/interface/overview/' },
+        ],
+        },
+    ],
+    },
+    {
+        id: 'playwright',
+        title: 'Playwright',
+        cardLabel: 'Playwright 文档集',
+        description: 'Playwright 官方文档简体中文 Starlight 版本',
+        landing: '/playwright/',
+        ctaLabel: '进入 Playwright 文档',
+        featuredLinks: [
+            { label: '简介', href: '/playwright/' },
+            { label: '编写测试', href: '/playwright/getting-started/writing-tests/' },
+            { label: '定位器', href: '/playwright/guides/locators/' },
+            { label: '最佳实践', href: '/playwright/guides/best-practices/' },
+        ],
+        sections: [
+            {
+                label: '开始使用',
+                items: [
+                    { label: 'Playwright 简介', link: '/playwright/' },
+                    { label: '编写测试', link: '/playwright/getting-started/writing-tests/' },
+                    { label: '生成测试', link: '/playwright/getting-started/codegen-intro/' },
+                    { label: '运行与调试测试', link: '/playwright/getting-started/running-debugging-tests/' },
+                    { label: '设置 CI', link: '/playwright/getting-started/setting-up-ci/' },
+                    { label: 'Trace Viewer', link: '/playwright/getting-started/trace-viewer/' },
+                    { label: 'VS Code', link: '/playwright/getting-started/vscode/' },
+                ],
+            },
+            {
+                label: 'Playwright Test',
+                items: [
+                    { label: 'Playwright Test 智能体', link: '/playwright/playwright-test/agents/' },
+                    { label: '注解', link: '/playwright/playwright-test/annotations/' },
+                    { label: '命令行', link: '/playwright/playwright-test/command-line/' },
+                    { label: '配置', link: '/playwright/playwright-test/configuration/' },
+                    { label: '配置(use)', link: '/playwright/playwright-test/configuration-use/' },
+                    { label: '模拟', link: '/playwright/playwright-test/emulation/' },
+                    { label: '夹具', link: '/playwright/playwright-test/fixtures/' },
+                    { label: '全局设置与清理', link: '/playwright/playwright-test/global-setup-teardown/' },
+                    { label: '并行', link: '/playwright/playwright-test/parallel/' },
+                    { label: '参数化测试', link: '/playwright/playwright-test/parameterize-tests/' },
+                    { label: '项目', link: '/playwright/playwright-test/projects/' },
+                    { label: '报告器', link: '/playwright/playwright-test/reporters/' },
+                    { label: '重试', link: '/playwright/playwright-test/retries/' },
+                    { label: '分片', link: '/playwright/playwright-test/sharding/' },
+                    { label: '超时', link: '/playwright/playwright-test/timeouts/' },
+                    { label: 'TypeScript', link: '/playwright/playwright-test/typescript/' },
+                    { label: 'UI 模式', link: '/playwright/playwright-test/ui-mode/' },
+                    { label: 'Web 服务器', link: '/playwright/playwright-test/webserver/' },
+                ],
+            },
+            {
+                label: 'Guides',
+                autogenerate: { directory: 'playwright/guides' },
+            },
+            {
+                label: '发布说明',
+                items: [
+                    { label: '发布说明', link: '/playwright/release-notes/' },
+                    { label: 'Canary 发布', link: '/playwright/canary-releases/' },
+                ],
+            },
+        ],
     }
 ];
 

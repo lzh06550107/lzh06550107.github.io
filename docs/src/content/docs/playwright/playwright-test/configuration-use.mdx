@@ -1,0 +1,270 @@
+---
+title: 配置(use)
+description: Playwright Test 配置
+sidebar:
+  order: 5
+---
+
+## 介绍
+
+除了配置测试运行器之外，你还可以为浏览器或浏览器上下文配置模拟、网络以及录制行为。这些选项会传递给 Playwright 配置中的 `use: {}` 对象。
+
+### 基础选项
+
+为所有测试设置基础 URL 和存储状态：
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // 在诸如 `await page.goto('/')` 这样的操作中使用的基础 URL。
+    baseURL: 'http://localhost:3000',
+
+    // 用给定的存储状态填充上下文。
+    storageState: 'state.json',
+  },
+});
+```
+
+| 选项 | 说明 |
+|---|---|
+| `testOptions.baseURL` | 用于上下文中所有页面的基础 URL。允许只使用路径进行导航，例如 `page.goto('/settings')`。 |
+| `testOptions.storageState` | 用给定的存储状态填充上下文。对于轻松实现认证很有帮助。 |
+
+### 模拟选项
+
+使用 Playwright，你可以模拟真实设备，例如手机或平板电脑。有关模拟设备的更多信息，请参阅我们的项目指南。你还可以为所有测试或某个特定测试模拟 `"geolocation"`、`"locale"` 和 `"timezone"`，并设置 `"permissions"` 以显示通知，或修改 `"colorScheme"`。请参阅模拟指南以了解更多。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // 模拟 `'prefers-colors-scheme'` 媒体特性。
+    colorScheme: 'dark',
+
+    // 上下文地理位置。
+    geolocation: { longitude: 12.492507, latitude: 41.889938 },
+
+    // 模拟用户语言区域。
+    locale: 'en-GB',
+
+    // 向浏览器上下文授予指定权限。
+    permissions: ['geolocation'],
+
+    // 模拟用户时区。
+    timezoneId: 'Europe/Paris',
+
+    // 用于上下文中所有页面的视口。
+    viewport: { width: 1280, height: 720 },
+  },
+});
+```
+
+| 选项 | 说明 |
+|---|---|
+| `testOptions.colorScheme` | 模拟 `'prefers-colors-scheme'` 媒体特性，支持的值为 `'light'` 和 `'dark'`。 |
+| `testOptions.geolocation` | 上下文地理位置。 |
+| `testOptions.locale` | 模拟用户语言区域，例如 `en-GB`、`de-DE` 等。 |
+| `testOptions.permissions` | 一个权限列表，用于授予上下文中所有页面。 |
+| `testOptions.timezoneId` | 修改上下文的时区。 |
+| `testOptions.viewport` | 用于上下文中所有页面的视口。 |
+
+### 网络选项
+
+可用于配置网络行为的选项：
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // 是否自动下载所有附件。
+    acceptDownloads: false,
+
+    // 一个对象，包含每个请求都会发送的额外 HTTP 头。
+    extraHTTPHeaders: {
+      'X-My-Header': 'value',
+    },
+
+    // HTTP 认证凭据。
+    httpCredentials: {
+      username: 'user',
+      password: 'pass',
+    },
+
+    // 导航期间是否忽略 HTTPS 错误。
+    ignoreHTTPSErrors: true,
+
+    // 是否模拟网络离线。
+    offline: true,
+
+    // 用于测试中所有页面的代理设置。
+    proxy: {
+      server: 'http://myproxy.com:3128',
+      bypass: 'localhost',
+    },
+  },
+});
+```
+
+| 选项 | 说明 |
+|---|---|
+| `testOptions.acceptDownloads` | 是否自动下载所有附件，默认值为 `true`。 |
+| `testOptions.extraHTTPHeaders` | 一个对象，包含每个请求都会发送的额外 HTTP 头。所有 header 值都必须是字符串。 |
+| `testOptions.httpCredentials` | HTTP 认证凭据。 |
+| `testOptions.ignoreHTTPSErrors` | 导航期间是否忽略 HTTPS 错误。 |
+| `testOptions.offline` | 是否模拟网络离线。 |
+| `testOptions.proxy` | 用于测试中所有页面的代理设置。 |
+
+:::note
+你无需为模拟网络请求进行额外配置。只需定义一个自定义 `Route`，为浏览器上下文模拟网络即可。有关更多内容，请参阅网络模拟指南。
+:::
+
+### 录制选项
+
+使用 Playwright，你可以捕获截图、录制视频以及记录测试的 trace。默认情况下，这些功能都是关闭的，但你可以在 `playwright.config.js` 文件中设置 `screenshot`、`video` 和 `trace` 选项来启用它们。
+
+Trace 文件、截图和视频将出现在测试输出目录中，通常是 `test-results`。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // 在每次测试失败后截取屏幕截图。
+    screenshot: 'only-on-failure',
+
+    // 仅在第一次重试测试时记录 trace。
+    trace: 'on-first-retry',
+
+    // 仅在第一次重试测试时录制视频。
+    video: 'on-first-retry',
+  },
+});
+```
+
+| 选项 | 说明 |
+|---|---|
+| `testOptions.screenshot` | 捕获测试截图。可选值包括 `'off'`、`'on'` 和 `'only-on-failure'`。 |
+| `testOptions.trace` | Playwright 可以在运行测试时生成测试 trace。之后你可以通过打开 Trace Viewer 来查看 trace，并获取 Playwright 执行的详细信息。可选值包括：`'off'`、`'on'`、`'retain-on-failure'` 和 `'on-first-retry'`。 |
+| `testOptions.video` | Playwright 可以为你的测试录制视频。可选值包括：`'off'`、`'on'`、`'retain-on-failure'` 和 `'on-first-retry'`。 |
+
+### 其他选项
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // 每个操作（如 `click()`）可花费的最长时间。默认为 0（不限制）。
+    actionTimeout: 0,
+
+    // 运行测试所使用的浏览器名称，例如 `chromium`、`firefox`、`webkit`。
+    browserName: 'chromium',
+
+    // 是否绕过 Content-Security-Policy。
+    bypassCSP: true,
+
+    // 要使用的浏览器通道，例如 "chrome"、"chrome-beta"、"msedge"、"msedge-beta"。
+    channel: 'chrome',
+
+    // 以有头模式运行浏览器。
+    headless: false,
+
+    // 修改默认的 data-testid 属性名。
+    testIdAttribute: 'pw-test-id',
+  },
+});
+```
+
+| 选项 | 说明 |
+|---|---|
+| `testOptions.actionTimeout` | 每个 Playwright 操作的超时时间（毫秒）。默认值为 `0`（无超时）。 |
+| `testOptions.browserName` | 运行测试所使用的浏览器名称。默认值为 `'chromium'`。可选值包括 `chromium`、`firefox` 或 `webkit`。 |
+| `testOptions.bypassCSP` | 是否绕过 Content-Security-Policy。当 CSP 包含生产环境源时，这会很有用。默认值为 `false`。 |
+| `testOptions.channel` | 要使用的浏览器通道。 |
+| `testOptions.headless` | 是否以无头模式运行浏览器，也就是运行测试时不显示浏览器。默认值为 `true`。 |
+| `testOptions.testIdAttribute` | 修改 Playwright 定位器使用的默认 `data-testid` 属性。 |
+
+### 更多浏览器和上下文选项
+
+任何被 `browserType.launch()`、`browser.newContext()` 或 `browserType.connect()` 接受的选项，都可以分别放入 `use` 部分中的 `launchOptions`、`contextOptions` 或 `connectOptions` 中。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    launchOptions: {
+      slowMo: 50,
+    },
+  },
+});
+```
+
+不过，大多数常见选项，例如 `headless` 或 `viewport`，都可以直接放在 `use` 部分中。请参阅基础选项、模拟或网络部分。
+
+### 显式创建上下文与选项继承
+
+如果使用内置的 `browser` fixture，调用 `browser.newContext()` 时，会创建一个继承配置选项的上下文：
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    userAgent: 'some custom ua',
+    viewport: { width: 100, height: 100 },
+  },
+});
+```
+
+下面的测试示例说明了初始上下文选项已被正确设置：
+
+```ts
+test('should inherit use options on context when using built-in browser fixture', async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  expect(await page.evaluate(() => navigator.userAgent)).toBe('some custom ua');
+  expect(await page.evaluate(() => window.innerWidth)).toBe(100);
+  await context.close();
+});
+```
+
+### 配置作用域
+
+你可以在全局级别、项目级别或单个测试级别配置 Playwright。例如，你可以通过在 Playwright 配置的 `use` 选项中添加 `locale`，为全局设置要使用的语言区域；然后再使用配置中的 `project` 选项为特定项目覆盖它。你也可以在测试文件中通过添加 `test.use({})` 并传入相应选项，为某个特定测试覆盖它。
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    locale: 'en-GB',
+  },
+});
+```
+
+你可以使用 Playwright 配置中的 `project` 选项为特定项目覆盖该选项。
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        locale: 'de-DE',
+      },
+    },
+  ],
+});
+```
+
+

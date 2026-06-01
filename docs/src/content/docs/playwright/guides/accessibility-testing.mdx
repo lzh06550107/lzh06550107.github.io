@@ -1,0 +1,314 @@
+---
+title: "无障碍测试"
+description: "介绍如何结合 axe 在 Playwright 测试中发现常见无障碍问题。"
+sidebar:
+  label: "无障碍测试"
+  order: 2
+---
+
+## 介绍
+
+Playwright 可用于测试应用中的多种可访问性问题。
+
+它可以发现的问题示例包括：
+
+- 由于文字与背景之间的颜色对比度不足，导致视力障碍用户难以阅读的文本。
+- 没有可供屏幕阅读器识别的标签的 UI 控件和表单元素。
+- 带有重复 ID 的交互元素，这可能会让辅助技术产生混淆。
+
+下面的示例依赖 [`@axe-core/playwright`](https://www.npmjs.com/package/@axe-core/playwright) 包。该包支持在 Playwright 测试中运行 [axe 可访问性测试引擎](https://www.deque.com/axe/)。
+
+:::caution[免责声明]
+自动化可访问性测试可以检测一些常见的可访问性问题，例如缺失或无效的属性。但许多可访问性问题只能通过人工测试发现。建议结合自动化测试、人工可访问性评估以及包容性用户测试一起使用。
+
+对于人工评估，推荐使用 [Accessibility Insights for Web](https://accessibilityinsights.io/)，这是一个免费且开源的开发工具，它会引导你评估网站对 [WCAG 2.1 AA](https://www.w3.org/TR/WCAG21/) 的覆盖情况。
+:::
+
+## 可访问性测试示例
+
+可访问性测试的工作方式与其他 Playwright 测试相同。你可以为它们创建单独的测试用例，也可以把可访问性扫描和断言集成到已有测试用例中。
+
+下面的示例演示几个基本的可访问性测试场景。
+
+### 扫描整个页面
+
+此示例演示如何测试整个页面中可自动检测的可访问性违规项。该测试会：
+
+1. 导入 `@axe-core/playwright` 包。
+2. 使用普通的 Playwright Test 语法定义测试用例。
+3. 使用普通的 Playwright 语法导航到被测页面。
+4. 等待 `AxeBuilder.analyze()` 对页面运行可访问性扫描。
+5. 使用普通的 Playwright Test [断言](./test-assertions) 验证返回的扫描结果中没有违规项。
+
+```ts title="accessibility.spec.ts"
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright'; // 1
+
+test.describe('homepage', () => { // 2
+  test('should not have any automatically detectable accessibility issues', async ({ page }) => {
+    await page.goto('https://your-site.com/'); // 3
+
+    const accessibilityScanResults = await new AxeBuilder({ page }).analyze(); // 4
+
+    expect(accessibilityScanResults.violations).toEqual([]); // 5
+  });
+});
+```
+
+```js title="accessibility.spec.js"
+const { test, expect } = require('@playwright/test');
+const AxeBuilder = require('@axe-core/playwright').default; // 1
+
+test.describe('homepage', () => { // 2
+  test('should not have any automatically detectable accessibility issues', async ({ page }) => {
+    await page.goto('https://your-site.com/'); // 3
+
+    const accessibilityScanResults = await new AxeBuilder({ page }).analyze(); // 4
+    expect(accessibilityScanResults.violations).toEqual([]); // 5
+  });
+});
+```
+
+### 配置 axe 扫描页面中的特定部分
+
+`@axe-core/playwright` 支持许多 axe 配置选项。你可以通过 `AxeBuilder` 类使用 Builder 模式指定这些选项。
+
+例如，可以使用 [`AxeBuilder.include()`](https://github.com/dequelabs/axe-core-npm/blob/develop/packages/playwright/README.md) 将可访问性扫描限制为只针对页面中的某个特定部分运行。
+
+`AxeBuilder.analyze()` 会在调用它时扫描页面的当前状态。要扫描基于 UI 交互后才显示的页面区域，请先使用 [Locators](./locators) 与页面交互，再调用 `analyze()`：
+
+```ts
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+test('navigation menu should not have automatically detectable accessibility violations', async ({
+  page,
+}) => {
+  await page.goto('https://your-site.com/');
+
+  await page.getByRole('button', { name: 'Navigation Menu' }).click();
+  // 在运行 analyze() 之前，等待页面进入期望状态非常重要。
+  // 否则，axe 可能找不到测试希望它扫描的所有元素。
+  await page.locator('#navigation-menu-flyout').waitFor();
+
+  const accessibilityScanResults = await new AxeBuilder({ page })
+      .include('#navigation-menu-flyout')
+      .analyze();
+
+  expect(accessibilityScanResults.violations).toEqual([]);
+});
+```
+
+### 扫描 WCAG 违规项
+
+默认情况下，axe 会检查大量可访问性规则。其中一些规则对应 [Web Content Accessibility Guidelines（WCAG）](https://www.w3.org/WAI/standards-guidelines/wcag/) 中的特定成功准则，另一些则是“最佳实践”规则，并不专门对应任何 WCAG 准则。
+
+你可以使用 [`AxeBuilder.withTags()`](https://github.com/dequelabs/axe-core-npm/blob/develop/packages/playwright/README.md)，将可访问性扫描限制为只运行那些被标记为对应特定 WCAG 成功准则的规则。例如，[Accessibility Insights for Web 的 Automated Checks](https://accessibilityinsights.io/docs/en/web/getstarted/automatedchecks/) 只包含用于检测 WCAG A 和 AA 成功准则违规项的 axe 规则；若要匹配这种行为，可以使用 `wcag2a`、`wcag2aa`、`wcag21a` 和 `wcag21aa` 标签。
+
+请注意，自动化测试无法检测所有类型的 WCAG 违规项。
+
+```ts
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+test('should not have any automatically detectable WCAG A or AA violations', async ({ page }) => {
+  await page.goto('https://your-site.com/');
+
+  const accessibilityScanResults = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+  expect(accessibilityScanResults.violations).toEqual([]);
+});
+```
+
+axe-core 支持的规则标签完整列表，可以在 axe API 文档的 “Axe-core Tags” 部分找到。
+
+## 处理已知问题
+
+在向应用添加可访问性测试时，一个常见问题是：“如何抑制已知违规项？”下面的示例演示几种可用技巧。
+
+### 从扫描中排除单个元素
+
+如果你的应用中有几个存在已知问题的特定元素，可以使用 [`AxeBuilder.exclude()`](https://github.com/dequelabs/axe-core-npm/blob/develop/packages/playwright/README.md) 在问题修复之前将它们排除在扫描之外。
+
+这通常是最简单的选项，但它有一些重要缺点：
+
+- `exclude()` 会排除指定元素以及它的所有后代元素。避免将它用于包含许多子元素的组件。
+- `exclude()` 会阻止所有规则针对指定元素运行，而不只是阻止与已知问题对应的规则运行。
+
+下面是在一个特定测试中排除一个元素扫描的示例：
+
+```ts
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+test('should not have any accessibility violations outside of elements with known issues', async ({
+  page,
+}) => {
+  await page.goto('https://your-site.com/page-with-known-issues');
+
+  const accessibilityScanResults = await new AxeBuilder({ page })
+      .exclude('#element-with-known-issue')
+      .analyze();
+
+  expect(accessibilityScanResults.violations).toEqual([]);
+});
+```
+
+如果相关元素在许多页面中反复使用，可以考虑[使用测试 fixture](#使用测试-fixture-实现通用-axe-配置)，在多个测试中复用相同的 `AxeBuilder` 配置。
+
+### 禁用单个扫描规则
+
+如果你的应用中已有许多同一规则对应的违规项，可以使用 [`AxeBuilder.disableRules()`](https://github.com/dequelabs/axe-core-npm/blob/develop/packages/playwright/README.md) 暂时禁用单个规则，直到问题能够被修复。
+
+可以在你想抑制的违规项的 `id` 属性中找到要传给 `disableRules()` 的规则 ID。axe 的完整规则列表可在 `axe-core` 文档中找到。
+
+```ts
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+test('should not have any accessibility violations outside of rules with known issues', async ({
+  page,
+}) => {
+  await page.goto('https://your-site.com/page-with-known-issues');
+
+  const accessibilityScanResults = await new AxeBuilder({ page })
+      .disableRules(['duplicate-id'])
+      .analyze();
+
+  expect(accessibilityScanResults.violations).toEqual([]);
+});
+```
+
+### 使用快照允许特定已知问题
+
+如果你想允许一组粒度更细的已知问题，可以使用 [快照](./test-snapshots) 验证一组既有违规项没有发生变化。与使用 `AxeBuilder.exclude()` 相比，这种方法避免了它的缺点，但代价是稍微更复杂，也稍微更脆弱。
+
+不要对整个 `accessibilityScanResults.violations` 数组使用快照。它包含相关元素的实现细节，例如已渲染 HTML 的片段；如果把这些内容包含在快照中，那么每当相关组件因为无关原因发生变化时，测试就很容易失败：
+
+```ts
+// 不要这样做！这很脆弱。
+expect(accessibilityScanResults.violations).toMatchSnapshot();
+```
+
+相反，应为相关违规项创建一个指纹，只包含足以唯一识别该问题的信息，并对该指纹使用快照：
+
+```ts
+// 这比对整个 violations 数组做快照更不脆弱。
+expect(violationFingerprints(accessibilityScanResults)).toMatchSnapshot();
+```
+
+```js title="my-test-utils.js"
+function violationFingerprints(accessibilityScanResults) {
+  const violationFingerprints = accessibilityScanResults.violations.map(violation => ({
+    rule: violation.id,
+    // 这些 CSS 选择器能够唯一标识每个存在对应规则违规项的元素。
+    targets: violation.nodes.map(node => node.target),
+  }));
+
+  return JSON.stringify(violationFingerprints, null, 2);
+}
+```
+
+## 将扫描结果导出为测试附件
+
+大多数可访问性测试主要关注 axe 扫描结果的 `violations` 属性。不过，扫描结果不只包含 `violations`。例如，结果还包含已通过规则的信息，以及 axe 对某些规则得到不确定结果的元素信息。当测试没有检测到你预期的所有违规项时，这些信息有助于调试。
+
+为了在调试时将完整扫描结果作为测试结果的一部分，可以使用 [`testInfo.attach()`](./api/class-testinfo#test-info-attach) 将扫描结果添加为测试附件。[Reporter](./test-reporters) 随后可以在测试输出中嵌入或链接完整结果。
+
+下面的示例演示如何将扫描结果附加到测试中：
+
+```ts
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+test('example with attachment', async ({ page }, testInfo) => {
+  await page.goto('https://your-site.com/');
+  const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
+
+  await testInfo.attach('accessibility-scan-results', {
+    body: JSON.stringify(accessibilityScanResults, null, 2),
+    contentType: 'application/json'
+  });
+
+  expect(accessibilityScanResults.violations).toEqual([]);
+});
+```
+
+## 使用测试 fixture 实现通用 axe 配置
+
+[测试 fixture](./test-fixtures) 是在许多测试中共享通用 `AxeBuilder` 配置的好方法。它在以下场景中可能很有用：
+
+- 在所有测试中使用一组通用规则。
+- 抑制在许多不同页面中都会出现的通用元素中的已知违规项。
+- 为许多扫描持续一致地附加独立可访问性报告。
+
+下面的示例演示如何创建并使用一个覆盖上述每种场景的测试 fixture。
+
+### 创建 fixture
+
+此示例 fixture 创建一个 `AxeBuilder` 对象，该对象已预先配置共享的 `withTags()` 和 `exclude()` 配置。
+
+```ts title="axe-test.ts"
+import { test as base } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+type AxeFixture = {
+  makeAxeBuilder: () => AxeBuilder;
+};
+
+// 通过提供 "makeAxeBuilder" 扩展基础 test。
+//
+// 这个新的 "test" 可以在多个测试文件中使用，每个文件都会获得
+// 一个配置一致的 AxeBuilder 实例。
+export const test = base.extend<AxeFixture>({
+  makeAxeBuilder: async ({ page }, use) => {
+    const makeAxeBuilder = () => new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .exclude('#commonly-reused-element-with-known-issue');
+    await use(makeAxeBuilder);
+  }
+});
+
+export { expect } from '@playwright/test';
+```
+
+```js title="axe-test.js"
+const base = require('@playwright/test');
+const AxeBuilder = require('@axe-core/playwright').default;
+
+// 通过提供 "makeAxeBuilder" 扩展基础 test。
+//
+// 这个新的 "test" 可以在多个测试文件中使用，每个文件都会获得
+// 一个配置一致的 AxeBuilder 实例。
+exports.test = base.test.extend({
+  makeAxeBuilder: async ({ page }, use) => {
+    const makeAxeBuilder = () => new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .exclude('#commonly-reused-element-with-known-issue');
+    await use(makeAxeBuilder);
+  }
+});
+
+exports.expect = base.expect;
+```
+
+### 使用 fixture
+
+要使用该 fixture，请将前面示例中的 `new AxeBuilder({ page })` 替换为新定义的 `makeAxeBuilder` fixture：
+
+```js
+const { test, expect } = require('./axe-test');
+
+test('example using custom fixture', async ({ page, makeAxeBuilder }) => {
+  await page.goto('https://your-site.com/');
+  const accessibilityScanResults = await makeAxeBuilder()
+      // 自动使用共享的 AxeBuilder 配置，
+      // 但也支持额外的测试专属配置。
+      .include('#specific-element-under-test')
+      .analyze();
+
+  expect(accessibilityScanResults.violations).toEqual([]);
+});
+```

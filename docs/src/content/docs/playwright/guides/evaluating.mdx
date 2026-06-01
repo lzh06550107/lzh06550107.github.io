@@ -1,0 +1,141 @@
+---
+title: "执行 JavaScript"
+description: "介绍如何在页面上下文中执行 JavaScript 并传递参数。"
+sidebar:
+  label: "执行 JavaScript"
+  order: 16
+---
+
+## 简介
+
+Playwright 脚本运行在你的 Playwright 环境中。页面脚本则运行在浏览器页面环境中。这两个环境并不会相互交叉：它们运行在不同进程中的不同虚拟机里，甚至有可能运行在不同的计算机上。
+
+`page.evaluate()` API 可以在网页上下文中运行 JavaScript 函数，并把结果带回 Playwright 环境。在 `evaluate` 中可以使用浏览器全局对象，例如 `window` 和 `document`。
+
+```ts
+const href = await page.evaluate(() => document.location.href);
+```
+
+如果结果是一个 Promise，或者传入的函数是异步函数，`evaluate` 会自动等待它完成解析：
+
+```ts
+const status = await page.evaluate(async () => {
+  const response = await fetch(location.href);
+  return response.status;
+});
+```
+
+## 不同的环境
+
+被求值执行的脚本运行在浏览器环境中，而你的测试运行在测试环境中。这意味着你不能在页面中直接使用测试代码里的变量，反过来也一样。你应该把需要使用的值作为参数显式传入。
+
+下面的代码是错误的，因为它直接使用了变量：
+
+```ts
+const data = 'some data';
+const result = await page.evaluate(() => {
+  // 错误：网页中没有 “data” 这个变量。
+  window.myApp.use(data);
+});
+```
+
+下面的代码是正确的，因为它把值作为参数显式传入：
+
+```ts
+const data = 'some data';
+// 将 |data| 作为参数传入。
+const result = await page.evaluate(data => {
+  window.myApp.use(data);
+}, data);
+```
+
+## 求值参数
+
+Playwright 的求值方法，例如 `page.evaluate()`，可以接收一个可选参数。这个参数可以是可序列化值和 `JSHandle` 实例的混合。Handle 会自动转换为它所代表的值。
+
+```ts
+// 一个原始值。
+await page.evaluate(num => num, 42);
+
+// 一个数组。
+await page.evaluate(array => array.length, [1, 2, 3]);
+
+// 一个对象。
+await page.evaluate(object => object.foo, { foo: 'bar' });
+
+// 一个单独的 handle。
+const button = await page.evaluateHandle('window.button');
+await page.evaluate(button => button.textContent, button);
+
+// 使用 JSHandle.evaluate 的另一种写法。
+await button.evaluate((button, from) => button.textContent.substring(from), 5);
+
+// 包含多个 handle 的对象。
+const button1 = await page.evaluateHandle('window.button1');
+const button2 = await page.evaluateHandle('window.button2');
+await page.evaluate(
+  o => o.button1.textContent + o.button2.textContent,
+  { button1, button2 }
+);
+
+// 对象解构也可以使用。注意，被解构对象的属性名必须
+// 和参数对象中的属性名一致。
+// 同时注意这里必须使用括号。
+await page.evaluate(
+  ({ button1, button2 }) => button1.textContent + button2.textContent,
+  { button1, button2 }
+);
+
+// 数组也可以使用。解构时可以使用任意名称。
+// 注意这里必须使用括号。
+await page.evaluate(
+  ([b1, b2]) => b1.textContent + b2.textContent,
+  [button1, button2]
+);
+
+// 可序列化值和 handle 的任意混合都可以使用。
+await page.evaluate(
+  x => x.button1.textContent + x.list[0].textContent + String(x.foo),
+  { button1, list: [button2], foo: null }
+);
+```
+
+## 初始化脚本
+
+有时，在页面开始加载之前执行一些内容会很方便。例如，你可能想设置一些 mock 或测试数据。
+
+这种情况下，可以使用 `page.addInitScript()` 或 `browserContext.addInitScript()`。在下面的示例中，我们会把 `Math.random()` 替换为一个常量值。
+
+首先，创建一个包含 mock 的 `preload.js` 文件。
+
+```js
+// preload.js
+Math.random = () => 42;
+```
+
+接着，把初始化脚本添加到页面中。
+
+```ts
+import { test, expect } from '@playwright/test';
+import path from 'path';
+
+test.beforeEach(async ({ page }) => {
+  // 在 beforeEach 钩子中为每个测试添加脚本。
+  // 确保正确解析脚本路径。
+  await page.addInitScript({ path: path.resolve(__dirname, '../mocks/preload.js') });
+});
+```
+
+或者，你也可以不创建 preload 脚本文件，而是直接传入一个函数。对于较短的脚本或一次性脚本，这种方式更方便。你也可以通过这种方式传入参数。
+
+```ts
+import { test, expect } from '@playwright/test';
+
+// 在 beforeEach 钩子中为每个测试添加脚本。
+test.beforeEach(async ({ page }) => {
+  const value = 42;
+  await page.addInitScript(value => {
+    Math.random = () => value;
+  }, value);
+});
+```

@@ -1,0 +1,255 @@
+---
+title: 重试
+description: Playwright Test 重试
+sidebar:
+  order: 13
+---
+
+## 简介
+
+测试重试是一种在测试失败后自动再次执行该测试的机制。它常用于处理偶发失败的测试，也就是有时通过、有时失败的 flaky 测试。
+
+在 Playwright Test 中，重试通常通过配置文件统一设置，也可以通过命令行临时指定。
+
+## 失败处理
+
+Playwright Test 会在 Worker 进程中运行测试。Worker 是由测试运行器调度的独立操作系统进程。每个 Worker 拥有相同的运行环境，并且会启动自己的浏览器实例。
+
+下面是一个简单的测试套件示例：
+
+```ts
+import { test } from '@playwright/test';
+
+test.describe('suite', () => {
+  test.beforeAll(async () => { /* ... */ });
+
+  test('first good', async ({ page }) => { /* ... */ });
+  test('second flaky', async ({ page }) => { /* ... */ });
+  test('third good', async ({ page }) => { /* ... */ });
+
+  test.afterAll(async () => { /* ... */ });
+});
+```
+
+如果所有测试都通过，它们会在同一个 Worker 进程中按顺序运行：
+
+- Worker 进程启动
+  - 执行 `beforeAll` 钩子
+  - `first good` 通过
+  - `second flaky` 通过
+  - `third good` 通过
+  - 执行 `afterAll` 钩子
+
+如果其中某个测试失败，Playwright Test 会丢弃整个 Worker 进程以及其中的浏览器实例，然后启动一个新的 Worker 进程。后续测试会从新的 Worker 中继续执行。
+
+例如，当 `second flaky` 失败时，执行流程如下：
+
+- Worker 进程 #1 启动
+  - 执行 `beforeAll` 钩子
+  - `first good` 通过
+  - `second flaky` 失败
+  - 执行 `afterAll` 钩子
+- Worker 进程 #2 启动
+  - 再次执行 `beforeAll` 钩子
+  - `third good` 通过
+  - 执行 `afterAll` 钩子
+
+启用重试后，新的 Worker 会先重新执行失败的测试，然后再继续执行后续测试：
+
+- Worker 进程 #1 启动
+  - 执行 `beforeAll` 钩子
+  - `first good` 通过
+  - `second flaky` 失败
+  - 执行 `afterAll` 钩子
+- Worker 进程 #2 启动
+  - 再次执行 `beforeAll` 钩子
+  - 重新执行 `second flaky`，并通过
+  - `third good` 通过
+  - 执行 `afterAll` 钩子
+
+这种机制非常适合彼此独立的测试，也可以保证失败的测试不会污染后续正常测试的执行环境。
+
+## 配置重试
+
+Playwright 支持测试重试。启用后，失败的测试会被重复执行，直到测试通过，或者达到最大重试次数。默认情况下，失败的测试不会自动重试。
+
+### 通过命令行启用重试
+
+```bash
+# 为失败的测试提供 3 次重试机会
+npx playwright test --retries=3
+```
+
+### 在配置文件中设置重试
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // 为失败的测试提供 3 次重试机会
+  retries: 3,
+});
+```
+
+Playwright Test 会根据测试的执行结果将测试归类为以下几种状态：
+
+- `passed`：第一次运行就通过的测试；
+- `flaky`：第一次运行失败，但在重试后通过的测试；
+- `failed`：第一次运行失败，并且所有重试也都失败的测试。
+
+示例输出：
+
+```txt
+Running 3 tests using 1 worker
+  ✓ example.spec.ts:4:2 › first passes (438ms)
+  x example.spec.ts:5:2 › second flaky (691ms)
+  ✓ example.spec.ts:5:2 › second flaky (522ms)
+  ✓ example.spec.ts:6:2 › third passes (932ms)
+
+  1 flaky
+    example.spec.ts:5:2 › second flaky
+  2 passed (4s)
+```
+
+## 在运行时识别当前是否为重试
+
+可以通过 `testInfo.retry` 判断当前测试、钩子或 fixture 是否处于重试执行中。
+
+下面的示例会在重试之前清理服务端缓存或状态：
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test('my test', async ({ page }, testInfo) => {
+  if (testInfo.retry) {
+    await cleanSomeCachesOnTheServer();
+  }
+
+  // ...
+});
+```
+
+## 为某一组测试或单个文件设置重试
+
+可以使用 `test.describe.configure()` 为指定的测试组或单个测试文件配置重试次数。
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test.describe(() => {
+  // 当前 describe 组内的所有测试都会获得 2 次重试机会。
+  test.describe.configure({ retries: 2 });
+
+  test('test 1', async ({ page }) => {
+    // ...
+  });
+
+  test('test 2', async ({ page }) => {
+    // ...
+  });
+});
+```
+
+## 串行模式
+
+可以使用 `test.describe.serial()`，或者通过 `test.describe.configure({ mode: 'serial' })`，把多个相互依赖的测试组合在一起。这样可以确保这些测试始终按顺序、作为一个整体运行。
+
+在串行模式中，如果某个测试失败，后续测试会被跳过。启用重试后，整个串行组会被一起重试。
+
+示例：
+
+```ts
+import { test } from '@playwright/test';
+
+test.describe.configure({ mode: 'serial' });
+
+test.beforeAll(async () => { /* ... */ });
+
+test('first good', async ({ page }) => { /* ... */ });
+test('second flaky', async ({ page }) => { /* ... */ });
+test('third good', async ({ page }) => { /* ... */ });
+```
+
+未启用重试时，如果中间测试失败，后续测试会被跳过：
+
+- Worker 进程 #1：
+  - 执行 `beforeAll` 钩子
+  - `first good` 通过
+  - `second flaky` 失败
+  - `third good` 被跳过
+
+启用重试时，整组测试会一起重新执行：
+
+- Worker 进程 #1：
+  - 执行 `beforeAll` 钩子
+  - `first good` 通过
+  - `second flaky` 失败
+  - `third good` 被跳过
+- Worker 进程 #2：
+  - 再次执行 `beforeAll` 钩子
+  - `first good` 再次通过
+  - `second flaky` 通过
+  - `third good` 通过
+
+:::note
+通常更推荐让测试彼此隔离，这样测试可以更高效地独立运行和独立重试。
+:::
+
+## 在多个测试之间复用单个 Page
+
+Playwright Test 默认会为每个测试创建一个隔离的 `Page` 对象。如果你确实希望多个测试共用同一个 `Page`，可以在 `test.beforeAll()` 中自行创建页面，并在 `test.afterAll()` 中关闭它。
+
+### TypeScript 示例
+
+```ts title="example.spec.ts"
+import { test, type Page } from '@playwright/test';
+
+test.describe.configure({ mode: 'serial' });
+
+let page: Page;
+
+test.beforeAll(async ({ browser }) => {
+  page = await browser.newPage();
+});
+
+test.afterAll(async () => {
+  await page.close();
+});
+
+test('runs first', async () => {
+  await page.goto('https://playwright.dev/');
+});
+
+test('runs second', async () => {
+  await page.getByText('Get Started').click();
+});
+```
+
+### JavaScript 示例
+
+```js title="example.spec.js"
+// @ts-check
+
+const { test } = require('@playwright/test');
+
+test.describe.configure({ mode: 'serial' });
+
+/** @type {import('@playwright/test').Page} */
+let page;
+
+test.beforeAll(async ({ browser }) => {
+  page = await browser.newPage();
+});
+
+test.afterAll(async () => {
+  await page.close();
+});
+
+test('runs first', async () => {
+  await page.goto('https://playwright.dev/');
+});
+
+test('runs second', async () => {
+  await page.getByText('Get Started').click();
+});
+```

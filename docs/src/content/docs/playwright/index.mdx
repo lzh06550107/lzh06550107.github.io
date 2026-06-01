@@ -1,0 +1,206 @@
+---
+title: Playwright 简介
+description: Playwright 是一个面向现代 Web 应用的端到端测试与自动化框架。
+---
+
+Playwright Test 是一个针对现代 Web 应用的端到端测试框架。它集成了测试运行器、断言、隔离、并行化和丰富的工具生态。Playwright 支持在 Windows、Linux 和 macOS 上的 Chromium、WebKit 和 Firefox，无论是在本地还是在 CI 中、无头（headless）还是有头（headed）模式下，并且支持针对 Chrome（Android）和移动端 Safari 的原生移动端模拟。
+
+## 你将学到
+
+- 如何安装 Playwright
+- 安装后会得到什么
+- 如何运行示例测试
+- 如何打开 HTML 测试报告
+
+## 安装 Playwright
+
+通过以下方法之一安装 Playwright 来开始使用。
+
+### 使用 npm、yarn 或 pnpm
+
+以下命令既可以初始化一个新项目，也可以将 Playwright 添加到现有项目中。
+
+```bash
+npm init playwright@latest
+```
+
+```bash
+yarn create playwright
+```
+
+```bash
+pnpm create playwright
+```
+
+在提示中，选择或确认以下选项：
+
+- TypeScript 或 JavaScript（默认：TypeScript）
+- 测试目录名称（默认：`tests`；如果已存在 `tests`，则为 `e2e`）
+- 添加 GitHub Actions 工作流（建议用于 CI）
+- 安装 Playwright 浏览器（默认：是）
+
+您可以稍后重新运行该命令；它不会覆盖现有的测试。
+
+### 使用 VS Code 插件
+
+您还可以使用 [VS Code 插件](https://playwright.dev/docs/getting-started-vscode) 来创建并运行测试。
+
+## 安装了什么
+
+Playwright 会下载所需的浏览器二进制文件并创建如下所示的脚手架结构。
+
+```text
+playwright.config.ts         # 测试配置
+package.json
+package-lock.json            # 或 yarn.lock / pnpm-lock.yaml
+tests/
+    example.spec.ts            # 最简示例测试
+```
+
+[playwright.config](https://playwright.dev/docs/test-configuration) 集中管理配置：目标浏览器、超时时间、重试次数、项目（projects）、报告器（reporters）等。在现有项目中，依赖项会被添加到您当前的 `package.json` 中。
+
+tests/ 包含一个最简的初始测试。
+
+## 运行示例测试
+
+默认情况下，测试会以无头（headless）模式在 Chromium、Firefox 和 WebKit 上并行运行（可在 [playwright.config](https://playwright.dev/docs/test-configuration) 中配置）。输出和聚合结果将显示在终端中。
+
+### npm
+
+```bash
+npx playwright test
+
+```
+
+### yarn
+
+```bash
+yarn playwright test
+```
+
+### pnpm
+
+```bash
+pnpm exec playwright test
+```
+
+(图略)
+
+提示：
+
+* 查看浏览器窗口：添加 `--headed`。
+* 运行单个项目/浏览器：`--project=chromium`。
+* 运行单个文件：`npx playwright test tests/example.spec.ts`。
+* 打开测试 UI：`--ui`。
+
+有关过滤、有头模式、分片（sharding）和重试的详细信息，请参阅 [运行测试](https://playwright.dev/docs/running-tests)。
+
+## HTML 测试报告
+
+测试运行结束后，HTML 报告器将提供一个仪表盘，可按浏览器、已通过、已失败、已跳过、不稳定（flaky）等进行过滤。点击某个测试可以检查错误、附件和步骤。它仅在发生失败时才会自动打开；使用以下命令可手动打开。
+
+### npm
+
+```bash
+npx playwright show-report
+```
+
+### yarn
+
+```bash
+yarn playwright show-report
+```
+
+### pnpm
+
+```bash
+pnpm exec playwright show-report
+```
+
+(图略)
+
+## 在 UI 模式下运行示例测试
+
+通过 [UI 模式](https://playwright.dev/docs/test-ui-mode) 运行测试，以使用监听模式（watch mode）、实时步骤查看、时光倒流调试（time travel debugging）等功能。
+
+### npm
+
+```bash
+npx playwright test --ui
+```
+
+### yarn
+
+```bash
+yarn playwright test --ui
+```
+
+### pnpm
+
+```bash
+pnpm exec playwright test --ui
+```
+
+(图略)
+
+有关监听过滤器、步骤详情和跟踪（trace）集成的详细信息，请参阅 [UI 模式的详细指南](https://playwright.dev/docs/test-ui-mode)。
+
+## 更新 Playwright
+
+更新 Playwright 并下载新的浏览器二进制文件及其依赖项：
+
+### npm
+
+```bash
+npm install -D @playwright/test@latest
+npx playwright install --with-deps
+```
+
+### yarn
+
+```bash
+yarn add --dev @playwright/test@latest
+yarn playwright install --with-deps
+```
+
+### pnpm
+
+```bash
+pnpm install --save-dev @playwright/test@latest
+pnpm exec playwright install --with-deps
+```
+
+检查您安装的版本：
+
+### npm
+
+```bash
+npx playwright --version
+```
+
+### yarn
+
+```bash
+yarn playwright --version
+```
+
+### pnpm
+
+```bash
+pnpm exec playwright --version
+``` 
+
+## 系统要求
+
+* Node.js：最新的 20.x、22.x 或 24.x。
+* Windows 11+、Windows Server 2019+ 或 Windows Subsystem for Linux (WSL)。
+* macOS 14 (Sonoma) 或更高版本。
+* Debian 12 / 13，Ubuntu 22.04 / 24.04（x86-64 或 arm64）。
+
+## 下一步做什么
+
+* 使用 Web 优先的断言、夹具（fixtures）和定位器（locators）编写测试
+* 运行单个或多个测试；有头模式
+* 使用 Codegen 生成测试
+* 查看测试的跟踪（trace）
+

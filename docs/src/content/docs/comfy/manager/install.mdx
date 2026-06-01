@@ -1,0 +1,51 @@
+---
+title: ComfyUI-Manager 安装
+description: 如何为不同环境安装 ComfyUI-Manager
+sidebar:
+  label: 安装
+---
+
+# ComfyUI-Manager 安装
+
+## 桌面版用户
+
+如果你使用的是 ComfyUI 桌面版，ComfyUI-Manager 已默认包含并启用，无需额外安装。
+
+## 便携版用户
+
+对于使用 Windows 便携版的用户，新版 ComfyUI-Manager 已内置于 ComfyUI 核心中，但需要启用。
+
+1. 安装管理器依赖：
+
+```bash
+.\python_embeded\python.exe -m pip install -r ComfyUI\manager_requirements.txt
+```
+
+2. 启用管理器启动 ComfyUI：
+
+```bash
+.\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --enable-manager
+pause
+```
+
+## comfy-cli
+
+前提条件：Python 3、Git
+
+### Windows
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install comfy-cli
+comfy install
+```
+
+### Linux/macOS
+
+```bash
+python -m venv venv
+. venv/bin/activate
+pip install comfy-cli
+comfy install
+```

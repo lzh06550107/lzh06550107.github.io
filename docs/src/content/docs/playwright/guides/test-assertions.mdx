@@ -1,0 +1,375 @@
+---
+title: "断言"
+description: "介绍 Playwright Test 的自动重试断言、非重试断言、软断言与自定义 expect。"
+sidebar:
+  label: "断言"
+  order: 4
+---
+
+## 介绍
+
+Playwright 通过 `expect` 函数提供测试断言。编写断言时，先调用 `expect(value)`，然后选择一个能表达预期结果的 matcher。对于普通值，你可以使用很多通用 matcher，例如 `toEqual`、`toContain`、`toBeTruthy` 等。
+
+```ts
+expect(success).toBeTruthy();
+```
+
+Playwright 还提供了面向 Web 场景的异步 matcher。这类 matcher 会等待页面达到预期状态后再通过断言。例如：
+
+```ts
+await expect(page.getByTestId('status')).toHaveText('Submitted');
+```
+
+上面的断言会不断重新获取 `data-testid="status"` 对应的元素，并检查它的文本是否为 `"Submitted"`。它会持续重试，直到条件满足，或者达到断言超时时间。
+
+你可以为单个断言传入超时时间，也可以在测试配置中通过 `testConfig.expect` 统一配置。
+
+默认情况下，断言超时时间为 **5 秒**。更多超时相关内容可以查看 Playwright 的 Timeouts 文档。
+
+## 自动重试断言
+
+下面这些断言会自动重试，直到断言通过，或者达到断言超时时间。由于自动重试断言是异步的，因此必须使用 `await`。
+
+| 断言 | 说明 |
+| --- | --- |
+| `await expect(locator).toBeAttached()` | 元素已附加到 DOM |
+| `await expect(locator).toBeChecked()` | 复选框已被选中 |
+| `await expect(locator).toBeDisabled()` | 元素处于禁用状态 |
+| `await expect(locator).toBeEditable()` | 元素可编辑 |
+| `await expect(locator).toBeEmpty()` | 容器为空 |
+| `await expect(locator).toBeEnabled()` | 元素处于启用状态 |
+| `await expect(locator).toBeFocused()` | 元素获得焦点 |
+| `await expect(locator).toBeHidden()` | 元素不可见 |
+| `await expect(locator).toBeInViewport()` | 元素与视口相交 |
+| `await expect(locator).toBeVisible()` | 元素可见 |
+| `await expect(locator).toContainText()` | 元素包含指定文本 |
+| `await expect(locator).toContainClass()` | 元素包含指定 CSS 类 |
+| `await expect(locator).toHaveAccessibleDescription()` | 元素具有匹配的可访问性描述 |
+| `await expect(locator).toHaveAccessibleName()` | 元素具有匹配的可访问性名称 |
+| `await expect(locator).toHaveAttribute()` | 元素具有指定 DOM 属性 |
+| `await expect(locator).toHaveClass()` | 元素具有指定 CSS 类属性 |
+| `await expect(locator).toHaveCount()` | 列表具有精确数量的子元素 |
+| `await expect(locator).toHaveCSS()` | 元素具有指定 CSS 属性 |
+| `await expect(locator).toHaveId()` | 元素具有指定 ID |
+| `await expect(locator).toHaveJSProperty()` | 元素具有指定 JavaScript 属性 |
+| `await expect(locator).toHaveRole()` | 元素具有指定 ARIA 角色 |
+| `await expect(locator).toHaveScreenshot()` | 元素截图匹配 |
+| `await expect(locator).toHaveText()` | 元素文本匹配 |
+| `await expect(locator).toHaveValue()` | 输入框具有指定值 |
+| `await expect(locator).toHaveValues()` | 选择框选中了指定选项 |
+| `await expect(locator).toMatchAriaSnapshot()` | 元素匹配 ARIA 快照 |
+| `await expect(page).toMatchAriaSnapshot()` | 页面匹配 ARIA 快照 |
+| `await expect(page).toHaveScreenshot()` | 页面截图匹配 |
+| `await expect(page).toHaveTitle()` | 页面具有指定标题 |
+| `await expect(page).toHaveURL()` | 页面具有指定 URL |
+| `await expect(response).toBeOK()` | 响应状态为 OK |
+
+## 非重试断言
+
+下面这些断言可以用于检查任意条件，但它们不会自动重试。大多数 Web 页面会异步展示信息，如果对页面状态使用非重试断言，很容易产生不稳定测试。
+
+尽可能优先使用自动重试断言。如果需要重试更复杂的逻辑，可以使用 `expect.poll` 或 `expect.toPass`。
+
+| 断言 | 说明 |
+| --- | --- |
+| `expect(value).toBe()` | 值完全相同 |
+| `expect(value).toBeCloseTo()` | 数字近似相等 |
+| `expect(value).toBeDefined()` | 值不是 `undefined` |
+| `expect(value).toBeFalsy()` | 值是假值，例如 `false`、`0`、`null` 等 |
+| `expect(value).toBeGreaterThan()` | 数字大于指定值 |
+| `expect(value).toBeGreaterThanOrEqual()` | 数字大于或等于指定值 |
+| `expect(value).toBeInstanceOf()` | 对象是某个类的实例 |
+| `expect(value).toBeLessThan()` | 数字小于指定值 |
+| `expect(value).toBeLessThanOrEqual()` | 数字小于或等于指定值 |
+| `expect(value).toBeNaN()` | 值为 `NaN` |
+| `expect(value).toBeNull()` | 值为 `null` |
+| `expect(value).toBeTruthy()` | 值是真值，也就是不是 `false`、`0`、`null` 等 |
+| `expect(value).toBeUndefined()` | 值为 `undefined` |
+| `expect(value).toContain()` | 字符串包含子字符串 |
+| `expect(value).toContain()` | 数组或集合包含某个元素 |
+| `expect(value).toContainEqual()` | 数组或集合包含相似元素 |
+| `expect(value).toEqual()` | 值相似，支持深度相等和模式匹配 |
+| `expect(value).toHaveLength()` | 数组或字符串具有指定长度 |
+| `expect(value).toHaveProperty()` | 对象具有指定属性 |
+| `expect(value).toMatch()` | 字符串匹配正则表达式 |
+| `expect(value).toMatchObject()` | 对象包含指定属性 |
+| `expect(value).toStrictEqual()` | 值严格相似，包括属性类型 |
+| `expect(value).toThrow()` | 函数会抛出错误 |
+
+## 非对称匹配器
+
+这些表达式可以嵌套到其它断言中，用于对给定条件进行更宽松的匹配。
+
+| Matcher | 说明 |
+| --- | --- |
+| `expect.any()` | 匹配任意指定类或原始类型的实例 |
+| `expect.anything()` | 匹配任何值 |
+| `expect.arrayContaining()` | 数组包含指定元素 |
+| `expect.arrayOf()` | 数组包含指定类型的元素 |
+| `expect.closeTo()` | 数字近似相等 |
+| `expect.objectContaining()` | 对象包含指定属性 |
+| `expect.stringContaining()` | 字符串包含子字符串 |
+| `expect.stringMatching()` | 字符串匹配正则表达式 |
+
+## 取反 matcher
+
+一般来说，可以在 matcher 前添加 `.not`，表示期望相反的结果为真。
+
+```ts
+expect(value).not.toEqual(0);
+await expect(locator).not.toContainText('some text');
+```
+
+## 软断言
+
+默认情况下，断言失败会终止当前测试的执行。Playwright 也支持软断言：软断言失败不会立即停止测试，但会将该测试标记为失败。
+
+```ts
+// 执行一些检查，即使失败也不会立即中断测试……
+await expect.soft(page.getByTestId('status')).toHaveText('Success');
+await expect.soft(page.getByTestId('eta')).toHaveText('1 day');
+
+// ……然后继续执行测试，检查更多内容。
+await page.getByRole('link', { name: 'next page' }).click();
+await expect.soft(page.getByRole('heading', { name: 'Make another order' })).toBeVisible();
+```
+
+在测试执行过程中的任意位置，你都可以检查是否已经出现软断言失败。
+
+```ts
+// 执行一些检查，即使失败也不会立即中断测试……
+await expect.soft(page.getByTestId('status')).toHaveText('Success');
+await expect.soft(page.getByTestId('eta')).toHaveText('1 day');
+
+// 如果已经存在软断言失败，则避免继续执行后续步骤。
+expect(test.info().errors).toHaveLength(0);
+```
+
+:::note
+软断言只适用于 Playwright test runner。
+:::
+
+## 自定义 expect 消息
+
+可以将自定义消息作为 `expect` 函数的第二个参数传入。例如：
+
+```ts
+await expect(page.getByText('Name'), 'should be logged in').toBeVisible();
+```
+
+该消息会显示在 reporter 中。无论断言通过还是失败，它都能为断言提供更多上下文。
+
+断言通过时，报告中可能会看到类似下面的成功步骤：
+
+```text
+✅ should be logged in    @example.spec.ts:18
+```
+
+断言失败时，错误信息可能类似：
+
+```text
+Error: should be logged in
+
+Call log:
+  - expect.toBeVisible with timeout 5000ms
+  - waiting for "getByText('Name')"
+
+  2 |
+  3 | test('example test', async({ page }) => {
+> 4 |   await expect(page.getByText('Name'), 'should be logged in').toBeVisible();
+    |                                                                  ^
+  5 | });
+  6 |
+```
+
+软断言同样支持自定义消息。
+
+```ts
+expect.soft(value, 'my soft assertion').toBe(56);
+```
+
+## expect.configure
+
+你可以创建一个预配置的 `expect` 实例，让它拥有自己的默认值，例如 `timeout` 和 `soft`。
+
+```ts
+const slowExpect = expect.configure({ timeout: 10000 });
+await slowExpect(locator).toHaveText('Submit');
+
+// 始终执行软断言。
+const softExpect = expect.configure({ soft: true });
+await softExpect(locator).toHaveText('Submit');
+```
+
+## expect.poll
+
+使用 `expect.poll` 可以把任意同步 `expect` 转换为异步轮询断言。
+
+下面的示例会持续轮询给定函数，直到它返回 HTTP 状态码 `200`。
+
+```ts
+await expect.poll(async () => {
+  const response = await page.request.get('https://api.example.com');
+  return response.status();
+}, {
+  // reporter 中显示的自定义 expect 消息，可选。
+  message: 'make sure API eventually succeeds',
+
+  // 轮询 10 秒；默认是 5 秒。传入 0 可禁用超时。
+  timeout: 10000,
+}).toBe(200);
+```
+
+你也可以指定自定义轮询间隔。
+
+```ts
+await expect.poll(async () => {
+  const response = await page.request.get('https://api.example.com');
+  return response.status();
+}, {
+  // 执行一次，等待 1 秒，再执行一次，等待 2 秒，再执行一次，等待 10 秒……
+  // 默认值为 [100, 250, 500, 1000]。
+  intervals: [1_000, 2_000, 10_000],
+  timeout: 60_000
+}).toBe(200);
+```
+
+可以把 `expect.configure({ soft: true })` 与 `expect.poll` 组合使用，从而在轮询逻辑中执行软断言。
+
+```ts
+const softExpect = expect.configure({ soft: true });
+await softExpect.poll(async () => {
+  const response = await page.request.get('https://api.example.com');
+  return response.status();
+}, {}).toBe(200);
+```
+
+这样即使 `poll` 中的断言失败，测试也可以继续执行。
+
+## expect.toPass
+
+你可以重试一段代码块，直到它成功通过。
+
+```ts
+await expect(async () => {
+  const response = await page.request.get('https://api.example.com');
+  expect(response.status()).toBe(200);
+}).toPass();
+```
+
+也可以指定自定义超时时间和重试间隔。
+
+```ts
+await expect(async () => {
+  const response = await page.request.get('https://api.example.com');
+  expect(response.status()).toBe(200);
+}).toPass({
+  // 执行一次，等待 1 秒，再执行一次，等待 2 秒，再执行一次，等待 10 秒……
+  // 默认值为 [100, 250, 500, 1000]。
+  intervals: [1_000, 2_000, 10_000],
+  timeout: 60_000
+});
+```
+
+:::note
+默认情况下，`toPass` 的超时时间为 `0`，并且不会使用自定义的 `expect` 超时时间。
+:::
+
+## 使用 expect.extend 添加自定义 matcher
+
+你可以通过提供自定义 matcher 来扩展 Playwright 断言。扩展后的 matcher 会出现在 `expect` 对象上。
+
+下面的示例添加了一个自定义的 `toHaveAmount` 函数。自定义 matcher 应返回一个 `pass` 标记，表示断言是否通过；还应返回一个 `message` 回调，用于断言失败时生成提示信息。
+
+**fixtures.ts**
+
+```ts
+import { expect as baseExpect } from '@playwright/test';
+import type { Locator } from '@playwright/test';
+
+export { test } from '@playwright/test';
+
+export const expect = baseExpect.extend({
+  async toHaveAmount(locator: Locator, expected: number, options?: { timeout?: number }) {
+    const assertionName = 'toHaveAmount';
+    let pass: boolean;
+    let matcherResult: any;
+
+    try {
+      const expectation = this.isNot ? baseExpect(locator).not : baseExpect(locator);
+      await expectation.toHaveAttribute('data-amount', String(expected), options);
+      pass = true;
+    } catch (e: any) {
+      matcherResult = e.matcherResult;
+      pass = false;
+    }
+
+    if (this.isNot) {
+      pass = !pass;
+    }
+
+    const message = pass
+      ? () => this.utils.matcherHint(assertionName, undefined, undefined, { isNot: this.isNot }) +
+          '\n\n' +
+          `Locator: ${locator}\n` +
+          `Expected: not ${this.utils.printExpected(expected)}\n` +
+          (matcherResult ? `Received: ${this.utils.printReceived(matcherResult.actual)}` : '')
+      : () => this.utils.matcherHint(assertionName, undefined, undefined, { isNot: this.isNot }) +
+          '\n\n' +
+          `Locator: ${locator}\n` +
+          `Expected: ${this.utils.printExpected(expected)}\n` +
+          (matcherResult ? `Received: ${this.utils.printReceived(matcherResult.actual)}` : '');
+
+    return {
+      message,
+      pass,
+      name: assertionName,
+      expected,
+      actual: matcherResult?.actual,
+    };
+  },
+});
+```
+
+现在可以在测试中使用 `toHaveAmount`。
+
+**example.spec.ts**
+
+```ts
+import { test, expect } from './fixtures';
+
+test('amount', async () => {
+  await expect(page.locator('.cart')).toHaveAmount(4);
+});
+```
+
+### 与 expect 库的兼容性
+
+:::note
+不要把 Playwright 的 `expect` 与 Jest 的 `expect` 库混淆。后者没有与 Playwright test runner 完全集成，因此应确保使用 Playwright 自带的 `expect`。
+:::
+
+### 合并来自多个模块的自定义 matcher
+
+你可以合并多个文件或模块中的自定义 matcher。
+
+**fixtures.ts**
+
+```ts
+import { mergeTests, mergeExpects } from '@playwright/test';
+import { test as dbTest, expect as dbExpect } from 'database-test-utils';
+import { test as a11yTest, expect as a11yExpect } from 'a11y-test-utils';
+
+export const expect = mergeExpects(dbExpect, a11yExpect);
+export const test = mergeTests(dbTest, a11yTest);
+```
+
+**test.spec.ts**
+
+```ts
+import { test, expect } from './fixtures';
+
+test('passes', async ({ database }) => {
+  await expect(database).toHaveDatabaseUser('admin');
+});
+```

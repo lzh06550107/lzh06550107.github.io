@@ -1,0 +1,377 @@
+---
+title: 参数化测试
+description: Playwright Test 参数化测试
+sidebar:
+  order: 10
+---
+
+
+## 介绍
+
+你既可以在测试级别对测试进行参数化，也可以在项目级别对测试进行参数化。 citeturn118787view0
+
+## 参数化测试
+
+```ts
+[
+  { name: 'Alice', expected: 'Hello, Alice!' },
+  { name: 'Bob', expected: 'Hello, Bob!' },
+  { name: 'Charlie', expected: 'Hello, Charlie!' },
+].forEach(({ name, expected }) => {
+  // 你也可以使用 test.describe()，或者使用多个测试，只要测试名唯一即可。
+  test(`testing with ${name}`, async ({ page }) => {
+    await page.goto(`https://example.com/greet?name=${name}`);
+    await expect(page.getByRole('heading')).toHaveText(expected);
+  });
+});
+```
+
+### Before 和 after hooks
+
+大多数时候，你应该把 `beforeEach`、`beforeAll`、`afterEach` 和 `afterAll` hooks 放在 `forEach` 外部，这样 hooks 只会执行一次： citeturn118787view0
+
+```ts
+test.beforeEach(async ({ page }) => {
+  // ...
+});
+
+test.afterEach(async ({ page }) => {
+  // ...
+});
+
+[
+  { name: 'Alice', expected: 'Hello, Alice!' },
+  { name: 'Bob', expected: 'Hello, Bob!' },
+  { name: 'Charlie', expected: 'Hello, Charlie!' },
+].forEach(({ name, expected }) => {
+  test(`testing with ${name}`, async ({ page }) => {
+    await page.goto(`https://example.com/greet?name=${name}`);
+    await expect(page.getByRole('heading')).toHaveText(expected);
+  });
+});
+```
+
+如果你希望每个测试都有各自的 hooks，你可以把它们放进 `describe()` 中——这样它们会在每次迭代 / 每个单独测试时执行： citeturn118787view0
+
+```ts
+[
+  { name: 'Alice', expected: 'Hello, Alice!' },
+  { name: 'Bob', expected: 'Hello, Bob!' },
+  { name: 'Charlie', expected: 'Hello, Charlie!' },
+].forEach(({ name, expected }) => {
+  test.describe(() => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto(`https://example.com/greet?name=${name}`);
+    });
+
+    test(`testing with ${expected}`, async ({ page }) => {
+      await expect(page.getByRole('heading')).toHaveText(expected);
+    });
+  });
+});
+```
+
+## 参数化项目
+
+Playwright Test 支持同时运行多个测试项目。在下面的例子中，我们会以不同选项运行两个项目。 citeturn118787view0
+
+我们声明一个名为 `person` 的 option，并在配置中设置它的值。第一个项目使用值 `Alice`，第二个项目使用值 `Bob`。 citeturn118787view0
+
+### TypeScript
+
+`my-test.ts`
+
+```ts
+import { test as base } from '@playwright/test';
+
+export type TestOptions = {
+  person: string;
+};
+
+export const test = base.extend<TestOptions>({
+  // 定义一个 option，并提供默认值。
+  // 我们稍后可以在配置中覆盖它。
+  person: ['John', { option: true }],
+});
+```
+
+### JavaScript
+
+`my-test.js`
+
+```js
+const base = require('@playwright/test');
+
+exports.test = base.test.extend({
+  // 定义一个 option，并提供默认值。
+  // 我们稍后可以在配置中覆盖它。
+  person: ['John', { option: true }],
+});
+```
+
+我们可以像使用 fixtures 一样在测试中使用这个 option。 citeturn118787view0turn118787view0
+
+```ts
+import { test } from './my-test';
+
+test('test 1', async ({ page, person }) => {
+  await page.goto(`/index.html`);
+  await expect(page.locator('#node')).toContainText(person);
+  // ...
+});
+```
+
+现在，我们可以使用项目在多种配置下运行测试。 citeturn118787view0
+
+### TypeScript
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig } from '@playwright/test';
+import type { TestOptions } from './my-test';
+
+export default defineConfig<TestOptions>({
+  projects: [
+    {
+      name: 'alice',
+      use: { person: 'Alice' },
+    },
+    {
+      name: 'bob',
+      use: { person: 'Bob' },
+    },
+  ]
+});
+```
+
+### JavaScript
+
+`playwright.config.ts`
+
+```js
+// @ts-check
+module.exports = defineConfig({
+  projects: [
+    {
+      name: 'alice',
+      use: { person: 'Alice' },
+    },
+    {
+      name: 'bob',
+      use: { person: 'Bob' },
+    },
+  ]
+});
+```
+
+我们也可以在 fixture 中使用这个 option。更多内容请参阅 fixtures。 citeturn118787view0turn118787view0
+
+### TypeScript
+
+`my-test.ts`
+
+```ts
+import { test as base } from '@playwright/test';
+
+export type TestOptions = {
+  person: string;
+};
+
+export const test = base.extend<TestOptions>({
+  // 定义一个 option，并提供默认值。
+  // 我们稍后可以在配置中覆盖它。
+  person: ['John', { option: true }],
+
+  // 覆盖默认的 "page" fixture。
+  page: async ({ page, person }, use) => {
+    await page.goto('/chat');
+    // 我们将 "person" 参数用作聊天室中的 "name"。
+    await page.getByLabel('User Name').fill(person);
+    await page.getByText('Enter chat room').click();
+    // 每个测试拿到的 "page" 都已经带有该 person 名称。
+    await use(page);
+  },
+});
+```
+
+### JavaScript
+
+`my-test.js`
+
+```js
+const base = require('@playwright/test');
+
+exports.test = base.test.extend({
+  // 定义一个 option，并提供默认值。
+  // 我们稍后可以在配置中覆盖它。
+  person: ['John', { option: true }],
+
+  // 覆盖默认的 "page" fixture。
+  page: async ({ page, person }, use) => {
+    await page.goto('/chat');
+    // 我们将 "person" 参数用作聊天室中的 "name"。
+    await page.getByLabel('User Name').fill(person);
+    await page.getByText('Enter chat room').click();
+    // 每个测试拿到的 "page" 都已经带有该 person 名称。
+    await use(page);
+  },
+});
+```
+
+:::note
+参数化项目的行为在 1.18 版本中发生了变化。了解更多。 citeturn118787view0
+:::
+
+## 传递环境变量
+
+你可以使用环境变量从命令行配置测试。 citeturn118787view0
+
+例如，考虑下面这个需要用户名和密码的测试文件。通常不建议把机密信息存储在源代码里，因此我们需要一种从外部传入机密信息的方法。 citeturn118787view0
+
+`example.spec.ts`
+
+```ts
+test(`example test`, async ({ page }) => {
+  // ...
+  await page.getByLabel('User Name').fill(process.env.USER_NAME);
+  await page.getByLabel('Password').fill(process.env.PASSWORD);
+});
+```
+
+你可以在命令行中设置机密用户名和密码来运行这个测试。 citeturn118787view0
+
+### Bash
+
+```bash
+USER_NAME=me PASSWORD=secret npx playwright test
+```
+
+### PowerShell
+
+```powershell
+$env:USER_NAME=me
+$env:PASSWORD=secret
+npx playwright test
+```
+
+### Batch
+
+```bat
+set USER_NAME=me
+set PASSWORD=secret
+npx playwright test
+```
+
+同样地，配置文件也可以读取通过命令行传入的环境变量。 citeturn118787view0
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    baseURL: process.env.STAGING === '1' ? 'http://staging.example.test/' : 'http://example.test/',
+  }
+});
+```
+
+现在，你可以针对 staging 或 production 环境运行测试： citeturn118787view0
+
+### Bash
+
+```bash
+STAGING=1 npx playwright test
+```
+
+### PowerShell
+
+```powershell
+$env:STAGING=1
+npx playwright test
+```
+
+### Batch
+
+```bat
+set STAGING=1
+npx playwright test
+```
+
+### `.env` 文件
+
+为了更容易管理环境变量，可以考虑使用 `.env` 文件之类的方式。下面是一个使用 `dotenv` 包在配置文件中直接读取环境变量的示例。 citeturn118787view0
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// 从 ".env" 文件读取。
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+// 或者，从 "../my.env" 文件读取。
+dotenv.config({ path: path.resolve(__dirname, '..', 'my.env') });
+
+export default defineConfig({
+  use: {
+    baseURL: process.env.STAGING === '1' ? 'http://staging.example.test/' : 'http://example.test/',
+  }
+});
+```
+
+现在，你只需编辑 `.env` 文件来设置任意想要的变量。 citeturn118787view0
+
+`.env`
+
+```txt
+STAGING=0
+USER_NAME=me
+PASSWORD=secret
+```
+
+像平常一样运行测试，环境变量会被自动读取。 citeturn118787view0
+
+```bash
+npx playwright test
+```
+
+## 通过 CSV 文件创建测试
+
+Playwright 测试运行器运行在 Node.js 中，这意味着你可以直接从文件系统读取文件，并使用你喜欢的 CSV 库来解析它们。 citeturn118787view0
+
+例如，下面是一个 CSV 文件，在我们的例子中名为 `input.csv`： citeturn118787view0
+
+```csv
+"test_case","some_value","some_other_value"
+"value 1","value 11","foobar1"
+"value 2","value 22","foobar21"
+"value 3","value 33","foobar321"
+"value 4","value 44","foobar4321"
+```
+
+基于它，我们可以使用 NPM 上的 `csv-parse` 库来生成一些测试。 citeturn118787view0
+
+`test.spec.ts`
+
+```ts
+import fs from 'fs';
+import path from 'path';
+import { test } from '@playwright/test';
+import { parse } from 'csv-parse/sync';
+
+const csvPath = path.resolve(__dirname, 'input.csv');
+const csvContent = fs.readFileSync(csvPath);
+const records = parse(csvContent, {
+  columns: true,
+  skip_empty_lines: true,
+});
+
+for (const record of records) {
+  test(`foo: ${record.test_case}`, async ({ page }) => {
+    console.log(record.test_case, record.some_value, record.some_other_value);
+  });
+}
+```

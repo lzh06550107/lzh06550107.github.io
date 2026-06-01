@@ -1,0 +1,205 @@
+---
+title: "Trace Viewer"
+description: "介绍如何录制、打开和分析 Playwright Trace。"
+sidebar:
+  label: "Trace Viewer"
+  order: 35
+---
+
+## 介绍
+
+Playwright Trace Viewer 是一个 GUI 工具，可帮助你在脚本运行之后浏览已记录的 Playwright 跟踪。跟踪是在 CI 上测试失败时调试测试的好方法。你可以在[本地](#opening-trace-viewer)打开跟踪，也可以在浏览器中通过 [trace.playwright.dev](https://trace.playwright.dev) 打开。
+
+## 打开 Trace Viewer
+
+你可以使用 Playwright CLI 打开已保存的跟踪，也可以在浏览器中通过 [trace.playwright.dev](https://trace.playwright.dev) 打开。请确保添加 `trace.zip` 文件所在位置的完整路径。
+
+```bash
+npx playwright show-trace path/to/trace.zip
+```
+
+### 使用 trace.playwright.dev
+
+[trace.playwright.dev](https://trace.playwright.dev) 是 Trace Viewer 的静态托管版本。你可以通过拖放或 `Select file` 按钮上传跟踪文件。
+
+Trace Viewer 会在你的浏览器中完整加载跟踪，不会向外部传输任何数据。
+
+![Drop Playwright Trace to load](https://playwright.dev/img/docs/trace-viewer-drop-trace.png)
+
+### 查看远程跟踪
+
+你可以使用跟踪文件的 URL 直接打开远程跟踪。例如，这样可以轻松查看远程跟踪，而不必从 CI 运行中手动下载文件。
+
+```bash
+npx playwright show-trace https://example.com/trace.zip
+```
+
+使用 [trace.playwright.dev](https://trace.playwright.dev) 时，你也可以将某个可访问存储（例如 CI 内部）中已上传跟踪文件的 URL 作为查询参数传入。可能会受到 CORS（跨源资源共享）规则的影响。
+
+```text
+https://trace.playwright.dev/?trace=https://demo.playwright.dev/reports/todomvc/data/e6099cadf79aa753d5500aa9508f9d1dbd87b5ee.zip
+```
+
+## 记录跟踪
+
+### 本地跟踪
+
+若要在开发模式期间记录跟踪，请在运行测试时将 `--trace` 标志设置为 `on`。你也可以使用 [UI Mode](/docs/test-ui-mode) 获得更好的开发者体验，因为它会自动跟踪每个测试。
+
+```bash
+npx playwright test --trace on
+```
+
+然后，你可以打开 HTML 报告并点击跟踪图标来打开跟踪。
+
+```bash
+npx playwright show-report
+```
+
+### 在 CI 上跟踪
+
+应在持续集成中，在失败测试的第一次重试时运行跟踪，方法是在测试配置文件中设置 `trace: 'on-first-retry'` 选项。这会为每个被重试的测试生成一个 `trace.zip` 文件。
+
+<Tabs>
+<TabItem value="test" label="Test">
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  retries: 1,
+  use: {
+    trace: 'on-first-retry',
+  },
+});
+```
+
+</TabItem>
+<TabItem value="library" label="Library">
+
+```js
+const browser = await chromium.launch();
+const context = await browser.newContext();
+
+// 在创建 / 导航页面之前开始跟踪。
+await context.tracing.start({ screenshots: true, snapshots: true });
+
+const page = await context.newPage();
+await page.goto('https://playwright.dev');
+
+// 停止跟踪并将其导出为 zip 归档文件。
+await context.tracing.stop({ path: 'trace.zip' });
+```
+
+</TabItem>
+</Tabs>
+
+可用于记录跟踪的选项：
+
+- `'on-first-retry'` - 仅在第一次重试测试时记录跟踪。
+- `'on-all-retries'` - 为所有测试重试记录跟踪。
+- `'off'` - 不记录跟踪。
+- `'on'` - 为每个测试记录跟踪。（不推荐，因为它会带来较大的性能开销）
+- `'retain-on-failure'` - 为每个测试记录跟踪，但从成功的测试运行中移除它。
+
+如果你没有启用重试，但仍然想为失败的测试保留跟踪，也可以使用 `trace: 'retain-on-failure'`。
+
+还有更细粒度的选项可用，请参阅 [testOptions.trace](/docs/api/class-testoptions#test-options-trace)。
+
+如果你没有将 Playwright 用作测试运行器，请改用 [browserContext.tracing](/docs/api/class-tracing) API。
+
+## Trace Viewer 功能
+
+### Actions
+
+在 Actions 选项卡中，你可以看到每个操作使用了什么定位器，以及每个操作运行耗时多久。将鼠标悬停在测试的每个操作上，可以直观看到 DOM 快照中的变化。可以在时间线上前后移动，并点击某个操作进行检查和调试。使用 Before 和 After 选项卡，可以直观看到操作前后发生了什么。
+
+![actions tab in trace viewer](https://playwright.dev/img/docs/trace-viewer-actions.png)
+
+选择每个操作会显示：
+
+- 操作快照
+- 操作日志
+- 源代码位置
+
+### Screenshots
+
+启用 [screenshots](/docs/api/class-tracing#tracing-start-option-screenshots) 选项进行跟踪时（默认启用），每个跟踪都会记录一段屏幕录像，并将其呈现为胶片条。你可以将鼠标悬停在胶片条上，查看每个操作和状态的放大图，这有助于你轻松找到想要检查的操作。
+
+双击某个操作可以查看该操作的时间范围。你可以使用时间线中的滑块扩大所选操作范围，这些操作会显示在 Actions 选项卡中，并且所有控制台日志和网络日志都会被过滤为仅显示所选操作对应的日志。
+
+![timeline view in trace viewer](https://playwright.dev/img/docs/trace-viewer-timeline.png)
+
+### Snapshots
+
+启用 [snapshots](/docs/api/class-tracing#tracing-start-option-snapshots) 选项进行跟踪时（默认启用），Playwright 会为每个操作捕获一组完整的 DOM 快照。根据操作类型，它会捕获：
+
+| 类型 | 描述 |
+| --- | --- |
+| Before | 调用操作时的快照。 |
+| Action | 执行输入那一刻的快照。这类快照在查看 Playwright 究竟点击了哪里时尤其有用。 |
+| After | 操作之后的快照。 |
+
+下面是典型的 Action 快照：
+
+![action tab in trace viewer](https://playwright.dev/img/docs/trace-viewer-action.png)
+
+请注意，它同时高亮显示了 DOM 节点以及精确的点击位置。
+
+### Source
+
+当你在侧边栏中点击某个操作时，该操作对应的代码行会在源代码面板中高亮显示。
+
+![showing source code tab in trace viewer](https://playwright.dev/img/docs/trace-viewer-source.png)
+
+### Call
+
+Call 选项卡会显示有关该操作的信息，例如耗时、使用的定位器、是否处于严格模式以及使用了哪个按键。
+
+![showing call tab in trace viewer](https://playwright.dev/img/docs/trace-viewer-call.png)
+
+### Log
+
+查看测试的完整日志，以便更好地了解 Playwright 在幕后执行了什么操作，例如滚动到视图中、等待元素可见、启用且稳定，以及执行 click、fill、press 等操作。
+
+![showing log of tests in trace viewer](https://playwright.dev/img/docs/trace-viewer-log.png)
+
+### Errors
+
+如果测试失败，你会在 Errors 选项卡中看到每个测试的错误消息。时间线也会显示一条红线，用于高亮错误发生的位置。你还可以点击 Source 选项卡，查看错误位于源代码的哪一行。
+
+![showing errors in trace viewer](https://playwright.dev/img/docs/trace-viewer-errors.png)
+
+### Console
+
+查看来自浏览器以及来自测试的控制台日志。不同的图标会显示控制台日志是来自浏览器还是来自测试文件。
+
+![showing log of tests in trace viewer](https://playwright.dev/img/docs/trace-viewer-console.png)
+
+在 actions 侧边栏中双击测试中的某个操作。这会过滤控制台，使其仅显示该操作期间产生的日志。点击 Show all 按钮可以再次查看所有控制台日志。
+
+使用时间线过滤操作：点击起点并拖动到终点。Console 选项卡也会被过滤为仅显示所选操作期间产生的日志。
+
+### Network
+
+Network 选项卡会显示测试期间发出的所有网络请求。你可以按不同的请求类型、状态码、方法、请求、内容类型、持续时间和大小进行排序。点击某个请求可以查看更多信息，例如请求头、响应头、请求体和响应体。
+
+![network requests tab in trace viewer](https://playwright.dev/img/docs/trace-viewer-network.png)
+
+在 actions 侧边栏中双击测试中的某个操作。这会过滤网络请求，使其仅显示该操作期间发出的请求。点击 Show all 按钮可以再次查看所有网络请求。
+
+使用时间线过滤操作：点击起点并拖动到终点。Network 选项卡也会被过滤为仅显示所选操作期间发出的网络请求。
+
+### Metadata
+
+在 Actions 选项卡旁边，你会找到 Metadata 选项卡，它会显示有关测试的更多信息，例如浏览器、视口大小、测试持续时间等。
+
+![meta data in trace viewer](https://playwright.dev/img/docs/trace-viewer-metadata.png)
+
+### Attachments
+
+"Attachments" 选项卡允许你浏览附件。如果你正在做[视觉回归测试](/docs/test-snapshots)，则可以通过检查图像差异、实际图像和预期图像来比较截图。当你点击预期图像时，可以使用滑块将一张图像滑到另一张图像上方，从而轻松查看截图中的差异。
+
+![attachments tab in trace viewer](https://playwright.dev/img/docs/trace-viewer-attachments.png)
+
+

@@ -1,0 +1,245 @@
+---
+title: 超时
+description: Playwright Test 超时
+sidebar:
+  order: 15
+---
+
+Playwright Test 为不同任务提供了多种可配置的超时。合理设置超时可以帮助你更快发现卡住的测试，也可以避免 CI 任务在异常情况下长时间占用资源。
+
+## 超时类型概览
+
+| 超时类型 | 默认值 | 说明 | 配置方式 | 单独覆盖方式 |
+|---|---:|---|---|---|
+| 测试超时 | `30_000 ms` | 每个测试的最大执行时间 | `timeout: 60_000` | `test.setTimeout(120_000)` |
+| Expect 断言超时 | `5_000 ms` | 每个自动重试断言的最大等待时间 | `expect: { timeout: 10_000 }` | `expect(locator).toBeVisible({ timeout: 10_000 })` |
+
+## 测试超时
+
+Playwright Test 会对每个测试施加超时限制，默认是 30 秒。这个时间包含测试函数本身、fixture 的 setup 阶段，以及 `beforeEach` 钩子的执行时间。
+
+当测试超过限制时，通常会看到类似下面的错误：
+
+```text
+example.spec.ts:3:1 › basic test ===========================
+
+Timeout of 30000ms exceeded.
+```
+
+测试函数结束之后，fixture 的 teardown 阶段和 `afterEach` 钩子会使用一段独立的超时时间，默认值与测试超时相同。
+
+`beforeAll` 和 `afterAll` 钩子也会使用相同的超时值，不过它们不会与某个具体测试共享执行时间。
+
+### 在配置文件中设置测试超时
+
+可以在 `playwright.config.ts` 中为整个测试项目设置默认测试超时：
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  timeout: 120_000,
+});
+```
+
+对应 API：`testConfig.timeout`。
+
+### 为单个测试设置超时
+
+如果某个测试确实比较慢，可以在测试内部单独设置超时：
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+
+test('slow test', async ({ page }) => {
+  test.slow(); // 简单地把默认超时扩展为 3 倍
+  // ...
+});
+
+test('very slow test', async ({ page }) => {
+  test.setTimeout(120_000);
+  // ...
+});
+```
+
+对应 API：`test.setTimeout()` 与 `test.slow()`。
+
+### 在 `beforeEach` 钩子中修改超时
+
+你可以通过 `testInfo.setTimeout()` 在 `beforeEach` 中动态修改当前测试的超时时间。
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+
+test.beforeEach(async ({ page }, testInfo) => {
+  // 将运行此钩子的所有测试的超时时间增加 30 秒。
+  testInfo.setTimeout(testInfo.timeout + 30_000);
+});
+```
+
+对应 API：`testInfo.setTimeout()`。
+
+### 修改 `beforeAll` / `afterAll` 钩子的超时
+
+`beforeAll` 和 `afterAll` 钩子拥有独立的超时，默认与测试超时相同。可以在钩子内部调用 `test.setTimeout()` 或通过 `testInfo.setTimeout()` 调整它。
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+
+test.beforeAll(async () => {
+  // 设置当前钩子的超时。
+  test.setTimeout(60_000);
+});
+```
+
+对应 API：`testInfo.setTimeout()`。
+
+## Expect 断言超时
+
+类似 `expect(locator).toHaveText()` 这样的自动重试断言，有自己独立的超时，默认是 5 秒。断言超时与测试超时不是同一个概念。
+
+断言超时时，可能会看到类似下面的错误：
+
+```text
+example.spec.ts:3:1 › basic test ===========================
+
+Error: expect(received).toHaveText(expected)
+
+Expected string: "my text"
+Received string: ""
+Call log:
+  - expect.toHaveText with timeout 5000ms
+  - waiting for "locator('button')"
+```
+
+### 在配置文件中设置 expect 超时
+
+可以通过 `expect.timeout` 为所有断言设置默认超时时间：
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  expect: {
+    timeout: 10_000,
+  },
+});
+```
+
+对应 API：`testConfig.expect`。
+
+### 为单个断言指定超时
+
+也可以直接给某个断言传入 `timeout` 参数：
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+
+test('example', async ({ page }) => {
+  await expect(locator).toHaveText('hello', { timeout: 10_000 });
+});
+```
+
+## 全局超时
+
+Playwright Test 支持为整个测试运行过程设置全局超时。它主要用于防止在整体流程异常时持续消耗资源。
+
+全局超时默认没有开启。你可以根据 CI 的实际情况设置一个合理值，例如 1 小时。
+
+全局超时触发时，可能会看到类似下面的输出：
+
+```text
+Running 1000 tests using 10 workers
+
+  514 skipped
+  486 passed
+  Timed out waiting 3600s for the entire test run
+```
+
+在配置文件中设置全局超时：
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  globalTimeout: 3_600_000,
+});
+```
+
+对应 API：`testConfig.globalTimeout`。
+
+## 高级：底层超时
+
+下面这些是测试运行器预先配置的较底层超时。一般情况下不需要修改它们。
+
+:::caution
+如果你是因为测试不稳定才来到这里，通常应该优先排查测试本身、页面等待条件、数据隔离、网络依赖或应用状态问题，而不是直接增加底层超时。
+:::
+
+| 超时类型 | 默认值 | 说明 | 配置方式 | 单独覆盖方式 |
+|---|---:|---|---|---|
+| 动作超时 | 无默认超时 | 每个动作的超时，例如点击、填写等 | `use: { actionTimeout: 10_000 }` | `locator.click({ timeout: 10_000 })` |
+| 导航超时 | 无默认超时 | 每次导航动作的超时 | `use: { navigationTimeout: 30_000 }` | `page.goto('/', { timeout: 30_000 })` |
+| 全局超时 | 无默认超时 | 整个测试运行过程的超时 | `globalTimeout: 3_600_000` | 无 |
+| `beforeAll` / `afterAll` 超时 | `30_000 ms` | 钩子的超时 | 在钩子中设置 | `test.setTimeout(60_000)` |
+| Fixture 超时 | 无默认超时 | 单个 fixture 的超时 | 在 fixture 配置中设置 | `{ scope: 'test', timeout: 30_000 }` |
+
+### 在配置文件中设置动作和导航超时
+
+可以在 `use` 选项中设置动作超时和导航超时：
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    actionTimeout: 10 * 1000,
+    navigationTimeout: 30 * 1000,
+  },
+});
+```
+
+对应 API：`testOptions.actionTimeout` 与 `testOptions.navigationTimeout`。
+
+### 为单个动作设置超时
+
+可以在调用具体动作时传入 `timeout` 参数：
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+
+test('basic test', async ({ page }) => {
+  await page.goto('https://playwright.dev', { timeout: 30_000 });
+  await page.getByText('Get Started').click({ timeout: 10_000 });
+});
+```
+
+## Fixture 超时
+
+默认情况下，fixture 会与测试共享超时时间。不过对于比较慢的 fixture，尤其是 worker 级别的 fixture，为它设置独立超时会更方便。
+
+这样可以让整体测试超时保持较小，同时给慢 fixture 留出更充足的初始化时间。
+
+```ts title="example.spec.ts"
+import { test as base, expect } from '@playwright/test';
+
+const test = base.extend<{ slowFixture: string }>({
+  slowFixture: [async ({}, use) => {
+    // ... 执行较慢的操作 ...
+    await use('hello');
+  }, { timeout: 60_000 }],
+});
+
+test('example test', async ({ slowFixture }) => {
+  // ...
+});
+```
+
+对应 API：`test.extend()`。
+
+## 使用建议
+
+- 优先区分“测试超时”和“断言超时”：测试超时控制整个测试，断言超时只控制单个自动重试断言。
+- 不要简单地把所有超时都调得很大。超时过长会掩盖真正的问题，并拖慢 CI 反馈。
+- 对确实慢的测试或 fixture，优先做局部配置，而不是全局放宽限制。
+- 如果测试经常因为等待元素失败，应优先检查定位器、页面状态、网络响应和测试数据，而不是只增加动作超时。

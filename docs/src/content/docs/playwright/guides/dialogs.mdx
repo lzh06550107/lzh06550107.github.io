@@ -1,0 +1,66 @@
+---
+title: "对话框"
+description: "介绍如何处理 alert、confirm、prompt 和 beforeunload。"
+sidebar:
+  label: "对话框"
+  order: 14
+---
+
+## 介绍
+
+Playwright 可以与网页对话框交互，例如 `alert`、`confirm`、`prompt`，以及 `beforeunload` 确认对话框。关于打印对话框，请参见下方的「打印对话框」。
+
+## `alert()`、`confirm()`、`prompt()` 对话框
+
+默认情况下，Playwright 会自动关闭对话框，因此你不必手动处理它们。不过，你可以在触发对话框的操作之前注册一个对话框处理器，用它来 `accept()` 或 `dismiss()` 该对话框。
+
+```js
+page.on('dialog', dialog => dialog.accept());
+await page.getByRole('button').click();
+```
+
+:::note
+`page.on('dialog')` 监听器必须处理该对话框。否则，你的操作会停住，无论是 `locator.click()` 还是其他操作都会如此。这是因为 Web 中的对话框是模态的，在被处理之前会阻塞页面继续执行。
+:::
+
+因此，下面的代码片段永远不会完成：
+
+:::caution[错误]
+```js
+page.on('dialog', dialog => console.log(dialog.message()));
+await page.getByRole('button').click(); // 会卡在这里
+```
+:::
+
+:::note
+如果没有为 `page.on('dialog')` 注册监听器，所有对话框都会被自动关闭。
+:::
+
+## `beforeunload` 对话框
+
+当调用 `page.close()` 并传入 truthy 的 `runBeforeUnload` 值时，页面会运行它的 unload 处理程序。这是 `page.close()` 不等待页面真正关闭的唯一情况，因为操作结束时页面最终可能仍然保持打开状态。
+
+你可以注册一个对话框处理器，自己处理 `beforeunload` 对话框：
+
+```js
+page.on('dialog', async dialog => {
+  assert(dialog.type() === 'beforeunload');
+  await dialog.dismiss();
+});
+await page.close({ runBeforeUnload: true });
+```
+
+## 打印对话框
+
+为了断言通过 `window.print` 触发了打印对话框，可以使用下面的代码片段：
+
+```js
+await page.goto('<url>');
+
+await page.evaluate('(() => {window.waitForPrintDialog = new Promise(f => window.print = f);})()');
+await page.getByText('Print it!').click();
+
+await page.waitForFunction('window.waitForPrintDialog');
+```
+
+这会在按钮被点击后等待打印对话框打开。请确保在点击按钮之前、页面加载之后执行该脚本。

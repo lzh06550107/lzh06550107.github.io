@@ -1,0 +1,153 @@
+---
+title: 运行与调试测试
+description: 学习如何在 Playwright 中运行测试、调试测试以及查看测试报告。
+---
+
+## 简介
+
+使用 Playwright，你可以运行单个测试、一组测试，或者全部测试。你可以使用 `--project` 标志在一个浏览器或多个浏览器上运行测试。测试默认并行运行，并且以无头模式运行，这意味着在运行测试时不会打开浏览器窗口，结果会显示在终端中。你可以使用 `--headed` CLI 参数以有头模式运行测试，或者使用 `--ui` 标志在 UI 模式下运行测试，以查看测试的完整跟踪。
+
+你将学习
+
+- 如何从命令行运行测试
+- 如何调试测试
+- 如何打开 HTML 测试报告器
+
+## 运行测试
+
+### 命令行
+
+你可以使用 `playwright test` 命令运行测试。该命令会按照 `playwright.config` 文件中的配置，在所有浏览器上运行你的测试，结果会显示在终端中。测试默认以无头模式运行，这意味着在运行测试时不会打开浏览器窗口。
+
+```bash
+npx playwright test
+```
+
+### 在 UI 模式下运行测试
+
+我们强烈建议你使用 UI 模式运行测试，以获得更好的开发体验。在该模式下，你可以轻松逐步查看测试的每一步，并以可视化方式看到每一步之前、期间以及之后发生了什么。UI 模式还带有许多其他功能，例如定位器选择器、监视模式等。
+
+```bash
+npx playwright test --ui
+```
+
+查看我们的 UI Mode 详细指南，了解其更多功能。
+
+### 以有头模式运行测试
+
+要以有头模式运行测试，请使用 `--headed` 标志。这样你就可以直观地看到 Playwright 如何与网站交互。
+
+```bash
+npx playwright test --headed
+```
+
+### 在不同浏览器上运行测试
+
+要指定你希望在哪个浏览器上运行测试，请使用 `--project` 标志，后面跟浏览器名称。
+
+```bash
+npx playwright test --project webkit
+```
+
+要指定在多个浏览器上运行测试，请多次使用 `--project` 标志，并在每次后面跟上对应的浏览器名称。
+
+```bash
+npx playwright test --project webkit --project firefox
+```
+
+### 运行特定测试
+
+要运行单个测试文件，请传入你想运行的测试文件名。
+
+```bash
+npx playwright test landing-page.spec.ts
+```
+
+要从不同目录运行一组测试文件，请传入你想运行这些测试的目录名称。
+
+```bash
+npx playwright test tests/todo-page/ tests/landing-page/
+```
+
+要运行文件名中包含 `landing` 或 `login` 的文件，只需把这些关键字传给 CLI。
+
+```bash
+npx playwright test landing login
+```
+
+要运行具有特定标题的测试，请使用 `-g` 标志，后面跟测试标题。
+
+```bash
+npx playwright test -g "add a todo item"
+```
+
+### 运行上次失败的测试
+
+要只运行上一次测试运行中失败的测试，请先运行你的测试，然后再次使用 `--last-failed` 标志运行。
+
+```bash
+npx playwright test --last-failed
+```
+
+### 在 VS Code 中运行测试
+
+可以直接在 VS Code 中使用 VS Code 扩展来运行测试。安装后，你只需点击目标测试旁边的绿色三角形，或从测试侧边栏运行全部测试。更多细节请查看我们的《开始使用 VS Code》指南。
+
+## 调试测试
+
+由于 Playwright 运行在 Node.js 中，因此你可以使用自己选择的调试器来调试它，例如使用 `console.log`、在你的 IDE 中调试，或者直接在带有 VS Code 扩展的 VS Code 中调试。Playwright 提供了 UI 模式，你可以轻松逐步查看测试的每一步、查看日志、错误、网络请求、检查 DOM 快照等。你也可以使用 Playwright Inspector，它允许你逐步执行 Playwright API 调用、查看其调试日志并探索定位器。
+
+### 在 UI 模式下调试测试
+
+我们强烈建议你使用 UI 模式调试测试，以获得更好的开发体验。在该模式下，你可以轻松逐步查看测试的每一步，并以可视化方式看到每一步之前、期间以及之后发生了什么。UI 模式还带有许多其他功能，例如定位器选择器、监视模式等。
+
+```bash
+npx playwright test --ui
+```
+
+在调试时，你可以使用 Pick Locator 按钮在页面上选择一个元素，并查看 Playwright 将使用什么定位器来查找该元素。你也可以在定位器游乐场中编辑定位器，并实时看到它在浏览器窗口中高亮显示。使用 Copy Locator 按钮可以将定位器复制到剪贴板，然后粘贴到你的测试中。
+
+查看我们的 UI Mode 详细指南，了解其更多功能。
+
+### 使用 Playwright Inspector 调试测试
+
+要调试全部测试，请运行 Playwright 测试命令，并加上 `--debug` 标志。
+
+```bash
+npx playwright test --debug
+```
+
+该命令会打开一个浏览器窗口以及 Playwright Inspector。你可以使用 Inspector 顶部的单步跳过按钮逐步执行测试。或者，按下播放按钮让测试从头到尾运行。测试完成后，浏览器窗口会关闭。
+
+要调试一个测试文件，请运行 Playwright 测试命令，后面加上你想调试的测试文件名，再加上 `--debug` 标志。
+
+```bash
+npx playwright test example.spec.ts --debug
+```
+
+要从定义 `test(..` 的那一行开始调试某个特定测试，请在测试文件名末尾加上冒号和行号，然后再加上 `--debug` 标志。
+
+```bash
+npx playwright test example.spec.ts:10 --debug
+```
+
+在调试时，你可以使用 Pick Locator 按钮在页面上选择一个元素，并查看 Playwright 将使用什么定位器来查找该元素。你也可以编辑该定位器，并实时看到它在浏览器窗口中高亮显示。使用 Copy Locator 按钮可以将定位器复制到剪贴板，然后粘贴到你的测试中。
+
+查看我们的调试指南，进一步了解如何使用 VS Code 调试器、UI 模式和 Playwright Inspector 进行调试，以及如何结合浏览器开发者工具进行调试。
+
+## 测试报告
+
+HTML Reporter 会向你显示完整的测试报告，你可以按浏览器、通过的测试、失败的测试、跳过的测试以及不稳定的测试对报告进行筛选。默认情况下，如果有测试失败，HTML 报告会自动打开；否则，你也可以使用以下命令手动打开它。
+
+```bash
+npx playwright show-report
+```
+
+你可以筛选和搜索测试，也可以点击每个测试来查看测试错误，并探索测试的每一步。
+
+## 接下来做什么
+
+- 使用 Codegen 生成测试
+- 查看测试跟踪
+- 探索 UI Mode 的全部功能
+- 使用 GitHub Actions 在 CI 中运行你的测试

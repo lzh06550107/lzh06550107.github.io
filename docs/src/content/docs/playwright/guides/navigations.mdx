@@ -1,0 +1,77 @@
+---
+title: "导航"
+description: "介绍页面导航、等待 URL、加载状态和导航事件。"
+sidebar:
+  label: "导航"
+  order: 25
+---
+
+## 简介
+
+Playwright 可以导航到 URL，并处理由页面交互引发的导航。
+
+## 基本导航
+
+最简单的导航形式是打开一个 URL：
+
+```js
+// 导航页面
+await page.goto('https://example.com');
+```
+
+上面的代码会加载页面，并等待网页触发 [`load`](https://developer.mozilla.org/docs/Web/API/Window/load_event) 事件。`load` 事件会在整个页面加载完成时触发，包括所有依赖资源，例如样式表、脚本、iframe 和图片。
+
+:::note
+如果页面在 `load` 之前执行客户端重定向，[`page.goto()`](https://playwright.dev/docs/api/class-page#page-goto) 将等待重定向后的页面触发 `load` 事件。
+:::
+
+## 页面什么时候算加载完成？
+
+现代页面会在 `load` 事件触发后执行大量活动。它们会惰性获取数据、填充 UI、在 `load` 事件触发后加载昂贵的资源、脚本和样式。没有办法判断页面已经“加载完成”，这取决于页面、框架等。那么你什么时候可以开始与它交互呢？
+
+在 Playwright 中，你可以随时与页面交互。它会自动等待目标元素变为[可操作](https://playwright.dev/docs/actionability)。
+
+```js
+// 导航并点击元素
+// 点击会自动等待该元素
+await page.goto('https://example.com');
+await page.getByText('Example Domain').click();
+```
+
+对于上面的场景，Playwright 会等待文本变为可见，等待该元素通过其余的可操作性检查，然后点击它。
+
+Playwright 的行为就像一个非常快的用户——它一看到按钮，就会点击它。通常情况下，你不需要担心所有资源是否都已经加载完成等问题。
+
+## 水合
+
+在某个时候，你会遇到一种用例：Playwright 执行了某个操作，但看起来什么都没有发生。或者你在输入框中输入了一些文本，然后它消失了。其背后最可能的原因是页面[水合](https://en.wikipedia.org/wiki/Hydration_(web_development))不佳。
+
+当页面进行水合时，首先，页面的静态版本会被发送到浏览器。然后动态部分会被发送过来，页面变为“实时”状态。作为一个非常快的用户，Playwright 一看到页面就会开始与其交互。如果页面上的按钮已启用，但监听器尚未添加，Playwright 会完成它的工作，但点击不会产生任何效果。
+
+验证你的页面是否存在水合不佳问题的一个简单方法是：打开 Chrome DevTools，在 Network 面板中选择 “Slow 3G” 网络模拟，然后重新加载页面。一旦看到你感兴趣的元素，就与它交互。你会看到按钮点击会被忽略，输入的文本会被后续的页面加载代码重置。解决此问题的正确方法是确保所有交互式控件在水合完成之前都处于禁用状态；只有在页面完全可用后，才启用它们。
+
+## 等待导航
+
+点击某个元素可能会触发多次导航。在这些情况下，建议显式地使用 [`page.waitForURL()`](https://playwright.dev/docs/api/class-page#page-wait-for-url) 等待特定 URL。
+
+```js
+await page.getByText('Click me').click();
+await page.waitForURL('**/login');
+```
+
+## 导航事件
+
+Playwright 将在页面中显示新文档的过程拆分为导航和加载。
+
+导航从更改页面 URL 或与页面交互开始，例如点击链接。导航意图可能会被取消，例如访问无法解析的 DNS 地址时；也可能会被转换为文件下载。
+
+当响应头已经被解析并且会话历史记录已经更新时，导航即被提交。只有在导航成功（已提交）之后，页面才会开始加载文档。
+
+加载包括通过网络获取剩余响应体、解析、执行脚本以及触发加载事件：
+
+- [`page.url()`](https://playwright.dev/docs/api/class-page#page-url) 被设置为新的 URL
+- 文档内容通过网络加载并被解析
+- [`page.on('domcontentloaded')`](https://playwright.dev/docs/api/class-page#page-event-dom-content-loaded) 事件被触发
+- 页面执行一些脚本，并加载样式表和图片等资源
+- [`page.on('load')`](https://playwright.dev/docs/api/class-page#page-event-load) 事件被触发
+- 页面执行动态加载的脚本

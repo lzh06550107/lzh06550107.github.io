@@ -1,0 +1,169 @@
+---
+title: "时钟"
+description: "介绍如何控制页面时间、模拟 Date、计时器和系统时间。"
+sidebar:
+  label: "时钟"
+  order: 11
+---
+
+## 简介
+
+准确模拟依赖时间的行为，对于验证应用程序的正确性非常重要。使用 `Clock` 功能可以让开发者在测试中操纵和控制时间，从而精确验证渲染时间、超时、定时任务等功能，而不必受到真实时间执行所带来的等待和不稳定性的影响。
+
+`Clock` API 提供以下方法来控制时间：
+
+- `setFixedTime`：为 `Date.now()` 和 `new Date()` 设置固定时间。
+- `install`：初始化时钟，并允许你使用：
+  - `pauseAt`：在指定时间暂停时间。
+  - `fastForward`：快进时间。
+  - `runFor`：让时间运行指定时长。
+  - `resume`：恢复时间。
+- `setSystemTime`：设置当前系统时间。
+
+推荐的做法是使用 `setFixedTime` 将时间设置为某个特定值。如果这不能满足你的使用场景，可以使用 `install`，它允许你稍后暂停时间、快进时间、推进时间等。`setSystemTime` 只建议用于高级用例。
+
+:::note
+`page.clock` 会覆盖与时间相关的原生全局类和函数，使它们可以被手动控制：
+
+- `Date`
+- `setTimeout`
+- `clearTimeout`
+- `setInterval`
+- `clearInterval`
+- `requestAnimationFrame`
+- `cancelAnimationFrame`
+- `requestIdleCallback`
+- `cancelIdleCallback`
+- `performance`
+- `Event.timeStamp`
+:::
+
+:::caution
+如果你在测试中的任何位置调用 `install`，这个调用 **必须** 发生在任何其他与时钟相关的调用之前（相关列表见上方说明）。如果这些方法调用顺序不正确，将导致未定义行为。例如，不能先调用 `setInterval`，然后调用 `install`，再调用 `clearInterval`，因为 `install` 会覆盖时钟函数的原生定义。
+:::
+
+## 使用预定义时间进行测试
+
+通常，你只需要伪造 `Date.now`，同时让计时器继续运行。这样时间会自然流动，但 `Date.now` 始终返回一个固定值。
+
+```html
+<div id="current-time" data-testid="current-time"></div>
+<script>
+  const renderTime = () => {
+    document.getElementById('current-time').textContent =
+        new Date().toLocaleString();
+  };
+  setInterval(renderTime, 1000);
+</script>
+```
+
+```ts
+await page.clock.setFixedTime(new Date('2024-02-02T10:00:00'));
+await page.goto('http://localhost:3333');
+await expect(page.getByTestId('current-time')).toHaveText('2/2/2024, 10:00:00 AM');
+
+await page.clock.setFixedTime(new Date('2024-02-02T10:30:00'));
+// 我们知道页面中有一个每秒更新时间的计时器。
+await expect(page.getByTestId('current-time')).toHaveText('2/2/2024, 10:30:00 AM');
+```
+
+## 一致的时间和计时器
+
+有时你的计时器依赖 `Date.now`，当 `Date.now` 的值不会随时间变化时，它们可能会出现混乱。在这种情况下，可以安装时钟，并在测试时快进到你关心的时间点。
+
+```html
+<div id="current-time" data-testid="current-time"></div>
+<script>
+  const renderTime = () => {
+    document.getElementById('current-time').textContent =
+        new Date().toLocaleString();
+  };
+  setInterval(renderTime, 1000);
+</script>
+```
+
+```ts
+// 使用测试时间之前的某个时间初始化时钟，并让页面自然加载。
+// `Date.now` 会随着计时器触发而推进。
+await page.clock.install({ time: new Date('2024-02-02T08:00:00') });
+await page.goto('http://localhost:3333');
+
+// 假装用户合上了笔记本电脑盖子，并在上午 10 点重新打开，
+// 到达该时间点后暂停时间。
+await page.clock.pauseAt(new Date('2024-02-02T10:00:00'));
+// 断言页面状态。
+await expect(page.getByTestId('current-time')).toHaveText('2/2/2024, 10:00:00 AM');
+
+// 再次合上笔记本电脑盖子，并在上午 10:30 打开。
+await page.clock.fastForward('30:00');
+await expect(page.getByTestId('current-time')).toHaveText('2/2/2024, 10:30:00 AM');
+```
+
+## 测试非活动状态监控
+
+非活动状态监控是 Web 应用中的常见功能：当用户一段时间没有操作后，自动将用户登出。测试这个功能可能比较麻烦，因为你需要等待很长时间才能看到效果。借助时钟，你可以加速时间，从而快速测试这个功能。
+
+```html
+<div id="remaining-time" data-testid="remaining-time"></div>
+<script>
+  const endTime = Date.now() + 5 * 60_000;
+  const renderTime = () => {
+    const diffInSeconds = Math.round((endTime - Date.now()) / 1000);
+    if (diffInSeconds <= 0) {
+      document.getElementById('remaining-time').textContent =
+        'You have been logged out due to inactivity.';
+    } else {
+      document.getElementById('remaining-time').textContent =
+        `You will be logged out in ${diffInSeconds} seconds.`;
+    }
+    setTimeout(renderTime, 1000);
+  };
+  renderTime();
+</script>
+<button type="button">Interaction</button>
+```
+
+```ts
+// 初始时间对测试并不重要，因此可以选择当前时间。
+await page.clock.install();
+await page.goto('http://localhost:3333');
+// 与页面交互。
+await page.getByRole('button').click();
+// 快进 5 分钟，模拟用户没有任何操作。
+// 快进类似于合上笔记本电脑盖子，并在 5 分钟后重新打开。
+// 所有到期的计时器都会像真实浏览器中一样立即触发一次。
+await page.clock.fastForward('05:00');
+
+// 检查用户是否已被自动登出。
+await expect(page.getByText('You have been logged out due to inactivity.')).toBeVisible();
+```
+
+## 手动推进时间，并一致地触发所有计时器
+
+在少数情况下，你可能希望手动推进时间，并在这个过程中触发所有计时器和动画帧，以便对时间流逝进行更细粒度的控制。
+
+```html
+<div id="current-time" data-testid="current-time"></div>
+<script>
+  const renderTime = () => {
+    document.getElementById('current-time').textContent =
+        new Date().toLocaleString();
+  };
+  setInterval(renderTime, 1000);
+</script>
+```
+
+```ts
+// 使用特定时间初始化时钟，让页面自然加载。
+await page.clock.install({ time: new Date('2024-02-02T08:00:00') });
+await page.goto('http://localhost:3333');
+// 暂停时间流动，停止计时器；现在你可以手动控制页面时间。
+await page.clock.pauseAt(new Date('2024-02-02T10:00:00'));
+await expect(page.getByTestId('current-time')).toHaveText('2/2/2024, 10:00:00 AM');
+// 手动推进时间，并在此过程中触发所有计时器。
+// 在这个例子中，屏幕上的时间会更新 2 次。
+await page.clock.runFor(2000);
+await expect(page.getByTestId('current-time')).toHaveText('2/2/2024, 10:00:02 AM');
+```
+
+## 相关视频

@@ -1,0 +1,126 @@
+---
+title: "自动等待"
+description: "介绍 Playwright 在执行操作前进行的可见性、稳定性、可接收事件等检查。"
+sidebar:
+  label: "自动等待"
+  order: 7
+---
+
+## 简介
+
+Playwright 在执行点击、填写、勾选等操作前，会先对目标元素进行一组“可操作性”检查，确保操作能按预期发生。它会自动等待相关检查通过，然后再执行请求的操作；如果在指定 `timeout` 内仍然无法通过，操作会以 `TimeoutError` 失败。
+
+以 `locator.click()` 为例，Playwright 会确认：
+
+- locator 只解析到一个元素。
+- 元素是可见的。
+- 元素处于稳定状态，也就是没有正在动画中，或动画已经结束。
+- 元素可以接收事件，也就是没有被其他元素遮挡。
+- 元素是启用状态。
+
+下面是各个操作会执行的可操作性检查：
+
+| 操作 | Visible | Stable | Receives Events | Enabled | Editable |
+|---|---:|---:|---:|---:|---:|
+| `locator.check()` | 是 | 是 | 是 | 是 | - |
+| `locator.click()` | 是 | 是 | 是 | 是 | - |
+| `locator.dblclick()` | 是 | 是 | 是 | 是 | - |
+| `locator.setChecked()` | 是 | 是 | 是 | 是 | - |
+| `locator.tap()` | 是 | 是 | 是 | 是 | - |
+| `locator.uncheck()` | 是 | 是 | 是 | 是 | - |
+| `locator.hover()` | 是 | 是 | 是 | - | - |
+| `locator.dragTo()` | 是 | 是 | 是 | - | - |
+| `locator.screenshot()` | 是 | 是 | - | - | - |
+| `locator.fill()` | 是 | - | - | 是 | 是 |
+| `locator.clear()` | 是 | - | - | 是 | 是 |
+| `locator.selectOption()` | 是 | - | - | 是 | - |
+| `locator.selectText()` | 是 | - | - | - | - |
+| `locator.scrollIntoViewIfNeeded()` | - | 是 | - | - | - |
+| `locator.blur()` | - | - | - | - | - |
+| `locator.dispatchEvent()` | - | - | - | - | - |
+| `locator.focus()` | - | - | - | - | - |
+| `locator.press()` | - | - | - | - | - |
+| `locator.pressSequentially()` | - | - | - | - | - |
+| `locator.setInputFiles()` | - | - | - | - | - |
+
+## 强制执行操作
+
+某些操作（例如 `locator.click()`）支持 `force` 选项。启用后，Playwright 会跳过部分非必要的可操作性检查。
+
+例如，对 `locator.click()` 传入 truthy 的 `force` 值时，Playwright 不会检查目标元素是否真的能接收点击事件。
+
+## 断言
+
+Playwright 包含可自动重试的断言。它们会像操作前的自动等待一样，等待条件满足，从而减少测试中的不稳定情况。
+
+| 断言 | 说明 |
+|---|---|
+| `expect(locator).toBeAttached()` | 元素已附加到 DOM |
+| `expect(locator).toBeChecked()` | 复选框已被选中 |
+| `expect(locator).toBeDisabled()` | 元素处于禁用状态 |
+| `expect(locator).toBeEditable()` | 元素可编辑 |
+| `expect(locator).toBeEmpty()` | 容器为空 |
+| `expect(locator).toBeEnabled()` | 元素处于启用状态 |
+| `expect(locator).toBeFocused()` | 元素获得焦点 |
+| `expect(locator).toBeHidden()` | 元素不可见 |
+| `expect(locator).toBeInViewport()` | 元素与视口相交 |
+| `expect(locator).toBeVisible()` | 元素可见 |
+| `expect(locator).toContainText()` | 元素包含指定文本 |
+| `expect(locator).toHaveAttribute()` | 元素拥有 DOM 属性 |
+| `expect(locator).toHaveClass()` | 元素拥有 class 属性 |
+| `expect(locator).toHaveCount()` | 列表包含精确数量的子元素 |
+| `expect(locator).toHaveCSS()` | 元素拥有指定 CSS 属性 |
+| `expect(locator).toHaveId()` | 元素拥有 ID |
+| `expect(locator).toHaveJSProperty()` | 元素拥有 JavaScript 属性 |
+| `expect(locator).toHaveText()` | 元素文本匹配 |
+| `expect(locator).toHaveValue()` | 输入框拥有指定值 |
+| `expect(locator).toHaveValues()` | `select` 选中了指定选项 |
+| `expect(page).toHaveTitle()` | 页面拥有指定标题 |
+| `expect(page).toHaveURL()` | 页面拥有指定 URL |
+| `expect(response).toBeOK()` | 响应状态为 OK |
+
+更多内容可以查看 Playwright 的断言指南。
+
+## Visible
+
+当元素拥有非空的边界框，并且计算后的样式不是 `visibility: hidden` 时，它会被认为是可见的。
+
+根据这个定义：
+
+- 尺寸为零的元素不会被视为可见。
+- 设置了 `display: none` 的元素不会被视为可见。
+- 设置了 `opacity: 0` 的元素仍会被视为可见。
+
+## Stable
+
+当元素在至少连续两个动画帧中保持相同的边界框时，它会被认为是稳定的。
+
+## Enabled
+
+当元素没有被禁用时，它会被认为是启用的。
+
+元素会在以下情况下被认为是禁用的：
+
+- `<button>`、`<select>`、`<input>`、`<textarea>`、`<option>` 或 `<optgroup>` 带有 `[disabled]` 属性。
+- `<button>`、`<select>`、`<input>`、`<textarea>`、`<option>` 或 `<optgroup>` 属于一个带有 `[disabled]` 属性的 `<fieldset>`。
+- 元素是带有 `[aria-disabled=true]` 属性的元素的后代。
+
+## Editable
+
+当元素处于启用状态，并且不是只读时，它会被认为是可编辑的。
+
+元素会在以下情况下被认为是只读的：
+
+- `<select>`、`<input>` 或 `<textarea>` 带有 `[readonly]` 属性。
+- 元素带有 `[aria-readonly=true]` 属性，并且它的 ARIA role 支持该属性。
+
+## Receives Events
+
+当元素是操作点处指针事件的命中目标时，它会被认为可以接收指针事件。
+
+例如，点击坐标 `(10, 10)` 时，Playwright 会检查是否有其他元素（通常是覆盖层）会在这个坐标捕获点击，而不是目标元素接收点击。
+
+考虑下面的场景：无论 `locator.click()` 在什么时候调用，Playwright 都会点击 `Sign Up` 按钮：
+
+- 页面正在检查用户名是否唯一，此时 `Sign Up` 按钮是禁用的。
+- 服务端检查完成后，禁用按钮被替换为另一个已经启用的按钮。

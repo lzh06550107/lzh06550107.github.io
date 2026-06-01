@@ -1,0 +1,782 @@
+---
+title: 夹具
+description: Playwright Test 夹具
+sidebar:
+  order: 7
+---
+
+## 介绍
+
+Playwright Test 基于测试 fixture 的概念。测试 fixture 用于为每个测试建立环境，让测试只获得它需要的一切，而不会获得多余的内容。fixture 在测试之间是隔离的。借助 fixture，你可以按照测试的语义来组织测试，而不是按照它们共同的 setup 方式来组织。
+
+### 内置 fixtures
+
+你已经在第一个测试中使用过测试 fixture 了。
+
+```ts
+import { test, expect } from '@playwright/test';
+
+test('basic test', async ({ page }) => {
+  await page.goto('https://playwright.dev/');
+
+  await expect(page).toHaveTitle(/Playwright/);
+});
+```
+
+`{ page }` 参数告诉 Playwright Test：设置 `page` fixture，并将其提供给你的测试函数。
+
+以下是你最常使用的预定义 fixture 列表：
+
+| Fixture | 类型 | 说明 |
+|---|---|---|
+| `page` | `Page` | 本次测试运行使用的隔离页面。 |
+| `context` | `BrowserContext` | 本次测试运行使用的隔离 context。`page` fixture 也属于这个 context。 |
+| `browser` | `Browser` | 浏览器会在测试之间共享，以优化资源使用。 |
+| `browserName` | `string` | 当前运行测试的浏览器名称。值为 `chromium`、`firefox` 或 `webkit`。 |
+| `request` | `APIRequestContext` | 本次测试运行使用的隔离 `APIRequestContext` 实例。 |
+
+### 不使用 fixtures
+
+下面展示了传统测试风格与基于 fixture 的测试风格在典型测试环境 setup 方面的差异。
+
+`TodoPage` 是一个帮助我们与 Web 应用中 “todo list” 页面交互的类，遵循 Page Object Model 模式。它在内部使用 Playwright 的 `page`。
+
+`todo-page.ts`
+
+```ts
+import type { Page, Locator } from '@playwright/test';
+export class TodoPage {
+  private readonly inputBox: Locator;
+  private readonly todoItems: Locator;
+
+  constructor(public readonly page: Page) {
+    this.inputBox = this.page.locator('input.new-todo');
+    this.todoItems = this.page.getByTestId('todo-item');
+  }
+
+  async goto() {
+    await this.page.goto('https://demo.playwright.dev/todomvc/');
+  }
+  async addToDo(text: string) {
+    await this.inputBox.fill(text);
+    await this.inputBox.press('Enter');
+  }
+
+  async remove(text: string) {
+    const todo = this.todoItems.filter({ hasText: text });
+    await todo.hover();
+    await todo.getByLabel('Delete').click();
+  }
+  async removeAll() {
+    while ((await this.todoItems.count()) > 0) {
+      await this.todoItems.first().hover();
+      await this.todoItems.getByLabel('Delete').first().click();
+    }
+  }
+}
+```
+
+`todo.spec.ts`
+
+```ts
+const { test } = require('@playwright/test');
+const { TodoPage } = require('./todo-page');
+
+test.describe('todo tests', () => {
+  let todoPage;
+  test.beforeEach(async ({ page }) => {
+    todoPage = new TodoPage(page);
+    await todoPage.goto();
+    await todoPage.addToDo('item1');
+    await todoPage.addToDo('item2');
+  });
+
+  test.afterEach(async () => {
+    await todoPage.removeAll();
+  });
+
+  test('should add an item', async () => {
+    await todoPage.addToDo('my item');
+    // ...
+  });
+  test('should remove an item', async () => {
+    await todoPage.remove('item1');
+    // ...
+  });
+});
+```
+
+### 使用 fixtures
+
+与 `before` / `after` hooks 相比，fixture 有很多优点：
+
+- fixture 将 setup 和 teardown 放在同一个地方，更容易编写。因此，如果你有一个 `after` hook 专门销毁 `before` hook 创建的内容，可以考虑将它们改造成 fixture。
+- fixture 可以在多个测试文件之间复用——你定义一次，就可以在所有测试中使用。这正是 Playwright 内置 `page` fixture 的工作方式。因此，如果你有一个在多个测试中使用的辅助函数，可以考虑将它改造成 fixture。
+- fixture 是按需的——你可以定义任意多的 fixture，而 Playwright Test 只会设置测试真正需要的那些，而不会做多余的事。
+- fixture 是可组合的——fixture 之间可以相互依赖，以提供复杂行为。
+- fixture 很灵活。测试可以使用任意组合的 fixture，以精确匹配它们自己的环境需求，而不会影响其他测试。
+- fixture 简化了分组。你不再需要把测试包在用于 setup 环境的 `describe` 中，而可以自由地按测试语义来分组。
+
+`todo-page.ts`
+
+```ts
+import type { Page, Locator } from '@playwright/test';
+
+export class TodoPage {
+  private readonly inputBox: Locator;
+  private readonly todoItems: Locator;
+
+  constructor(public readonly page: Page) {
+    this.inputBox = this.page.locator('input.new-todo');
+    this.todoItems = this.page.getByTestId('todo-item');
+  }
+  async goto() {
+    await this.page.goto('https://demo.playwright.dev/todomvc/');
+  }
+
+  async addToDo(text: string) {
+    await this.inputBox.fill(text);
+    await this.inputBox.press('Enter');
+  }
+
+  async remove(text: string) {
+    const todo = this.todoItems.filter({ hasText: text });
+    await todo.hover();
+    await todo.getByLabel('Delete').click();
+  }
+  async removeAll() {
+    while ((await this.todoItems.count()) > 0) {
+      await this.todoItems.first().hover();
+      await this.todoItems.getByLabel('Delete').first().click();
+    }
+  }
+}
+```
+
+`example.spec.ts`
+
+```ts
+import { test as base } from '@playwright/test';
+import { TodoPage } from './todo-page';
+
+// Extend basic test by providing a "todoPage" fixture.
+const test = base.extend<{ todoPage: TodoPage }>({
+  todoPage: async ({ page }, use) => {
+    const todoPage = new TodoPage(page);
+    await todoPage.goto();
+    await todoPage.addToDo('item1');
+    await todoPage.addToDo('item2');
+    await use(todoPage);
+    await todoPage.removeAll();
+  },
+});
+
+test('should add an item', async ({ todoPage }) => {
+  await todoPage.addToDo('my item');
+  // ...
+});
+
+test('should remove an item', async ({ todoPage }) => {
+  await todoPage.remove('item1');
+  // ...
+});
+```
+
+## 创建一个 fixture
+
+要创建你自己的 fixture，请使用 `test.extend()` 创建一个新的 `test` 对象，并把 fixture 包含进去。
+
+下面我们创建两个遵循 Page Object Model 模式的 fixture：`todoPage` 和 `settingsPage`。
+
+`todo-page.ts`
+
+```ts
+import type { Page, Locator } from '@playwright/test';
+
+export class TodoPage {
+  private readonly inputBox: Locator;
+  private readonly todoItems: Locator;
+  constructor(public readonly page: Page) {
+    this.inputBox = this.page.locator('input.new-todo');
+    this.todoItems = this.page.getByTestId('todo-item');
+  }
+
+  async goto() {
+    await this.page.goto('https://demo.playwright.dev/todomvc/');
+  }
+
+  async addToDo(text: string) {
+    await this.inputBox.fill(text);
+    await this.inputBox.press('Enter');
+  }
+  async remove(text: string) {
+    const todo = this.todoItems.filter({ hasText: text });
+    await todo.hover();
+    await todo.getByLabel('Delete').click();
+  }
+
+  async removeAll() {
+    while ((await this.todoItems.count()) > 0) {
+      await this.todoItems.first().hover();
+      await this.todoItems.getByLabel('Delete').first().click();
+    }
+  }
+}
+```
+
+`settings-page.ts`
+
+```ts
+import type { Page } from '@playwright/test';
+
+export class SettingsPage {
+  constructor(public readonly page: Page) {
+  }
+
+  async switchToDarkMode() {
+    // ...
+  }
+}
+```
+
+`my-test.ts`
+
+```ts
+import { test as base } from '@playwright/test';
+import { TodoPage } from './todo-page';
+import { SettingsPage } from './settings-page';
+
+// 声明 fixture 的类型。
+type MyFixtures = {
+  todoPage: TodoPage;
+  settingsPage: SettingsPage;
+};
+
+// 通过提供 "todoPage" 和 "settingsPage" 扩展基础 test。
+// 这个新的 "test" 可在多个测试文件中使用，每个文件都会获得这些 fixture。
+export const test = base.extend<MyFixtures>({
+  todoPage: async ({ page }, use) => {
+    // Set up the fixture.
+    const todoPage = new TodoPage(page);
+    await todoPage.goto();
+    await todoPage.addToDo('item1');
+    await todoPage.addToDo('item2');
+
+    // 在测试中使用 fixture 值。
+    await use(todoPage);
+
+    // 清理 fixture。
+    await todoPage.removeAll();
+  },
+
+  settingsPage: async ({ page }, use) => {
+    await use(new SettingsPage(page));
+  },
+});
+export { expect } from '@playwright/test';
+```
+
+:::note
+自定义 fixture 名称必须以字母或下划线开头，并且只能包含字母、数字和下划线。
+:::
+
+## 使用 fixture
+
+只需在测试函数参数中写出某个 fixture，测试运行器就会为你处理它。fixture 也可以在 hook 和其他 fixture 中使用。如果你使用 TypeScript，fixture 会具备类型安全。
+
+下面我们使用上面定义的 `todoPage` 和 `settingsPage` fixture。
+
+```ts
+import { test, expect } from './my-test';
+
+test.beforeEach(async ({ settingsPage }) => {
+  await settingsPage.switchToDarkMode();
+});
+test('basic test', async ({ todoPage, page }) => {
+  await todoPage.addToDo('something nice');
+  await expect(page.getByTestId('todo-title')).toContainText(['something nice']);
+});
+```
+
+## 覆盖 fixtures
+
+除了创建你自己的 fixture 之外，你还可以覆盖现有 fixture 以满足你的需求。下面这个例子通过自动导航到 `baseURL` 来覆盖 `page` fixture：
+
+```ts
+import { test as base } from '@playwright/test';
+
+export const test = base.extend({
+  page: async ({ baseURL, page }, use) => {
+    await page.goto(baseURL);
+    await use(page);
+  },
+});
+```
+
+注意，在这个例子中，`page` fixture 可以依赖其他内置 fixture，例如 `testOptions.baseURL`。现在我们既可以在配置文件中设置 `baseURL`，也可以在测试文件中使用 `test.use()` 本地设置它。
+
+`example.spec.ts`
+
+```ts
+test.use({ baseURL: 'https://playwright.dev' });
+```
+
+fixture 也可以被覆盖，从而让基础 fixture 被完全替换成别的东西。例如，我们可以覆盖 `testOptions.storageState` fixture，来提供我们自己的数据。
+
+```ts
+import { test as base } from '@playwright/test';
+
+export const test = base.extend({
+  storageState: async ({}, use) => {
+    const cookie = await getAuthCookie();
+    await use({ cookies: [cookie] });
+  },
+});
+```
+
+## Worker 作用域 fixtures
+
+Test-scoped fixture 会为每个测试创建一次。Worker-scoped fixture 会为每个 worker 进程创建一次。你可以传入 `{ scope: 'worker' }` 让 fixture 成为 worker-scoped。
+
+下面的例子展示了如何为每个 worker 进程创建一个唯一账号，并在页面 fixture 中使用该账号登录：
+
+```ts
+import { test as base, expect } from '@playwright/test';
+
+type Account = {
+  username: string;
+  password: string;
+};
+
+export const test = base.extend<{}, { account: Account }>({
+  account: [async ({ browser }, use) => {
+    const username = 'user' + workerInfo.workerIndex;
+    const password = 'verysecure';
+    // 创建账号，或从预分配池中取出一个账号。
+    await use({ username, password });
+  }, { scope: 'worker' }],
+
+  page: async ({ page, account }, use) => {
+    // 使用我们的账号登录。
+    const { username, password } = account;
+    await page.goto('/signin');
+    await page.getByLabel('User Name').fill(username);
+    await page.getByLabel('Password').fill(password);
+    await page.getByText('Sign in').click();
+    await expect(page.getByTestId('userinfo')).toHaveText(username);
+
+    // 在测试中使用已登录页面。
+    await use(page);
+  },
+});
+export { expect } from '@playwright/test';
+```
+
+## 自动 fixtures
+
+即使测试没有直接列出它们，自动 fixture 也会为每个测试/worker 进行 setup。要创建自动 fixture，请使用元组语法，并传入 `{ auto: true }`。
+
+下面的 fixture 会在测试失败时自动附加调试日志，这样我们之后可以在 reporter 中查看这些日志。注意它使用了 `TestInfo` 对象——该对象在每个测试/fixture 中都可用——以获取当前正在运行测试的元数据。
+
+`my-test.ts`
+
+```ts
+import debug from 'debug';
+import fs from 'fs';
+import { test as base } from '@playwright/test';
+
+export const test = base.extend<{ saveLogs: void }>({
+  saveLogs: [async ({}, use, testInfo) => {
+    // 在测试期间收集日志。
+    const logs = [];
+    debug.log = (...args) => logs.push(args.map(String).join(''));
+    debug.enable('myserver');
+
+    await use();
+
+    // 测试结束后，我们可以检查测试是通过还是失败。
+    if (testInfo.status !== testInfo.expectedStatus) {
+      // outputPath() API 保证文件名唯一。
+      const logFile = testInfo.outputPath('logs.txt');
+      await fs.promises.writeFile(logFile, logs.join('\n'), 'utf8');
+      testInfo.attachments.push({ name: 'logs', contentType: 'text/plain', path: logFile });
+    }
+  }, { auto: true }],
+});
+```
+
+## Fixture 超时
+
+有时 fixture 的 setup 可能很慢。你可以为 fixture 指定自己的超时时间，而不是受测试本身超时时间的限制。
+
+## Fixtures 选项
+
+Fixture 还可以作为配置选项来使用。
+
+`my-test.ts`
+
+```ts
+import { test as base } from '@playwright/test';
+import { TodoPage } from './todo-page';
+
+// 声明你的 options，以便对配置进行类型检查。
+export type MyOptions = {
+  defaultItem: string;
+};
+type MyFixtures = {
+  todoPage: TodoPage;
+};
+
+// 同时指定 option 和 fixture 的类型。
+export const test = base.extend<MyOptions & MyFixtures>({
+  // 定义一个 option，并提供默认值。
+  // 之后我们可以在配置中覆盖它。
+  defaultItem: ['Something nice', { option: true }],
+
+  // 我们的 "todoPage" fixture 依赖该 option。
+  todoPage: async ({ page, defaultItem }, use) => {
+    const todoPage = new TodoPage(page);
+    await todoPage.goto();
+    await todoPage.addToDo(defaultItem);
+    await use(todoPage);
+    await todoPage.removeAll();
+  },
+});
+export { expect } from '@playwright/test';
+```
+
+现在我们可以像平常一样使用 `todoPage` fixture，并在配置文件中设置 `defaultItem` 选项。
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig } from '@playwright/test';
+import type { MyOptions } from './my-test';
+
+export default defineConfig<MyOptions>({
+  projects: [
+    {
+      name: 'shopping',
+      use: { defaultItem: 'Buy milk' },
+    },
+    {
+      name: 'wellbeing',
+      use: { defaultItem: 'Exercise!' },
+    },
+  ]
+});
+```
+
+### 作为 option 值的数组
+
+如果你的 option 值本身是一个数组，例如 `[{ name: 'Alice' }, { name: 'Bob' }]`，那么在提供该值时，你需要再包一层数组。下面这个例子最能说明这一点。
+
+```ts
+type Person = { name: string };
+const test = base.extend<{ persons: Person[] }>({
+  // 声明这个 option，默认值为空数组。
+  persons: [[], { option: true }],
+});
+
+// option 值是一个人员数组。
+const actualPersons = [{ name: 'Alice' }, { name: 'Bob' }];
+test.use({
+  // 正确：将该值再包进一个数组，并传入 scope。
+  persons: [actualPersons, { scope: 'test' }],
+});
+
+test.use({
+  // 错误：直接传入数组值不会生效。
+  persons: actualPersons,
+});
+```
+
+### 重置一个 option
+
+你可以通过将 option 设置为 `undefined`，把它重置为配置文件中定义的值。下面这个配置设置了 `baseURL`：
+
+`playwright.config.ts`
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    baseURL: 'https://playwright.dev',
+  },
+});
+```
+
+现在你可以为某个文件配置 `baseURL`，并为单个测试选择退出：
+
+`intro.spec.ts`
+
+```ts
+import { test } from '@playwright/test';
+
+// 为该文件配置 baseURL。
+test.use({ baseURL: 'https://playwright.dev/docs/intro' });
+
+test('check intro contents', async ({ page }) => {
+  // 这个测试会使用上面定义的 "https://playwright.dev/docs/intro" 作为 base url。
+});
+
+test.describe(() => {
+  // 将值重置回配置文件中定义的值。
+  test.use({ baseURL: undefined });
+
+  test('can navigate to intro from the home page', async ({ page }) => {
+    // 这个测试会使用配置文件中定义的 "https://playwright.dev" 作为 base url。
+  });
+});
+```
+
+如果你想把值彻底重置为 `undefined`，请使用长格式 fixture 记法。
+
+`intro.spec.ts`
+
+```ts
+import { test } from '@playwright/test';
+
+// 为该文件完全取消设置 baseURL。
+test.use({
+  baseURL: [async ({}, use) => use(undefined), { scope: 'test' }],
+});
+
+test('no base url', async ({ page }) => {
+  // 这个测试不会拥有 base url。
+});
+```
+
+## 执行顺序
+
+每个 fixture 在 `await use()` 调用前后都包含 setup 和 teardown 两个阶段。setup 会在需要它的测试/hook 运行前执行，而 teardown 会在该 fixture 不再被测试/hook 使用时执行。
+
+fixture 会遵循以下规则来确定执行顺序：
+
+- 当 fixture A 依赖 fixture B 时：B 总是先于 A setup，并在 A 之后 teardown。
+- 非自动 fixture 是惰性执行的，只有在测试/hook 需要它时才会执行。
+- Test-scoped fixture 会在每个测试之后 teardown，而 worker-scoped fixture 只会在执行测试的 worker 进程被销毁时 teardown。
+
+请看下面这个例子：
+
+```ts
+import { test as base } from '@playwright/test';
+
+const test = base.extend<{
+  testFixture: string,
+  autoTestFixture: string,
+  unusedFixture: string,
+}, {
+  workerFixture: string,
+  autoWorkerFixture: string,
+}>({
+  workerFixture: [async ({ browser }, use) => {
+    // workerFixture setup...
+    await use('workerFixture');
+    // workerFixture teardown...
+  }, { scope: 'worker' }],
+
+  autoWorkerFixture: [async ({ browser }, use) => {
+    // autoWorkerFixture setup...
+    await use('autoWorkerFixture');
+    // autoWorkerFixture teardown...
+  }, { scope: 'worker', auto: true }],
+
+  testFixture: [async ({ page, workerFixture }, use) => {
+    // testFixture setup...
+    await use('testFixture');
+    // testFixture teardown...
+  }, { scope: 'test' }],
+
+  autoTestFixture: [async () => {
+    // autoTestFixture setup...
+    await use('autoTestFixture');
+    // autoTestFixture teardown...
+  }, { scope: 'test', auto: true }],
+
+  unusedFixture: [async ({ page }, use) => {
+    // unusedFixture setup...
+    await use('unusedFixture');
+    // unusedFixture teardown...
+  }, { scope: 'test' }],
+});
+
+test.beforeAll(async () => { /* ... */ });
+test.beforeEach(async ({ page }) => { /* ... */ });
+test('first test', async ({ page }) => { /* ... */ });
+test('second test', async ({ testFixture }) => { /* ... */ });
+test.afterEach(async () => { /* ... */ });
+test.afterAll(async () => { /* ... */ });
+```
+
+通常情况下，如果所有测试都通过且没有抛出错误，执行顺序如下：
+
+- worker setup 与 `beforeAll` 部分：
+  - `browser` setup，因为 `autoWorkerFixture` 需要它。
+  - `autoWorkerFixture` setup，因为自动 worker fixture 总是在其他任何内容之前 setup。
+  - `beforeAll` 运行。
+
+- `first test` 部分：
+  - `autoTestFixture` setup，因为自动 test fixture 总是在测试和 `beforeEach` hook 之前 setup。
+  - `page` setup，因为 `beforeEach` hook 需要它。
+  - `beforeEach` 运行。
+  - `first test` 运行。
+  - `afterEach` 运行。
+  - `page` teardown，因为它是 test-scoped fixture，应在测试结束后 teardown。
+  - `autoTestFixture` teardown，因为它是 test-scoped fixture，应在测试结束后 teardown。
+
+- `second test` 部分：
+  - `autoTestFixture` setup，因为自动 test fixture 总是在测试和 `beforeEach` hook 之前 setup。
+  - `page` setup，因为 `beforeEach` hook 需要它。
+  - `beforeEach` 运行。
+  - `workerFixture` setup，因为 `second test` 需要 `testFixture`，而 `testFixture` 又依赖它。
+  - `testFixture` setup，因为 `second test` 需要它。
+  - `second test` 运行。
+  - `afterEach` 运行。
+  - `testFixture` teardown，因为它是 test-scoped fixture，应在测试结束后 teardown。
+  - `page` teardown，因为它是 test-scoped fixture，应在测试结束后 teardown。
+  - `autoTestFixture` teardown，因为它是 test-scoped fixture，应在测试结束后 teardown。
+
+- `afterAll` 与 worker teardown 部分：
+  - `afterAll` 运行。
+  - `workerFixture` teardown，因为它是 worker-scoped fixture，应在结束时只 teardown 一次。
+  - `autoWorkerFixture` teardown，因为它是 worker-scoped fixture，应在结束时只 teardown 一次。
+  - `browser` teardown，因为它是 worker-scoped fixture，应在结束时只 teardown 一次。
+
+一些观察结论：
+
+- `page` 和 `autoTestFixture` 会为每个测试分别 setup 和 teardown，因为它们是 test-scoped fixture。
+- `unusedFixture` 永远不会 setup，因为没有任何测试/hook 使用它。
+- `testFixture` 依赖 `workerFixture`，因此会触发 `workerFixture` 的 setup。
+- `workerFixture` 会在第二个测试前惰性 setup，但只会在 worker 关闭时 teardown 一次，因为它是 worker-scoped fixture。
+- `autoWorkerFixture` 会为 `beforeAll` hook 执行 setup，而 `autoTestFixture` 不会。
+
+## 组合来自多个模块的自定义 fixtures
+
+你可以把来自多个文件或模块的测试 fixture 合并起来：
+
+`fixtures.ts`
+
+```ts
+import { mergeTests } from '@playwright/test';
+import { test as dbTest } from 'database-test-utils';
+import { test as a11yTest } from 'a11y-test-utils';
+
+export const test = mergeTests(dbTest, a11yTest);
+```
+
+`test.spec.ts`
+
+```ts
+import { test } from './fixtures';
+
+test('passes', async ({ database, page, a11y }) => {
+  // 使用 database 和 a11y fixtures。
+});
+```
+
+## Box fixtures
+
+通常，自定义 fixture 会在 UI mode、Trace Viewer 和各种测试报告中作为单独步骤进行上报。它们也会出现在测试运行器的错误消息中。对于经常使用的 fixture，这可能会带来很多噪音。你可以通过对 fixture 进行 “boxing” 来阻止这些步骤在 UI 中显示。
+
+```ts
+import { test as base } from '@playwright/test';
+
+export const test = base.extend({
+  helperFixture: [async ({}, use, testInfo) => {
+    // ...
+  }, { box: true }],
+});
+```
+
+这对于不那么重要的辅助 fixture 很有用。例如，一个用于准备一些公共数据的自动 fixture，就可以安全地从测试报告中隐藏起来。
+
+你也可以把 fixture 标记为 `box: 'self'`，这样只会隐藏该 fixture 本身，但 fixture 内部的所有步骤仍然会包含在测试报告中。
+
+## 自定义 fixture 标题
+
+除了使用默认的 fixture 名称之外，你还可以给 fixture 一个自定义标题，它会显示在测试报告和错误消息中。
+
+```ts
+import { test as base } from '@playwright/test';
+
+export const test = base.extend({
+  innerFixture: [async ({}, use, testInfo) => {
+    // ...
+  }, { title: 'my fixture' }],
+});
+```
+
+## 添加全局 beforeEach / afterEach hooks
+
+`test.beforeEach()` 和 `test.afterEach()` hook 会在同一文件、同一个 `test.describe()` 块（如果有）中声明的每个测试前后运行。
+
+如果你想声明一个在全局范围内、每个测试前后都运行的 hook，你可以将它声明成自动 fixture：
+
+`fixtures.ts`
+
+```ts
+import { test as base } from '@playwright/test';
+
+export const test = base.extend<{ forEachTest: void }>({
+  forEachTest: [async ({ page }, use) => {
+    // 这段代码会在每个测试之前运行。
+    await page.goto('http://localhost:8000');
+    await use();
+    // 这段代码会在每个测试之后运行。
+    console.log('Last URL:', page.url());
+  }, { auto: true }],  // 每个测试都会自动启动。
+});
+```
+
+然后在所有测试中导入这些 fixture：
+
+`mytest.spec.ts`
+
+```ts
+import { test } from './fixtures';
+import { expect } from '@playwright/test';
+
+test('basic', async ({ page }) => {
+  expect(page).toHaveURL('http://localhost:8000');
+  await page.goto('https://playwright.dev');
+});
+```
+
+## 添加全局 beforeAll / afterAll hooks
+
+`test.beforeAll()` 和 `test.afterAll()` hook 会在同一文件、同一个 `test.describe()` 块（如果有）中声明的所有测试前后运行，并且每个 worker 进程只运行一次。
+
+如果你想声明一个在每个文件中都生效、并且在所有测试前后运行的 hook，可以将它声明成带有 `scope: 'worker'` 的自动 fixture：
+
+`fixtures.ts`
+
+```ts
+import { test as base } from '@playwright/test';
+
+export const test = base.extend<{}, { forEachWorker: void }>({
+  forEachWorker: [async ({}, use) => {
+    // 这段代码会在 worker 进程中的所有测试之前运行。
+    console.log(`Starting test worker ${test.info().workerIndex}`);
+    await use();
+    // 这段代码会在 worker 进程中的所有测试之后运行。
+    console.log(`Stopping test worker ${test.info().workerIndex}`);
+  }, { scope: 'worker', auto: true }],  // 每个 worker 都会自动启动。
+});
+```
+
+然后在所有测试中导入这些 fixture：
+
+`mytest.spec.ts`
+
+```ts
+import { test } from './fixtures';
+import { expect } from '@playwright/test';
+
+test('basic', async ({ }) => {
+  // ...
+});
+```
+
+请注意，这些 fixture 仍然会为每个 worker 进程各运行一次，但你不需要在每个文件中重新声明它们。

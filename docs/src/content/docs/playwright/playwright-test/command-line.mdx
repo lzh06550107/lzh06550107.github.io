@@ -1,0 +1,331 @@
+---
+title: 命令行
+description: Playwright Test 命令行
+sidebar:
+  order: 3
+---
+
+Playwright 提供了一个强大的命令行接口，可用于运行测试、生成代码、调试等。CLI 中可用命令和参数的最新列表，始终可以通过 `npx playwright --help` 获取。
+
+## 核心命令
+
+### 运行测试
+
+运行你的 Playwright 测试。更多内容请参阅“运行测试”。
+
+#### 语法
+
+```bash
+npx playwright test [options] [test-filter...]
+```
+
+#### 示例
+
+```bash
+# 运行所有测试
+npx playwright test
+
+# 运行单个测试文件
+npx playwright test tests/todo-page.spec.ts
+
+# 运行一组测试文件
+npx playwright test tests/todo-page/ tests/landing-page/
+
+# 运行某一行的测试
+npx playwright test my-spec.ts:42
+
+# 按标题运行测试
+npx playwright test -g "add a todo item"
+
+# 在有头浏览器中运行测试
+npx playwright test --headed
+
+# 针对特定项目运行测试
+npx playwright test --project=chromium
+
+# 获取帮助
+npx playwright test --help
+```
+
+**禁用并行化**
+
+```bash
+npx playwright test --workers=1
+```
+
+**以调试模式运行，并启用 Playwright Inspector**
+
+```bash
+npx playwright test --debug
+```
+
+**以交互式 UI 模式运行**
+
+```bash
+npx playwright test --ui
+```
+
+#### 常用选项
+
+| 选项 | 说明 |
+|---|---|
+| `--debug` | 使用 Playwright Inspector 运行测试。它是 `PWDEBUG=1` 和 `--timeout=0 --max-failures=1 --headed --workers=1` 的快捷方式。 |
+| `--headed` | 在有头浏览器中运行测试（默认是无头）。 |
+| `-g <grep>` / `--grep <grep>` | 只运行匹配该正则表达式的测试。 |
+| `--project <project-name...>` | 只运行指定项目列表中的测试，支持 `*` 通配符。 |
+| `--ui` | 以交互式 UI 模式运行测试。 |
+| `-j <workers>` / `--workers <workers>` | 并发 worker 数量，或逻辑 CPU 核心数的百分比。设置为 1 可在单个 worker 中运行。 |
+
+#### 其他常见选项
+
+| 选项 | 说明 |
+|---|---|
+|非选项参数 | 每个参数都将被视为一个正则表达式，并与完整的测试文件路径进行匹配。只有来自匹配该模式的文件中的测试才会被执行。像 $ 或 * 这样的特殊符号应该用 \ 进行转义。在许多 Shell/终端中，您可能需要为参数加上引号。|
+| `-c <file>` / `--config <file>` | 配置文件，或包含可选 `playwright.config.{m,c}?{js,ts}` 的测试目录。默认为当前目录下的 playwright.config.ts 或 playwright.config.js。 |
+| `--debug` | 使用 Playwright Inspector 运行测试。它是 `PWDEBUG=1` 和 `--timeout=0 --max-failures=1 --headed --workers=1` 的快捷方式。 |
+| `--fail-on-flaky-tests` | 当存在 flaky 测试时使运行失败。 |
+| `--forbid-only` | 如果调用了 `test.only` 则使运行失败。适合 CI。 |
+| `--fully-parallel` | 让所有测试并行运行。 |
+| `--global-timeout <timeout>` | 整个测试套件的最大运行时长（毫秒）。 |
+| `--grep <grep>` / `-g <grep>` | 只运行匹配该正则表达式的测试。 |
+| `--grep-invert <grep>` | 只运行不匹配该正则表达式的测试。 |
+| `--headed` | 在有头浏览器中运行测试（默认是无头）。 |
+| `--ignore-snapshots` | 忽略截图与快照断言。 |
+| `-j <workers>` / `--workers <workers>` | 并发 worker 数量，或逻辑 CPU 核心数的百分比。设置为 1 可在单个 worker 中运行。 |
+| `--last-failed` | 只重新运行上次失败的测试。 |
+| `--list` | 收集并报告所有测试，但不执行。 |
+| `--max-failures` / `-x` | 在前 N 个失败之后停止。 |
+| `--no-deps` | 不运行项目依赖。 |
+| `--output <dir>` | 输出产物目录。 |
+| `--only-changed [ref]` | 只运行 `HEAD` 与 `ref` 之间发生变化的测试文件。 |
+| `--pass-with-no-tests` | 即使没有找到测试，也让运行成功。 |
+| `--project <project-name...>` | 只运行指定项目列表中的测试，支持 `*` 通配符。 |
+| `--quiet` | 抑制标准输出。 |
+| `--repeat-each` | 每个测试运行 N 次。 |
+| `--reporter <reporter>` | 指定报告器，可以是 `dot`、`line`、`list` 或其他自定义报告器。 |
+| `--retries <retries>` | 不稳定测试（flaky tests）的最大重试次数，设为 0 表示不重试（默认值：不重试）。 |
+| `--shard <shard>` | 对测试进行分片（shard）并仅执行选定的分片，指定格式为 "当前分片/总分片"（从 1 开始计数），例如 "3/5"。 |
+| `--test-list <file>` | 从指定文件中读取测试列表并运行。 |
+| `--test-list-invert <file>` | 从指定文件中读取测试列表并运行不在列表中的测试。 |
+| `--timeout <timeout>` | 以毫秒为单位指定测试超时阈值，设为 0 表示不限制（默认值：30 秒）。 |
+| `--trace <mode>` | 强制跟踪模式，可以为 on、off、on-first-retry、on-all-retries、retain-on-failure、retain-on-first-failure、retain-on-failure-and-retries。 |
+| `--tsconfig <path>` | 适用于所有导入文件的单个 tsconfig 的路径（默认值：分别为每个导入文件查找 tsconfig）。 |
+| `--ui` | 以交互式 UI 模式运行测试。 |
+| `--ui-host <host>` | 用于部署 UI 的主机（Host）；指定此选项将在浏览器标签页中打开 UI。 |
+| `--ui-port <port>` | 用于部署 UI 的端口（Port），设为 0 表示使用任意空闲端口；指定此选项将在浏览器标签页中打开 UI。 |
+| `-u` / `--update-snapshots [mode]` | 使用实际结果更新快照。可选值为 "all"、"changed"、"missing" 和 "none"。在不带该标志的情况下运行测试默认为 "missing"；在带该标志但不指定值的情况下运行测试默认为 "changed"。 |
+| `--update-source-method [mode]` | 使用实际结果更新快照。可选值为 "patch"（默认）、"3way" 和 "overwrite"。"Patch" 会创建一个统一的差异文件（unified diff file），以便稍后用于更新源代码。"3way" 会在源代码中生成合并冲突标记（merge conflict markers）。"Overwrite" 会直接用新的快照值覆盖源代码。 |
+| `-x` | 发生第一次失败后停止。|
+
+**测试列表（Test list）**
+
+选项 `--test-list` 和 `--test-list-invert` 接受一个测试列表文件的路径。该文件列出测试的格式应类似于 `--list` 模式下生成的输出格式。
+
+```text
+# 这是一个测试列表文件。
+# 它可以包含注释和空行。
+
+# 运行一个文件中的所有测试：
+path/to/example.spec.ts
+
+# 运行特定项目中一个文件内的所有测试：
+[chromium] › path/to/example.spec.ts
+
+# 运行特定分组/套件（suite）中的所有测试：
+path/to/example.spec.ts › suite name
+
+# 运行嵌套分组中的所有测试：
+path/to/example.spec.ts › outer suite › inner suite
+
+# 带有项目的完全限定测试（Fully qualified test）：
+[chromium] › path/to/example.spec.ts:3:9 › suite › nested suite › example test
+
+# 此测试包含在所有项目中：
+path/to/example.spec.ts:3:9 › example test
+
+# 使用 "›" 或 ">" 作为分隔符：
+[firefox] > example.spec.ts > suite > nested suite > example test
+
+# 行号/列号会被完全忽略，您可以省略它们。
+# 以下三个条目指向同一个测试：
+example.spec.ts › example test
+example.spec.ts:15 › example test
+example.spec.ts:42:42 › example test
+```
+
+### 显示报告（Show Report）
+
+显示上一次测试运行的 HTML 报告。了解更多关于 HTML 报告器（HTML reporter）的信息。
+
+#### 语法
+
+```bash
+npx playwright show-report [report] [options]
+```
+
+#### 示例
+
+```bash
+# 显示最新的测试报告
+npx playwright show-report
+
+# 显示特定的报告
+npx playwright show-report playwright-report/
+
+# 在自定义端口上显示报告
+npx playwright show-report --port 8080
+```
+
+#### 选项
+
+| 选项 | 描述 |
+| --- | --- |
+| `--host <host>` | 用于部署报告的主机（默认值：localhost） |
+| `--port <port>` | 用于部署报告的端口（默认值：9323） |
+
+### 安装浏览器（Install Browsers）
+
+安装 Playwright 所需的浏览器。了解更多关于 Playwright 浏览器支持的信息。
+
+#### 语法
+
+```bash
+npx playwright install [options] [browser...]
+npx playwright install-deps [options] [browser...]
+npx playwright uninstall
+```
+
+#### 示例
+
+```bash
+# 安装所有浏览器
+npx playwright install
+
+# 仅安装 Chromium
+npx playwright install chromium
+
+# 安装特定的浏览器
+npx playwright install chromium webkit
+
+# 安装浏览器及其依赖项
+npx playwright install --with-deps
+```
+
+#### 安装选项（Install Options）
+
+| 选项 | 描述 |
+| --- | --- |
+| `--force` | 强制重新安装稳定版浏览器渠道 |
+| `--with-deps` | 安装浏览器系统依赖项 |
+| `--dry-run` | 不执行安装，仅打印信息 |
+| `--only-shell` | 仅安装 chromium-headless-shell，而不是完整的 Chromium |
+| `--no-shell` | 不安装 chromium-headless-shell |
+
+#### 安装依赖选项（Install Deps Options）
+
+| 选项 | 描述 |
+| --- | --- |
+| `--dry-run` | 不修改系统。在 Linux 上，通过 apt-get 模拟安装，如果缺少任何必需的软件包，则以非零状态码退出 —— 适用于非交互式验证脚本。在 Windows 上，打印安装命令。 |
+
+### 生成与调试工具（Generation & Debugging Tools）
+
+#### 代码生成（Code Generation）
+
+记录操作并为多种语言生成测试。了解更多关于 Codegen 的信息。
+
+##### 语法
+
+```bash
+npx playwright codegen [options] [url]
+```
+
+##### 示例
+
+```bash
+# 使用交互式 UI 开始录制
+npx playwright codegen
+
+# 在特定网站上录制
+npx playwright codegen https://playwright.dev
+
+# 生成 Python 代码
+npx playwright codegen --target=python
+```
+
+##### 选项
+
+| 选项 | 描述 |
+| --- | --- |
+| `-b, --browser <name>` | 要使用的浏览器：chromium、firefox 或 webkit（默认值：chromium） |
+| `-o, --output <file>` | 生成脚本的输出文件 |
+| `--target <language>` | 要使用的语言：javascript、playwright-test、python 等。 |
+| `--test-id-attribute <attr>` | 用于测试 ID（test ID）的属性 |
+
+### 跟踪查看器（Trace Viewer）
+
+分析和查看测试跟踪以进行调试。了解更多关于跟踪查看器（Trace Viewer）的信息。
+
+##### 语法
+
+```bash
+npx playwright show-trace [options] [trace]
+
+```
+
+##### 示例
+
+```bash
+# 打开不带特定跟踪文件的跟踪查看器（可以通过 UI 加载跟踪文件）
+npx playwright show-trace
+
+# 查看一个跟踪文件
+npx playwright show-trace trace.zip
+
+# 从目录查看跟踪
+npx playwright show-trace trace/
+
+```
+
+##### 选项
+
+| 选项 | 描述 |
+| --- | --- |
+| `-b, --browser <name>` | 要使用的浏览器：chromium、firefox 或 webkit（默认值：chromium） |
+| `-h, --host <host>` | 用于部署跟踪的主机 |
+| `-p, --port <port>` | 用于部署跟踪的端口 |
+
+### 专用命令（Specialized Commands）
+
+#### 合并报告（Merge Reports）
+
+读取 blob 报告并将其合并。了解更多关于合并报告（merge-reports）的信息。
+
+##### 语法
+
+```bash
+npx playwright merge-reports [options] <blob dir>
+```
+
+##### 示例
+
+```bash
+# 合并测试报告
+npx playwright merge-reports ./reports
+```
+
+##### 选项
+
+| 选项 | 描述 |
+| --- | --- |
+| `-c, --config <file>` | 配置文件。可用于为输出报告指定额外的配置 |
+| `--reporter <reporter>` | 要使用的报告器，用逗号分隔，可以是 "list"、"line"、"dot"、"json"、"junit"、"null"、"github"、"html"、"blob"（默认值："list"） |
+
+### 清除缓存（Clear Cache）
+
+清除所有 Playwright 缓存。
+
+##### 语法
+
+```bash
+npx playwright clear-cache
+```

@@ -1,0 +1,35 @@
+---
+title: "框架"
+description: "介绍如何定位和操作 iframe / frame 中的元素。"
+sidebar:
+  label: "框架"
+  order: 19
+---
+
+## 简介
+
+一个 `Page` 可以附加一个或多个 `Frame` 对象。每个页面都有一个主 frame，页面级别的交互操作，例如 `click`，默认会在主 frame 中执行。
+
+页面也可以通过 HTML 的 `iframe` 标签附加额外的 frame。你可以访问这些 frame，并在 frame 内部执行交互操作。
+
+```ts
+// 定位 frame 内部的元素
+const username = await page.frameLocator('.frame-class').getByLabel('User Name');
+await username.fill('John');
+```
+
+## Frame 对象
+
+可以使用 `page.frame()` API 访问 frame 对象：
+
+```ts
+// 通过 frame 的 name 属性获取 frame
+const frame = page.frame('frame-login');
+
+// 通过 frame 的 URL 获取 frame
+const frame = page.frame({ url: /.*domain.*/ });
+
+// 与 frame 交互
+await frame.fill('#username-input', 'John');
+```
+

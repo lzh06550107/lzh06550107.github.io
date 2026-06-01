@@ -1,0 +1,164 @@
+---
+title: TypeScript
+description: Playwright Test TypeScript
+sidebar:
+  order: 16
+---
+
+## 简介
+
+Playwright 原生支持 TypeScript。你可以直接使用 TypeScript 编写测试，Playwright 会读取这些测试文件，将其转换为 JavaScript 后再运行。
+
+:::note
+Playwright 不会负责完整的类型检查。即使存在一些非关键的 TypeScript 编译错误，测试仍可能继续运行。因此，建议在运行 Playwright 测试的同时，也单独运行 TypeScript 编译器进行类型检查。
+:::
+
+例如，在 GitHub Actions 中可以这样配置：
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # ...
+      - name: Run type checks
+        run: npx tsc -p tsconfig.json --noEmit
+      - name: Run Playwright tests
+        run: npx playwright test
+```
+
+在本地开发时，也可以让 `tsc` 以 watch 模式持续运行：
+
+```bash
+npx tsc -p tsconfig.json --noEmit -w
+```
+
+## tsconfig.json
+
+Playwright 会为它加载的每个源文件查找并使用对应的 `tsconfig.json`。需要注意的是，Playwright 只支持以下几个 `tsconfig` 配置项：
+
+- `allowJs`
+- `baseUrl`
+- `paths`
+- `references`
+
+建议在 `tests` 目录中单独放置一个 `tsconfig.json`，这样可以为测试代码设置专门的 TypeScript 配置。
+
+示例目录结构：
+
+```text
+src/
+    source.ts
+
+tests/
+    tsconfig.json  # 测试专用 tsconfig
+    example.spec.ts
+
+tsconfig.json  # 所有 TypeScript 源码的通用 tsconfig
+
+playwright.config.ts
+```
+
+### tsconfig 路径映射
+
+Playwright 支持在 `tsconfig.json` 中声明的路径映射。
+
+下面是一个可与 Playwright 配合使用的 `tsconfig.json` 示例：
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "paths": {
+      "@myhelper/*": ["packages/myhelper/*"]
+    }
+  }
+}
+```
+
+上面的映射是相对于当前 `tsconfig.json` 文件所在位置解析的。
+
+之后，你就可以在测试中使用映射后的路径导入模块：
+
+```ts title="example.spec.ts"
+import { test, expect } from '@playwright/test';
+import { username, password } from '@myhelper/credentials';
+
+test('example', async ({ page }) => {
+  await page.getByLabel('User Name').fill(username);
+  await page.getByLabel('Password').fill(password);
+});
+```
+
+### tsconfig 解析规则
+
+默认情况下，Playwright 会针对每个被导入的文件向上查找最近的 `tsconfig.json` 或 `jsconfig.json`。
+
+因此，你可以在 `tests/tsconfig.json` 中放置只针对测试代码的配置，Playwright 会自动识别并使用它。
+
+```bash
+# Playwright 会自动选择 tsconfig
+npx playwright test
+```
+
+也可以通过命令行显式指定一个 `tsconfig` 文件。这样 Playwright 会将该配置用于所有导入的文件，而不仅仅是测试文件。
+
+```bash
+# 指定一个 tsconfig
+npx playwright test --tsconfig=tsconfig.test.json
+```
+
+你也可以在 Playwright 配置文件中指定一个 `tsconfig`，该配置会用于加载测试文件、reporter 等内容。
+
+:::note
+在配置文件中指定的 `tsconfig` 不会用于加载 `playwright.config.ts` 本身，也不会用于加载它所导入的文件。
+:::
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  tsconfig: './tsconfig.test.json',
+});
+```
+
+## 使用 TypeScript 手动编译测试
+
+在某些情况下，Playwright Test 可能无法正确转换你的 TypeScript 代码。例如，你使用了 TypeScript 的实验性功能，或者使用了非常新的 TypeScript 特性，而这些特性通常需要在 `tsconfig.json` 中配置。
+
+这种情况下，可以先自行编译 TypeScript 测试代码，然后再把编译后的测试交给 Playwright 运行。
+
+首先，在 `tests` 目录中添加一个 `tsconfig.json` 文件：
+
+```json title="tests/tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "commonjs",
+    "moduleResolution": "Node",
+    "sourceMap": true,
+    "outDir": "../tests-out"
+  }
+}
+```
+
+然后，在 `package.json` 中添加两个脚本：
+
+```json title="package.json"
+{
+  "scripts": {
+    "pretest": "tsc --incremental -p tests/tsconfig.json",
+    "test": "playwright test -c tests-out"
+  }
+}
+```
+
+`pretest` 脚本会先对测试代码运行 TypeScript 编译。`test` 脚本会运行生成到 `tests-out` 目录中的测试。
+
+其中，`-c` 参数用于让测试运行器从 `tests-out` 目录中查找配置和测试文件。
+
+最后，执行下面的命令即可先构建测试，再运行测试：
+
+```bash
+npm run test
+```
+

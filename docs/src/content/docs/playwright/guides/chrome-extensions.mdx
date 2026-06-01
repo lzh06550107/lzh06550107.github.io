@@ -1,0 +1,115 @@
+---
+title: "Chrome 扩展"
+description: "介绍如何在持久化上下文中加载和测试 Chrome 扩展。"
+sidebar:
+  label: "Chrome 扩展"
+  order: 10
+---
+
+## 简介
+
+:::note
+扩展只能在使用持久化上下文启动的 Chromium 中工作。请谨慎使用自定义浏览器参数，因为其中一些参数可能会破坏 Playwright 的功能。
+:::
+
+Google Chrome 和 Microsoft Edge 已经移除了侧载扩展所需的命令行标志，因此请使用 Playwright 随附的 Chromium。
+
+下面的代码片段会获取一个 Manifest v3 扩展的 service worker。该扩展的源代码位于 `./my-extension`。
+
+请注意这里使用了 `chromium` channel，它允许在无头模式下运行扩展。也可以改为以有头模式启动浏览器。
+
+```js
+const { chromium } = require('playwright');
+
+(async () => {
+  const pathToExtension = require('path').join(__dirname, 'my-extension');
+  const userDataDir = '/tmp/test-user-data-dir';
+  const browserContext = await chromium.launchPersistentContext(userDataDir, {
+    channel: 'chromium',
+    args: [
+      `--disable-extensions-except=${pathToExtension}`,
+      `--load-extension=${pathToExtension}`
+    ]
+  });
+  let [serviceWorker] = browserContext.serviceWorkers();
+  if (!serviceWorker)
+    serviceWorker = await browserContext.waitForEvent('serviceworker');
+
+  // 像测试任何其他 worker 一样测试这个 service worker。
+  await browserContext.close();
+})();
+```
+
+## Service worker 空闲挂起（MV3）
+
+Chrome MV3 service worker 会在大约 30 秒无活动后自动挂起，并在需要时重新启动。发生这种情况时，Playwright 会保持同一个 `Worker` 对象处于可用状态，不会触发新的 `'serviceworker'` 事件。
+
+在重启窗口期间发起的新的 `evaluate()` 调用会暂停，直到新的上下文准备就绪，然后自动继续执行：
+
+```js
+const sw = await context.waitForEvent('serviceworker');
+// ... SW 在 30 秒无活动后挂起，并由浏览器重新启动 ...
+
+// 现有句柄可以透明地跨越重启过程。
+await sw.evaluate(() => sendMessage({ type: 'ping' })); // 可以正常工作
+```
+
+:::note
+如果 `evaluate()` 调用在挂起发生的确切时刻已经处于执行中，它会抛出 `"Service worker restarted"`。这与页面导航过程中正在执行的操作被中断时的行为一致。
+:::
+
+## 测试
+
+为了在运行测试时加载扩展，可以使用测试 fixture 来设置上下文。也可以动态获取扩展 ID，并使用它加载和测试扩展的弹出页面等。
+
+请注意这里使用了 `chromium` channel，它允许在无头模式下运行扩展。也可以改为以有头模式启动浏览器。
+
+首先，添加用于加载扩展的 fixture：
+
+```ts title="fixtures.ts"
+import { test as base, chromium, type BrowserContext } from '@playwright/test';
+import path from 'path';
+
+export const test = base.extend<{
+  context: BrowserContext;
+  extensionId: string;
+}>({
+  context: async ({ }, use) => {
+    const pathToExtension = path.join(__dirname, 'my-extension');
+    const context = await chromium.launchPersistentContext('', {
+      channel: 'chromium',
+      args: [
+        `--disable-extensions-except=${pathToExtension}`,
+        `--load-extension=${pathToExtension}`,
+      ],
+    });
+    await use(context);
+    await context.close();
+  },
+  extensionId: async ({ context }, use) => {
+    // 对于 manifest v3：
+    let [serviceWorker] = context.serviceWorkers();
+    if (!serviceWorker)
+      serviceWorker = await context.waitForEvent('serviceworker');
+    const extensionId = serviceWorker.url().split('/')[2];
+    await use(extensionId);
+  },
+});
+export const expect = test.expect;
+```
+
+然后在测试中使用这些 fixture：
+
+```ts
+import { test, expect } from './fixtures';
+
+test('example test', async ({ page }) => {
+  await page.goto('https://example.com');
+  await expect(page.locator('body')).toHaveText('Changed by my-extension');
+});
+
+test('popup page', async ({ page, extensionId }) => {
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await expect(page.locator('body')).toHaveText('my-extension popup');
+});
+```

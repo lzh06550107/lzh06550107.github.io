@@ -1,0 +1,210 @@
+---
+title: Playwright Test 智能体
+description: Playwright Test 智能体
+sidebar:
+  order: 1
+---
+
+## 介绍
+
+Playwright 内置了三个 Playwright Test 智能体：**planner**、**generator** 和 **healer**。
+
+这些智能体既可以独立使用，也可以按顺序使用，或者作为智能体循环中的链式调用来使用。按顺序使用它们，可以为你的产品产出测试覆盖。
+
+- **planner** 探索应用并生成 Markdown 测试计划
+- **generator** 将 Markdown 计划转换为 Playwright Test 文件
+- **healer** 执行测试套件并自动修复失败的测试
+
+### 开始使用
+
+首先，使用 `init-agents` 命令把 Playwright Test 智能体定义添加到你的项目中。每次 Playwright 更新后，都应该重新生成这些定义，以便获取新的工具和指令。
+
+```bash
+npx playwright init-agents --loop=vscode
+```
+
+```bash
+npx playwright init-agents --loop=claude
+```
+
+```bash
+npx playwright init-agents --loop=codex
+```
+
+```bash
+npx playwright init-agents --loop=opencode
+```
+
+:::note
+要在 VS Code 中正常使用智能体体验，需要 VS Code v1.105（发布于 2025 年 10 月 9 日）。
+:::
+
+生成这些智能体后，你就可以使用自己偏好的 AI 工具，指挥这些智能体来构建 Playwright Tests。
+
+## Planner
+
+Planner 智能体会探索你的应用，并为一个或多个场景与用户流程生成测试计划。
+
+**输入**
+
+- 给 planner 的明确请求（例如：“为游客结账生成一份计划。”）
+- 一个 `seed test`，用于建立与你的应用交互所需的环境
+- （可选）一份产品需求文档（PRD）作为上下文
+
+**提示**
+
+> 请注意，`seed.spec.ts` 被包含在 planner 的上下文中。  
+> Planner 会运行这个测试，以执行测试所需的全部初始化，包括全局设置、项目依赖，以及所有必要的夹具和钩子。  
+> Planner 还会把这个种子测试作为所有生成测试的示例。你也可以在提示里直接提到文件名。
+
+```ts title="示例：seed.spec.ts"
+import { test, expect } from './fixtures';
+
+test('seed', async ({ page }) => {
+  // 这个测试使用了来自 ./fixtures 的自定义夹具
+});
+```
+
+**输出**
+
+- 一份保存为 `specs/basic-operations.md` 的 Markdown 测试计划
+- 该计划具备可读性，同时也足够精确，能够用于测试生成
+
+```md title="示例：specs/basic-operations.md"
+# TodoMVC 应用 - 基础操作测试计划
+
+## 应用概览
+TodoMVC 应用是一个基于 React 的待办事项列表管理器，用于演示标准待办应用功能。
+
+## 测试场景
+
+### 1. 添加新的待办事项
+
+**Seed:** `tests/seed.spec.ts`
+
+#### 1.1 添加有效待办事项
+
+**步骤：**
+1. 点击 “What needs to be done?” 输入框
+2. 输入 “Buy groceries”
+3. 按下 Enter 键
+
+**预期结果：**
+- 待办项出现在列表中，复选框未勾选
+- 计数器显示 “1 item left”
+- 输入框被清空，并准备好下一次输入
+- 待办列表控制项变为可见
+
+#### 1.2 Add Multiple Todos
+...
+```
+
+## Generator
+
+Generator 智能体使用 Markdown 计划生成可执行的 Playwright Tests。它会在执行场景的过程中实时校验选择器和断言。Playwright 支持生成提示，并提供断言目录，以便高效进行结构和行为验证。
+
+**输入**
+
+- 来自 `specs/` 的 Markdown 计划
+
+**提示**
+
+> 请注意，`basic-operations.md` 被包含在 generator 的上下文中。  
+> 这就是 generator 知道从哪里获取测试计划的方式。你也可以在提示中直接提到文件名。
+
+**输出**
+
+- 位于 `tests/` 下的一套测试
+- 生成的测试一开始可能带有错误，但可以由 healer 智能体自动修复
+
+```ts title="示例：tests/add-valid-todo.spec.ts"
+// spec: specs/basic-operations.md
+// seed: tests/seed.spec.ts
+
+import { test, expect } from '../fixtures';
+
+test.describe('Adding New Todos', () => {
+  test('Add Valid Todo', async ({ page }) => {
+    // 1. Click in the "What needs to be done?" input field
+    const todoInput = page.getByRole('textbox', { name: 'What needs to be done?' });
+    await todoInput.click();
+
+    // 2. Type "Buy groceries"
+    await todoInput.fill('Buy groceries');
+
+    // 3. Press Enter key
+    await todoInput.press('Enter');
+
+    // Expected Results:
+    // - Todo appears in the list with unchecked checkbox
+    await expect(page.getByText('Buy groceries')).toBeVisible();
+    const todoCheckbox = page.getByRole('checkbox', { name: 'Toggle Todo' });
+    await expect(todoCheckbox).toBeVisible();
+    await expect(todoCheckbox).not.toBeChecked();
+
+    // - Counter shows "1 item left"
+    await expect(page.getByText('1 item left')).toBeVisible();
+
+    // - Input field is cleared and ready for next entry
+    await expect(todoInput).toHaveValue('');
+    await expect(todoInput).toBeFocused();
+
+    // - Todo list controls become visible (Mark all as complete checkbox)
+    await expect(page.getByRole('checkbox', { name: '❯Mark all as complete' })).toBeVisible();
+  });
+});
+```
+
+## Healer
+
+当测试失败时，healer 智能体会：
+
+- 重放失败的步骤
+- 检查当前 UI，以定位等效元素或流程
+- 提出补丁建议（例如更新定位器、调整等待、修正数据）
+- 重新运行测试，直到通过，或者直到护栏停止循环
+
+**输入**
+
+- 失败测试的名称
+
+**输出**
+
+- 一个通过的测试；如果 healer 认为该功能本身已损坏，则输出一个被跳过的测试
+
+## 产物与约定
+
+静态智能体定义与生成文件遵循一个简单、可审计的结构：
+
+```bash
+repo/
+  .github/                    # 智能体定义
+  specs/                      # 人类可读的测试计划
+    basic-operations.md
+  tests/                      # 生成的 Playwright 测试
+    seed.spec.ts              # 环境用的种子测试
+    tests/create/add-valid-todo.spec.ts
+  playwright.config.ts
+```
+
+### 智能体定义
+
+在底层，Agent（智能体）的定义是指令和 MCP 工具的集合。它们由 Playwright 提供，并且每当 Playwright 更新时都应该重新生成。
+
+针对 Claude Code 子智能体（subagents）的示例：
+
+```bash
+npx playwright init-agents --loop=vscode
+```
+
+### `specs/` 中的规格
+
+规格是用人类可读方式描述场景的结构化计划。它们包含步骤、预期结果和数据。规格可以从零开始，也可以扩展一个种子测试。
+
+### `tests/` 中的测试
+
+生成的 Playwright 测试，在可行时会与规格一一对应。
+
+### 种子测试 `seed.spec.ts`
+
+种子测试提供一个可直接使用的 `page` 上下文，用于引导执行。

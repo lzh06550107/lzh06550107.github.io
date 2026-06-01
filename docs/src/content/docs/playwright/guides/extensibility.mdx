@@ -1,0 +1,70 @@
+---
+title: "扩展能力"
+description: "介绍如何通过 fixtures、插件式封装和测试扩展组织能力。"
+sidebar:
+  label: "扩展能力"
+  order: 18
+---
+
+## 自定义选择器引擎
+
+Playwright 支持自定义选择器引擎，可以通过 `selectors.register()` 注册。
+
+选择器引擎应包含以下属性：
+
+- `query` 函数：相对于 `root` 查询第一个匹配 `selector` 的元素。
+- `queryAll` 函数：相对于 `root` 查询所有匹配 `selector` 的元素。
+
+默认情况下，引擎会直接在 frame 的 JavaScript 上下文中运行，因此它可以调用应用程序中定义的函数。若要将该引擎与 frame 中的 JavaScript 隔离，同时仍保留对 DOM 的访问权限，可以使用 `{ contentScript: true }` 选项注册引擎。内容脚本引擎更安全，因为它不会受到全局对象被篡改的影响，例如修改 `Node.prototype` 方法。所有内置选择器引擎都作为内容脚本运行。
+
+:::note
+当内容脚本引擎与其他自定义引擎一起使用时，不保证一定会作为内容脚本运行。
+:::
+
+选择器必须在创建页面之前注册。
+
+下面的示例注册了一个选择器引擎，它会根据标签名查询元素：
+
+```ts title="baseTest.ts"
+import { test as base } from '@playwright/test';
+
+export { expect } from '@playwright/test';
+
+// 必须是一个函数，该函数求值后返回一个选择器引擎实例。
+const createTagNameEngine = () => ({
+  // 返回 root 子树中匹配给定 selector 的第一个元素。
+  query(root, selector) {
+    return root.querySelector(selector);
+  },
+
+  // 返回 root 子树中匹配给定 selector 的所有元素。
+  queryAll(root, selector) {
+    return Array.from(root.querySelectorAll(selector));
+  }
+});
+
+export const test = base.extend<{}, { selectorRegistration: void }>({
+  // 每个 worker 注册一次选择器。
+  selectorRegistration: [async ({ playwright }, use) => {
+    // 注册引擎。选择器将以 "tag=" 作为前缀。
+    await playwright.selectors.register('tag', createTagNameEngine);
+    await use();
+  }, { scope: 'worker', auto: true }],
+});
+```
+
+```ts title="example.spec.ts"
+import { test, expect } from './baseTest';
+
+test('selector engine test', async ({ page }) => {
+  // 现在可以使用 'tag=' 选择器。
+  const button = page.locator('tag=button');
+  await button.click();
+
+  // 可以将它与内置定位器组合使用。
+  await page.locator('tag=div').getByText('Click me').click();
+
+  // 也可以在任何支持选择器的方法中使用它。
+  await expect(page.locator('tag=button')).toHaveCount(3);
+});
+```

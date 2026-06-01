@@ -1,0 +1,483 @@
+---
+title: "快照测试"
+description: "介绍 ARIA 快照、文本快照和结构化快照测试。"
+sidebar:
+  label: "快照测试"
+  order: 32
+---
+
+## 概览
+
+借助 Playwright 的快照测试，你可以将页面的无障碍树与预定义的快照模板进行断言比较。
+
+```js
+await page.goto('https://playwright.dev/');
+await expect(page).toMatchAriaSnapshot(`
+  - banner:
+    - heading /Playwright enables reliable end-to-end/ [level=1]
+    - link "Get started":
+      - /url: /docs/intro
+    - link "Star microsoft/playwright on GitHub":
+      - /url: https://github.com/microsoft/playwright
+    - link /[\\d]+k\\+ stargazers on GitHub/
+`);
+```
+
+## 断言测试 vs 快照测试
+
+快照测试和断言测试在测试自动化中服务于不同目的：
+
+### 断言测试
+
+断言测试是一种有针对性的方法，你可以断言元素或组件的特定值或条件。例如，在 Playwright 中，[`expect(locator).toHaveText()`](https://playwright.dev/docs/api/class-locatorassertions#locator-assertions-to-have-text) 会验证元素是否包含预期文本，而 [`expect(locator).toHaveValue()`](https://playwright.dev/docs/api/class-locatorassertions#locator-assertions-to-have-value) 会确认输入字段是否具有预期值。断言测试是具体的，通常会检查元素或属性的当前状态是否符合预期的预定义状态。
+
+它们非常适合可预测的单值检查，但在测试更广泛的结构或变化时范围有限。
+
+优点
+
+- 清晰性：测试意图明确且易于理解。
+- 具体性：测试专注于功能的特定方面，使其更能抵抗无关变更。
+- 调试：失败会提供有针对性的反馈，直接指向有问题的方面。
+
+缺点
+
+- 对复杂输出来说很冗长：为复杂数据结构或大型输出编写断言可能很繁琐且容易出错。
+- 维护开销：随着代码演进，手动更新断言可能非常耗时。
+
+### 快照测试
+
+快照测试会捕获元素、组件或数据在某一时刻的整个状态的“快照”或表示形式，然后将其保存以便将来比较。重新运行测试时，会将当前状态与快照进行比较；如果存在差异，测试就会失败。这种方法特别适合复杂或动态结构，因为手动断言每个细节会过于耗时。
+
+快照测试比断言测试更宽泛、更整体，允许你随时间跟踪更复杂的变化。
+
+优点
+
+- 简化复杂输出：例如，使用传统断言测试 UI 组件的渲染输出可能很繁琐。快照会捕获整个输出，便于比较。
+- 快速反馈循环：开发者可以轻松发现输出中的非预期变化。
+- 鼓励一致性：随着代码演进，有助于保持输出一致。
+
+缺点
+
+- 过度依赖：可能会在未充分理解变更的情况下接受快照变更，从而潜在隐藏 bug。
+- 粒度：当出现差异时，大型快照可能难以解释，尤其是细微变更影响了输出的大部分内容时。
+- 适用性：不适合输出频繁或不可预测地变化的高度动态内容。
+
+### 何时使用
+
+- 快照测试非常适合：
+  - 整个页面和组件的 UI 测试。
+  - 对复杂 UI 组件进行广泛的结构检查。
+  - 对结构很少变化的输出进行回归测试。
+- 断言测试非常适合：
+  - 核心逻辑验证。
+  - 计算值测试。
+  - 需要精确条件的细粒度测试。
+
+通过结合用于广泛结构检查的快照测试和用于特定功能的断言测试，你可以实现全面的测试策略。
+
+## Aria 快照
+
+在 Playwright 中，aria 快照提供页面无障碍树的 YAML 表示。这些快照可以被存储并在之后比较，用于验证页面结构是否保持一致或是否满足定义的期望。
+
+YAML 格式描述页面上可访问元素的层级结构，详细列出角色、属性、值和文本内容。该结构遵循类似树的语法，其中每个节点代表一个可访问元素，缩进表示嵌套元素。
+
+树中的每个可访问元素都表示为一个 YAML 节点：
+
+```yaml
+- role "name" [attribute=value]
+```
+
+- role：指定元素的 ARIA 或 HTML 角色（例如 `heading`、`list`、`listitem`、`button`）。
+- "name"：元素的可访问名称。带引号的字符串表示精确值，`/patterns/` 用于正则表达式。
+- [attribute=value]：方括号中的属性和值表示特定 ARIA 属性，例如 `checked`、`disabled`、`expanded`、`level`、`pressed` 或 `selected`。
+
+这些值来自 ARIA 属性，或基于 HTML 语义计算得到。若要检查页面的无障碍树结构，请使用 [Chrome DevTools Accessibility Tab](https://developer.chrome.com/docs/devtools/accessibility/reference#pane)。
+
+## 快照匹配
+
+Playwright 中的 [`expect(page).toMatchAriaSnapshot()`](https://playwright.dev/docs/api/class-pageassertions#page-assertions-to-match-aria-snapshot) 断言方法会将页面的可访问结构与预定义的 aria 快照模板进行比较，帮助根据测试需求验证页面状态。你也可以使用 [`expect(locator).toMatchAriaSnapshot()`](https://playwright.dev/docs/api/class-locatorassertions#locator-assertions-to-match-aria-snapshot) 来匹配页面的特定部分。
+
+对于以下 DOM：
+
+```html
+<h1>title</h1>
+```
+
+你可以使用以下快照模板进行匹配：
+
+```js
+await expect(page).toMatchAriaSnapshot(`
+  - heading "title"
+`);
+```
+
+匹配时，会将快照模板与页面当前的无障碍树进行比较：
+
+- 如果树结构与模板匹配，则测试通过；否则测试失败，表示预期和实际无障碍状态之间存在不匹配。
+- 比较区分大小写并会折叠空白，因此缩进和换行会被忽略。
+- 比较对顺序敏感，这意味着快照模板中元素的顺序必须与页面无障碍树中的顺序一致。
+
+### 部分匹配
+
+你可以通过省略属性或可访问名称来对节点执行部分匹配，从而无需精确匹配即可验证无障碍树的特定部分。这种灵活性有助于处理动态或不相关的属性。
+
+```html
+<button>Submit</button>
+```
+
+aria snapshot
+
+```yaml
+- button
+```
+
+在此示例中，匹配的是按钮角色，但未指定可访问名称（"Submit"），因此无论按钮标签是什么，测试都可以通过。
+
+---
+
+对于具有 `checked` 或 `disabled` 等 ARIA 属性的元素，省略这些属性可以进行部分匹配，只关注角色和层级结构。
+
+```html
+<input type="checkbox" checked>
+```
+
+aria snapshot（部分匹配）
+
+```yaml
+- checkbox
+```
+
+在此部分匹配中，`checked` 属性会被忽略，因此无论复选框状态如何，测试都会通过。
+
+---
+
+同样，你可以通过省略特定列表项或嵌套元素，来部分匹配列表或组中的子元素。
+
+```html
+<ul>
+  <li>Feature A</li>
+  <li>Feature B</li>
+  <li>Feature C</li>
+</ul>
+```
+
+aria snapshot（部分匹配）
+
+```yaml
+- list
+  - listitem: Feature B
+```
+
+部分匹配让你能够创建灵活的快照测试，验证关键页面结构，而不强制要求特定内容或属性。
+
+### 严格匹配
+
+默认情况下，包含子元素子集的模板也会被匹配：
+
+```html
+<ul>
+  <li>Feature A</li>
+  <li>Feature B</li>
+  <li>Feature C</li>
+</ul>
+```
+
+aria snapshot（部分匹配）
+
+```yaml
+- list
+  - listitem: Feature B
+```
+
+可以使用 `/children` 属性控制子元素的匹配方式：
+
+- `contain`（默认）：如果所有指定子元素按顺序存在，则匹配。
+- `equal`：如果子元素与指定列表按顺序完全匹配，则匹配。
+- `deep-equal`：如果子元素与指定列表按顺序完全匹配，包括嵌套子元素，则匹配。
+
+```html
+<ul>
+  <li>Feature A</li>
+  <li>Feature B</li>
+  <li>Feature C</li>
+</ul>
+```
+
+由于模板中没有 Feature C，以下快照会失败：
+
+aria snapshot
+
+```yaml
+- list
+  - /children: equal
+  - listitem: Feature A
+  - listitem: Feature B
+```
+
+#### 全局设置 `children` 模式
+
+你可以在配置文件中为所有 `toMatchAriaSnapshot` 调用设置默认的子元素匹配模式，而不是在每个快照中添加 `/children` 属性：
+
+playwright.config.ts
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  expect: {
+    toMatchAriaSnapshot: {
+      children: 'equal',
+    },
+  },
+});
+```
+
+单个快照仍然可以通过在模板中包含显式 `/children` 属性来覆盖全局设置。
+
+### 使用正则表达式匹配
+
+正则表达式允许对包含动态或可变文本的元素进行灵活匹配。可访问名称和文本都可以支持正则表达式模式。
+
+```html
+<h1>Issues 12</h1>
+```
+
+aria snapshot
+
+```yaml
+- heading /Issues \d+/
+```
+
+## 生成快照
+
+在 Playwright 中创建 aria 快照有助于确保并维护应用程序结构。你可以根据测试设置和工作流通过多种方式生成快照。
+
+### 使用 Playwright 代码生成器生成快照
+
+如果你正在使用 Playwright 的[代码生成器](https://playwright.dev/docs/codegen)，它的交互式界面可以简化 aria 快照的生成：
+
+- "Assert snapshot" 操作：在代码生成器中，你可以使用 "Assert snapshot" 操作，为选中的元素自动创建快照断言。这是一种将 aria 快照作为录制测试流程一部分进行捕获的快速方式。
+- "Aria snapshot" 选项卡：代码生成器界面中的 "Aria snapshot" 选项卡会以可视化方式展示所选定位器的 aria 快照，让你探索、检查并验证元素角色、属性和可访问名称，以帮助创建和审查快照。
+
+### 使用 `@playwright/test` 和 `--update-snapshots` 标志更新快照
+
+使用 Playwright 测试运行器（`@playwright/test`）时，你可以通过 `--update-snapshots` 标志自动更新快照，简写为 `-u`。
+
+使用 `--update-snapshots` 标志运行测试会更新不匹配的快照。匹配的快照不会被更新。
+
+```bash
+npx playwright test --update-snapshots
+```
+
+当应用程序结构变化需要新的快照作为基线时，更新快照很有用。请注意，Playwright 会等待测试运行器配置中指定的最大 expect 超时时间，以确保页面在截取快照前稳定下来。如果测试在生成快照时触发超时，可能需要调整 `--timeout`。
+
+#### 用于快照生成的空模板
+
+在断言中传入空字符串作为模板会即时生成快照：
+
+```js
+await expect(locator).toMatchAriaSnapshot('');
+```
+
+请注意，Playwright 会等待测试运行器配置中指定的最大 expect 超时时间，以确保页面在截取快照前稳定下来。如果测试在生成快照时触发超时，可能需要调整 `--timeout`。
+
+#### 快照补丁文件
+
+更新快照时，Playwright 会创建捕获差异的补丁文件。这些补丁文件可以被审查、应用并提交到源代码控制中，使团队能够随时间跟踪结构变化，并确保更新符合应用程序需求。
+
+源代码的更新方式可以使用 `--update-source-method` 标志进行更改。可用选项如下：
+
+- "patch"（默认）：生成统一 diff 文件，可使用 `git apply` 应用于源代码。
+- "3way"：在源代码中生成合并冲突标记，允许你选择是否接受变更。
+- "overwrite"：用新的快照值覆盖源代码。
+
+```bash
+npx playwright test --update-snapshots --update-source-method=3way
+```
+
+#### 将快照作为单独文件
+
+若要将快照存储在单独文件中，请使用带有 `name` 选项的 `toMatchAriaSnapshot` 方法，并指定 `.aria.yml` 文件扩展名。
+
+```js
+await expect(page.getByRole('main')).toMatchAriaSnapshot({ name: 'main.aria.yml' });
+```
+
+默认情况下，来自测试文件 `example.spec.ts` 的快照会放置在 `example.spec.ts-snapshots` 目录中。由于快照在不同浏览器中应保持一致，即使使用多个浏览器测试，也只保存一个快照。如果需要，你可以使用以下配置自定义[快照路径模板](https://playwright.dev/docs/api/class-testconfig#test-config-snapshot-path-template)：
+
+```ts
+export default defineConfig({
+  expect: {
+    toMatchAriaSnapshot: {
+      pathTemplate: '__snapshots__/{testFilePath}/{arg}{ext}',
+    },
+  },
+});
+```
+
+### 使用 [`page.ariaSnapshot()`](https://playwright.dev/docs/api/class-page#page-aria-snapshot) 和 [`locator.ariaSnapshot()`](https://playwright.dev/docs/api/class-locator#locator-aria-snapshot)
+
+[`page.ariaSnapshot()`](https://playwright.dev/docs/api/class-page#page-aria-snapshot) 和 [`locator.ariaSnapshot()`](https://playwright.dev/docs/api/class-locator#locator-aria-snapshot) 方法允许你以编程方式创建定位器作用域内可访问元素的 YAML 表示，特别适合在测试执行期间动态生成快照。
+
+示例：
+
+```js
+const snapshot = await page.ariaSnapshot();
+console.log(snapshot);
+```
+
+此命令会以 YAML 格式输出指定定位器作用域内的 aria 快照，你可以根据需要进行验证或存储。
+
+## 无障碍树示例
+
+### 带有 level 属性的标题
+
+标题可以包含 `level` 属性，用于表示其标题级别。
+
+```html
+<h1>Title</h1>
+<h2>Subtitle</h2>
+```
+
+aria snapshot
+
+```yaml
+- heading "Title" [level=1]
+- heading "Subtitle" [level=2]
+```
+
+### 文本节点
+
+独立文本元素或描述性文本元素会显示为文本节点。
+
+```html
+<div>Sample accessible name</div>
+```
+
+aria snapshot
+
+```yaml
+- text: Sample accessible name
+```
+
+### 内联多行文本
+
+多行文本（例如段落）会在 aria 快照中被规范化。
+
+```html
+<p>Line 1<br>Line 2</p>
+```
+
+aria snapshot
+
+```yaml
+- paragraph: Line 1 Line 2
+```
+
+### 链接
+
+链接会显示其文本或来自伪元素的组合内容。可以使用 `/url` 属性匹配链接目标。
+
+```html
+<a href="#more-info">Read more about Accessibility</a>
+```
+
+aria snapshot
+
+```yaml
+- link "Read more about Accessibility":
+    - /url: "#more-info"
+```
+
+`/url` 的值也可以是正则表达式：
+
+```html
+<a href="https://www.youtube.com/channel/UC46Zj8pDH5tDosqm1gd7WTg">YouTube channel</a>
+```
+
+aria snapshot
+
+```yaml
+- link:
+  - /url: /https://www.youtube.com/channel/.*/
+```
+
+### 文本框
+
+`text` 类型的输入元素会显示其 `value` 属性内容。
+
+```html
+<input type="text" value="Enter your name">
+```
+
+aria snapshot
+
+```yaml
+- textbox: Enter your name
+```
+
+### 带项目的列表
+
+有序列表和无序列表会包含其列表项。
+
+```html
+<ul aria-label="Main Features">
+  <li>Feature 1</li>
+  <li>Feature 2</li>
+</ul>
+```
+
+aria snapshot
+
+```yaml
+- list "Main Features":
+  - listitem: Feature 1
+  - listitem: Feature 2
+```
+
+### 分组元素
+
+组会捕获嵌套元素，例如带有摘要内容的 `<details>` 元素。
+
+```html
+<details>
+  <summary>Summary</summary>
+  <p>Detail content here</p>
+</details>
+```
+
+aria snapshot
+
+```yaml
+- group: Summary
+```
+
+### 属性和状态
+
+常用的 ARIA 属性（如 `checked`、`disabled`、`expanded`、`level`、`pressed` 和 `selected`）表示控件状态。
+
+#### 带 `checked` 属性的复选框
+
+```html
+<input type="checkbox" checked>
+```
+
+aria snapshot
+
+```yaml
+- checkbox [checked]
+```
+
+#### 带 `pressed` 属性的按钮
+
+```html
+<button aria-pressed="true">Toggle</button>
+```
+
+aria snapshot
+
+```yaml
+- button "Toggle" [pressed=true]
+```
+
+

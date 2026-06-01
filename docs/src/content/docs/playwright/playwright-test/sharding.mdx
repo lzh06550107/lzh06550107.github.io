@@ -1,0 +1,246 @@
+---
+title: 分片
+description: Playwright Test 分片执行
+sidebar:
+  order: 14
+---
+
+## 简介
+
+默认情况下，Playwright 会并行运行测试文件，并尽量充分利用当前机器上的 CPU 核心。为了获得更高的并行度，你可以把 Playwright 测试执行进一步扩展到多台机器上同时运行。这种运行方式称为“分片”。
+
+在 Playwright 中，分片表示把测试拆分为更小的部分，每一部分称为一个“分片”。每个分片都像一个独立任务，可以单独运行。
+
+分片的主要目的，是将测试拆开执行，从而缩短整体测试运行时间。
+
+当你对测试进行分片时，每个分片都可以独立运行，并使用所在环境中可用的 CPU 核心。这可以让多个任务同时进行，从而加快测试过程。
+
+在 CI 流水线中，每个分片可以作为一个单独的 job 运行，利用 CI 环境提供的硬件资源，例如 CPU 核心，让测试执行得更快。
+
+## 在多台机器之间对测试进行分片
+
+要对测试套件进行分片，可以在命令行中传入 `--shard=x/y`。例如，要把测试套件拆成 4 个分片，并让每个分片运行四分之一的测试：
+
+```bash
+npx playwright test --shard=1/4
+npx playwright test --shard=2/4
+npx playwright test --shard=3/4
+npx playwright test --shard=4/4
+```
+
+如果你在不同 job 中并行运行这些分片，那么测试套件可以大约快 4 倍完成。
+
+:::note
+Playwright 只能对可以并行运行的测试进行分片。默认情况下，这意味着 Playwright 会按测试文件进行分片。更多并行相关配置，请参考 Playwright 的并行机制文档。
+:::
+
+## 平衡分片
+
+分片可以在两种不同粒度上完成，具体取决于是否使用 `testProject.fullyParallel` 选项。这会影响测试如何在不同分片之间分配和平衡。
+
+### 使用 `fullyParallel` 进行分片
+
+启用 `fullyParallel: true` 后，Playwright Test 会在多个分片之间并行运行单个测试，并尽量让每个分片获得更均衡的测试分布。
+
+这种模式具有测试级别的粒度，也就是说，每个分片会尝试平衡自己运行的单个测试数量。对于希望分片负载尽量均衡的场景，这是推荐方式，因为 Playwright 可以根据测试总数优化每个分片的执行。
+
+### 不使用 `fullyParallel` 进行分片
+
+如果没有启用 `fullyParallel`，Playwright Test 默认会使用文件级别的粒度，也就是把完整的测试文件分配给不同分片。
+
+需要注意的是，同一个文件在不同 project 中可能被分配到不同分片。在这种情况下，每个测试文件中包含的测试数量，会显著影响分片分布。
+
+如果你的测试文件大小不均衡，例如有些文件包含很多测试，而另一些文件只有少量测试，那么某些分片可能会运行明显更多的测试，而另一些分片运行较少，甚至可能没有测试可运行。
+
+### 关键结论
+
+- 使用 `fullyParallel: true` 时：测试会按照单个测试级别拆分，分片执行通常更均衡。
+- 不使用 `fullyParallel` 时：测试会按照文件级别拆分。为了让分片更平衡，应尽量保持测试文件较小且大小接近。
+- 为了在 CI 环境中更有效地使用分片，尤其是在追求跨分片均衡分布时，推荐使用 `fullyParallel: true`。否则，你可能需要手动组织测试文件，避免分片之间出现明显不均衡。
+
+## 合并多个分片的报告
+
+在前面的示例中，每个测试分片都会生成自己的测试报告。如果你希望得到一个包含所有分片测试结果的合并报告，可以将这些报告合并。
+
+首先，在 CI 环境中运行测试时，为配置文件添加 `blob` reporter：
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests',
+  reporter: process.env.CI ? 'blob' : 'html',
+});
+```
+
+Blob 报告包含所有已运行测试及其结果的信息，也包含所有测试附件，例如 traces 和截图 diff。Blob 报告可以被合并，并转换成其他 Playwright 报告格式。
+
+默认情况下，blob 报告会生成到 `blob-report` 目录中。
+
+要合并多个分片的报告，需要把 blob 报告文件放到同一个目录中，例如 `all-blob-reports`。Blob 报告名称中包含分片编号，因此不会相互冲突。
+
+之后，运行 `npx playwright merge-reports` 命令：
+
+```bash
+npx playwright merge-reports --reporter html ./all-blob-reports
+```
+
+这会在 `playwright-report` 目录中生成一个标准 HTML 报告。
+
+## GitHub Actions 示例
+
+GitHub Actions 支持使用 `jobs.<job_id>.strategy.matrix` 选项在多个 job 之间对测试进行分片。`matrix` 选项会为提供的选项组合分别运行一个独立 job。
+
+下面的示例展示了如何配置一个 workflow，让测试在 4 台机器上并行运行，并最终把报告合并成一个单独报告。
+
+:::note
+不要忘记按照上一节示例，在 `playwright.config.ts` 文件中添加：
+
+```ts
+reporter: process.env.CI ? 'blob' : 'html',
+```
+:::
+
+首先，在 job 配置中添加 `matrix` 选项：
+
+- `shardTotal: [4]` 表示要创建的分片总数。
+- `shardIndex: [1, 2, 3, 4]` 是各个分片编号数组。
+
+然后，使用 `--shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}` 运行 Playwright 测试。这样每个分片都会执行对应的测试命令。
+
+最后，把 blob 报告上传到 GitHub Actions Artifacts。这样 workflow 中的其他 job 就可以使用这些 blob 报告。
+
+```yaml title=".github/workflows/playwright.yml"
+name: Playwright Tests
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  playwright-tests:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3, 4]
+        shardTotal: [4]
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-node@v5
+      with:
+        node-version: lts/*
+    - name: Install dependencies
+      run: npm ci
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps
+    - name: Run Playwright tests
+      run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+
+    - name: Upload blob report to GitHub Actions Artifacts
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: blob-report-${{ matrix.shardIndex }}
+        path: blob-report
+        retention-days: 1
+```
+
+当所有分片完成之后，可以运行一个单独的 job 来合并报告，并生成合并后的 HTML 报告。
+
+为了确保执行顺序，需要让 `merge-reports` job 依赖前面的分片测试 job，也就是添加 `needs: [playwright-tests]`。
+
+```yaml title=".github/workflows/playwright.yml"
+jobs:
+  # ...
+  merge-reports:
+    # 即使某些分片失败，也在 playwright-tests 之后合并报告
+    if: ${{ !cancelled() }}
+    needs: [playwright-tests]
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-node@v5
+      with:
+        node-version: lts/*
+    - name: Install dependencies
+      run: npm ci
+    - name: Download blob reports from GitHub Actions Artifacts
+      uses: actions/download-artifact@v5
+      with:
+        path: all-blob-reports
+        pattern: blob-report-*
+        merge-multiple: true
+
+    - name: Merge into HTML Report
+      run: npx playwright merge-reports --reporter html ./all-blob-reports
+    - name: Upload HTML report
+      uses: actions/upload-artifact@v4
+      with:
+        name: html-report--attempt-${{ github.run_attempt }}
+        path: playwright-report
+        retention-days: 14
+```
+
+现在，你可以在 GitHub Actions 的 Artifacts 标签页中看到合并后的报告，并获取包含全部分片结果的 HTML 报告。
+
+## 合并多个环境中的报告
+
+如果你希望在多个环境中运行同一批测试，而不是仅仅把测试分片到多台机器上，就需要区分这些环境。
+
+在这种情况下，可以指定 `testConfig.tag` 属性，为所有测试添加环境名称标签。该标签会被 blob 报告自动记录，之后也会被报告合并工具使用。
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  reporter: process.env.CI ? 'blob' : 'html',
+  tag: process.env.CI_ENVIRONMENT_NAME, // 例如 "@APIv2"
+});
+```
+
+## `merge-reports` CLI
+
+`npx playwright merge-reports path/to/blob-reports-dir` 会读取传入目录中的所有 blob 报告，并将它们合并成一个报告。
+
+当合并来自不同操作系统的报告时，需要提供一个明确的合并配置，用来消除歧义，指定哪个目录应该作为测试根目录。
+
+### 支持的选项
+
+#### `--reporter reporter-to-use`
+
+指定要生成哪种报告。可以传入多个 reporter，并用逗号分隔。
+
+示例：
+
+```bash
+npx playwright merge-reports --reporter=html,github ./blob-reports
+```
+
+#### `--config path/to/config/file`
+
+指定带有输出 reporter 的 Playwright 配置文件。使用该选项可以向输出 reporter 传递额外配置。
+
+这个配置文件可以不同于创建 blob 报告时使用的配置文件。
+
+示例：
+
+```bash
+npx playwright merge-reports --config=merge.config.ts ./blob-reports
+```
+
+```ts title="merge.config.ts"
+export default {
+  testDir: 'e2e',
+  reporter: [['html', { open: 'never' }]],
+};
+```
+
+## 相关链接
+
+- 上一篇：Retries
+- 下一篇：Timeouts
+

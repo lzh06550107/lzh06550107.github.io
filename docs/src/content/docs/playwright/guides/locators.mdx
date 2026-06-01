@@ -1,0 +1,526 @@
+---
+title: "定位器"
+description: "介绍推荐定位方式、过滤、组合、列表处理和定位器最佳实践。"
+sidebar:
+  label: "定位器"
+  order: 22
+---
+
+## 简介
+
+`Locator` 是 Playwright 自动等待和可重试能力的核心。简单来说，定位器表示一种在页面任意时刻查找一个或多个元素的方式。
+
+## 快速指南
+
+以下是推荐使用的内置定位器：
+
+- `page.getByRole()`：通过显式和隐式的无障碍属性定位。
+- `page.getByText()`：通过文本内容定位。
+- `page.getByLabel()`：通过关联标签文本定位表单控件。
+- `page.getByPlaceholder()`：通过占位符定位输入框。
+- `page.getByAltText()`：通过文本替代内容定位元素，通常用于图片。
+- `page.getByTitle()`：通过 `title` 属性定位元素。
+- `page.getByTestId()`：通过 `data-testid` 属性定位元素，也可以配置为其它属性。
+
+```ts
+await page.getByLabel('User Name').fill('John');
+
+await page.getByLabel('Password').fill('secret-password');
+
+await page.getByRole('button', { name: 'Sign in' }).click();
+
+await expect(page.getByText('Welcome, John!')).toBeVisible();
+```
+
+## 定位元素
+
+Playwright 内置了多种定位器。为了让测试更稳定，推荐优先使用面向用户的属性以及显式约定，例如 `page.getByRole()`。
+
+例如，考虑下面的 DOM 结构：
+
+```html
+<button>Sign in</button>
+```
+
+通过角色 `button` 和名称 `Sign in` 定位元素：
+
+```ts
+await page.getByRole('button', { name: 'Sign in' }).click();
+```
+
+:::note
+可以使用代码生成器生成定位器，然后根据需要编辑它。
+:::
+
+每次定位器被用于某个动作时，Playwright 都会在页面中重新定位最新的 DOM 元素。在下面的代码中，底层 DOM 元素会被定位两次，每次动作之前各定位一次。这意味着如果两次调用之间 DOM 因重新渲染而发生变化，Playwright 会使用与定位器匹配的新元素。
+
+```ts
+const locator = page.getByRole('button', { name: 'Sign in' });
+await locator.hover();
+await locator.click();
+```
+
+所有创建定位器的方法，例如 `page.getByLabel()`，也可以在 `Locator` 和 `FrameLocator` 类上使用。因此你可以链式调用它们，并逐步缩小定位范围。
+
+```ts
+const locator = page
+  .frameLocator('#my-frame')
+  .getByRole('button', { name: 'Sign in' });
+
+await locator.click();
+```
+
+## 通过角色定位
+
+`page.getByRole()` 定位器反映用户和辅助技术感知页面的方式，例如某个元素是按钮还是复选框。通过角色定位时，通常还应该传入可访问名称，以便定位到准确元素。
+
+例如，考虑下面的 DOM 结构：
+
+```html
+<h3>Sign up</h3>
+<label>
+  <input type="checkbox" /> Subscribe
+</label>
+<br/>
+<button>Submit</button>
+```
+
+可以通过隐式角色定位每个元素：
+
+```ts
+await expect(page.getByRole('heading', { name: 'Sign up' })).toBeVisible();
+
+await page.getByRole('checkbox', { name: 'Subscribe' }).check();
+
+await page.getByRole('button', { name: /submit/i }).click();
+```
+
+角色定位器包括按钮、复选框、标题、链接、列表、表格等，并遵循 W3C 关于 ARIA role、ARIA 属性和可访问名称的规范。许多 HTML 元素，例如 `<button>`，都有可被角色定位器识别的隐式角色。
+
+角色定位器不能替代无障碍审计和一致性测试，但它能让你更早发现与 ARIA 指南相关的问题。
+
+### 何时使用角色定位器
+
+推荐优先使用角色定位器来定位元素，因为这最接近用户和辅助技术感知页面的方式。
+
+## 通过标签定位
+
+大多数表单控件通常都有专用标签，可以方便地用于表单交互。在这种情况下，可以使用 `page.getByLabel()` 通过关联标签定位控件。
+
+```html
+<label>Password <input type="password" /></label>
+```
+
+通过标签文本定位并填写输入框：
+
+```ts
+await page.getByLabel('Password').fill('secret');
+```
+
+### 何时使用标签定位器
+
+在定位表单字段时使用此定位器。
+
+## 通过占位符定位
+
+输入框可能包含 `placeholder` 属性，用于提示用户应该输入什么值。可以使用 `page.getByPlaceholder()` 定位这样的输入框。
+
+```html
+<input type="email" placeholder="name@example.com" />
+```
+
+```ts
+await page
+  .getByPlaceholder('name@example.com')
+  .fill('playwright@microsoft.com');
+```
+
+### 何时使用占位符定位器
+
+当表单元素没有标签但有占位符文本时使用此定位器。
+
+## 通过文本定位
+
+可以通过元素包含的文本查找元素。使用 `page.getByText()` 时，可以按子串、精确字符串或正则表达式匹配。
+
+```html
+<span>Welcome, John</span>
+```
+
+```ts
+await expect(page.getByText('Welcome, John')).toBeVisible();
+```
+
+精确匹配：
+
+```ts
+await expect(page.getByText('Welcome, John', { exact: true })).toBeVisible();
+```
+
+使用正则表达式匹配：
+
+```ts
+await expect(page.getByText(/welcome, [A-Z a-z]+$/i)).toBeVisible();
+```
+
+:::note
+按文本匹配时始终会规范化空白字符，即使使用精确匹配也是如此。例如，多个空格会被转换为一个空格，换行会被转换为空格，并且会忽略首尾空白。
+:::
+
+### 何时使用文本定位器
+
+推荐使用文本定位器查找非交互元素，例如 `div`、`span`、`p` 等。对于 `button`、`a`、`input` 等交互元素，请使用角色定位器。
+
+你也可以按文本过滤，这在尝试查找列表中的特定项时很有用。
+
+## 通过 alt 文本定位
+
+所有图片都应该有描述图片的 `alt` 属性。可以使用 `page.getByAltText()` 根据文本替代内容定位图片。
+
+```html
+<img alt="playwright logo" src="/img/playwright-logo.svg" width="100" />
+```
+
+```ts
+await page.getByAltText('playwright logo').click();
+```
+
+### 何时使用 alt 定位器
+
+当元素支持 alt 文本时使用此定位器，例如 `img` 和 `area` 元素。
+
+## 通过 title 定位
+
+可以使用 `page.getByTitle()` 定位具有匹配 `title` 属性的元素。
+
+```html
+<span title="Issues count">25 issues</span>
+```
+
+```ts
+await expect(page.getByTitle('Issues count')).toHaveText('25 issues');
+```
+
+### 何时使用 title 定位器
+
+当元素具有 `title` 属性时使用此定位器。
+
+## 通过测试 ID 定位
+
+使用测试 ID 是一种非常稳定的测试方式。即使文本或角色属性发生变化，测试仍然可以通过。QA 和开发者可以定义显式测试 ID，并使用 `page.getByTestId()` 查询它们。
+
+不过，测试 ID 并不是用户可见属性。如果角色或文本值对你的测试很重要，请考虑使用面向用户的定位器，例如角色定位器或文本定位器。
+
+```html
+<button data-testid="directions">Itinéraire</button>
+```
+
+```ts
+await page.getByTestId('directions').click();
+```
+
+### 何时使用 test id 定位器
+
+当你选择使用 test id 方法论，或者无法通过角色或文本定位时，可以使用 test id。
+
+### 设置自定义 test id 属性
+
+默认情况下，`page.getByTestId()` 会基于 `data-testid` 属性定位元素。你也可以在测试配置中配置它，或者调用 `selectors.setTestIdAttribute()`。
+
+在测试中设置自定义 data 属性作为 test id：
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    testIdAttribute: 'data-pw'
+  }
+});
+```
+
+HTML 中可以使用 `data-pw` 作为 test id，而不是默认的 `data-testid`：
+
+```html
+<button data-pw="directions">Itinéraire</button>
+```
+
+然后像平常一样定位元素：
+
+```ts
+await page.getByTestId('directions').click();
+```
+
+## 通过 CSS 或 XPath 定位
+
+如果确实必须使用 CSS 或 XPath 定位器，可以使用 `page.locator()` 创建定位器，并传入描述如何在页面中查找元素的选择器。Playwright 支持 CSS 和 XPath 选择器；如果省略 `css=` 或 `xpath=` 前缀，Playwright 会自动检测。
+
+```ts
+await page.locator('css=button').click();
+await page.locator('xpath=//button').click();
+
+await page.locator('button').click();
+await page.locator('//button').click();
+```
+
+XPath 和 CSS 选择器可能绑定到 DOM 结构或实现细节。当 DOM 结构变化时，这些选择器容易失效。下面这种很长的 CSS 或 XPath 链就是不推荐的做法，会导致测试不稳定：
+
+```ts
+await page.locator(
+  '#tsf > div:nth-child(2) > div.A8SBwf > div.RNNXgb > div > div.a4bIc > input'
+).click();
+
+await page
+  .locator('//*[@id="tsf"]/div[2]/div[1]/div[1]/div/div[2]/input')
+  .click();
+```
+
+### 何时使用 CSS 或 XPath
+
+不推荐使用 CSS 和 XPath，因为 DOM 经常会变化，从而导致测试不稳定。应尽量选择更接近用户感知页面的定位器，例如角色定位器；或者使用 test id 定义显式测试约定。
+
+## 在 Shadow DOM 中定位
+
+Playwright 中的所有定位器默认都可以穿透 Shadow DOM。例外情况包括：
+
+- XPath 定位不会穿透 shadow root。
+- 不支持 closed-mode shadow root。
+
+考虑下面的自定义 Web 组件：
+
+```html
+<x-details role="button" aria-expanded="true" aria-controls="inner-details">
+  <div>Title</div>
+  #shadow-root
+    <div id="inner-details">Details</div>
+</x-details>
+```
+
+你可以像 shadow root 不存在一样进行定位。
+
+点击 `<div>Details</div>`：
+
+```ts
+await page.getByText('Details').click();
+```
+
+点击 `<x-details>`：
+
+```ts
+await page.locator('x-details', { hasText: 'Details' }).click();
+```
+
+确认 `<x-details>` 包含文本 `Details`：
+
+```ts
+await expect(page.locator('x-details')).toContainText('Details');
+```
+
+## 过滤定位器
+
+考虑下面的 DOM 结构，我们想点击第二个商品卡片的购买按钮。可以通过多种方式过滤定位器，从而获得正确元素。
+
+```html
+<ul>
+  <li>
+    <h3>Product 1</h3>
+    <button>Add to cart</button>
+  </li>
+  <li>
+    <h3>Product 2</h3>
+    <button>Add to cart</button>
+  </li>
+</ul>
+```
+
+### 按文本过滤
+
+定位器可以通过 `locator.filter()` 按文本过滤。它会在元素内部某处查找特定字符串，也可能在后代元素中查找，并且不区分大小写。你也可以传入正则表达式。
+
+```ts
+await page
+  .getByRole('listitem')
+  .filter({ hasText: 'Product 2' })
+  .getByRole('button', { name: 'Add to cart' })
+  .click();
+```
+
+使用正则表达式：
+
+```ts
+await page
+  .getByRole('listitem')
+  .filter({ hasText: /Product 2/ })
+  .getByRole('button', { name: 'Add to cart' })
+  .click();
+```
+
+### 按不包含文本过滤
+
+也可以过滤掉包含某些文本的元素：
+
+```ts
+// 5 个有库存的商品
+await expect(page.getByRole('listitem').filter({ hasNotText: 'Out of stock' })).toHaveCount(5);
+```
+
+### 按子元素或后代元素过滤
+
+定位器支持只选择拥有或不拥有某个匹配后代元素的元素。因此你可以使用任意其它定位器来过滤，例如 `locator.getByRole()`、`locator.getByTestId()`、`locator.getByText()` 等。
+
+```ts
+await page
+  .getByRole('listitem')
+  .filter({ has: page.getByRole('heading', { name: 'Product 2' }) })
+  .getByRole('button', { name: 'Add to cart' })
+  .click();
+```
+
+也可以断言商品卡片只有一个：
+
+```ts
+await expect(page
+  .getByRole('listitem')
+  .filter({ has: page.getByRole('heading', { name: 'Product 2' }) }))
+  .toHaveCount(1);
+```
+
+过滤定位器必须相对于原定位器。它从原定位器匹配项开始查询，而不是从 document 根节点开始。因此下面的写法不会生效，因为内部定位器从 `<ul>` 列表元素开始匹配，而这个元素位于原定位器匹配到的 `<li>` 列表项之外：
+
+```ts
+// ✖ 错误
+await expect(page
+  .getByRole('listitem')
+  .filter({ has: page.getByRole('list').getByText('Product 2') }))
+  .toHaveCount(1);
+```
+
+### 按不包含子元素或后代元素过滤
+
+也可以过滤出内部没有匹配元素的元素。
+
+```ts
+await expect(page
+  .getByRole('listitem')
+  .filter({ hasNot: page.getByText('Product 2') }))
+  .toHaveCount(1);
+```
+
+请注意，内部定位器是从外部定位器开始匹配的，而不是从 document 根节点开始。
+
+## 定位器操作符
+
+### 在定位器内部匹配
+
+可以链式调用创建定位器的方法，例如 `page.getByText()` 或 `locator.getByRole()`，从而将搜索范围缩小到页面的特定部分。
+
+下面的示例先通过 `listitem` 角色创建名为 `product` 的定位器，然后按文本过滤。随后可以继续使用这个 `product` 定位器按按钮角色查找并点击按钮，再断言文本为 `Product 2` 的商品只有一个。
+
+```ts
+const product = page.getByRole('listitem').filter({ hasText: 'Product 2' });
+
+await product.getByRole('button', { name: 'Add to cart' }).click();
+
+await expect(product).toHaveCount(1);
+```
+
+### 同时匹配两个定位器
+
+可以使用 `locator.and()` 创建一个匹配两个定位器的定位器。
+
+```ts
+const button = page.getByRole('button').and(page.getByTitle('Subscribe'));
+```
+
+### 匹配两个可选定位器之一
+
+可以使用 `locator.or()` 创建一个匹配两个或多个备选定位器之一的定位器。当测试需要等待两个可能结果之一出现时，这很有用。
+
+```ts
+const newEmail = page.getByRole('button', { name: 'New' });
+const dialog = page.getByText('Confirm security settings');
+await expect(newEmail.or(dialog).first()).toBeVisible();
+
+if (await dialog.isVisible())
+  await page.getByRole('button', { name: 'Dismiss' }).click();
+
+await newEmail.click();
+```
+
+如果两个定位器都匹配到元素，那么生成的定位器可能违反严格性规则。因此示例中使用了 `.first()`。
+
+### 只匹配可见元素
+
+可以使用 `locator.filter()` 的 `visible` 选项只匹配可见元素。
+
+```ts
+await page.getByRole('button').filter({ visible: true }).click();
+```
+
+## 列表
+
+### 断言列表中的所有文本
+
+可以使用 `expect(locator).toHaveText()` 断言列表中的所有文本。
+
+```ts
+await expect(page.getByRole('listitem')).toHaveText(['apple', 'banana', 'orange']);
+```
+
+### 获取特定元素
+
+可以使用 `locator.nth()`、`locator.first()` 和 `locator.last()` 获取指定位置的元素。
+
+```ts
+const banana = await page.getByRole('listitem').nth(1);
+```
+
+### 在列表中循环
+
+可以使用 `locator.count()` 和 `locator.nth()` 遍历列表。
+
+```ts
+const rows = page.getByRole('listitem');
+const count = await rows.count();
+for (let i = 0; i < count; ++i)
+  console.log(await rows.nth(i).textContent());
+```
+
+也可以使用 `locator.all()` 获取定位器数组，但只有在列表元素稳定时才建议这样做。
+
+```ts
+for (const row of await page.getByRole('listitem').all())
+  console.log(await row.textContent());
+```
+
+## 罕见用例
+
+### 调度 DOM 事件
+
+可以使用 `locator.dispatchEvent()` 以编程方式在元素上调度 DOM 事件。
+
+```ts
+await page.getByRole('button').dispatchEvent('click');
+```
+
+### 定位器转 ElementHandle
+
+可以通过 `locator.elementHandle()` 将定位器解析为 `ElementHandle`。不过通常不推荐使用 `ElementHandle`，因为 locator 更可靠。
+
+```ts
+const handle = await page.getByRole('button').elementHandle();
+```
+
+### 获取元素属性
+
+可以使用定位器方法获取文本、属性或其它 DOM 信息。
+
+```ts
+const href = await page.getByRole('link').getAttribute('href');
+const text = await page.getByRole('heading').textContent();
+```
+
+## 小结
+
+优先选择反映用户如何感知页面的定位方式，例如角色、标签、文本和无障碍名称。只有在无法使用面向用户的属性时，才考虑使用 test id。CSS 和 XPath 应作为最后选择，因为它们更容易受到 DOM 结构变化影响。
+

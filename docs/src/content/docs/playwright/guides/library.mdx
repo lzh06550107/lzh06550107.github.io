@@ -1,0 +1,393 @@
+---
+title: "库"
+description: "说明 Playwright Library 与 Playwright Test 的区别，以及如何在 Node.js 脚本中直接使用 Playwright。"
+sidebar:
+  label: "库"
+  order: 1
+---
+
+## Introduction
+
+Playwright Library 提供了一组统一的 API，用于启动浏览器并与浏览器交互。Playwright Test 在此基础上进一步提供了完整托管的端到端测试运行器和测试体验。
+
+在大多数端到端测试场景中，推荐使用 `@playwright/test`（Playwright Test），而不是直接使用 `playwright`（Playwright Library）。如果你要开始编写 Playwright 测试，请先阅读入门指南。
+
+## Differences when using library
+
+### Library Example
+
+下面的示例展示了如何直接使用 Playwright Library 启动 Chromium、打开页面并检查页面标题。
+
+<Tabs>
+  <TabItem label="TypeScript">
+
+```ts
+import { chromium, devices } from 'playwright';
+import assert from 'node:assert';
+
+(async () => {
+  // Setup
+  const browser = await chromium.launch();
+  const context = await browser.newContext(devices['iPhone 11']);
+  const page = await context.newPage();
+
+  // The actual interesting bit
+  await context.route('**.jpg', route => route.abort());
+  await page.goto('https://example.com/');
+
+  assert(await page.title() === 'Example Domain'); // not a Web First assertion
+
+  // Teardown
+  await context.close();
+  await browser.close();
+})();
+```
+
+  </TabItem>
+  <TabItem label="JavaScript">
+
+```js
+const assert = require('node:assert');
+const { chromium, devices } = require('playwright');
+
+(async () => {
+  // Setup
+  const browser = await chromium.launch();
+  const context = await browser.newContext(devices['iPhone 11']);
+  const page = await context.newPage();
+
+  // The actual interesting bit
+  await context.route('**.jpg', route => route.abort());
+  await page.goto('https://example.com/');
+
+  assert(await page.title() === 'Example Domain'); // not a Web First assertion
+
+  // Teardown
+  await context.close();
+  await browser.close();
+})();
+```
+
+  </TabItem>
+</Tabs>
+
+使用下面的命令运行它：
+
+```bash
+node my-script.js
+```
+
+### Test Example
+
+如果用测试来实现类似行为，可以写成这样：
+
+<Tabs>
+  <TabItem label="TypeScript">
+
+```ts
+import { expect, test, devices } from '@playwright/test';
+
+test.use(devices['iPhone 11']);
+
+test('should be titled', async ({ page, context }) => {
+  await context.route('**.jpg', route => route.abort());
+  await page.goto('https://example.com/');
+
+  await expect(page).toHaveTitle('Example');
+});
+```
+
+  </TabItem>
+  <TabItem label="JavaScript">
+
+```js
+const { expect, test, devices } = require('@playwright/test');
+
+test.use(devices['iPhone 11']);
+
+test('should be titled', async ({ page, context }) => {
+  await context.route('**.jpg', route => route.abort());
+  await page.goto('https://example.com/');
+
+  await expect(page).toHaveTitle('Example');
+});
+```
+
+  </TabItem>
+</Tabs>
+
+使用下面的命令运行它：
+
+```bash
+npx playwright test
+```
+
+### Key Differences
+
+下面是使用 Playwright Library 与 Playwright Test 时需要注意的主要区别。
+
+| 项目 | Library | Test |
+|---|---|---|
+| 安装 | `npm install playwright` | `npm init playwright@latest`，注意这里是 `init` 而不是 `install` |
+| 安装浏览器 | 安装 `@playwright/browser-chromium`、`@playwright/browser-firefox` 和/或 `@playwright/browser-webkit` | 使用 `npx playwright install`，或者使用 `npx playwright install chromium` 只安装单个浏览器 |
+| 导入来源 | 从 `playwright` 导入 | 从 `@playwright/test` 导入 |
+| 初始化 | 需要显式选择浏览器，例如 `chromium`；通过 `browserType.launch()` 启动浏览器；通过 `browser.newContext()` 创建上下文并显式传入上下文选项，例如 `devices['iPhone 11']`；通过 `browserContext.newPage()` 创建页面 | 每个测试默认都会获得隔离的 `page` 和 `context`，并且还有其他内置 fixtures。通常不需要显式创建；当测试参数中引用这些 fixture 时，测试运行器会为该测试创建它们，也就是惰性初始化 |
+| 断言 | 没有内置 Web-First Assertions，例如 `expect(page).toHaveTitle()`、`expect(page).toHaveScreenshot()` 这类会自动等待并重试条件满足的断言 | 提供 Web-First Assertions |
+| 超时 | 多数操作默认 30 秒超时 | 多数操作本身不超时，但每个测试都有测试超时，默认 30 秒，到达后测试失败 |
+| 清理 | 需要显式调用 `browserContext.close()` 关闭上下文，并调用 `browser.close()` 关闭浏览器 | 内置 fixtures 不需要显式关闭，测试运行器会负责清理 |
+| 运行方式 | 使用 Library 时，通常把代码作为 Node.js 脚本运行，可能需要先编译 | 使用 Test Runner 时，通过 `npx playwright test` 运行。测试运行器会结合配置处理编译、选择要运行的内容以及运行方式 |
+
+除此之外，Playwright Test 作为完整的测试运行器，还包含以下能力：
+
+- 配置矩阵和项目：在上面的 Library 示例中，如果要换设备或浏览器，需要修改脚本并传递相关信息；使用 Playwright Test 时，可以在一个地方定义配置矩阵，测试运行器会在每种配置下运行测试。
+- 并行化。
+- Web-First Assertions。
+- 报告。
+- 重试。
+- 易于启用的 Trace。
+- 以及更多功能。
+
+## Usage
+
+在 Node.js 项目中，可以使用 npm 或 Yarn 安装 Playwright Library。安装前请查看系统要求。
+
+```bash
+npm i -D playwright
+```
+
+还需要安装浏览器。可以手动安装，也可以添加会在安装包时自动下载浏览器的辅助包。
+
+```bash
+# 下载 Chromium、Firefox 和 WebKit 浏览器
+npx playwright install chromium firefox webkit
+
+# 或者添加会在 npm install 时下载浏览器的包
+npm i -D @playwright/browser-chromium @playwright/browser-firefox @playwright/browser-webkit
+```
+
+更多选项请查看浏览器管理相关说明。
+
+安装完成后，可以在 Node.js 脚本中导入 Playwright，并启动三种浏览器之一：`chromium`、`firefox` 或 `webkit`。
+
+```js
+const { chromium } = require('playwright');
+
+(async () => {
+  const browser = await chromium.launch();
+  // Create pages, interact with UI elements, assert values
+  await browser.close();
+})();
+```
+
+Playwright API 是异步的，会返回 Promise 对象。示例代码使用 `async/await` 模式提升可读性。代码被包裹在一个匿名异步箭头函数中，并立即调用。
+
+```js
+(async () => { // Start of async arrow function
+  // Function code
+  // ...
+})(); // End of the function and () to invoke itself
+```
+
+## First script
+
+第一个脚本会访问 `https://playwright.dev/`，并在 WebKit 中截取屏幕截图。
+
+```js
+const { webkit } = require('playwright');
+
+(async () => {
+  const browser = await webkit.launch();
+  const page = await browser.newPage();
+  await page.goto('https://playwright.dev/');
+  await page.screenshot({ path: `example.png` });
+  await browser.close();
+})();
+```
+
+默认情况下，Playwright 会以无头模式运行浏览器。若要看到浏览器界面，可以在启动浏览器时传入 `headless: false`。也可以使用 `slowMo` 放慢执行速度。更多内容请查看调试工具相关章节。
+
+```js
+firefox.launch({ headless: false, slowMo: 50 });
+```
+
+## Record scripts
+
+可以使用命令行工具录制用户交互，并生成 JavaScript 代码。
+
+```bash
+npx playwright codegen wikipedia.org
+```
+
+## Browser downloads
+
+运行下面的命令下载 Playwright 浏览器：
+
+```bash
+# 显式下载浏览器
+npx playwright install
+```
+
+也可以添加 `@playwright/browser-chromium`、`@playwright/browser-firefox` 和 `@playwright/browser-webkit` 包，使对应浏览器在安装包时自动下载。
+
+```bash
+# 使用会在 npm install 时下载浏览器的辅助包
+npm install @playwright/browser-chromium
+```
+
+### Download behind a firewall or a proxy
+
+如果需要通过代理下载，可以传入 `HTTPS_PROXY` 环境变量。
+
+<Tabs>
+  <TabItem label="Bash">
+
+```bash
+# Manual
+HTTPS_PROXY=https://192.0.2.1 npx playwright install
+
+# Through @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+HTTPS_PROXY=https://192.0.2.1 npm install
+```
+
+  </TabItem>
+  <TabItem label="PowerShell">
+
+```powershell
+# Manual
+$Env:HTTPS_PROXY=https://192.0.2.1
+npx playwright install
+
+# Through @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+$Env:HTTPS_PROXY=https://192.0.2.1
+npm install
+```
+
+  </TabItem>
+  <TabItem label="Batch">
+
+```batch
+# Manual
+set HTTPS_PROXY=https://192.0.2.1
+npx playwright install
+
+# Through @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+set HTTPS_PROXY=https://192.0.2.1
+npm install
+```
+
+  </TabItem>
+</Tabs>
+
+### Download from artifact repository
+
+默认情况下，Playwright 会从 Microsoft CDN 下载浏览器。可以传入 `PLAYWRIGHT_DOWNLOAD_HOST` 环境变量，改为从内部制品仓库下载。
+
+<Tabs>
+  <TabItem label="Bash">
+
+```bash
+# Manual
+PLAYWRIGHT_DOWNLOAD_HOST=192.0.2.1 npx playwright install
+
+# Through @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+PLAYWRIGHT_DOWNLOAD_HOST=192.0.2.1 npm install
+```
+
+  </TabItem>
+  <TabItem label="PowerShell">
+
+```powershell
+# Manual
+$Env:PLAYWRIGHT_DOWNLOAD_HOST=192.0.2.1
+npx playwright install
+
+# Through @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+$Env:PLAYWRIGHT_DOWNLOAD_HOST=192.0.2.1
+npm install
+```
+
+  </TabItem>
+  <TabItem label="Batch">
+
+```batch
+# Manual
+set PLAYWRIGHT_DOWNLOAD_HOST=192.0.2.1
+npx playwright install
+
+# Through @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+set PLAYWRIGHT_DOWNLOAD_HOST=192.0.2.1
+npm install
+```
+
+  </TabItem>
+</Tabs>
+
+### Skip browser download
+
+某些情况下，浏览器二进制文件由其他方式单独管理，因此希望完全跳过浏览器下载。可以在安装包之前设置 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` 变量。
+
+<Tabs>
+  <TabItem label="Bash">
+
+```bash
+# When using @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install
+```
+
+  </TabItem>
+  <TabItem label="PowerShell">
+
+```powershell
+# When using @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+$Env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+npm install
+```
+
+  </TabItem>
+  <TabItem label="Batch">
+
+```batch
+# When using @playwright/browser-chromium, @playwright/browser-firefox
+# and @playwright/browser-webkit helper packages
+set PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+npm install
+```
+
+  </TabItem>
+</Tabs>
+
+## TypeScript support
+
+Playwright 内置支持 TypeScript。类型定义会自动导入。建议使用类型检查，以改善 IDE 使用体验。
+
+### In JavaScript
+
+在 JavaScript 文件顶部添加下面的内容，可以在 VS Code 或 WebStorm 中获得类型检查。
+
+```js
+// @ts-check
+// ...
+```
+
+也可以使用 JSDoc 为变量设置类型。
+
+```js
+/** @type {import('playwright').Page} */
+let page;
+```
+
+### In TypeScript
+
+TypeScript 支持开箱即用。也可以显式导入类型。
+
+```ts
+let page: import('playwright').Page;
+```

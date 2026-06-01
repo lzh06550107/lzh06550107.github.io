@@ -1,0 +1,150 @@
+---
+title: 配置
+description: Playwright Test 配置
+sidebar:
+  order: 4
+---
+
+## 介绍
+
+Playwright 提供了许多选项，用于配置测试的运行方式。你可以在配置文件中指定这些选项。请注意，测试运行器选项位于顶层，不要把它们放进 `use` 部分。 citeturn569683view0
+
+## 基础配置
+
+以下是一些最常见的配置选项。 citeturn569683view0
+
+```ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  // 在与该配置文件相对的 "tests" 目录中查找测试文件。
+  testDir: 'tests',
+
+  // 并行运行所有测试。
+  fullyParallel: true,
+
+  // 如果你不小心在源码中留下了 test.only，则在 CI 上使构建失败。
+  forbidOnly: !!process.env.CI,
+  // 仅在 CI 上重试。
+  retries: process.env.CI ? 2 : 0,
+
+  // 在 CI 上禁用并行测试。
+  workers: process.env.CI ? 1 : undefined,
+
+  // 要使用的报告器
+  reporter: 'html',
+
+  use: {
+    // 在诸如 `await page.goto('/')` 这样的操作中使用的基础 URL。
+    baseURL: 'http://localhost:3000',
+    // 在重试失败测试时收集 trace。
+    trace: 'on-first-retry',
+  },
+
+  // 为主流浏览器配置项目。
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+
+  // 在开始测试之前运行你的本地开发服务器。
+  webServer: {
+    command: 'npm run start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+### 选项说明
+
+- `testConfig.forbidOnly`：如果有任何测试被标记为 `test.only`，是否以错误退出。在 CI 上很有用。 citeturn569683view0
+- `testConfig.fullyParallel`：让所有文件中的所有测试都并行运行。更多细节请参阅并行与分片。 citeturn569683view0
+- `testConfig.projects`：在多种配置或多个浏览器上运行测试。 citeturn569683view0
+- `testConfig.reporter`：要使用的报告器。你可以查看测试报告器文档了解可用选项。 citeturn569683view0
+- `testConfig.retries`：每个测试的最大重试次数。更多内容请参阅测试重试。 citeturn569683view0
+- `testConfig.testDir`：测试文件所在目录。 citeturn569683view0
+- `testConfig.use`：使用 `use {}` 指定的选项。 citeturn569683view0
+- `testConfig.webServer`：如果需要在测试期间启动服务器，请使用 `webServer` 选项。 citeturn569683view0
+- `testConfig.workers`：用于并行化测试的最大并发 worker 进程数。也可以设置为逻辑 CPU 核心数的百分比，例如 `'50%'`。更多细节请参阅并行与分片。 citeturn569683view0
+
+## 过滤测试
+
+你可以通过 glob 模式或正则表达式过滤测试。 citeturn569683view0
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // 在查找测试文件时要忽略的 glob 模式或正则表达式。
+  testIgnore: '*test-assets',
+
+  // 与测试文件匹配的 glob 模式或正则表达式。
+  testMatch: '*todo-tests/*.spec.ts',
+});
+```
+
+### 选项说明
+
+- `testConfig.testIgnore`：在查找测试文件时应忽略的 glob 模式或正则表达式。例如：`'*test-assets'`。 citeturn569683view0
+- `testConfig.testMatch`：与测试文件匹配的 glob 模式或正则表达式。例如：`'*todo-tests/*.spec.ts'`。默认情况下，Playwright 会运行 `.*(test|spec).(js|ts|mjs)` 文件。 citeturn569683view0
+
+## 高级配置
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // 用于测试产物的文件夹，例如截图、视频、trace 等。
+  outputDir: 'test-results',
+
+  // 全局 setup 文件路径。
+  globalSetup: require.resolve('./global-setup'),
+
+  // 全局 teardown 文件路径。
+  globalTeardown: require.resolve('./global-teardown'),
+
+  // 每个测试有 30 秒时间。
+  timeout: 30000,
+});
+```
+
+### 选项说明
+
+- `testConfig.globalSetup`：全局 setup 文件的路径。该文件会在所有测试之前被加载并运行。它必须导出一个单独的函数。 citeturn569683view0
+- `testConfig.globalTeardown`：全局 teardown 文件的路径。该文件会在所有测试之后被加载并运行。它必须导出一个单独的函数。 citeturn569683view0
+- `testConfig.outputDir`：测试产物所在的文件夹，例如截图、视频、trace 等。 citeturn569683view0
+- `testConfig.timeout`：Playwright 会对每个测试强制执行超时限制，默认是 30 秒。测试函数、测试夹具和 `beforeEach` 钩子所花费的时间都包含在测试超时中。 citeturn569683view0
+
+## Expect 选项
+
+用于配置 `expect` 断言库。 citeturn569683view0
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  expect: {
+    // expect() 等待条件满足的最长时间。
+    timeout: 5000,
+
+    toHaveScreenshot: {
+      // 可接受的不同像素数量，默认未设置。
+      maxDiffPixels: 10,
+    },
+
+    toMatchSnapshot: {
+      // 可接受的不同像素占总像素数量的比例，取值范围 0 到 1。
+      maxDiffPixelRatio: 0.1,
+    },
+  },
+});
+```
+
+### 选项说明
+
+- `testConfig.expect`：像 `expect(locator).toHaveText()` 这样的 Web-first 断言默认具有单独的 5 秒超时。这表示 `expect()` 等待条件满足的最大时间。你可以进一步了解测试与 `expect` 的超时设置，以及如何为单个测试设置它们。 citeturn569683view0
+- `expect(page).toHaveScreenshot()`：用于配置 `expect(locator).toHaveScreenshot()` 方法。 citeturn569683view0
+- `expect(value).toMatchSnapshot()`：用于配置 `expect(locator).toMatchSnapshot()` 方法。 citeturn569683view0

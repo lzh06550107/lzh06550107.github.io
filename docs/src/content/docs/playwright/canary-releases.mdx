@@ -1,0 +1,38 @@
+---
+title: Canary 发布
+description: 了解 Playwright Canary 发布、npm dist tag，以及如何使用 `next` 版本。
+---
+
+## 介绍
+
+Node.js 版 Playwright 提供了 Canary 发布系统。 citeturn391680view0
+
+它允许你测试尚未正式发布的新功能，而不必等待完整版本发布。这些版本会每天通过 Playwright 的 `next` NPM 标签发布。 citeturn391680view0
+
+这是一种向维护者提供反馈的好方式，可以帮助确保新实现的功能按预期工作。 citeturn391680view0
+
+:::note
+在生产环境中使用 Canary 发布看起来似乎有风险，但在实践中并非如此。Canary 发布会通过所有自动化测试，并且也会通过端到端测试来验证例如 HTML 报告、Trace Viewer 或 Playwright Inspector 等功能。 citeturn391680view0
+:::
+
+## Next npm Dist Tag
+
+对于 `main` 分支上任何与代码相关的提交，持续集成都会在 `@next` npm dist tag 下发布每日 Canary 版本。 citeturn391680view0
+
+你可以在 npm 上查看当前的 dist tags： citeturn391680view0
+
+- `latest`：稳定版本
+- `next`：下一版本，每日发布
+- `beta`：在切出 release 分支后，通常在稳定版本发布前一周，每次提交都会以该标签发布 citeturn391680view0
+
+## 使用 Canary 发布
+
+```bash
+npm install -D @playwright/test@next
+```
+
+该命令是 Playwright 官方给出的安装 `next` 版本方式。 citeturn391680view0
+
+## 文档
+
+稳定版文档和 `next` 文档都发布在 `playwright.dev` 上。要查看 `next` 文档，请在键盘上按 `Shift` 键 5 次。 citeturn391680view0

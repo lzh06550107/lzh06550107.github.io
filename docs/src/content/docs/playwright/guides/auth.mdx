@@ -1,0 +1,529 @@
+---
+title: "身份认证"
+description: "介绍如何保存、复用和隔离登录状态。"
+sidebar:
+  label: "身份认证"
+  order: 6
+---
+
+## 简介
+
+Playwright 会在彼此隔离的环境中执行测试，这些环境称为 **浏览器上下文**。这种隔离模型可以提升测试的可复现性，并避免某个测试失败后影响其它测试。
+
+测试可以加载已经存在的登录状态。这样就不需要在每个测试里重复执行登录流程，从而加快测试运行速度。
+
+## 核心概念
+
+无论你选择哪一种身份验证策略，通常都会把已经登录的浏览器状态保存到文件系统中。
+
+建议创建 `playwright/.auth` 目录，并把它加入 `.gitignore`。你的登录流程会生成已认证的浏览器状态，并将其保存到 `playwright/.auth` 目录下的文件中。之后测试可以复用这个状态，并以已登录状态启动。
+
+:::danger
+浏览器状态文件可能包含敏感的 Cookie 和请求头，这些信息可能被用来冒充你或你的测试账号。强烈不建议把这些文件提交到私有或公开代码仓库中。
+:::
+
+### Bash
+
+```bash
+mkdir -p playwright/.auth
+echo $'\nplaywright/.auth' >> .gitignore
+```
+
+### PowerShell
+
+```powershell
+New-Item -ItemType Directory -Force -Path playwright\.auth
+Add-Content -path .gitignore "`r`nplaywright/.auth"
+```
+
+### Batch
+
+```batch
+md playwright\.auth
+echo. >> .gitignore
+echo "playwright/.auth" >> .gitignore
+```
+
+## 基础方案：所有测试共享一个账号
+
+对于不会修改服务端状态的测试，这是推荐方案。你可以在 setup project 中只登录一次，保存身份验证状态，然后在每个测试启动时复用该状态。
+
+### 适用场景
+
+- 所有测试可以同时使用同一个账号运行，并且不会互相影响。
+
+### 不适用场景
+
+- 测试会修改服务端共享状态。例如，一个测试检查设置页渲染，另一个测试修改设置，并且它们会并行运行。这种情况下，每个测试应使用不同账号。
+- 身份验证与特定浏览器有关。
+
+### 具体做法
+
+创建 `tests/auth.setup.ts`，用于为其它测试准备已登录的浏览器状态。
+
+```ts title="tests/auth.setup.ts"
+import { test as setup, expect } from '@playwright/test';
+import path from 'path';
+
+const authFile = path.join(__dirname, '../playwright/.auth/user.json');
+
+setup('authenticate', async ({ page }) => {
+  // 执行登录步骤。请替换成你自己的登录逻辑。
+  await page.goto('https://github.com/login');
+  await page.getByLabel('Username or email address').fill('username');
+  await page.getByLabel('Password').fill('password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  // 等待页面接收到 Cookie。
+  //
+  // 有些登录流程会在多次重定向过程中设置 Cookie。
+  // 等待最终 URL 可以确保 Cookie 已经真正写入。
+  await page.waitForURL('https://github.com/');
+
+  // 也可以等待页面达到某个状态，表示所有 Cookie 已经设置完毕。
+  await expect(page.getByRole('button', { name: 'View profile and more' })).toBeVisible();
+
+  // 登录步骤结束。
+  await page.context().storageState({ path: authFile });
+});
+```
+
+在配置文件中创建一个新的 `setup` 项目，并将它声明为所有测试项目的依赖项。该项目会在测试之前运行并完成登录。其它测试项目通过 `storageState` 使用准备好的登录状态。
+
+```ts title="playwright.config.ts"
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  projects: [
+    // Setup project
+    { name: 'setup', testMatch: /.*\.setup\.ts/ },
+
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // 使用准备好的身份验证状态。
+        storageState: 'playwright/.auth/user.json',
+      },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        // 使用准备好的身份验证状态。
+        storageState: 'playwright/.auth/user.json',
+      },
+      dependencies: ['setup'],
+    },
+  ],
+});
+```
+
+因为配置中指定了 `storageState`，测试启动时就已经处于登录状态。
+
+```ts title="tests/example.spec.ts"
+import { test } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  // page 已经处于登录状态
+});
+```
+
+注意：当保存的登录状态过期后，需要删除旧状态文件。如果你不需要在多次测试运行之间保留状态，可以把浏览器状态写入 `testProject.outputDir`，该目录会在每次测试运行前自动清理。
+
+### 在 UI 模式中进行身份验证
+
+为了提升测试速度，UI 模式默认不会运行 `setup` 项目。建议在现有身份验证状态过期时，手动运行一次 `auth.setup.ts` 重新生成状态。
+
+操作方式是：先在筛选器中启用 `setup` 项目，然后点击 `auth.setup.ts` 文件旁边的三角形运行按钮。完成后，再在筛选器中禁用 `setup` 项目。
+
+## 中级方案：每个并行 worker 使用一个账号
+
+对于会修改服务端状态的测试，这是推荐方案。Playwright 的 worker 进程会并行运行。在这种方案中，每个并行 worker 只登录一次，该 worker 执行的所有测试都复用同一份身份验证状态。因此你需要准备多个测试账号，每个并行 worker 一个。
+
+### 适用场景
+
+- 测试会修改共享的服务端状态。例如，一个测试检查设置页渲染，另一个测试修改设置。
+
+### 不适用场景
+
+- 测试不会修改任何共享的服务端状态。这种情况下，所有测试可以共用一个账号。
+
+### 具体做法
+
+每个 worker 进程使用唯一账号登录一次。
+
+创建 `playwright/fixtures.ts` 文件，覆盖 `storageState` fixture，并在每个 worker 内只登录一次。可以使用 `testInfo.parallelIndex` 区分不同 worker。
+
+```ts title="playwright/fixtures.ts"
+import { test as baseTest, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+
+export * from '@playwright/test';
+
+export const test = baseTest.extend<{}, { workerStorageState: string }>({
+  // 该 worker 中的所有测试都使用同一个存储状态。
+  storageState: ({ workerStorageState }, use) => use(workerStorageState),
+
+  // 使用 worker 级别的 fixture，每个 worker 只登录一次。
+  workerStorageState: [async ({ browser }, use) => {
+    // 使用 parallelIndex 作为每个 worker 的唯一标识。
+    const id = test.info().parallelIndex;
+    const fileName = path.resolve(test.info().project.outputDir, `.auth/${id}.json`);
+
+    if (fs.existsSync(fileName)) {
+      // 如果已有认证状态，则直接复用。
+      await use(fileName);
+      return;
+    }
+
+    // 重要：取消 storage state，确保在干净环境中进行登录。
+    const page = await browser.newPage({ storageState: undefined });
+
+    // 获取唯一账号，例如创建一个新账号。
+    // 也可以准备一组测试账号供测试使用。
+    // 确保账号唯一，避免多名团队成员同时运行测试时互相干扰。
+    const account = await acquireAccount(id);
+
+    // 执行登录步骤。请替换成你自己的登录逻辑。
+    await page.goto('https://github.com/login');
+    await page.getByLabel('Username or email address').fill(account.username);
+    await page.getByLabel('Password').fill(account.password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+
+    // 等待页面接收到 Cookie。
+    //
+    // 有些登录流程会在多次重定向过程中设置 Cookie。
+    // 等待最终 URL 可以确保 Cookie 已经真正写入。
+    await page.waitForURL('https://github.com/');
+
+    // 也可以等待页面达到某个状态，表示所有 Cookie 已经设置完毕。
+    await expect(page.getByRole('button', { name: 'View profile and more' })).toBeVisible();
+
+    // 登录步骤结束。
+    await page.context().storageState({ path: fileName });
+    await page.close();
+
+    await use(fileName);
+  }, { scope: 'worker' }],
+});
+```
+
+之后，每个测试文件都应从自定义 fixtures 文件中导入 `test`，而不是从 `@playwright/test` 中导入。配置文件不需要修改。
+
+```ts title="tests/example.spec.ts"
+// 重要：从自定义 fixtures 中导入。
+import { test, expect } from '../playwright/fixtures';
+
+test('test', async ({ page }) => {
+  // page 已经处于登录状态
+});
+```
+
+## 高级场景
+
+### 使用 API 请求进行身份验证
+
+#### 适用场景
+
+- 你的 Web 应用支持通过 API 登录，并且这种方式比操作 UI 更简单或更快。
+
+#### 具体做法
+
+使用 `APIRequestContext` 发送登录请求，然后像平常一样保存已认证状态。
+
+在 setup project 中：
+
+```ts title="tests/auth.setup.ts"
+import { test as setup } from '@playwright/test';
+
+const authFile = 'playwright/.auth/user.json';
+
+setup('authenticate', async ({ request }) => {
+  // 发送身份验证请求。请替换成你自己的请求。
+  await request.post('https://github.com/login', {
+    form: {
+      'user': 'user',
+      'password': 'password'
+    }
+  });
+
+  await request.storageState({ path: authFile });
+});
+```
+
+也可以在 worker fixture 中完成：
+
+```ts title="playwright/fixtures.ts"
+import { test as baseTest, request } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+
+export * from '@playwright/test';
+
+export const test = baseTest.extend<{}, { workerStorageState: string }>({
+  // 该 worker 中的所有测试都使用同一个存储状态。
+  storageState: ({ workerStorageState }, use) => use(workerStorageState),
+
+  // 使用 worker 级别的 fixture，每个 worker 只登录一次。
+  workerStorageState: [async ({}, use) => {
+    // 使用 parallelIndex 作为每个 worker 的唯一标识。
+    const id = test.info().parallelIndex;
+    const fileName = path.resolve(test.info().project.outputDir, `.auth/${id}.json`);
+
+    if (fs.existsSync(fileName)) {
+      // 如果已有认证状态，则直接复用。
+      await use(fileName);
+      return;
+    }
+
+    // 重要：取消 storage state，确保在干净环境中进行登录。
+    const context = await request.newContext({ storageState: undefined });
+
+    // 获取唯一账号，例如创建一个新账号。
+    // 也可以准备一组测试账号供测试使用。
+    // 确保账号唯一，避免多名团队成员同时运行测试时互相干扰。
+    const account = await acquireAccount(id);
+
+    // 发送身份验证请求。请替换成你自己的请求。
+    await context.post('https://github.com/login', {
+      form: {
+        'user': 'user',
+        'password': 'password'
+      }
+    });
+
+    await context.storageState({ path: fileName });
+    await context.dispose();
+
+    await use(fileName);
+  }, { scope: 'worker' }],
+});
+```
+
+### 多个已登录角色
+
+#### 适用场景
+
+- 端到端测试中存在多个角色，但这些账号可以在所有测试之间复用。
+
+#### 具体做法
+
+在 setup project 中进行多次登录，并分别保存不同角色的登录状态。
+
+```ts title="tests/auth.setup.ts"
+import { test as setup, expect } from '@playwright/test';
+
+const adminFile = 'playwright/.auth/admin.json';
+
+setup('authenticate as admin', async ({ page }) => {
+  // 执行登录步骤。请替换成你自己的登录逻辑。
+  await page.goto('https://github.com/login');
+  await page.getByLabel('Username or email address').fill('admin');
+  await page.getByLabel('Password').fill('password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  // 等待页面接收到 Cookie。
+  //
+  // 有些登录流程会在多次重定向过程中设置 Cookie。
+  // 等待最终 URL 可以确保 Cookie 已经真正写入。
+  await page.waitForURL('https://github.com/');
+
+  // 也可以等待页面达到某个状态，表示所有 Cookie 已经设置完毕。
+  await expect(page.getByRole('button', { name: 'View profile and more' })).toBeVisible();
+
+  // 登录步骤结束。
+  await page.context().storageState({ path: adminFile });
+});
+
+const userFile = 'playwright/.auth/user.json';
+
+setup('authenticate as user', async ({ page }) => {
+  // 执行登录步骤。请替换成你自己的登录逻辑。
+  await page.goto('https://github.com/login');
+  await page.getByLabel('Username or email address').fill('user');
+  await page.getByLabel('Password').fill('password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  // 等待页面接收到 Cookie。
+  //
+  // 有些登录流程会在多次重定向过程中设置 Cookie。
+  // 等待最终 URL 可以确保 Cookie 已经真正写入。
+  await page.waitForURL('https://github.com/');
+
+  // 也可以等待页面达到某个状态，表示所有 Cookie 已经设置完毕。
+  await expect(page.getByRole('button', { name: 'View profile and more' })).toBeVisible();
+
+  // 登录步骤结束。
+  await page.context().storageState({ path: userFile });
+});
+```
+
+之后，为每个测试文件或测试组指定 `storageState`，而不是在全局配置中设置。
+
+```ts title="tests/example.spec.ts"
+import { test } from '@playwright/test';
+
+test.use({ storageState: 'playwright/.auth/admin.json' });
+
+test('admin test', async ({ page }) => {
+  // page 以 admin 身份登录
+});
+
+test.describe(() => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('user test', async ({ page }) => {
+    // page 以 user 身份登录
+  });
+});
+```
+
+也可以参考前面关于 UI 模式中身份验证的说明。
+
+### 在同一个测试中验证多个角色
+
+#### 适用场景
+
+- 你需要在单个测试中验证多个已登录角色之间的交互。
+
+#### 具体做法
+
+在同一个测试中创建多个 `BrowserContext` 和 `Page`，并为它们使用不同的存储状态。
+
+```ts title="tests/example.spec.ts"
+import { test } from '@playwright/test';
+
+test('admin and user', async ({ browser }) => {
+  // adminContext 以及其中的所有页面，包括 adminPage，都会以 admin 身份登录。
+  const adminContext = await browser.newContext({ storageState: 'playwright/.auth/admin.json' });
+  const adminPage = await adminContext.newPage();
+
+  // userContext 以及其中的所有页面，包括 userPage，都会以 user 身份登录。
+  const userContext = await browser.newContext({ storageState: 'playwright/.auth/user.json' });
+  const userPage = await userContext.newPage();
+
+  // ... 与 adminPage 和 userPage 进行交互 ...
+
+  await adminContext.close();
+  await userContext.close();
+});
+```
+
+### 使用 POM fixtures 测试多个角色
+
+#### 适用场景
+
+- 你需要在单个测试中验证多个已登录角色之间的交互。
+
+#### 具体做法
+
+可以引入 fixtures，为每个角色提供一个已经登录的页面。
+
+下面的示例为两个 Page Object Model 创建 fixtures：`admin` POM 和 `user` POM。示例假设已经在全局 setup 中创建了 `adminStorageState.json` 和 `userStorageState.json` 文件。
+
+```ts title="playwright/fixtures.ts"
+import { test as base, type Page, type Locator } from '@playwright/test';
+
+// admin 页面的 Page Object Model。
+class AdminPage {
+  // 以 admin 身份登录的页面。
+  page: Page;
+
+  // 示例 locator，指向 “Welcome, Admin” 问候语。
+  greeting: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.greeting = page.locator('#greeting');
+  }
+}
+
+// user 页面的 Page Object Model。
+class UserPage {
+  // 以 user 身份登录的页面。
+  page: Page;
+
+  // 示例 locator，指向 “Welcome, User” 问候语。
+  greeting: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.greeting = page.locator('#greeting');
+  }
+}
+
+// 声明自定义 fixtures 的类型。
+type MyFixtures = {
+  adminPage: AdminPage;
+  userPage: UserPage;
+};
+
+export * from '@playwright/test';
+
+export const test = base.extend<MyFixtures>({
+  adminPage: async ({ browser }, use) => {
+    const context = await browser.newContext({ storageState: 'playwright/.auth/admin.json' });
+    const adminPage = new AdminPage(await context.newPage());
+    await use(adminPage);
+    await context.close();
+  },
+
+  userPage: async ({ browser }, use) => {
+    const context = await browser.newContext({ storageState: 'playwright/.auth/user.json' });
+    const userPage = new UserPage(await context.newPage());
+    await use(userPage);
+    await context.close();
+  },
+});
+```
+
+```ts title="tests/example.spec.ts"
+// 导入带有新 fixtures 的 test。
+import { test, expect } from '../playwright/fixtures';
+
+// 在测试中使用 adminPage 和 userPage fixtures。
+test('admin and user', async ({ adminPage, userPage }) => {
+  // ... 与 adminPage 和 userPage 进行交互 ...
+  await expect(adminPage.greeting).toHaveText('Welcome, Admin');
+  await expect(userPage.greeting).toHaveText('Welcome, User');
+});
+```
+
+### Session storage
+
+复用已认证状态可以覆盖基于 Cookie、local storage 和 IndexedDB 的身份验证。少数情况下，应用会使用 session storage 存储与登录状态相关的信息。Session storage 只属于特定域名，并且不会跨页面加载持久保存。
+
+Playwright 没有提供持久化 session storage 的 API，但可以使用下面的代码片段保存和加载 session storage。
+
+```ts
+// 获取 session storage 并写入文件
+const sessionStorage = await page.evaluate(() => JSON.stringify(sessionStorage));
+fs.writeFileSync('playwright/.auth/session.json', sessionStorage, 'utf-8');
+
+// 在新的 context 中设置 session storage
+const sessionStorage = JSON.parse(fs.readFileSync('playwright/.auth/session.json', 'utf-8'));
+await context.addInitScript(storage => {
+  if (window.location.hostname === 'example.com') {
+    for (const [key, value] of Object.entries(storage))
+      window.sessionStorage.setItem(key, value);
+  }
+}, sessionStorage);
+```
+
+### 在部分测试中避免身份验证
+
+如果某个项目已经设置了全局登录状态，但你希望某个测试文件不要使用该登录状态，可以在该文件中重置 storage state。
+
+```ts title="not-signed-in.spec.ts"
+import { test } from '@playwright/test';
+
+// 为这个文件重置存储状态，避免处于登录状态
+test.use({ storageState: { cookies: [], origins: [] } });
+
+test('not signed in test', async ({ page }) => {
+  // ...
+});
+```

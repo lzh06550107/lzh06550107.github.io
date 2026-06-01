@@ -1,0 +1,91 @@
+---
+title: "视频"
+description: "介绍如何在测试中录制视频和配置视频保留策略。"
+sidebar:
+  label: "视频"
+  order: 36
+---
+
+## 简介
+
+使用 Playwright，你可以为测试录制视频。
+
+## 录制视频
+
+Playwright Test 可以为你的测试录制视频，该行为由 Playwright 配置中的 `video` 选项控制。默认情况下，视频是关闭的。
+
+- `'off'` - 不录制视频。
+- `'on'` - 为每个测试录制视频。
+- `'retain-on-failure'` - 为每个测试录制视频，但会删除成功测试运行中的所有视频。
+- `'on-first-retry'` - 仅在第一次重试测试时录制视频。
+
+视频文件会出现在测试输出目录中，通常是 `test-results`。有关高级视频配置，请参见 `testOptions.video`。
+
+视频会在测试结束时关闭 `browser context` 后保存。如果你手动创建浏览器上下文，请确保等待 `browserContext.close()`。
+
+<Tabs>
+<TabItem label="Test">
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    video: 'on-first-retry',
+  },
+});
+```
+
+</TabItem>
+<TabItem label="Library">
+
+```ts
+const context = await browser.newContext({ recordVideo: { dir: 'videos/' } });
+// 确保等待 close，这样视频才会被保存。
+await context.close();
+```
+
+</TabItem>
+</Tabs>
+
+你还可以指定视频大小和标注。视频大小默认会采用视口大小，并缩小以适配 800x800。视口的视频会放置在输出视频的左上角，并在必要时缩小以适配。你可能需要设置视口大小，使其与你期望的视频大小匹配。
+
+当指定 `show: { actions }` 时，每个操作都会在视频中以元素轮廓和操作标题字幕的形式进行可视化高亮。可选的 `duration` 属性控制每个标注显示的时长（默认为 `500` ms）。
+
+当指定 `show: { test }` 时，视频会使用当前测试信息进行标注，并且可以配置 `level`。
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    video: {
+      mode: 'on-first-retry',
+      size: { width: 640, height: 480 },
+      show: {
+        actions: {
+          duration: 500,
+          position: 'top-right',
+          fontSize: 14,
+        },
+        test: {
+          level: 'step',
+          position: 'top-left',
+          fontSize: 12,
+        }
+      },
+    },
+  },
+});
+```
+
+对于多页面场景，你可以通过 `page.video()` 访问与页面关联的视频文件。
+
+```ts
+const path = await page.video().path();
+```
+
+:::note
+请注意，视频仅在页面或浏览器上下文关闭后才可用。
+:::
+

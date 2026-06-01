@@ -1,0 +1,132 @@
+---
+title: "Service Worker"
+description: "介绍 Service Worker 对请求拦截和测试的影响。"
+sidebar:
+  label: "Service Worker"
+  order: 31
+---
+
+## 介绍
+
+:::warning
+Service workers 仅在基于 Chromium 的浏览器中受支持。
+:::
+
+:::note
+如果你正在寻找通用的网络模拟、路由和拦截，请先查看[网络指南](/docs/network)。Playwright 为这种使用场景提供了内置 API，不需要下面的信息。不过，如果你对 Service Workers 自身发出的请求感兴趣，请继续阅读下文。
+:::
+
+[Service Workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API) 提供了一种浏览器原生的方法，用于处理页面通过原生 [Fetch API (`fetch`)](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) 发出的请求，以及其它通过网络请求的资源（例如脚本、CSS 和图片）。
+
+它们可以充当页面和外部网络之间的网络代理来执行缓存逻辑；如果 Service Worker 添加了 [`FetchEvent`](https://developer.mozilla.org/en-US/docs/Web/API/FetchEvent) 监听器，也可以为用户提供离线体验。
+
+许多使用 Service Workers 的网站只是把它们作为一种透明的优化技术。用户可能会感觉体验更快，但应用自身的实现并不知道它们的存在。启用或不启用 Service Workers 运行应用，看起来在功能上是等价的。
+
+## 如何禁用 Service Workers
+
+Playwright 允许在测试期间禁用 Service Workers。这会让测试更加可预测并且性能更好。不过，如果你的实际页面使用了 Service Worker，行为可能会有所不同。
+
+要禁用 service workers，请将 [`testOptions.serviceWorkers`](/docs/api/class-testoptions#test-options-service-workers) 设置为 `'block'`。
+
+```ts title="playwright.config.ts"
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    serviceWorkers: 'allow'
+  },
+});
+```
+
+## 访问 Service Workers 并等待激活
+
+你可以使用 [`browserContext.serviceWorkers()`](/docs/api/class-browsercontext#browser-context-service-workers) 列出 Service [`Worker`](/docs/api/class-worker)；如果你预期某个页面会触发它的[注册](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration)，也可以专门等待该 Service [`Worker`](/docs/api/class-worker)：
+
+```js
+const serviceWorkerPromise = context.waitForEvent('serviceworker');
+await page.goto('/example-with-a-service-worker.html');
+const serviceworker = await serviceWorkerPromise;
+```
+
+[`browserContext.on('serviceworker')`](/docs/api/class-browsercontext#browser-context-event-service-worker) 事件会在 Service Worker 接管页面之前触发，因此在使用 [`worker.evaluate()`](/docs/api/class-worker#worker-evaluate) 在 worker 中求值之前，你应该等待它激活。
+
+有更符合习惯用法的方法可以等待 Service Worker 被激活，但下面是一种与实现无关的方法：
+
+```js
+await page.evaluate(async () => {
+  const registration = await window.navigator.serviceWorker.getRegistration();
+  if (registration.active?.state === 'activated')
+    return;
+  await new Promise(resolve => {
+    window.navigator.serviceWorker.addEventListener('controllerchange', resolve);
+  });
+});
+```
+
+## 网络事件和路由
+
+Service Worker 发出的任何网络请求都会通过 [`BrowserContext`](/docs/api/class-browsercontext) 对象报告：
+
+- 会触发 [`browserContext.on('request')`](/docs/api/class-browsercontext#browser-context-event-request)、[`browserContext.on('requestfinished')`](/docs/api/class-browsercontext#browser-context-event-request-finished)、[`browserContext.on('response')`](/docs/api/class-browsercontext#browser-context-event-response) 和 [`browserContext.on('requestfailed')`](/docs/api/class-browsercontext#browser-context-event-request-failed)
+- [`browserContext.route()`](/docs/api/class-browsercontext#browser-context-route) 可以看到该请求
+- [`request.serviceWorker()`](/docs/api/class-request#request-service-worker) 将被设置为 Service [`Worker`](/docs/api/class-worker) 实例，并且 [`request.frame()`](/docs/api/class-request#request-frame) 将抛出异常
+
+此外，对于 Page 发出的任何网络请求，当该请求由 Service Worker 的 fetch 处理器处理时，方法 [`response.fromServiceWorker()`](/docs/api/class-response#response-from-service-worker) 会返回 `true`。
+
+考虑一个简单的 service worker，它会 fetch 页面发出的每个请求：
+
+```js title="transparent-service-worker.js"
+self.addEventListener('fetch', event => {
+  // 实际发出请求
+  const responsePromise = fetch(event.request);
+  // 将其发送回页面
+  event.respondWith(responsePromise);
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(clients.claim());
+});
+```
+
+如果 `index.html` 注册了这个 service worker，然后 fetch `data.json`，则会发出以下 Request/Response 事件（以及对应的网络生命周期事件）：
+
+| 事件 | 所有者 | URL | 已路由 | [`response.fromServiceWorker()`](/docs/api/class-response#response-from-service-worker) |
+| --- | --- | --- | --- | --- |
+| [`browserContext.on('request')`](/docs/api/class-browsercontext#browser-context-event-request) | [`Frame`](/docs/api/class-frame) | index.html | 是 |  |
+| [`page.on('request')`](/docs/api/class-page#page-event-request) | [`Frame`](/docs/api/class-frame) | index.html | 是 |  |
+| [`browserContext.on('request')`](/docs/api/class-browsercontext#browser-context-event-request) | Service [`Worker`](/docs/api/class-worker) | transparent-service-worker.js | 是 |  |
+| [`browserContext.on('request')`](/docs/api/class-browsercontext#browser-context-event-request) | Service [`Worker`](/docs/api/class-worker) | data.json | 是 |  |
+| [`browserContext.on('request')`](/docs/api/class-browsercontext#browser-context-event-request) | [`Frame`](/docs/api/class-frame) | data.json | 是 | 是 |
+| [`page.on('request')`](/docs/api/class-page#page-event-request) | [`Frame`](/docs/api/class-frame) | data.json | 是 | 是 |
+
+由于示例中的 Service Worker 只是充当一个基本的透明“代理”：
+
+- 对于 `data.json`，会有 2 个 [`browserContext.on('request')`](/docs/api/class-browsercontext#browser-context-event-request) 事件；一个由 [`Frame`](/docs/api/class-frame) 拥有，另一个由 Service [`Worker`](/docs/api/class-worker) 拥有。
+- 只有由 Service [`Worker`](/docs/api/class-worker) 拥有的资源请求可以通过 [`browserContext.route()`](/docs/api/class-browsercontext#browser-context-route) 路由；由 [`Frame`](/docs/api/class-frame) 拥有的 `data.json` 事件不可路由，因为 Service Worker 已经注册了 fetch 处理器，所以它们甚至不可能命中外部网络。
+
+:::caution
+需要特别注意：如果在具有非空 [`request.serviceWorker()`](/docs/api/class-request#request-service-worker) 的 [`Request`](/docs/api/class-request) / [`Response`](/docs/api/class-response) 上调用 [`request.frame()`](/docs/api/class-request#request-frame) 或 [`response.frame()`](/docs/api/class-response#response-frame)，将抛出异常。
+:::
+
+## 仅路由 Service Worker 请求
+
+```js
+await context.route('**', async route => {
+  if (route.request().serviceWorker()) {
+    // 注意：在这里调用 route.request().frame() 会抛出异常
+    await route.fulfill({
+      contentType: 'text/plain',
+      status: 200,
+      body: 'from sw',
+    });
+  } else {
+    await route.continue();
+  }
+});
+```
+
+## 已知限制
+
+更新 Service Worker 主脚本代码的请求目前无法被路由（[https://github.com/microsoft/playwright/issues/14711](https://github.com/microsoft/playwright/issues/14711)）。
+
+
