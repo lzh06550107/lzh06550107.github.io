@@ -5,6 +5,8 @@ sidebar:
     order: 11
 ---
 
+import CodexScreenshot from '../../../../components/CodexScreenshot.astro';
+
 Sites 让 Codex 可以创建、保存、部署和检查由 OpenAI 托管的网站、Web 应用和游戏。当你希望把一个提示词或一个兼容的现有项目变成托管站点，而不想单独设置部署工作流时，可以使用 **Sites** 插件。
 
 :::note
@@ -15,43 +17,39 @@ Sites 让 Codex 可以创建、保存、部署和检查由 OpenAI 托管的网�
 
 Sites 目前处于预览阶段，当前可用于 ChatGPT Business 和 Enterprise 工作区，后续会逐步扩展到更多套餐。对于 ChatGPT Enterprise 工作区，管理员必须先通过基于角色的访问控制（RBAC）开启该功能，成员才能使用。请在 [Feature availability](https://developers.openai.com/codex/pricing#feature-availability) 中比较不同套餐的支持情况。
 
-<WorkflowSteps variant="headings">
+1. 为 Enterprise 工作区启用 Sites
 
-    1. 为 Enterprise 工作区启用 Sites
+如果你使用 ChatGPT Enterprise，请让你的工作区管理员打开 [ChatGPT 管理员设置](https://chatgpt.com/admin/settings) 中的 RBAC 控制，并为相应角色开启 Sites。ChatGPT Business 工作区可以跳过此步骤，因为 Sites 默认启用。
 
-    如果你使用 ChatGPT Enterprise，请让你的工作区管理员打开 [ChatGPT 管理员设置](https://chatgpt.com/admin/settings) 中的 RBAC 控制，并为相应角色开启 Sites。ChatGPT Business 工作区可以跳过此步骤，因为 Sites 默认启用。
+2. 添加 Sites 插件
 
-    2. 添加 Sites 插件
+如果 **Sites** 还不可用，请在 Codex 应用中打开 **Plugins**，找到 **Sites**，并将其添加到 Codex。安装插件后，请启动一个新线程。
 
-    如果 **Sites** 还不可用，请在 Codex 应用中打开 **Plugins**，找到 **Sites**，并将其添加到 Codex。安装插件后，请启动一个新线程。
+3. 启动 Sites 任务
 
-    3. 启动 Sites 任务
+在线程中描述你想创建或发布的网站。你可以显式指定插件名 `@Sites`，尤其是当你的任务应该以托管部署作为结果时。
 
-    在线程中描述你想创建或发布的网站。你可以显式指定插件名 `@Sites`，尤其是当你的任务应该以托管部署作为结果时。
+<CodexScreenshot
+    alt="Codex 应用输入框，其中提示词提到了 Sites 插件和已连接的应用"
+    lightSrc="/images/codex/sites/prompt-input-light.jpg"
+    darkSrc="/images/codex/sites/prompt-input-dark.jpg"
+    variant="no-wallpaper"
+/>
 
-    <CodexScreenshot
-        alt="Codex 应用输入框，其中提示词提到了 Sites 插件和已连接的应用"
-        lightSrc="/images/codex/sites/prompt-input-light.jpg"
-        darkSrc="/images/codex/sites/prompt-input-dark.jpg"
-        variant="no-wallpaper"
-    />
+4. 审核是保存还是部署
 
-    4. 审核是保存还是部署
+请 Codex 验证站点构建。然后告诉它是保存一个可部署版本以供审核，还是部署已经批准的已保存版本。
 
-    请 Codex 验证站点构建。然后告诉它是保存一个可部署版本以供审核，还是部署已经批准的已保存版本。
+5. 返回已部署的站点
 
-    5. 返回已部署的站点
+在应用侧边栏中打开 **Sites**，返回你的 Sites 项目。你也可以让 Codex 检查已保存版本、查看部署状态，或更改已部署站点的访问权限。
 
-    在应用侧边栏中打开 **Sites**，返回你的 Sites 项目。你也可以让 Codex 检查已保存版本、查看部署状态，或更改已部署站点的访问权限。
-
-    <CodexScreenshot
-        alt="Codex 应用中的 Sites 项目列表"
-        lightSrc="/images/codex/sites/sites-list-light.jpg"
-        darkSrc="/images/codex/sites/sites-list-dark.jpg"
-        variant="no-wallpaper"
-    />
-
-</WorkflowSteps>
+<CodexScreenshot
+    alt="Codex 应用中的 Sites 项目列表"
+    lightSrc="/images/codex/sites/sites-list-light.jpg"
+    darkSrc="/images/codex/sites/sites-list-dark.jpg"
+    variant="no-wallpaper"
+/>
 
 ## 用提示词让 Sites 完成常见任务
 

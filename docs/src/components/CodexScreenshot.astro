@@ -1,0 +1,35 @@
+---
+interface Props {
+    alt: string;
+    lightSrc: string;
+    darkSrc?: string;
+    variant?: string;
+}
+
+const { alt, lightSrc, darkSrc, variant } = Astro.props;
+const className = variant ? `codex-screenshot codex-screenshot--${variant}` : 'codex-screenshot';
+---
+
+<picture class={className}>
+    {darkSrc ? <source media="(prefers-color-scheme: dark)" srcset={darkSrc} /> : null}
+    <img alt={alt} loading="lazy" src={lightSrc} />
+</picture>
+
+<style>
+    .codex-screenshot {
+        display: block;
+        margin: 1.5rem 0;
+    }
+
+    .codex-screenshot img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.75rem;
+    }
+
+    .codex-screenshot--no-wallpaper img {
+        background: transparent;
+    }
+</style>

@@ -5,6 +5,9 @@ sidebar:
   order: 15
 ---
 
+import { FileTree, Tabs } from '@astrojs/starlight/components';
+import CodexScreenshot from '../../../../../components/CodexScreenshot.astro';
+
 本页面面向插件作者。如果你想在 Codex 中浏览、安装和使用插件，请参见 [Plugins](https://developers.openai.com/codex/plugins)。如果你仍在迭代一个仓库或一个个人工作流，请从本地 skill 开始。当你想在团队之间共享该工作流、打包 app 集成或 MCP 配置、打包生命周期 hooks，或发布一个稳定包时，再构建插件。
 
 ## 使用 `@plugin-creator` 创建插件
@@ -310,65 +313,21 @@ Codex 可以从以下位置读取 marketplace 文件：
 
 每个插件都有一个 manifest，位于 `.codex-plugin/plugin.json`。它也可以包含 `skills/` 目录、用于生命周期 hooks 的 `hooks/` 目录、指向一个或多个 apps 或 connectors 的 `.app.json` 文件、配置 MCP servers 的 `.mcp.json` 文件，以及用于在受支持界面中展示插件的 assets。
 
-<FileTree
-    class="mt-4"
-    tree={[
-        {
-            name: "my-plugin/",
-            open: true,
-            children: [
-                {
-                    name: ".codex-plugin/",
-                    open: true,
-                    children: [
-                        {
-                            name: "plugin.json",
-                            comment: "必需：插件 manifest",
-                        },
-                    ],
-                },
-                {
-                    name: "skills/",
-                    open: true,
-                    children: [
-                        {
-                            name: "my-skill/",
-                            open: true,
-                            children: [
-                                {
-                                    name: "SKILL.md",
-                                    comment: "可选：skill instructions",
-                                },
-                            ],
-                        },
-                    ],
-                },
-                {
-                    name: "hooks/",
-                    open: true,
-                    children: [
-                        {
-                            name: "hooks.json",
-                            comment: "可选：生命周期 hooks",
-                        },
-                    ],
-                },
-                {
-                    name: ".app.json",
-                    comment: "可选：app 或 connector mappings",
-                },
-                {
-                    name: ".mcp.json",
-                    comment: "可选：MCP server configuration",
-                },
-                {
-                    name: "assets/",
-                    comment: "可选：icons、logos、screenshots",
-                },
-            ],
-        },
-    ]}
-/>
+<FileTree>
+
+- `my-plugin/`
+  - `.codex-plugin/`
+    - `plugin.json` 必需：插件 manifest
+  - `skills/`
+    - `my-skill/`
+      - `SKILL.md` 可选：skill instructions
+  - `hooks/`
+    - `hooks.json` 可选：生命周期 hooks
+  - `.app.json` 可选：app 或 connector mappings
+  - `.mcp.json` 可选：MCP server configuration
+  - `assets/` 可选：icons、logos、screenshots
+
+</FileTree>
 
 只有 `plugin.json` 属于 `.codex-plugin/`。将 `skills/`、`hooks/`、`assets/`、`.mcp.json` 和 `.app.json` 保持在插件根目录。
 

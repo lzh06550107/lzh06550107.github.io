@@ -1,10 +1,11 @@
-import { FileTree } from '@astrojs/starlight/components';
 ---
 title: Skills 技能
 description: 使用 Skills 为 Codex 扩展任务特定的能力，将可重复的工作流程打包为可复用的技能。
 sidebar:
   order: 12
 ---
+
+import { FileTree } from '@astrojs/starlight/components';
 
 使用 agent skills 为 Codex 扩展任务专用能力。一个 skill 会打包指令、资源和可选脚本，让 Codex 能够可靠地遵循某个工作流。Skills 基于 [open agent skills standard](https://agentskills.io)。
 
@@ -20,43 +21,17 @@ Codex 会在上下文中包含一份初始可用 skills 列表，以便它为任
 
 一个 skill 是一个包含 `SKILL.md` 文件的目录，也可以包含可选脚本和参考资料。`SKILL.md` 文件必须包含 `name` 和 `description`。
 
-<FileTree
-    class="mt-4"
-    tree={[
-        {
-            name: "my-skill/",
-            open: true,
-            children: [
-                {
-                    name: "SKILL.md",
-                    comment: "必需：指令 + 元数据",
-                },
-                {
-                    name: "scripts/",
-                    comment: "可选：可执行代码",
-                },
-                {
-                    name: "references/",
-                    comment: "可选：文档",
-                },
-                {
-                    name: "assets/",
-                    comment: "可选：模板、资源",
-                },
-                {
-                    name: "agents/",
-                    open: true,
-                    children: [
-                        {
-                            name: "openai.yaml",
-                            comment: "可选：外观和依赖项",
-                        },
-                    ],
-                },
-            ],
-        },
-    ]}
-/>
+<FileTree>
+
+- `my-skill/`
+  - `SKILL.md` 必需：指令 + 元数据
+  - `scripts/` 可选：可执行代码
+  - `references/` 可选：文档
+  - `assets/` 可选：模板、资源
+  - `agents/`
+    - `openai.yaml` 可选：外观和依赖项
+
+</FileTree>
 
 ## Codex 如何使用 skills
 
