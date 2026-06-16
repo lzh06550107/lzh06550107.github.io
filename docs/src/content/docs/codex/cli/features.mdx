@@ -27,7 +27,7 @@ codex "Explain this codebase to me"
 
 会话打开后，你可以：
 
-- 直接在输入框（composer）中发送提示、代码片段或截图（参见**图像输入**）。
+- 直接在输入框（composer）中发送提示、代码片段或截图（参见 **图像输入**）。
 - 在 Codex 做出更改之前查看它解释计划，并逐行批准或拒绝步骤。
 - 在 TUI 中阅读语法高亮的 Markdown 代码块和差异（diff），然后使用 `/theme` 预览并保存你喜欢的主题。
 - 使用 `/clear` 清除终端并开始新对话，或按 `Ctrl+L` 清屏而不开始新对话。
@@ -78,7 +78,7 @@ chmod 600 "$TOKEN_FILE"
 codex app-server --listen ws://0.0.0.0:4500 --ws-auth capability-token --ws-token-file "$TOKEN_FILE"
 ```
 
-`--remote` 接受显式的 `ws://host:port` 和 `wss://host:port` 地址。普通 WebSocket 连接适用于 localhost 和 SSH 端口转发工作流。对于非本地客户端，请使用 WebSocket 认证并将连接置于 TLS 之后。
+`--remote` 接受显式的 `ws://host:port`、`wss://host:port`、`unix://` 和 `unix://PATH` 地址。使用 `unix://` 作为 Codex 的默认本地 Unix 套接字，或使用 `unix://PATH` 作为显式的本地套接字路径。纯文本 WebSocket 连接适用于 localhost 和 SSH 端口转发工作流。对于非本地客户端，请使用 WebSocket 身份验证并将连接置于 TLS 保护之下。
 
 Codex 支持以下 WebSocket 认证模式：
 
@@ -122,7 +122,7 @@ codex features disable shell_snapshot
 
 使用 Codex 子智能体（Subagent）工作流来并行化更大的任务。有关设置、角色配置（`config.toml` 中的 `[agents]` 部分）和示例，请参阅 [子智能体](/codex/configuration/subagents) 文档。
 
-Codex 只会在你明确要求时才会派生子智能体。由于每个子智能体都执行自己的模型和工具工作，子智能体工作流比同等的单智能体运行消耗更多的令牌。
+Codex 只会在你明确要求时才会派生子智能体。**由于每个子智能体都执行自己的模型和工具工作，子智能体工作流比同等的单智能体运行消耗更多的令牌。**
 
 ## 图像输入
 
@@ -141,7 +141,7 @@ Codex 接受常见的格式，如 PNG 和 JPEG。对于两个或更多图像，�
 
 你可以使用自然语言请求，或通过在提示中包含 `$imagegen` 来显式调用图像生成技能。
 
-内置图像生成使用 `gpt-image-2`，计入你的一般 Codex 使用限额，并且平均消耗速度比不含图像生成的类似回合快 3-5 倍（取决于图像质量和大小）。详情请参见 **定价**。有关提示技巧和模型详情，请参阅**图像生成指南**。
+内置图像生成使用 `gpt-image-2`，计入你的一般 Codex 使用限额，并且平均消耗速度比不含图像生成的类似回合快 3-5 倍（取决于图像质量和大小）。详情请参见 **定价**。有关提示技巧和模型详情，请参阅 **图像生成指南**。
 
 对于大批量图像生成，请在环境变量中设置 `OPENAI_API_KEY`，并让 Codex 通过 API 生成图像，这样将适用 API 定价。
 
@@ -164,7 +164,7 @@ TUI 对围栏 Markdown 代码块和文件差异（diff）进行语法高亮，�
 
 ## 网络搜索
 
-Codex 内置了第一方网络搜索工具。对于 Codex CLI 中的本地任务，Codex 默认启用网络搜索，并从网络搜索缓存提供结果。该缓存是 OpenAI 维护的网页结果索引，因此缓存模式返回预索引的结果，而不是获取实时页面。这减少了来自任意实时内容的提示注入风险，但你仍然应将网页结果视为不受信任。如果你使用 `--yolo` 或其他完全访问沙盒设置，网络搜索默认使用实时结果。要获取最新数据，可为单次运行传递 `--search`，或在**配置基础**中设置 `web_search = "live"`。你还可以设置 `web_search = "disabled"` 来关闭该工具。
+Codex 内置了第一方网络搜索工具。对于 Codex CLI 中的本地任务，Codex 默认启用网络搜索，并从网络搜索缓存提供结果。该缓存是 OpenAI 维护的网页结果索引，因此缓存模式返回预索引的结果，而不是获取实时页面。这减少了来自任意实时内容的提示注入风险，但你仍然应将网页结果视为不受信任。如果你使用 `--yolo` 或其他完全访问沙盒设置，网络搜索默认使用实时结果。要获取最新数据，可为单次运行传递 `--search`，或在 **配置基础** 中设置 `web_search = "live"`。你还可以设置 `web_search = "disabled"` 来关闭该工具。
 
 每当 Codex 查找内容时，你会在记录或 `codex exec --json` 输出中看到 `web_search` 条目。
 

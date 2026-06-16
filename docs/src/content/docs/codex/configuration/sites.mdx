@@ -1,0 +1,154 @@
+---
+title: 站点
+description: 使用 Sites 插件让 Codex 创建、保存、部署和检查由 OpenAI 托管的网站、Web 应用和游戏。
+sidebar:
+    order: 11
+---
+
+Sites 让 Codex 可以创建、保存、部署和检查由 OpenAI 托管的网站、Web 应用和游戏。当你希望把一个提示词或一个兼容的现有项目变成托管站点，而不想单独设置部署工作流时，可以使用 **Sites** 插件。
+
+:::note
+每个 Sites 部署 URL 都是生产部署。如果你想在构建正式上线前进行审核，请让 Codex 保存一个版本，而不是直接部署。
+:::
+
+## 开始使用 Sites
+
+Sites 目前处于预览阶段，当前可用于 ChatGPT Business 和 Enterprise 工作区，后续会逐步扩展到更多套餐。对于 ChatGPT Enterprise 工作区，管理员必须先通过基于角色的访问控制（RBAC）开启该功能，成员才能使用。请在 [Feature availability](https://developers.openai.com/codex/pricing#feature-availability) 中比较不同套餐的支持情况。
+
+<WorkflowSteps variant="headings">
+
+    1. 为 Enterprise 工作区启用 Sites
+
+    如果你使用 ChatGPT Enterprise，请让你的工作区管理员打开 [ChatGPT 管理员设置](https://chatgpt.com/admin/settings) 中的 RBAC 控制，并为相应角色开启 Sites。ChatGPT Business 工作区可以跳过此步骤，因为 Sites 默认启用。
+
+    2. 添加 Sites 插件
+
+    如果 **Sites** 还不可用，请在 Codex 应用中打开 **Plugins**，找到 **Sites**，并将其添加到 Codex。安装插件后，请启动一个新线程。
+
+    3. 启动 Sites 任务
+
+    在线程中描述你想创建或发布的网站。你可以显式指定插件名 `@Sites`，尤其是当你的任务应该以托管部署作为结果时。
+
+    <CodexScreenshot
+        alt="Codex 应用输入框，其中提示词提到了 Sites 插件和已连接的应用"
+        lightSrc="/images/codex/sites/prompt-input-light.jpg"
+        darkSrc="/images/codex/sites/prompt-input-dark.jpg"
+        variant="no-wallpaper"
+    />
+
+    4. 审核是保存还是部署
+
+    请 Codex 验证站点构建。然后告诉它是保存一个可部署版本以供审核，还是部署已经批准的已保存版本。
+
+    5. 返回已部署的站点
+
+    在应用侧边栏中打开 **Sites**，返回你的 Sites 项目。你也可以让 Codex 检查已保存版本、查看部署状态，或更改已部署站点的访问权限。
+
+    <CodexScreenshot
+        alt="Codex 应用中的 Sites 项目列表"
+        lightSrc="/images/codex/sites/sites-list-light.jpg"
+        darkSrc="/images/codex/sites/sites-list-dark.jpg"
+        variant="no-wallpaper"
+    />
+
+</WorkflowSteps>
+
+## 用提示词让 Sites 完成常见任务
+
+对于一个新网站、仪表盘或内部工具，请包含受众、核心体验和所需数据：
+
+```text
+@Sites 为我的运营团队构建一个项目请求仪表盘。让团队成员可以提交请求、查看每个请求的负责人、更新状态，并筛选列表。要求用户使用工作区账号登录，并在访问之间保存请求数据。
+```
+
+对于现有项目，请让 Sites 准备并发布当前应用：
+
+```text
+@Sites 部署这个项目。检查它是否兼容 Sites，进行任何必要修改，并给我部署 URL。
+```
+
+当站点需要持久化应用数据或上传文件时，请在请求中说明：
+
+```text
+@Sites 给这个游戏添加持久化玩家分数和头像上传功能。使用合适的 Sites 存储，并部署更新后的游戏。
+```
+
+浏览 [Sites showcase](https://developers.openai.com/showcase/sites)，查看已部署的内部应用以及用于创建它们的完整提示词。
+
+## 理解项目、版本和部署
+
+Sites 项目会把本地源项目与通过 Sites 管理的托管服务关联起来。Codex 会把这种关联关系以及可选的存储绑定名称保存在 `.openai/hosting.json` 中。一个新创建的本地启动项目可以一开始没有 `project_id`；Sites 在配置托管项目后会添加它。
+
+例如，一个已配置的站点使用关系型数据库绑定且不使用文件存储时，可以包含：
+
+```json
+{
+  "project_id": "<project-id>",
+  "d1": "DB",
+  "r2": null
+}
+```
+
+Sites 发布有两个独立阶段：
+
+1. **保存版本。** Codex 构建可部署站点，并将该版本与用于构建的源 Git 提交关联起来。当你需要一个可审核的部署候选版本时，请使用此阶段。
+2. **部署版本。** Codex 发布一个已保存版本，并在部署成功时报告生产 URL。只有当你确实希望选定受众访问该站点时，才使用此操作。
+
+当你需要识别之前的部署候选版本时，可以让 Codex 列出或检查已保存版本。
+
+## 选择受支持的站点形态
+
+Sites 托管能够构建为 Cloudflare Worker 兼容输出的项目，输出格式为 ES 模块。对于新项目，Sites 工作流可以从其推荐的站点启动模板开始。对于现有站点，请在请求部署之前，让 Codex 确认该项目的构建能否生成兼容的部署产物。
+
+请告诉 Codex 你需要的产品行为，以便它选择合适的站点形态：
+
+| 站点需求               | 应该让 Sites 做什么          |
+| ------------------ | ---------------------- |
+| 内容型网站或落地页          | 一个没有持久化应用状态的站点，除非体验需要它 |
+| 保存记录、用户进度或游戏分数     | D1，用于持久化结构化数据的关系型数据库   |
+| 图片、文档、音频、视频或其他上传文件 | R2，用于文件的对象存储           |
+| 带可搜索元数据的上传文件       | D1 存储元数据，R2 存储文件内容     |
+| 需要当前工作区用户身份的内部站点   | 工作区认证的用户身份             |
+| 公共登录或外部身份提供商       | 启用身份认证的 Sites 项目       |
+
+不要为临时展示状态请求持久化存储，例如主题选择或已关闭的横幅。对于用户期望托管站点能够记住的产品数据，则应请求持久化存储。
+
+## 控制访问权限和密钥
+
+在分享已部署 URL 之前，请先设置受众。对于新站点，在你审核内容、数据处理方式和预期受众之前，请将访问权限限制为所有者和工作区管理员。
+
+你可以让 Sites 应用以下访问模式之一：
+
+| 访问模式                   | 谁可以访问站点                          |
+| ---------------------- | -------------------------------- |
+| 所有者和管理员（`admins_only`） | 站点所有者和工作区管理员                     |
+| 工作区（`workspace_all`）   | 工作区中的所有活跃用户                      |
+| 自定义（`custom`）          | 你选择的特定活跃用户或工作区群组；Sites 仍然允许所有者访问 |
+
+例如：
+
+```text
+@Sites 在向我展示当前站点并确认部署 URL 后，把这个已部署站点的访问权限改为我工作区中的所有人。
+```
+
+### 配置运行时环境值
+
+在应用侧边栏中打开 **Sites**，选择一个项目，然后在 Sites 面板中添加、更新或删除托管环境变量和密钥。不要把这些值存储在 `.openai/hosting.json` 中。请保持本地 `.env` 和 `.env.example` 文件与本地开发所需的键保持一致，并且不要提交密钥值。
+
+当你添加、更新或删除托管环境值后，请让 Codex 重新部署已批准的保存版本，这样下一次部署才会使用更新后的配置。
+
+## 分享前审核
+
+在部署或扩大访问权限之前：
+
+* 在 Codex [审核面板](https://developers.openai.com/codex/app/review) 中审核源代码变更和任何数据库迁移。
+* 确认构建成功，并确认选定的已保存版本就是你想发布的版本。
+* 检查只有预期受众可以访问该站点。
+* 确认你通过 Sites 配置了运行时密钥值，并且没有把它们提交到源文件中。
+* 部署后，请让 Codex 确认部署状态和生产 URL，然后再分享。
+
+## 相关文档
+
+* [Plugins](https://developers.openai.com/codex/plugins) 说明如何安装和调用 Codex 插件。
+* [Codex app](https://developers.openai.com/codex/app) 介绍应用导航和项目线程。
+* [Review and ship changes](https://developers.openai.com/codex/app/review) 说明如何在发布变更前检查源代码变更。

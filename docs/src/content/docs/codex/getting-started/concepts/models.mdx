@@ -81,11 +81,17 @@ gpt-5.4-mini
 对 Chat Completions API 的支持已被弃用，并将在未来的 Codex 版本中移除。
 :::
 
+## 过时的 codex 模型
+
+当使用 ChatGPT 登录时，Codex 中的 `gpt-5.2` 和 `gpt-5.3-codex` 模型已被弃用。如果您的脚本、配置文件或 `codex exec --model` 命令仍引用这些已弃用的模型，请将它们更新为上面列出的最新模型。
+
+某些针对 ChatGPT 登录已弃用的模型可能仍可在 API 中使用。如果您的工作流程依赖于其中某一个模型，请使用 API 密钥身份验证，并查看 API 模型页面以获取当前的可用性。
+
 ## 配置模型
 
 ### 配置你的默认本地模型
 
-Codex CLI 和 IDE 扩展使用相同的 `config.toml` [配置文件](https://developers.openai.com/codex/configuration/config-basic)。要指定模型，请在配置文件中添加一个 model 条目。如果你未指定模型，Codex app、CLI 或 IDE 扩展将默认使用推荐模型。
+Codex CLI 和 IDE 扩展使用相同的 `config.toml` [配置文件](https://developers.openai.com/codex/configuration/config-basic)。要指定模型，请在配置文件中添加一个 `model` 条目。如果你未指定模型，Codex app、CLI 或 IDE 扩展将默认使用推荐模型。
 
 ```text
 model = "gpt-5.5"

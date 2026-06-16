@@ -28,7 +28,7 @@ sidebar:
 
 工作树需要一个 Git 仓库。请确保你选择的项目位于 Git 仓库中。
 
-1. 选择"Worktree"
+1. 选择 "Worktree"
 
 在新线程视图中，在输入框下方选择 **Worktree**。你也可以选择为工作树运行设置脚本的本地环境。
 
@@ -105,7 +105,7 @@ fatal: 'feature/a' is already used by worktree at '<WORKTREE_PATH>'
 
 #### 为什么存在此限制
 
-Git 阻止同一个分支同时在多个 worktree 中签出，因为一个分支代表一个单一的可变引用（`refs/heads/<name>`），其含义是工作树的“当前签出状态”。
+Git 阻止同一个分支同时在多个 worktree 中签出，因为一个分支代表一个单一的可变引用（`refs/heads/<name>`），其含义是工作树的 “当前签出状态”。
 
 当一个分支被签出时，Git 会将其 HEAD 视为由该 worktree 拥有，并期望操作（如提交、重置、rebase 和合并）以明确定义的序列化方式推进该引用。允许多个 worktree 同时签出同一分支会产生歧义和竞争条件，导致无法确定哪个 worktree 的操作会更新分支引用，从而可能导致提交丢失、索引不一致或冲突解决不清晰。
 

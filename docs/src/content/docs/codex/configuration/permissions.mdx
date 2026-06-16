@@ -5,27 +5,58 @@ sidebar:
   order: 18
 ---
 
-import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
-
-# Permissions 权限
-
-> 配置 Codex 权限配置文件，控制文件和网络访问
-
-:::caution[Beta 功能]
-权限配置文件正在积极开发中，可能发生变化。
+:::note
+Beta。权限配置集（Permission profiles）正处于积极开发阶段，可能会发生变化。
 :::
 
-权限配置文件（Permission profiles）让你对 Codex 代表你运行的本地命令应用最小权限边界。一个配置文件是命名策略，结合了定义命令可读取或写入的文件系统规则，以及定义命令可访问的目的地的网络规则。
+:::note
+权限配置集无法与旧版的沙箱设置结合使用。请配置 `default_permissions` 和 `[permissions]`，或者配置 `sandbox_mode` / `sandbox_workspace_write`，但不要同时配置两者。如果 `sandbox_mode` 出现在任何已加载的配置文件中、或者您传递了 `--sandbox`、亦或所选的配置 profile 设置了 `sandbox_mode`，Codex 将使用这些旧版的沙箱设置，而不是 `default_permissions`。
 
-Codex 包含三个内置权限配置文件：
+托管的 `allowed_permission_profiles` 是个例外：它会让 Codex 使用权限配置集。在部署托管的配置集白名单之前，请移除旧版设置，例如 `sandbox_mode` 和 `[sandbox_workspace_write]`。对于版本混合的企业推广，您可以保留托管的 `allowed_sandbox_modes` 要求，将其作为临时的兼容性约束，直到每个客户端都运行 Codex 0.138.0 或更高版本。
+:::
 
-| 内置配置 | 说明 |
-| --- | --- |
-| `:read-only` | 保持本地命令执行为只读 |
-| `:workspace` | 允许在工作区根目录内写入 |
-| `:danger-full-access` | 移除所有本地沙箱限制 |
+权限配置集允许您对 Codex 代表您运行的本地命令应用最小特权边界。配置集是一个具名的策略，它将文件系统规则（定义命令可以读取或写入的内容）与网络规则（定义命令可以到达的目的地）结合在一起。
 
-## 定义和选择配置文件
+使用配置集可以为 Codex 提供完成当前任务所需的足够访问权限，而不会向您的机器或网络授予广泛的访问权限。例如，只读配置集可以让 Codex 检查项目而不编辑它，而具备写入能力的配置集可以将编辑限制在选定的工作区根目录中。
+
+macOS、Linux、WSL 和原生 Windows 都支持本地权限配置集。有关特定平台的详细信息和注意事项，请参见 [范围和执行](https://www.google.com/search?q=%23scope-and-enforcement)。
+
+关于 Codex 云端网络设置，请参见 [互联网访问](https://developers.openai.com/codex/cloud/internet-access)。
+
+## 定义并选择配置集
+
+Codex 包含三个内置的权限配置集：
+
+* `:read-only` 保持本地命令执行为只读。
+* `:workspace` 允许在活动的工作区根目录和系统临时目录内进行写入。
+* `:danger-full-access` 移除了本地沙箱限制，仅在有意授予这种广泛访问权限时才应使用。
+
+在 `[permissions.<name>]` 下创建一个具名配置集，然后将顶层的 `default_permissions` 键设置为该配置集名称或上述内置值之一。在本例中，`project-edit` 是用户定义的配置集名称，而不是内置值。
+
+企业管理员可以通过托管的 `requirements.toml` 定义配置集并限制用户可以选择哪些配置集。一旦存在 `allowed_permission_profiles`，未列出的配置集将被拒绝，包括未列出的内置配置集以及未来 Codex 版本中添加的配置集。有关推荐的托管配置，请参见 [控制可用的权限配置集](https://developers.openai.com/codex/enterprise/managed-configuration#control-available-permission-profiles)。
+
+自定义配置集使用两个相关的概念：
+
+* `[permissions.<name>.workspace_roots]` 添加应当计为该配置集工作区根目录的具体目录。
+* `[permissions.<name>.filesystem.":workspace_roots"]` 定义 Codex 在每个有效工作区根目录内应用的文件系统规则：即当前会话的运行时工作区根目录加上上面由配置集定义的根目录。
+
+配置集还使用常规的配置层模型。优先级更高的层可以在同一个配置集名称下添加或替换条目，而无需重新声明整个配置集。
+
+例如，组织级配置和用户级配置可以独立扩展同一个配置集：
+
+```toml
+# /etc/codex/config.toml
+[permissions.server.workspace_roots]
+"~/code/server" = true
+```
+
+```toml
+# ~/.codex/config.toml
+[permissions.server.workspace_roots]
+"~/code/mobile-app" = true
+```
+
+当 `server` 处于活动状态时，两个工作区根目录都会参与到有效的配置集中。
 
 ```toml
 default_permissions = "project-edit"
@@ -47,66 +78,358 @@ enabled = true
 
 [permissions.project-edit.network.domains]
 "api.openai.com" = "allow"
+"objects.githubusercontent.com" = "allow"
 "*.github.com" = "allow"
 "tracking.example.com" = "deny"
 ```
 
-此配置文件：
-- 读取常用开发者工具所需的最少运行时路径
-- 对当前会话和配置文件定义的工作区根目录应用相同的工作区规则
-- 保持 IDE 相邻设置（如 `.devcontainer/`）为只读
-- 使用 glob 规则拒绝匹配的环境文件
-- 仅通过配置的域名策略允许网络访问
+该配置集：
 
-## 文件系统权限
+* 读取常见开发人员工具所需的最小运行时路径。
+* 将相同的工作区根目录规则应用于当前会话和配置集定义的根目录。
+* 在每个根目录下保持 IDE 邻近设置（如 `.devcontainer/`）为只读。
+* 通过通配符（glob）规则拒绝匹配的环境文件。
+* 仅允许通过配置的域名策略进行网络访问。
 
-| 访问级别 | 含义 |
-| --- | --- |
-| `read` | 允许读取文件和列出目录，不能创建、修改、重命名或删除 |
-| `write` | 允许读取和修改文件，包括创建、重命名和删除 |
-| `deny` | 拒绝读取和写入，用于从更广泛的授权中挖出禁止子路径 |
+在活动配置集内部，更具体的拒绝（deny）规则始终有效，即使附近更广泛的路径是可读或可写的。例如，配置集可以使工作区根目录可写，同时仍将匹配的 `.env` 路径设置为 `deny`。
 
-## 网络权限
+## 扩展配置集
+
+当某个配置集与内置配置集或其他具名配置集大部分相同时，请使用 `extends`。推荐在内置配置集的基础上进行扩展，而不是从头开始，以便继承基线保护。例如，扩展 `:workspace` 可以保持工作区根目录的 `.codex` 目录为只读，除非您显式覆盖它。设置一次父级，然后仅添加或覆盖不同的规则。
 
 ```toml
+default_permissions = "project-edit"
+
+[permissions.project-edit]
+description = "Project editing with OpenAI API access."
+extends = ":workspace"
+
+[permissions.project-edit.filesystem.":workspace_roots"]
+"**/*.env" = "deny"
+
 [permissions.project-edit.network]
 enabled = true
 
 [permissions.project-edit.network.domains]
-"example.com" = "allow"       # 精确主机
-"*.example.com" = "allow"     # 子域名
-"**.example.com" = "allow"    # 顶级和子域名
-"ads.example.com" = "deny"    # 拒绝优先于允许
+"api.openai.com" = "allow"
 ```
 
-## 常见配置示例
+该配置集从 `:workspace` 开始，保持匹配的 `.env` 文件被拒绝，并允许向 `api.openai.com` 发起请求。配置集可以扩展 `:read-only`、`:workspace` 或另一个具名配置集。它不能扩展 `:danger-full-access`；Codex 还会拒绝未知的父级和继承循环。
 
-**只读 + 网络白名单：**
+## 配置规范
+
+| 条目 | 类型 / 取值 | 默认值 | 详情 |
+| --- | --- | --- | --- |
+| `default_permissions` | 字符串 配置集名称 | 无 | 指定 Codex 默认应用的权限配置集。它必须匹配 `[permissions]` 下的配置集或内置配置集（如 `:workspace`）。显式设置它以获得可预测的行为；只有当 `:workspace` 和 `:read-only` 都被显式允许时，托管要求才可以省略它。在此设置中，除非托管的 `allowed_permission_profiles` 指示其使用权限配置集，否则 Codex 会使用旧版的沙箱设置。 |
+| `[permissions.<name>]` | 表（Table） | 无 | 定义一个具名配置集。`default_permissions` 选择一个配置集作为默认值；其他权限配置集设置也使用该配置集名称。 |
+| `permissions.<name>.description` | 字符串 | 无 | 为配置集提供易于阅读的描述。配置集不会通过 `extends` 继承其父级的描述。 |
+| `permissions.<name>.extends` | 字符串 配置集名称 | 无 | 使该配置集从另一个具名配置集或内置的 `:read-only` 或 `:workspace` 配置集开始。Codex 会拒绝 `:danger-full-access`、未知的父级以及继承循环。 |
+| `[permissions.<name>.workspace_roots]` | 表 | 无 | 添加配置集定义的工作区根目录，这些根目录将与当前会话的运行时工作区根目录一起接收 `:workspace_roots` 文件系统规则。 |
+| `permissions.<name>.workspace_roots."<path>"` | 布尔值 | `false` | 当为 `true` 时，将路径添加到配置集的工作区根目录集中。设置为 `false` 的条目保持非活动状态。 |
+| `[permissions.<name>.filesystem]` | 表 | 无 | 将文件系统路径映射到访问值或有作用域的子路径映射。缺失或空的文件系统表会使文件系统访问保持受限，并发出启动警告。 |
+| `permissions.<name>.filesystem.glob_scan_max_depth` | 数字 | 无 | 当 Codex 在沙箱启动前对匹配项进行快照时，限制 Linux、WSL 和原生 Windows 上的拒绝读取通配符（deny-read glob）扩展。较大的值会增加启动扫描的工作量。当无边界的 `**` 模式需要有边界的预扩展时，请使用至少为 `1` 的值。 |
+| `[permissions.<name>.filesystem]."<path>"` | `read`, `write`, 或 `deny` | 无 | 为受支持的路径授予直接访问权限。`deny` 会拒绝访问，并且比同样具体的 `write` 或 `read` 条目优先胜出。Codex 会拒绝活动运行时无法执行的直接写入规则。 |
+| `[permissions.<name>.filesystem."<path>"]."<subpath>"` | `read`, `write`, 或 `deny` | 无 | 授予对 `<path>` 后代路径的访问权限。对于基础路径使用 `.`。其他子路径必须是相对的后代路径，且不能包含 `.` 或 `..` 组件。 |
+| `[permissions.<name>.network]` | 表 | 无 | 为配置集配置网络沙箱代理和沙箱网络策略。 |
+| `permissions.<name>.network.enabled` | 布尔值 | `false` | 为配置集中的沙箱命令启用网络访问。这会更改沙箱网络策略；它本身不会启动网络代理。 |
+| `[permissions.<name>.network.domains]` | 表 | 无 | 将主机模式映射到 `allow` 或 `deny`。如果没有 `allow` 条目，域名请求将被阻止。拒绝（Deny）条目优先于允许（allow）条目。 |
+| `permissions.<name>.network.domains."<pattern>"` | `allow` 或 `deny` | 无 | 支持精确的主机、用于子域名的 `*.example.com`、用于顶级域名加子域名的 `**.example.com`，以及作为仅允许（allow-only）的全局通配符 `*`。主机模式会通过修剪、转小写、去除末尾的点以及去除简单的端口或方括号来进行规范化。 |
+| `[permissions.<name>.network.unix_sockets]` | 表 | 无 | 映射 Unix 套接字白名单覆盖。仅用于本地集成，例如 Docker。 |
+| `permissions.<name>.network.unix_sockets."<path>"` | `allow` 或 `deny` | 无 | 通过 `allow` 将绝对 Unix 套接字路径添加到有效白名单中，或通过 `deny` 拒绝它。被拒绝的条目会从有效白名单中省略。 |
+| `permissions.<name>.network.proxy_url` | URL 字符串 | `http://127.0.0.1:3128` | 用于 `HTTP_PROXY`、`HTTPS_PROXY`、权重套接字（websocket）代理变量及相关工具代理环境变量的 HTTP 代理监听器。 |
+| `permissions.<name>.network.enable_socks5` | 布尔值 | `true` | 启用用于 `ALL_PROXY` 和 FTP 代理变量的 SOCKS5 监听器。 |
+| `permissions.<name>.network.socks_url` | URL 字符串 | `http://127.0.0.1:8081` | SOCKS5 监听器地址。 |
+| `permissions.<name>.network.enable_socks5_udp` | 布尔值 | `true` | 在启用 SOCKS5 监听器时，启用 SOCKS5 UDP 支持。 |
+| `permissions.<name>.network.allow_upstream_proxy` | 布尔值 | `true` | 允许网络沙箱代理在处理出站请求时遵守上游的 `HTTP(S)_PROXY` 和 `ALL_PROXY` 设置。 |
+| `permissions.<name>.network.allow_local_binding` | 布尔值 | `false` | 当为 `true` 时，禁用本地/私有网络防护。当为 `false` 时，必须显式将精确的本地字面量（如 `localhost` 或 `127.0.0.1`）加入白名单，并且解析为本地或私有 IP 的主机名保持被阻止状态。 |
+| `permissions.<name>.network.dangerously_allow_non_loopback_proxy` | 布尔值 | `false` | 允许代理监听器绑定非回环（non-loopback）地址。对于普通的本地开发，请保持未设置状态。 |
+| `permissions.<name>.network.dangerously_allow_all_unix_sockets` | 布尔值 | `false` | 在支持 Unix 套接字代理的地方绕过 Unix 套接字白名单。这是一个广泛的本地逃生通道（escape hatch）。 |
+
+## 文件系统权限
+
+文件系统条目使用 `read`、`write` 或 `deny`：
+
+| 访问权限 | 含义 |
+| --- | --- |
+| `read` | 允许命令读取文件并列出该路径下的目录。命令不能在其中创建、修改、重命名或删除文件。 |
+| `write` | 允许命令读取和修改该路径下的文件，包括在操作系统允许的情况下创建、重命名和删除文件。 |
+| `deny` | 拒绝该路径下的读取和写入。使用它从更广泛的 `read` 或 `write` 授权中挖出一条被拒绝的子路径。 |
+
+更具体的条目会覆盖更广泛的条目。当两个条目指向相同的路径时，`deny` 优先于 `write`，而 `write` 优先于 `read`。
+
+这种优先级允许配置集首先描述一个广泛的工作区域，然后挖出应该保持不可读的文件或目录：
+
+```toml
+[permissions.project-edit.filesystem]
+":minimal" = "read"
+
+[permissions.project-edit.filesystem.":workspace_roots"]
+"." = "write"
+".devcontainer" = "read"
+"**/*.env" = "deny"
+```
+
+在本例中，工作区根目录保持可写，`.devcontainer/` 保持可读但不会变成可写，并且匹配的环境文件对于沙箱化命令保持不可用。
+
+更具体的路径也可以在更广泛的拒绝（deny）内部重新开放一个更窄的子树：
+
+```toml
+[permissions.project-edit.filesystem]
+"~/Documents" = "deny"
+"~/Documents/codex" = "write"
+```
+
+支持的路径形式：
+
+| 路径 | 含义 | 有作用域的子路径 |
+| --- | --- | --- |
+| `:root` | 文件系统根目录 | 仅 `.` |
+| `:minimal` | 常见工具所需的平台和运行时路径 | 仅 `.` |
+| `:workspace_roots` | 当前会话的工作区根目录加上任何启用的配置集定义的工作区根目录 | 是 |
+| `:tmpdir` | `$TMPDIR` 位置（如果可用） | 仅 `.` |
+| `:slash_tmp` | `/tmp` 文件夹（如果存在） | 仅 `.` |
+| `/absolute/path` | 平台绝对路径，例如 macOS/Linux/WSL 上的 `/path` 或原生 Windows 上的 `C:\path` | 是 |
+| `~/path` | 当前用户家目录下的路径 | 是 |
+
+在原生 Windows 上，家目录相对路径也可以使用反斜杠，例如 `~\work`。
+
+仅在配置集刻意需要广泛的读取覆盖时才使用 `:root`：
+
+```toml
+[permissions.audit.filesystem]
+":root" = "read"
+```
+
+使用 `:workspace_roots` 下的嵌套条目将访问范围限制在工作区根目录的相对子路径中：
+
+```toml
+[permissions.project-edit.filesystem.":workspace_roots"]
+"." = "write"          # 每个工作区根目录
+"docs" = "read"        # 每个工作区根目录下的 docs 目录
+"generated" = "deny"   # 每个工作区根目录下的 generated 目录
+```
+
+嵌套的子路径必须留在其工作区根目录内部。诸如 `../other-repo` 的父级遍历将被拒绝。
+
+### 通过精确路径或通配符拒绝读取
+
+对于 Codex 不应读取的文件或子树，请使用 `deny`，即使附近有更广泛的配置集规则授予了访问权限。精确路径对于诸如 `~/.ssh` 的固定位置非常有效。当配置集需要覆盖一系列敏感文件，且这些文件的精确位置在各个仓库中各不相同时，通配符（glob）模式更有效。
+
+当通配符位于 `:workspace_roots` 下时，Codex 会相对于每个有效的工作区根目录来解释它。例如：
+
+```toml
+[permissions.project-edit.filesystem.":workspace_roots"]
+"**/*.env" = "deny"
+```
+
+该规则拒绝读取在每个运行时或配置集定义的工作区根目录下找到的匹配 `.env` 文件。当您想要保留正常的工作区写入，同时保持环境文件、生成的密钥或类似的带有凭证的文件不可读时，请使用此规则。
+
+`deny` 通配符模式被支持作为拒绝读取规则。`read` 或 `write` 通配符在 Linux、WSL 和原生 Windows 沙箱上的可移植性较差，因此在可能的情况下，请优先选择精确路径或子树规则，例如 `"docs/" = "read"`。
+
+在 Linux、WSL 和原生 Windows 上，无边界的 `` 拒绝读取模式可能需要在沙箱启动前进行有边界的预扩展。当您使用无边界模式（如 `"/*.env" = "deny"`）时，请设置 `glob_scan_max_depth`：
+
+```toml
+[permissions.project-edit.filesystem]
+glob_scan_max_depth = 3
+
+[permissions.project-edit.filesystem.":workspace_roots"]
+"**/*.env" = "deny"
+```
+
+`glob_scan_max_depth` 必须至少为 `1`。更高的值会在沙箱启动前扫描得更深，这会增加 Linux、WSL 和原生 Windows 上的启动工作量。如果您不想使用有边界的扩展，请枚举显式的深度，例如 `*.env`、`*/*.env` 和 `*/*/*.env`。
+
+当相同的规则应该应用于当前会话根目录以外的目录时，将可重用的工作区根目录添加到配置集中：
+
+```toml
+[permissions.project-edit.workspace_roots]
+"~/code/app" = true
+"~/code/shared-lib" = true
+```
+
+当该配置集处于活动状态时，Codex 会将 `:workspace_roots` 规则应用于当前会话的运行时工作区根目录以及每个启用的配置集定义的工作区根目录。
+
+在原生 Windows 上，驱动器盘符路径（如 `D:\work`）和 UNC 路径（如 `\\server\share`）被支持作为绝对路径。
+
+## 网络权限
+
+设置 `enabled = true` 以允许所选配置集的网络访问：
+
+```toml
+[permissions.project-edit.network]
+enabled = true
+```
+
+当启用网络访问时，Codex 默认使用完整的网络行为。大多数配置集还应该定义域名规则：
+
+```toml
+[permissions.project-edit.network.domains]
+"example.com" = "allow"      # 精确主机
+"*.example.com" = "allow"    # 仅限子域名
+"**.example.com" = "allow"   # 顶级域名及子域名
+"ads.example.com" = "deny"   # 拒绝优先于允许
+```
+
+网络沙箱代理默认绑定到本地监听器：
+
+```toml
+[permissions.project-edit.network]
+enabled = true
+proxy_url = "http://127.0.0.1:3128"
+enable_socks5 = true
+socks_url = "http://127.0.0.1:8081"
+enable_socks5_udp = true
+```
+
+除非您正在与特定的运行时进行集成，否则请将这些监听器设置保持为默认值。`dangerously_*` 网络键是用于专门环境的逃生通道，不应在普通的本地开发中使用。
+
+### 本地网络和私有网络
+
+Codex 默认应用本地/私有网络防护，以防御 DNS 重绑定和对本地服务的意外访问。要刻意允许字面量本地目标，请将精确的主机或 IP 字面量加入白名单：
+
+```toml
+[permissions.project-edit.network.domains]
+"localhost" = "allow"
+"127.0.0.1" = "allow"
+```
+
+只有当配置集必须到达解析为本地或私有地址的白名单主机名时，才设置 `allow_local_binding = true`：
+
+```toml
+[permissions.project-edit.network]
+enabled = true
+allow_local_binding = true
+
+[permissions.project-edit.network.domains]
+"localhost" = "allow"
+```
+
+### Unix 套接字
+
+Unix 套接字代理是针对 Docker 等工具的本地逃生通道。请谨慎使用：
+
+```toml
+[permissions.project-edit.network.unix_sockets]
+"/var/run/docker.sock" = "allow"
+"/tmp/old.sock" = "deny"
+```
+
+使用 `deny` 拒绝套接字路径，包括继承的允许条目。被拒绝的套接字路径会从有效白名单中省略。
+
+当启用 Unix 套接字时，请保持代理监听器绑定到回环地址。
+
+## 从旧版沙箱设置迁移
+
+当您想要一个可重用的配置集同时描述文件系统和网络行为时，权限配置集将取代旧版的 `sandbox_mode` 和 `sandbox_workspace_write` 组合。在会话中使用其中一种系统，而不要同时使用两者。
+
+建议的起点：
+
+* 对于只读工作流，使用内置的 `:read-only` 配置集，或定义一个仅在需要的地方具有读取访问权限的自定义配置集。
+* 对于工作区编辑，使用内置的 `:workspace` 配置集，或定义一个自定义配置集，该配置集通过 `:workspace_roots` 进行写入，并仅添加工作流需要的额外临时或缓存路径。
+* 对于不受限制的本地执行，只有在您刻意需要最广泛的本地访问模型时，才使用 `:danger-full-access`。
+
+配置集描述了会话的本地默认姿态。组织托管的要求仍然可以添加用户配置不应放宽的限制。关于管理员强制执行的文件系统和网络约束，请参见 [托管配置](https://developers.openai.com/codex/enterprise/managed-configuration)。
+
+## 范围和执行
+
+权限配置集定义了本地沙箱命令执行的边界。请将它们与审批策略以及针对其他 Codex 表面的独立控制一起结合使用。
+
+### 配置集控制什么
+
+* **本地命令执行：** 权限配置集管辖在您的机器上运行的沙箱化命令。应用连接器、MCP 服务器、浏览器或计算机使用表面、Codex 云环境设置以及批准的提权使用它们自己的控制。
+* **文件系统写入：** 具备写入能力的配置集可以创建持久性更改。请将对脚本、构建步骤、包管理器钩子、外壳启动文件和共享目录的写入视为敏感行为，因为后续的工具或用户可以在原始沙箱上下文之外执行这些文件。
+* **出站目的地：** 网络域名规则约束了沙箱化命令流量可以通过网络代理流向何处。它们不决定允许的目的地是否值得信任，且通配符允许规则保持广泛。
+* **本地服务：** 本地和私有网络目标默认被阻止。显式将 `localhost`、私有 IP、Unix 套接字加入白名单，或设置 `allow_local_binding = true` 会直接开启对本地服务的访问。
+
+### 执行如何工作
+
+* 在 macOS 上，Codex 使用 Seatbelt 沙箱配置集。如果所选策略无法由平台沙箱执行，Codex 将拒绝运行该命令，而不是在未沙箱化的状态下静默运行它。
+* 在 Linux 和 WSL 上，Codex 使用 [bubblewrap](https://github.com/containers/bubblewrap) 和 [seccomp](https://www.kernel.org/doc/html/latest/userspace-api/seccomp_filter.html)，并提供 Landlock 作为兼容性回退路径。最强的执行路径取决于用户命名空间和内核支持；受限的容器主机可以强制使用兼容性路径，而不支持的拆分策略将被拒绝。
+* 在原生 Windows 上，[`elevated` 沙箱化](https://www.google.com/search?q=%5Bhttps://developers.openai.com/codex/windows%23windows-sandbox%5D(https://developers.openai.com/codex/windows%23windows-sandbox)) 最为强健，因为它可以使用专用的低特权沙箱用户、文件系统权限边界和防火墙规则。`unelevated` 沙箱化是一个回退方案，具有较弱的网络隔离，且无法执行每个拆分的读/写划分，因此不支持的策略将被拒绝。当您需要 Linux 沙箱模型时，请使用 WSL。
+
+### 操作指南
+
+选择能够让任务完成的最窄配置集，尤其是在您授予写入或出站网络访问权限时。保持审批策略、密钥处理和允许规则与该访问级别保持一致。
+
+## 常见配置集
+
+### 带有网络白名单的只读配置
+
 ```toml
 default_permissions = "readonly-net"
 
 [permissions.readonly-net.filesystem]
 ":minimal" = "read"
+
 [permissions.readonly-net.filesystem.":workspace_roots"]
 "." = "read"
+
 [permissions.readonly-net.network]
 enabled = true
+
 [permissions.readonly-net.network.domains]
 "api.openai.com" = "allow"
 ```
 
-**工作区写入 + 无网络：**
+### 文件访问限制在工作区内
+
+以下是一个权限配置集的示例，该示例将使您的工作区文件夹可由 Codex 写入，同时拒绝读取文件系统的其余部分（由 `:minimal` 决定的有限异常除外）。
+
+```toml
+default_permissions = "workspace-only"
+
+[permissions.workspace-only]
+# By extending the :workspace profile, you get Codex's safeguards to ensure
+# subfolders such as .codex/ and .git/ within a workspace root are read-only
+# while the rest of the folder is writable.
+extends = ":workspace"
+
+[permissions.workspace-only.filesystem]
+# By default, deny read access to all files on disk.
+":root" = "deny"
+
+# Though in practice, a software agent needs to be able to read folders that
+# contain common tools, such as `/usr/bin`, to get work done, so grant access
+# to a "minimal" set of files and folders, as determined by Codex.
+":minimal" = "read"
+
+# By extending the :workspace profile, :tmpdir and :slash_tmp are "write" by
+# default, though you can deny access to them altogether, if desired.
+":tmpdir" = "deny"
+":slash_tmp" = "deny"
+```
+
+### 工作区可写但无网络连接
+
 ```toml
 default_permissions = "project-edit"
 
 [permissions.project-edit.filesystem]
 ":minimal" = "read"
+
 [permissions.project-edit.filesystem.":workspace_roots"]
 "." = "write"
+
 [permissions.project-edit.network]
 enabled = false
 ```
 
-<LinkButton href="https://developers.openai.com/codex/configuration/permissions" variant="secondary">
-  查看官方完整文档 →
-</LinkButton>
+### 工作区可写且具有公共网络访问权限
+
+```toml
+default_permissions = "workspace-net"
+
+[permissions.workspace-net.filesystem]
+":minimal" = "read"
+
+[permissions.workspace-net.filesystem.":workspace_roots"]
+"." = "write"
+
+[permissions.workspace-net.network]
+enabled = true
+
+[permissions.workspace-net.network.domains]
+"*" = "allow"
+```
+
+仅当您打算允许公共网络访问时，才使用全局 "*" 允许规则。拒绝规则可以缩小广泛的允许列表范围。
+

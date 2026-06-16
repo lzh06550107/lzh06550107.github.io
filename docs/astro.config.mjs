@@ -2,7 +2,7 @@
 import { defineConfig } from 'astro/config';
 import { fileURLToPath } from 'node:url';
 import starlight from '@astrojs/starlight';
-import lucode from 'lucode-starlight';
+import lucode from '../packages/lucode-starlight/index.ts';
 import { buildDocsetSidebar } from './src/data/docsets.mjs';
 
 // https://astro.build/config
@@ -58,9 +58,40 @@ export default defineConfig({
 
     vite: {
         resolve: {
-            alias: {
-                '@lucode-starlight': fileURLToPath(new URL('../packages/lucode-starlight', import.meta.url)),
-            },
+            alias: [
+                {
+                    find: /^lucode-starlight\/styles\/base$/,
+                    replacement: fileURLToPath(new URL('../packages/lucode-starlight/styles/base.css', import.meta.url)),
+                },
+                {
+                    find: /^lucode-starlight\/styles\/layers$/,
+                    replacement: fileURLToPath(new URL('../packages/lucode-starlight/styles/layers.css', import.meta.url)),
+                },
+                {
+                    find: /^lucode-starlight\/styles\/theme$/,
+                    replacement: fileURLToPath(new URL('../packages/lucode-starlight/styles/theme.css', import.meta.url)),
+                },
+                {
+                    find: /^lucode-starlight\/components$/,
+                    replacement: fileURLToPath(new URL('../packages/lucode-starlight/user-components.ts', import.meta.url)),
+                },
+                {
+                    find: /^lucode-starlight\/components\/(.*)$/,
+                    replacement: `${fileURLToPath(new URL('../packages/lucode-starlight/components', import.meta.url))}/$1`,
+                },
+                {
+                    find: /^lucode-starlight\/schema$/,
+                    replacement: fileURLToPath(new URL('../packages/lucode-starlight/schema.ts', import.meta.url)),
+                },
+                {
+                    find: /^lucode-starlight$/,
+                    replacement: fileURLToPath(new URL('../packages/lucode-starlight/index.ts', import.meta.url)),
+                },
+                {
+                    find: '@lucode-starlight',
+                    replacement: fileURLToPath(new URL('../packages/lucode-starlight', import.meta.url)),
+                },
+            ],
         },
         plugins: [],
     },

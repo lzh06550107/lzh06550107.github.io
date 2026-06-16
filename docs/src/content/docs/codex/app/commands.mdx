@@ -5,73 +5,217 @@ sidebar:
   order: 12
 ---
 
-使用以下命令和键盘快捷键来操作 Codex 应用。
+使用这些命令和键盘快捷键来导航 Codex 应用。
 
 ## 键盘快捷键
 
-| 操作 | macOS 快捷键 |
-|------|-------------|
-| **通用** | |
-| 命令菜单 | `Cmd + Shift + P` 或 `Cmd + K` |
-| 设置 | `Cmd + ,` |
-| 打开文件夹 | `Cmd + O` |
-| 后退导航 | `Cmd + [` |
-| 前进导航 | `Cmd + ]` |
-| 增大字体 | `Cmd + +` 或 `Cmd + =` |
-| 减小字体 | `Cmd + -` 或 `Cmd + _` |
-| 切换侧边栏 | `Cmd + B` |
-| 切换差异面板 | `Cmd + Option + B` |
-| 切换终端 | `Cmd + J` |
-| 清空终端 | `Ctrl + L` |
-| **线程** | |
-| 新建线程 | `Cmd + N` 或 `Cmd + Shift + O` |
-| 在线程中查找 | `Cmd + F` |
-| 上一个线程 | `Cmd + Shift + [` |
-| 下一个线程 | `Cmd + Shift + ]` |
-| 语音输入 | `Ctrl + M` |
+|  | 操作 | macOS 快捷键 |
+| --- | --- | --- |
+| **通用** |  |  |
+|  | 命令菜单 | Cmd + Shift + P 或 Cmd + K |
+|  | 设置 | Cmd + , |
+|  | 键盘快捷键 | Cmd + / |
+|  | 打开文件夹 | Cmd + O |
+|  | 后退 | Cmd + [ |
+|  | 前进 | Cmd + ] |
+|  | 增大字体大小 | Cmd + + 或 Cmd + = |
+|  | 减小字体大小 | Cmd + - 或 Cmd + _ |
+|  | 切换侧边栏 | Cmd + B |
+|  | 切换 Diff 面板 | Cmd + Option + B |
+|  | 切换终端 | Cmd + J |
+|  | 清空终端 | Ctrl + L |
+| **线程** |  |  |
+|  | 新建线程 | Cmd + N 或 Cmd + Shift + O |
+|  | 搜索历史线程 | Cmd + G |
+|  | 在线程中查找 | Cmd + F |
+|  | 上一个线程 | Cmd + Shift + [ |
+|  | 下一个线程 | Cmd + Shift + ] |
+|  | 听写 | Ctrl + M |
+
+要查找、自定义或重置快捷键，请打开 **设置 > 键盘快捷键**（Settings > Keyboard Shortcuts）。您可以按命令名称进行搜索，或者将搜索框切换为按键模式并按下您想要查找的快捷键。
+
+## 搜索历史线程并在线程中查找
+
+使用线程搜索（`Cmd/Ctrl + G`）可以重新打开过去的对话。当您的 Codex 桌面应用程序中启用了扩展匹配时，它还可以匹配对话内容和 Git 分支名称，因此您可以搜索线程中的短语或诸如 `fix/login-redirect` 之类的分支。
+
+在打开线程后，使用 **在线程中查找**（`Cmd + F`）可以在当前对话中查找文本。它不会在其他线程中进行搜索。
 
 ## 斜杠命令
 
-斜杠命令让你无需离开线程输入框即可控制 Codex。可用命令因你的环境和访问权限而异。
+斜杠命令允许您在不离开线程编辑器的情况下控制 Codex。可用的命令取决于您的环境和访问权限。
 
 ### 使用斜杠命令
 
-1. 在线程输入框中输入 `/`。
-2. 从列表中选择一个命令，或继续输入以进行筛选（例如，`/status`）。
+1. 在线程编辑器中，输入 `/`。
+2. 从列表中选择一个命令，或者继续输入以进行过滤（例如 `/status`）。
 
-你也可以在线程输入框中输入 `$` 来显式调用技能。参见[技能](/codex/configuration/skills)。
+您也可以在线程编辑器中通过输入 `$` 来显式调用技能。参见 [技能](https://developers.openai.com/codex/skills)。
 
-已启用的技能也会出现在斜杠命令列表中。
+启用的技能也会出现在斜杠命令列表中。
 
 ### 可用的斜杠命令
 
 | 斜杠命令 | 描述 |
-|----------|------|
-| `/feedback` | 打开反馈对话框，提交反馈并可选附带日志。 |
+| --- | --- |
+| `/feedback` | 打开反馈对话框以提交反馈，并可选择性地包含日志。 |
+| `/goal` | 为 Codex 设置一个持续努力的持久目标；请先使用 `/plan` 来塑造该目标。 |
+| `/init` | 为当前项目生成一个 `AGENTS.md` 脚手架。 |
 | `/mcp` | 打开 MCP 状态以查看已连接的服务器。 |
-| `/plan-mode` | 切换计划模式，用于多步骤规划。 |
-| `/review` | 启动代码审查模式，审查未提交的更改或与基准分支进行比较。 |
+| `/plan` | 切换用于多步规划的规划模式。 |
+| `/review` | 启动代码审查模式以审查未提交的更改或与基线分支进行对比。 |
 | `/status` | 显示线程 ID、上下文使用情况和速率限制。 |
+
+### 使用 `/goal` 设置或管理目标
+
+在应用编辑器中使用 `/goal` 可以启动目标模式。目标是一个持久的目的，Codex 会朝着这个目的努力，直到它完成任务、暂停或需要更多输入。若要先与 Codex 一起定义目标，请从 `/plan` 开始，然后使用 `/goal` 设置精简后的目标。
+
+如果 `/goal` 没有出现在斜杠命令列表中，请在 `config.toml` 中启用 `features.goals`：
+
+```toml
+[features]
+goals = true
+```
+
+您也可以从 CLI 运行 `codex features enable goals`，或者要求 Codex 来运行它。
+
+当目标处于活跃状态时，应用会在编辑器上方显示其进度。使用该进度行中的按钮可以暂停或恢复目标、编辑目标文本或清除目标，而无需输入另一个斜杠命令。在目标运行时，您可以继续通过后续消息来引导 Codex。
+
+有关编写有效目标的指南，请参阅 [目标模式](https://developers.openai.com/codex/prompting#goal-mode)。
 
 ## 深度链接
 
-Codex 应用注册了 `codex://` URL 协议，使得链接可以直接打开应用的特定部分。
+Codex 应用注册了 `codex://` URL 方案，以便链接可以直接打开应用的特定部分。在将查询字符串的值添加到 URL 之前，请对其进行编码。
 
-| 深度链接 | 打开位置 | 支持的查询参数 |
-|----------|---------|---------------|
-| `codex://settings` | 设置。 | 无。 |
-| `codex://skills` | 技能。 | 无。 |
-| `codex://automations` | 处于自动化创建模式的收件箱。 | 无。 |
-| `codex://threads/<thread-id>` | 一个本地线程。`<thread-id>` 必须是 UUID。 | 无。 |
-| `codex://new` | 新建线程。 | 可选：`prompt`、`originUrl`、`path`。 |
+### 支持的链接
 
-对于新建线程的深度链接：
+在创建链接时，请使用这些规范形式。以下章节按链接类型列出了完整的参考。
 
-- `prompt` 设置初始输入框文本。
-- `path` 必须是本地目录的绝对路径，有效时会使该目录成为新线程的活动工作区。
-- `originUrl` 尝试通过 Git 远程 URL 匹配你当前的工作区根目录之一。如果同时存在 `path` 和 `originUrl`，Codex 优先解析 `path`。
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://threads/new` | 一个新的本地线程。 |
+| `codex://new?<query>` | 包含至少一个新线程查询参数的新本地线程。 |
+| `codex://threads/<thread-id>` | 一个本地线程。`<thread-id>` 必须是该线程的会话 UUID。 |
+| `codex://settings` | 设置。 |
+| `codex://skills` | 技能。 |
+| `codex://automations` | 打开了创建流程的自动化。 |
+| `codex://plugins/install/<plugin-name>?marketplace=<marketplace-name>` | 来自已知市场的插件的安装流程。 |
+| `codex://plugins/<plugin-id>` | 插件详情页面。 |
+| `codex://plugins/<plugin-name>?marketplacePath=<absolute-marketplace-path>` | 来自本地市场的本地插件详情页面。 |
+| `codex://pets/install?name=<pet-name>&imageUrl=<https-image-url>` | 宠物安装流程。 |
 
-## 另见
+### 线程
 
-- [功能特性](/codex/app/features)
-- [设置](/codex/app/settings)
+当您需要打开现有的本地线程或启动一个新线程时，请使用这些链接。
+
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://threads/<thread-id>` | 一个本地线程。`<thread-id>` 必须是该线程的会话 UUID。 |
+| `codex://threads/new` | 一个新的本地线程。 |
+| `codex://threads/new?<query>` | 带有可选查询参数的新本地线程。 |
+| `codex://new?<query>` | 一个新的本地线程。必须包含 `prompt`、`path` 或 `originUrl` 中的至少一个；否则该链接将不执行任何操作。 |
+
+对于 `codex://threads/new` 或 `codex://new`，请根据需要添加以下任何查询参数；您可以在同一个 URL 中组合使用它们。
+
+| 查询参数 | 必填 | 它的作用 |
+| --- | --- | --- |
+| `prompt=<text>` | 否 | 设置初始的编辑器文本。 |
+| `path=<absolute-path>` | 否 | 在本地工作区中打开新线程。`path` 必须是本地目录的绝对路径。当有效时，Codex 将使用该目录作为活动工作区。 |
+| `originUrl=<git-remote-url>` | 否 | 通过 Git 远程 URL 匹配您当前的某个工作区根目录。如果 `path` 同时存在，Codex 会优先解析 `path`。 |
+
+示例：[向我展示一些关于我如何使用 Codex 的有趣统计数据](https://www.google.com/search?q=codex://threads/new%3Fprompt%3DShow%2520me%2520some%2520fun%2520stats%2520about%2520how%2520I%2527ve%2520been%2520using%2520Codex)
+
+### 设置
+
+当您需要打开“设置”或特定的设置页面时，请使用这些链接。
+
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://settings` | 设置。 |
+| `codex://settings/browser-use` | 浏览器设置。 |
+| `codex://settings/computer-use/google-chrome` | 用于计算机使用的 Google Chrome 设置。 |
+| `codex://settings/connections` | 远程连接设置。 |
+
+不支持的 `codex://settings/...` 路径将打开主“设置”页面。
+
+### 技能
+
+当您需要打开“技能”时，请使用这些链接。
+
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://skills` | 技能。 |
+
+### 自动化
+
+当您需要打开“自动化”时，请使用这些链接。
+
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://automations` | 打开了创建流程的自动化。 |
+
+### 插件
+
+插件链接使用不同的形式，具体取决于您是从市场安装、打开插件，还是从本地的 `marketplace.json` 工作。有关插件的基础知识，请参阅 [插件](https://developers.openai.com/codex/plugins)。有关本地或仓库市场的设置，请参阅 [构建插件](https://developers.openai.com/codex/plugins/build#build-your-own-curated-plugin-list)。
+
+#### 插件安装
+
+使用此形式可以为来自 Codex 已知的市场的插件打开安装流程。
+
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://plugins/install/<plugin-name>?marketplace=<marketplace-name>` | 插件的详情或安装流程。 |
+
+| 查询参数 | 必填 | 它的作用 |
+| --- | --- | --- |
+| `marketplace=<marketplace-name>` | 是 | 标识市场。对于 OpenAI 策划的插件（OpenAI-curated），请使用 `openai-curated`。 |
+
+安装链接仅接受 `marketplace` 查询参数。如果 Codex 找不到所请求的市场或插件，它将改为打开“插件”页面。
+
+#### 插件详情
+
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://plugins/<plugin-id>` | 插件详情页面。 |
+
+`<plugin-id>` 必须标识该插件。对于 OpenAI 策划的插件，请使用 `<plugin-name>@openai-curated` 形式。
+
+Codex 生成的插件链接也可以包含这些查询参数。当您手写链接时，请忽略这两者。
+
+| 查询参数 | 必填 | 它的作用 |
+| --- | --- | --- |
+| `hostId=<host-id>` | 否 | 标识拥有该插件上下文的 Codex 主机，例如 `local` 或您配置的远程连接之一。Codex 会提供这些 ID。 |
+| `source=manage` | 否 | 保留应用的插件管理入口点。它并非仅限管理员使用。 |
+
+示例：[打开 OpenAI 开发者插件](https://www.google.com/search?q=codex://plugins/openai-developers%40openai-curated)
+
+#### 本地插件
+
+有关本地或仓库市场的设置，请参阅 [构建插件](https://developers.openai.com/codex/plugins/build#build-your-own-curated-plugin-list)。
+
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://plugins/<plugin-name>?marketplacePath=<absolute-marketplace-path>` | 来自本地市场的本地插件详情页面。 |
+
+| 查询参数 | 必填 | 它的作用 |
+| --- | --- | --- |
+| `marketplacePath=<absolute-marketplace-path>` | 是 | 本地 `marketplace.json` 的绝对路径，例如 `/Users/alex/.agents/plugins/marketplace.json`。 |
+| `mode=share` | 否 | 打开该本地插件的共享流程。 |
+
+### 宠物
+
+当启用该功能时，使用这些链接可以打开宠物安装流程。
+
+| 深度链接 | 打开 |
+| --- | --- |
+| `codex://pets/install?name=<pet-name>&imageUrl=<https-image-url>` | 宠物安装流程。 |
+
+| 查询参数 | 必填 | 它的作用 |
+| --- | --- | --- |
+| `name=<pet-name>` | 是 | 设置宠物名称。 |
+| `imageUrl=<https-image-url>` | 是 | 设置宠物图片 URL。`imageUrl` 必须是 HTTPS。 |
+| `description=<text>` | 否 | 设置可选的宠物描述。 |
+
+## 另请参阅
+
+* [功能](https://www.google.com/search?q=https%3A%2F%2Fdevelopers.openai.com%2Fcodex%2Fapp%2Ffeatures)
+* [设置](https://www.google.com/search?q=https%3A%2F%2Fdevelopers.openai.com%2Fcodex%2Fapp%2Fsettings)

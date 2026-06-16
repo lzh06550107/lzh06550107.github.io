@@ -5,167 +5,227 @@ sidebar:
   order: 8
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+如果你刚开始使用 Codex，或者刚开始使用 coding agents，本指南会帮助你更快获得更好的结果。它涵盖了让 Codex 在 [CLI](https://developers.openai.com/codex/cli)、[IDE extension](https://developers.openai.com/codex/ide) 和 [Codex app](https://developers.openai.com/codex/app) 中更有效的核心习惯，包括提示词、规划、验证、MCP、skills 和 automations。
 
-# 最佳实践
+当你把 Codex 当作一个可以持续配置和改进的队友，而不是一次性的助手时，它的效果最好。
 
-> 如果你刚开始接触 Codex 或编程智能体，本指南将帮助你更快地获得更好的结果。
+一个有用的理解方式是：从正确的任务上下文开始，使用 `AGENTS.md` 存放持久化指导，配置 Codex 以匹配你的工作流，用 MCP 连接外部系统，把重复工作变成 skills，并将稳定的工作流自动化。
 
-Codex 在以下情况下表现最佳：你不要把它当作一次性的助手，而是当作一个你可以持续配置和优化的**队友**。
+## 强力的首次使用：上下文和提示词
 
-## 从上下文和提示开始
+即使你的提示词并不完美，Codex 也已经足够强大，可以提供价值。你通常可以在最少设置的情况下交给它一个困难问题，并仍然得到不错的结果。清晰的 [prompting](https://developers.openai.com/codex/prompting) 并不是获得价值的必要条件，但它确实会让结果更可靠，尤其是在更大的代码库或更高风险的任务中。
 
-即使提示不完美，Codex 也已经足够强大。但清晰的提示能让结果更可靠。一个好的提示应包含四部分：
+如果你在大型或复杂仓库中工作，最大的突破点是给 Codex 正确的任务上下文，并清楚描述你想完成的结构。
 
-| 要素 | 说明 |
-| --- | --- |
-| **目标** | 你想要改变或构建什么？ |
-| **上下文** | 哪些文件、文件夹、文档、示例或错误与此任务相关？可以用 `@` 引用特定文件 |
-| **约束** | 应遵循哪些标准、架构、安全要求或约定？ |
-| **完成条件** | 任务完成前应满足什么条件？（如测试通过、行为改变、bug 不再复现） |
+一个好的默认提示词应包含四件事：
 
-### 选择推理级别
+* **目标：** 你想改变或构建什么？
+* **上下文：** 哪些文件、文件夹、文档、示例或错误与这个任务相关？你可以通过 @ 提及某些文件作为上下文。
+* **约束：** Codex 应该遵循哪些标准、架构、安全要求或约定？
+* **完成标准：** 在任务完成前，什么应该为真？例如测试通过、行为发生变化，或者 bug 不再复现。
 
-| 级别 | 适用场景 |
-| --- | --- |
-| **低** | 快速、边界清晰的任务 |
-| **中/高** | 更复杂的变更或调试 |
-| **极高** | 长时间、智能体驱动、推理密集型任务 |
+这可以帮助 Codex 保持范围明确、减少假设，并产出更容易审查的工作。
 
-:::tip
-在 Codex 桌面应用中尝试使用语音听写，而不是打字输入。
-:::
+根据任务难度选择 reasoning level，并测试哪种设置最适合你的工作流。不同用户和任务适合不同设置。
 
-## 困难任务先规划
-
-如果任务复杂、模糊或难以描述清楚，让 Codex 先规划再编码。
-
-**Plan 模式：** 对大多数用户来说，这是最简单有效的选择。Plan 模式让 Codex 收集上下文、提出澄清性问题，并在实施前构建更强的计划。使用 `/plan` 或 `Shift+Tab` 切换。
-
-**让 Codex 先提问：** 如果你只有一个粗略的想法，让 Codex 先问你问题。让它挑战你的假设，把模糊的想法变成具体的东西。
-
-**使用 PLANS.md 模板：** 对于更高级的工作流，配置 Codex 遵循 PLANS.md 或执行计划模板。
-
-## 用 AGENTS.md 复用指南
-
-一旦某个提示模式有效，下一步就是停止手动重复。这就是 AGENTS.md 的作用——它是面向智能体的开放式 README，自动加载到上下文中。
-
-一个好的 AGENTS.md 应包含：
-- 仓库布局和重要目录
-- 如何运行项目
-- 构建、测试和 lint 命令
-- 工程规范和 PR 期望
-- 约束条件和禁止规则
-- 完成定义和验证方法
-
-使用 CLI 中的 `/init` 命令可在当前目录快速搭建 AGENTS.md 模板。
-
-<Tabs>
-  <TabItem label="全局">
-    `~/.codex/AGENTS.md` — 个人默认设置
-  </TabItem>
-  <TabItem label="仓库级">
-    `<repo>/.codex/AGENTS.md` — 团队共享标准
-  </TabItem>
-  <TabItem label="子目录">
-    `<dir>/AGENTS.md` — 局部规则（优先级最高）
-  </TabItem>
-</Tabs>
-
-:::tip
-当 Codex 两次犯同样的错误时，让它做个回顾并更新 AGENTS.md。
-:::
-
-## 配置 Codex 保持一致性
-
-配置是让 Codex 在会话间保持行为一致的主要方式。
-
-| 配置层 | 位置 |
-| --- | --- |
-| 个人默认 | `~/.codex/config.toml` |
-| 仓库特定 | `.codex/config.toml` |
-| 命令行覆盖 | 临时一次性使用 |
-
-**审批模式** 控制 Codex 何时征求你的许可才能运行命令。
-**沙箱模式** 控制 Codex 能否读取或写入目录中的文件。
+* Low 适合更快、范围明确的任务
+* Medium 或 High 适合更复杂的变更或调试
+* Extra High 适合长时间、agentic、推理密集型任务
 
 :::note
-CLI、IDE 和 Codex 桌面应用共享相同的配置层。
+为了更快提供上下文，可以尝试在 Codex app 中使用语音听写来描述你想让 Codex 做什么，而不是手动输入。
+:::
+
+## 对困难任务先做计划
+
+如果任务复杂、模糊，或者很难描述清楚，请先让 Codex 制定计划，再开始写代码。
+
+有几种方法很有效：
+
+**使用 Plan mode：** 对大多数用户来说，这是最简单也最有效的选择。Plan mode 可以让 Codex 收集上下文、提出澄清问题，并在实现前构建更强的计划。可以通过 `/plan` 或 <kbd>Shift</kbd>+<kbd>Tab</kbd> 切换。
+
+**让 Codex 先采访你：** 如果你对想要的东西有一个粗略想法，但不确定如何准确描述，可以让 Codex 先向你提问。告诉它挑战你的假设，并在写代码之前把模糊想法变成具体方案。
+
+**使用 PLANS.md 模板：** 对于更高级的工作流，你可以配置 Codex 遵循 `PLANS.md` 或执行计划模板，以处理更长时间运行或多步骤的工作。更多细节请参见 [execution plans guide](https://developers.openai.com/cookbook/articles/codex_exec_plans)。
+
+## 使用 `AGENTS.md` 让指导可复用
+
+一旦某个提示词模式有效，下一步就是停止手动重复它。这就是 [AGENTS.md](https://developers.openai.com/codex/guides/agents-md) 的作用。
+
+可以把 `AGENTS.md` 理解为面向 agents 的开放格式 README。它会自动加载到上下文中，是编码你和团队希望 Codex 在仓库中如何工作的最佳位置。
+
+一个好的 `AGENTS.md` 会覆盖：
+
+* 仓库布局和重要目录
+* 如何运行项目
+* 构建、测试和 lint 命令
+* 工程约定和 PR 期望
+* 约束和禁止事项
+* 什么算完成，以及如何验证工作
+
+CLI 中的 `/init` 斜杠命令是快速启动命令，可以在当前目录中搭建一个初始 `AGENTS.md`。这是一个很好的起点，但你应该编辑生成结果，让它匹配你团队实际构建、测试、审查和发布代码的方式。
+
+你可以在不同层级创建 `AGENTS.md` 文件：位于 `~/.codex` 的全局 `AGENTS.md` 用于个人默认规则；仓库级文件用于共享标准；子目录中的更具体文件用于局部规则。如果有一个更靠近当前目录的更具体文件，则该指导优先。
+
+保持实用。一个简短、准确的 `AGENTS.md` 比一个充满模糊规则的长文件更有用。从基础内容开始，然后只在你发现重复错误之后添加新规则。
+
+如果 `AGENTS.md` 开始变得过大，请保持主文件简洁，并引用任务专用的 markdown 文件，例如规划、代码审查或架构相关文件。
+
+:::note
+当 Codex 第二次犯同样的错误时，让它做一次复盘，并更新 `AGENTS.md`。这样指导会保持实用，并基于真实摩擦不断改进。
+:::
+
+## 配置 Codex 以保持一致性
+
+配置是让 Codex 在不同会话和界面中表现更一致的主要方式之一。例如，你可以为模型选择、reasoning effort、sandbox mode、approval policy、profiles 和 MCP 设置默认值。
+
+一个好的起始模式是：
+
+* 将个人默认值放在 `~/.codex/config.toml` 中：Codex app 中进入 Settings → Configuration → Open config.toml
+* 将仓库特定行为放在 `.codex/config.toml` 中
+* 仅在一次性场景中使用命令行覆盖项，如果你使用 CLI
+
+[`config.toml`](https://developers.openai.com/codex/config-basic) 是定义持久化偏好的位置，例如 MCP servers、多代理设置和 feature flags。特定 profile 的覆盖项位于单独的 `$CODEX_HOME/profile-name.config.toml` 文件中。
+
+Codex 自带操作级别的沙盒机制，并有两个你可以控制的关键旋钮。Approval mode 决定 Codex 什么时候请求你允许它运行命令；sandbox mode 决定 Codex 是否可以读取或写入目录，以及 agent 可以访问哪些文件。
+
+如果你刚开始使用 coding agents，请从默认权限开始。默认情况下保持审批和沙盒严格，只有在需求明确之后，才为可信仓库或特定工作流放宽权限。
+
+请注意，CLI、IDE 和 Codex app 共享相同的配置层。可以在 [sample configuration](https://developers.openai.com/codex/config-sample) 页面了解更多信息。
+
+:::note
+尽早根据你的真实环境配置 Codex。许多质量问题其实是设置问题，例如错误的工作目录、缺少写入权限、错误的模型默认值，或者缺少工具和连接器。
 :::
 
 ## 通过测试和审查提高可靠性
 
-不要止步于让 Codex 做出变更。让它：
-- 编写或更新测试
-- 运行相关的测试套件
-- 检查 lint、格式或类型检查
-- 确认最终行为符合要求
-- 审查差异中的 bug、回归或风险模式
+不要只让 Codex 做变更就停止。需要时让它创建测试、运行相关检查、确认结果，并在你接受之前审查工作。
 
-使用 `/review` 命令进行代码审查。
+Codex 可以为你完成这个循环，但前提是它知道什么才算 “好”。这些指导可以来自提示词，也可以来自 `AGENTS.md`。
 
-## 用 MCP 连接外部上下文
+这可以包括：
 
-当 Codex 需要的上下文在仓库外部时，使用 MCP（模型上下文协议）。MCP 将 Codex 连接到你已经使用的工具和系统。
+* 为变更编写或更新测试
+* 运行正确的测试套件
+* 检查 lint、格式化或类型检查
+* 确认最终行为符合请求
+* 审查 diff，查找 bug、回归或高风险模式
 
-**适合使用 MCP 的场景：**
-- 所需上下文在仓库外部
-- 数据频繁变化
-- 希望 Codex 使用工具而非粘贴的指令
-- 需要跨用户或项目可重复的集成
-
-## 将重复工作转化为技能
-
-一旦工作流变得可重复，将其打包为技能（Skill）。技能在 CLI、IDE 扩展和 Codex 桌面应用中均可使用。
-
-一个好的经验法则：如果你反复使用相同的提示或纠正相同的工作流，它应该成为一个技能。
-
-**适合技能的场景：**
-- 日志分类
-- 发布说明撰写
-- 对照清单的 PR 审查
-- 迁移规划
-- 遥测或事故总结
-
-## 用自动化处理稳定工作流
-
-一旦工作流稳定下来，你可以安排 Codex 在后台自动运行。
-
-**适合自动化的场景：**
-- 汇总最近的提交
-- 扫描潜在 bug
-- 起草发布说明
-- 检查 CI 失败
-- 生成站会摘要
-- 按计划运行可重复的分析工作流
-
-:::tip
-技能定义方法，自动化定义时间表。先让工作流可靠，再自动化。
+:::note
+在 Codex app 中切换 diff 面板，可以直接在本地 [review changes](https://developers.openai.com/codex/app/review)。点击特定行可以提供反馈，这些反馈会作为上下文传递给下一轮 Codex。
 :::
 
-## 用会话控制组织长时工作
+这里一个有用的选项是斜杠命令 `/review`，它提供几种代码审查方式：
 
-每个任务保持一个线程。如果工作仍属于同一问题，留在同一线程中通常更好。只有当工作真正分叉时才 fork。
+* 基于 base branch 做 PR 风格审查
+* 审查未提交变更
+* 审查某个 commit
+* 使用自定义审查指令
 
-使用子智能体工作流将边界清晰的工作从主线程卸载。让主智能体专注于核心问题。
+如果你和团队有一个 `code_review.md` 文件，并且从 `AGENTS.md` 中引用它，Codex 在审查期间也可以遵循该指导。对于希望审查行为在不同仓库和贡献者之间保持一致的团队来说，这是一个强模式。
 
-**有用的斜杠命令：**
+Codex 不应该只是生成代码。通过正确指令，它也可以帮助你 **测试代码、检查代码和审查代码**。
 
-| 命令 | 作用 |
-| --- | --- |
-| `/resume` | 恢复保存的对话 |
-| `/fork` | 创建新线程并保留原始记录 |
-| `/compact` | 压缩过长的对话上下文 |
-| `/agent` | 在并行智能体间切换活动线程 |
-| `/status` | 检查当前会话状态 |
+如果你使用 GitHub Cloud，可以设置 Codex 为你的 PR 运行 [code reviews](https://developers.openai.com/codex/integrations/github)。在 OpenAI，Codex 会审查 100% 的 PR。你可以启用自动审查，也可以在 @Codex 时让它响应式审查。
+
+## 使用 MCPs 获取外部上下文
+
+当 Codex 需要的上下文位于仓库之外时，请使用 MCPs。它可以让 Codex 连接到你已经使用的工具和系统，这样你就不需要不断把实时信息复制粘贴到提示词中。
+
+[Model Context Protocol](https://developers.openai.com/codex/mcp)，即 MCP，是一种开放标准，用于将 Codex 连接到外部工具和系统。
+
+当出现以下情况时使用 MCP：
+
+* 所需上下文位于仓库之外
+* 数据频繁变化
+* 你希望 Codex 使用工具，而不是依赖粘贴的指令
+* 你需要跨用户或项目的可重复集成
+
+Codex 支持 STDIO 和带 OAuth 的 Streamable HTTP servers。
+
+在 Codex App 中，进入 Settings → MCP servers 可以查看自定义和推荐 servers。通常，Codex 可以帮助你安装所需 servers。你只需要提出请求。你也可以在 CLI 中使用 `codex mcp add` 命令，带上名称、URL 和其他细节来添加自定义 servers。
+
+:::note
+只有当工具能真正解锁工作流时才添加工具。不要一开始就接入你使用的所有工具。先从一两个能明显减少你经常手动循环的工具开始，然后再扩展。
+:::
+
+## 将可重复工作变成 skills
+
+一旦某个工作流变得可重复，就不要再依赖长提示词或重复来回沟通。使用 [Skill](https://developers.openai.com/codex/skills) 将指令打包到 `SKILL.md` 文件中，并附带上下文和 Codex 应该稳定应用的支持逻辑。Skills 可用于 CLI、IDE extension 和 Codex app。
+
+让每个 skill 的范围只聚焦一项工作。从 2 到 3 个具体用例开始，定义清楚输入和输出，并编写 description，使它说明该 skill 做什么以及什么时候使用它。包括用户实际会说的触发短语。
+
+不要一开始就试图覆盖所有边界情况。从一个有代表性的任务开始，让它运行良好，然后把该工作流变成 skill，再持续改进。只有当脚本或额外 assets 能提高可靠性时才添加它们。
+
+一个好的经验法则是：如果你一直重复使用同一个提示词，或者一直纠正同一个工作流，它很可能应该变成一个 skill。
+
+Skills 尤其适合以下重复性工作：
+
+* 日志分诊
+* 发布说明起草
+* 按清单做 PR 审查
+* 迁移规划
+* 遥测或事故摘要
+* 标准调试流程
+
+`$skill-creator` skill 是搭建第一个 skill 版本的最佳起点。迭代期间先把第一个版本保持在本地。当它准备好广泛共享时，再将其打包为 [plugin](https://developers.openai.com/codex/plugins/build)。skill 最重要的部分之一是 description。它应该说明该 skill 做什么以及什么时候使用它。
+
+:::note
+个人 skills 存储在 `$HOME/.agents/skills`，共享团队 skills 可以提交到仓库中的 `.agents/skills`。这对新队友入职尤其有帮助。
+:::
+
+## 使用 automations 处理重复工作
+
+一旦某个工作流稳定下来，你就可以安排 Codex 在后台为你定期运行它。在 Codex app 中，[automations](https://developers.openai.com/codex/app/automations) 可以让你为周期性任务选择项目、提示词、频率和执行环境。
+
+一旦某个任务对你来说变得重复，你就可以在 Codex app 的 Automations 标签页中创建 automation。你可以选择它在哪个项目中运行、运行的提示词是什么，也可以调用 skills，以及运行频率。你还可以选择 automation 是在专用 git worktree 中运行，还是在你的本地环境中运行。了解更多关于 [git worktrees](https://developers.openai.com/codex/app/worktrees) 的信息。
+
+好的候选任务包括：
+
+* 总结最近 commits
+* 扫描可能的 bug
+* 起草发布说明
+* 检查 CI failures
+* 生成站会摘要
+* 按计划运行可重复分析工作流
+
+一个有用的规则是：skills 定义方法，automations 定义时间表。如果某个工作流仍然需要大量引导，先把它变成 skill。一旦它可预测，automation 就会成为放大器。
+
+:::note
+使用 automations 做反思和维护，而不只是执行。审查最近会话、总结重复摩擦，并随着时间改进提示词、指令或工作流设置。
+:::
+
+## 使用会话控制组织长时间运行的工作
+
+Codex sessions 不只是聊天历史。它们是工作线程，会随着时间积累上下文、决策和操作，因此良好管理它们会显著影响质量。
+
+Codex app UI 让线程管理最简单，因为你可以 pin threads 和创建 worktrees。如果你使用 CLI，这些 [slash commands](https://developers.openai.com/codex/cli/slash-commands) 尤其有用：
+
+* `/experimental`：切换实验性功能并添加到你的 `config.toml`
+* `/resume`：恢复已保存的对话
+* `/fork`：在保留原始 transcript 的同时创建新线程
+* `/compact`：当线程变长，并且你想要早期上下文的摘要版本时使用。请注意，Codex 也会自动为你压缩对话
+* `/agent`：当你运行并行 agents，并想在活跃 agent 线程之间切换时使用
+* `/theme`：选择语法高亮主题
+* `/apps`：直接在 Codex 中使用 ChatGPT apps
+* `/status`：检查当前会话状态
+
+每个连贯的工作单元使用一个线程。如果工作仍然属于同一个问题，留在同一个线程通常更好，因为它会保留推理轨迹。只有当工作真正分支时才 fork。
+
+:::note
+使用 Codex 的 [subagent](https://developers.openai.com/codex/concepts/subagents) 工作流，把有边界的工作从主线程卸载出去。让主 agent 专注于核心问题，并用 subagents 处理探索、测试或分诊等任务。
+:::
 
 ## 常见错误
 
-- ❌ 在提示中塞入持久化规则，而不是移到 AGENTS.md 或技能中
-- ❌ 不给智能体提供构建和测试命令的细节，导致它无法验证自己的工作
-- ❌ 在多步骤和复杂任务上跳过规划
-- ❌ 在理解工作流之前就给 Codex 计算机的完全权限
-- ❌ 在不使用 Git 工作树的情况下对同一文件运行活动线程
-- ❌ 在手动验证可靠性之前就把周期性任务转为自动化
-- ❌ 把 Codex 当作需要一步步盯着看的东西，而不是与你自己的工作并行使用
-- ❌ 每个项目用一个线程，而不是每个任务用一个线程（导致上下文膨胀）
+刚开始使用 Codex 时，需要避免一些常见错误：
+
+* 在提示词中塞入过多持久化规则，而不是把它们移到 `AGENTS.md` 或 skill 中
+* 没有让 agent 看见自己的工作，也就是没有提供如何最好运行构建和测试命令的细节
+* 在多步骤和复杂任务中跳过规划
+* 在理解工作流之前，就给 Codex 你的电脑的完整权限
+* 没有使用 git worktrees，就在相同文件上运行实时线程
+* 在工作流还没有手动可靠运行前，就把重复任务变成 automation
+* 把 Codex 当成你必须一步一步盯着看的东西，而不是把它和你自己的工作并行使用
+* 每个项目只使用一个线程，而不是每个任务使用一个线程。这会导致上下文膨胀，并随着时间推移让结果变差
+

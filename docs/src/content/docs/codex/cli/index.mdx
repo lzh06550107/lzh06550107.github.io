@@ -17,6 +17,72 @@ ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
 ## CLI 安装
 
 <Tabs>
+  <TabItem label="macOS/Linux">
+    ### 1. 安装
+      使用适用于 macOS 和 Linux 的独立安装程序安装 Codex CLI。
+      macOS/Linux 安装命令
+
+      ```bash
+      curl -fsSL https://chatgpt.com/codex/install.sh | sh
+      ```
+
+      对于无人值守安装，请在运行已下载安装程序的 shell 上设置 CODEX_NON_INTERACTIVE=1。有关详细信息，请参阅环境变量。
+      macOS/Linux 无人值守安装命令
+
+      ```bash
+      curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
+      ```
+    ### 2. 运行
+      在终端中运行 Codex。它可以检查您的代码库、编辑文件并运行命令。
+      运行 Codex 命令
+
+      ```bash
+      codex
+      ```
+
+      首次运行 Codex 时，系统会提示您登录。请使用您的 ChatGPT 账号或 API 密钥进行身份验证。
+      如果您不确定哪些方案包含 Codex 访问权限，请参阅价格页面。
+    ### 3. 升级
+      Codex CLI 会定期发布新版本。有关发布说明，请参阅变更日志。要升级独立安装，请重新运行安装程序：
+
+      ```bash
+      curl -fsSL https://chatgpt.com/codex/install.sh | sh
+      ```
+
+  </TabItem>
+  <TabItem label="Windows">
+     ### 1. 安装
+      使用适用于 Windows 的独立安装程序安装 Codex CLI。
+
+      ```bash
+      powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"
+      ```
+
+      对于无人值守安装，请在运行已下载安装程序的 shell 上设置 CODEX_NON_INTERACTIVE=1。有关详细信息，请参阅环境变量。
+
+      ```bash
+      $env:CODEX_NON_INTERACTIVE=1; irm [https://chatgpt.com/codex/install.ps1](https://chatgpt.com/codex/install.ps1) | iex
+      ```
+
+     ### 2. 运行
+      在终端中运行 Codex。它可以检查您的代码库、编辑文件并运行命令。
+
+      ```bash
+      codex
+      ```
+
+      首次运行 Codex 时，系统会提示您登录。请使用您的 ChatGPT 账号或 API 密钥进行身份验证。
+
+      如果您不确定哪些方案包含 Codex 访问权限，请参阅价格页面。
+
+     ### 3. 升级
+      Codex CLI 会定期发布新版本。有关发布说明，请参阅变更日志。要升级独立安装，请重新运行安装程序：
+
+      ```bash
+      powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"
+      ```
+
+  </TabItem>
   <TabItem label="npm">
     ### 1. 安装
 
@@ -34,7 +100,9 @@ ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
     codex
     ```
 
-    首次运行时会提示你登录。使用 ChatGPT 账户或 API 密钥进行身份验证。
+    首次运行 Codex 时，系统会提示您登录。请使用您的 ChatGPT 账号或 API 密钥进行身份验证。
+
+    如果您不确定哪些方案包含 Codex 访问权限，请参阅价格页面。
 
     ### 3. 升级
 
@@ -43,8 +111,6 @@ ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
     ```bash
     npm i -g @openai/codex@latest
     ```
-
-    Codex CLI 适用于 macOS、Windows 和 Linux。在 Windows 上，可以使用 PowerShell 原生运行 Codex（使用 Windows 沙箱），或使用 WSL2 获取 Linux 原生环境。
   </TabItem>
 
   <TabItem label="Homebrew">
@@ -53,7 +119,7 @@ ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
     使用 Homebrew 安装 Codex CLI：
 
     ```bash
-    brew install codex
+      brew install --cask codex
     ```
 
     ### 2. 运行
@@ -64,14 +130,16 @@ ChatGPT Plus、Pro、Business、Edu 和 Enterprise 套餐均包含 Codex。
     codex
     ```
 
-    首次运行时会提示你登录。使用 ChatGPT 账户或 API 密钥进行身份验证。
+      首次运行 Codex 时，系统会提示您登录。请使用您的 ChatGPT 账号或 API 密钥进行身份验证。
+
+      如果您不确定哪些方案包含 Codex 访问权限，请参阅价格页面。
 
     ### 3. 升级
 
     使用 Homebrew 升级：
 
     ```bash
-    brew upgrade codex
+      brew upgrade --cask codex
     ```
   </TabItem>
 </Tabs>

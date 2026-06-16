@@ -5,29 +5,43 @@ sidebar:
   order: 15
 ---
 
-# 构建插件 (Build plugins)
+本页面面向插件作者。如果你想在 Codex 中浏览、安装和使用插件，请参见 [Plugins](https://developers.openai.com/codex/plugins)。如果你仍在迭代一个仓库或一个个人工作流，请从本地 skill 开始。当你想在团队之间共享该工作流、打包 app 集成或 MCP 配置、打包生命周期 hooks，或发布一个稳定包时，再构建插件。
 
-> 创建、测试和分发 Codex 插件
+## 使用 `@plugin-creator` 创建插件
 
-本页面面向插件作者。如果你想浏览、安装和使用 Codex 中的插件，请参阅 [插件 (Plugins)](/codex/configuration/plugins)。如果你仍在单个仓库或个人工作流中迭代，建议先从本地技能 (skill) 开始。当你需要跨团队共享工作流、打包应用集成或 MCP 配置、打包生命周期钩子（hooks），或发布稳定版本时，再构建插件。
+最快的设置方式是使用内置的 `@plugin-creator` skill。
 
-## 使用 $plugin-creator 创建插件
+<CodexScreenshot
+    alt="Codex 中的 plugin-creator skill"
+    lightSrc="/images/codex/plugins/plugin-creator.png"
+    darkSrc="/images/codex/plugins/plugin-creator-dark.png"
+/>
 
-要最快上手，请使用内置的 `$plugin-creator` 技能。
+它会搭建所需的 `.codex-plugin/plugin.json` manifest，也可以生成一个用于测试的本地 marketplace 条目。如果你已经有一个插件文件夹，仍然可以使用 `@plugin-creator` 将它接入本地 marketplace。
 
-它会搭建所需的 `.codex-plugin/plugin.json` 清单文件，还可以生成本地市场条目用于测试。如果你已有插件文件夹，仍然可以使用 `$plugin-creator` 将其接入本地市场。
+<CodexScreenshot
+    alt="如何调用 plugin-creator skill"
+    lightSrc="/images/codex/plugins/plugin-creator-invoke.png"
+    darkSrc="/images/codex/plugins/plugin-creator-invoke-dark.png"
+/>
 
-## 构建你自己的精选插件列表
+### 构建你自己的精选插件列表
 
-市场（marketplace）是一个 JSON 插件目录。`$plugin-creator` 可以为单个插件生成一个市场，你可以继续向该市场添加条目，为仓库、团队或个人工作流构建精选列表。
+marketplace 是一个插件的 JSON 目录。`@plugin-creator` 可以为单个插件生成一个 marketplace，你也可以继续向同一个 marketplace 添加条目，为仓库、团队或个人工作流构建自己的精选列表。
 
-在 Codex 中，每个市场都会在插件目录中显示为一个可选来源。使用 `$REPO_ROOT/.agents/plugins/marketplace.json` 作为仓库范围列表，或使用 `~/.agents/plugins/marketplace.json` 作为个人列表。在 `plugins[]` 下为每个插件添加一个条目，将每个 `source.path` 指向以 `./` 开头的相对路径（相对于市场根目录）的插件文件夹，并设置 `interface.displayName` 为你希望 Codex 在市场选择器中显示的标签。然后重启 Codex。之后打开插件目录，选择你的市场，即可浏览或安装该精选列表中的插件。
+在 Codex 中，每个 marketplace 都会在插件目录中显示为一个可选择的来源。仓库范围的列表使用 `$REPO_ROOT/.agents/plugins/marketplace.json`，个人列表使用 `~/.agents/plugins/marketplace.json`。在 `plugins[]` 下为每个插件添加一个条目，将每个 `source.path` 指向插件文件夹，路径应以 `./` 开头并相对于 marketplace 根目录，然后将 `interface.displayName` 设置为你希望 Codex 在 marketplace 选择器中显示的标签。然后重启 Codex。之后，打开插件目录，选择你的 marketplace，并浏览或安装该精选列表中的插件。
 
-你不需要为每个插件单独创建一个市场。一个市场可以在测试时暴露单个插件，然后随着你添加更多插件，逐步扩展为更大的精选目录。
+你不需要为每个插件创建单独的 marketplace。一个 marketplace 可以在测试时暴露单个插件，然后随着你添加更多插件，逐渐发展为更大的精选目录。
 
-### 从 CLI 添加市场
+<CodexScreenshot
+    alt="插件目录中的自定义本地 marketplace"
+    lightSrc="/images/codex/plugins/codex-local-plugin-light.png"
+    darkSrc="/images/codex/plugins/codex-local-plugin.png"
+/>
 
-使用 `codex plugin marketplace add` 让 Codex 为你安装和跟踪市场来源，而无需手动编辑 `config.toml`。
+### 从 CLI 添加 marketplace
+
+当你希望 Codex 为你安装和跟踪 marketplace 来源，而不是手动编辑 `config.toml` 时，请使用 `codex plugin marketplace add`。
 
 ```bash
 codex plugin marketplace add owner/repo
@@ -36,27 +50,30 @@ codex plugin marketplace add https://github.com/example/plugins.git --sparse .ag
 codex plugin marketplace add ./local-marketplace-root
 ```
 
-市场来源可以是 GitHub 简写（`owner/repo` 或 `owner/repo@ref`）、HTTP 或 HTTPS Git URL、SSH Git URL，或本地市场根目录。使用 `--ref` 固定 Git 引用，重复使用 `--sparse PATH` 对 Git 支持的市场仓库使用稀疏检出（sparse checkout）。`--sparse` 仅对 Git 市场来源有效。
+Marketplace 来源可以是 GitHub 简写形式（`owner/repo` 或 `owner/repo@ref`）、HTTP 或 HTTPS Git URL、SSH Git URL，或本地 marketplace 根目录。使用 `--ref` 固定一个 Git ref，并重复使用 `--sparse PATH` 为基于 Git 的 marketplace 仓库使用 sparse checkout。`--sparse` 仅对 Git marketplace 来源有效。
 
-刷新或移除已配置的市场：
+要检查、刷新或移除已配置的 marketplaces：
 
 ```bash
+codex plugin marketplace list
 codex plugin marketplace upgrade
 codex plugin marketplace upgrade marketplace-name
 codex plugin marketplace remove marketplace-name
 ```
 
-## 手动创建插件
+`codex plugin marketplace list` 会打印 Codex 正在考虑的每个 marketplace，以及它解析出的根路径，包括本地默认 marketplaces 和已配置的 marketplace 快照。
 
-从一个打包单个技能的最小插件开始。
+### 手动创建插件
 
-创建一个包含 `.codex-plugin/plugin.json` 清单的插件文件夹：
+从一个打包一个 skill 的最小插件开始。
+
+1. 创建一个插件文件夹，并在 `.codex-plugin/plugin.json` 放置 manifest。
 
 ```bash
 mkdir -p my-first-plugin/.codex-plugin
 ```
 
-`my-first-plugin/.codex-plugin/plugin.json`：
+`my-first-plugin/.codex-plugin/plugin.json`
 
 ```json
 {
@@ -67,17 +84,17 @@ mkdir -p my-first-plugin/.codex-plugin
 }
 ```
 
-使用 kebab-case 格式的稳定插件名称。Codex 将其用作插件标识符和组件命名空间。
+使用稳定的 kebab-case 格式插件 `name`。Codex 会将它用作插件标识符和组件命名空间。
 
-在 `skills/<skill-name>/SKILL.md` 下添加一个技能：
+2. 在 `skills/<skill-name>/SKILL.md` 下添加一个 skill。
 
 ```bash
 mkdir -p my-first-plugin/skills/hello
 ```
 
-`my-first-plugin/skills/hello/SKILL.md`：
+`my-first-plugin/skills/hello/SKILL.md`
 
-```markdown
+```md
 ---
 name: hello
 description: Greet the user with a friendly message.
@@ -86,65 +103,123 @@ description: Greet the user with a friendly message.
 Greet the user warmly and ask how you can help.
 ```
 
-将插件添加到市场。使用 `$plugin-creator` 生成一个，或按照「构建你自己的精选插件列表」部分的说明手动将插件接入 Codex。
+3. 将插件添加到 marketplace。使用 `@plugin-creator` 生成一个，或按照 [构建你自己的精选插件列表](#build-your-own-curated-plugin-list) 手动将插件接入 Codex。
 
-之后，你可以根据需要添加 MCP 配置、应用集成或市场元数据。
+从这里开始，你可以根据需要添加 MCP 配置、app 集成或 marketplace 元数据。
 
-## 手动安装本地插件
+### 手动安装本地插件
 
-使用仓库市场或个人市场，取决于谁应该能够访问该插件或精选列表。
+根据谁应该能够访问该插件或精选列表，使用仓库 marketplace 或个人 marketplace。
 
-### 仓库安装
+<Tabs
+    id="codex-plugins-local-install"
+    param="install-scope"
+    defaultTab="workspace"
+    tabs={[
+        {
+            id: "workspace",
+            label: "仓库",
+        },
+        {
+            id: "global",
+            label: "个人",
+        },
+    ]}
 
-在 `$REPO_ROOT/.agents/plugins/marketplace.json` 添加市场文件，并将插件存储在 `$REPO_ROOT/plugins/` 下。
+>
 
-**步骤 1**：将插件文件夹复制到 `$REPO_ROOT/plugins/my-plugin`。
+<div slot="workspace">
+    在 `$REPO_ROOT/.agents/plugins/marketplace.json` 添加一个 marketplace 文件，并将你的插件存放在 `$REPO_ROOT/plugins/` 下。
 
-```bash
-mkdir -p ./plugins
-cp -R /absolute/path/to/my-plugin ./plugins/my-plugin
-```
+    ```
+    **仓库 marketplace 示例**
 
-**步骤 2**：添加或更新 `$REPO_ROOT/.agents/plugins/marketplace.json`，使 `source.path` 以 `./` 开头的相对路径指向该插件目录：
+    步骤 1：将插件文件夹复制到 `$REPO_ROOT/plugins/my-plugin`。
+    ```
 
-```json
-{
-  "name": "local-repo",
-  "plugins": [
+    ```bash
+    mkdir -p ./plugins
+    cp -R /absolute/path/to/my-plugin ./plugins/my-plugin
+    ```
+
+    ```
+    步骤 2：添加或更新 `$REPO_ROOT/.agents/plugins/marketplace.json`，使 `source.path` 以 `./` 开头的相对路径指向该插件目录：
+    ```
+
+    ```json
     {
-      "name": "my-plugin",
-      "source": {
+        "name": "local-repo",
+        "plugins": [
+    {
+        "name": "my-plugin",
+        "source": {
         "source": "local",
         "path": "./plugins/my-plugin"
-      },
-      "policy": {
+    },
+        "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
+    },
+        "category": "Productivity"
     }
-  ]
-}
+        ]
+    }
+    ```
+
+    ```
+    步骤 3：重启 Codex，并验证插件是否出现。
+    ```
+
+</div>
+
+<div slot="global">
+    在 `~/.agents/plugins/marketplace.json` 添加一个 marketplace 文件，并将你的插件存放在 `~/.codex/plugins/` 下。
+
+    ```
+    **个人 marketplace 示例**
+
+    步骤 1：将插件文件夹复制到 `~/.codex/plugins/my-plugin`。
+    ```
+
+    ```bash
+    mkdir -p ~/.codex/plugins
+    cp -R /absolute/path/to/my-plugin ~/.codex/plugins/my-plugin
+    ```
+
+    ```
+    步骤 2：添加或更新 `~/.agents/plugins/marketplace.json`，使插件条目的 `source.path` 指向该目录。
+
+    步骤 3：重启 Codex，并验证插件是否出现。
+    ```
+
+</div>
+</Tabs>
+
+marketplace 文件指向插件位置，因此这些目录只是示例，而不是固定要求。Codex 会相对于 marketplace 根目录解析 `source.path`，而不是相对于 `.agents/plugins/` 文件夹解析。文件格式请参见 [Marketplace 元数据](#marketplace-metadata)。
+
+更改插件后，请更新 marketplace 条目所指向的插件目录，并重启 Codex，以便本地安装获取新文件。
+
+### 与你的 workspace 共享本地插件
+
+创建插件并将其添加到 Codex 后，你可以从 Codex app 将其共享给 ChatGPT workspace 的其他成员。
+
+1. 在 Codex app 中打开 **Plugins**。
+2. 前往 **Created by you**，并打开插件详情页。
+3. 选择 **Share**。
+4. 添加 workspace 成员或 workspace 组，或复制分享链接。
+5. 选择谁有访问权限，然后发送邀请或链接。
+
+被你共享的人可以在插件目录中的 **Shared with you** 下找到该插件。将本地插件共享给你的 workspace 不会将它发布到公共 Plugin Directory。共享插件会保留在你的 workspace 和组织边界内；未登录该 workspace 的账户无法访问它。当一个团队或角色应共享相同插件访问权限时，请使用 groups。当你希望通过仓库或 CLI 分发时，请使用 marketplace；当你希望选定的队友从 Codex app 安装插件时，请使用 workspace sharing。
+
+Workspace 管理员可以通过在 `requirements.toml` 中添加 `features.plugin_sharing = false`，从 cloud-managed requirements 禁用插件共享：
+
+```toml
+features.plugin_sharing = false
 ```
 
-**步骤 3**：重启 Codex 并验证插件是否出现。
+### Marketplace 元数据
 
-市场文件指向插件位置，因此这些目录是示例而非固定要求。Codex 会相对于市场根目录解析 `source.path`，而非相对于 `.agents/plugins/` 文件夹。文件格式详见[市场元数据](#市场元数据)部分。
-
-修改插件后，更新市场条目指向的插件目录并重启 Codex，以便本地安装获取新文件。
-
-### 个人安装
-
-在 `~/.agents/plugins/marketplace.json` 添加市场文件，并将插件存储在 `~/.codex/plugins/` 下。
-
-```bash
-mkdir -p ~/.codex/plugins
-cp -R /absolute/path/to/my-plugin ~/.codex/plugins/my-plugin
-```
-
-## 市场元数据
-
-如果你维护仓库市场，请在 `$REPO_ROOT/.agents/plugins/marketplace.json` 中定义。对于个人市场，使用 `~/.agents/plugins/marketplace.json`。市场文件控制 Codex 面向目录中的插件排序和安装策略。它可以代表一个正在测试的插件，或者你希望 Codex 在一个市场名称下一起显示的精选插件列表。在将插件添加到市场之前，请确保其版本、发布者元数据和安装界面文案已准备好供其他开发者查看。
+如果你维护一个仓库 marketplace，请在 `$REPO_ROOT/.agents/plugins/marketplace.json` 中定义它。对于个人 marketplace，请使用 `~/.agents/plugins/marketplace.json`。marketplace 文件控制 Codex 面向目录中的插件排序和安装策略。它可以在你测试时表示一个插件，也可以表示你希望 Codex 在一个 marketplace 名称下共同展示的精选插件列表。在将插件添加到 marketplace 之前，请确保它的 `version`、publisher 元数据和安装界面文案已经准备好让其他开发者看到。
 
 ```json
 {
@@ -181,21 +256,19 @@ cp -R /absolute/path/to/my-plugin ~/.codex/plugins/my-plugin
 }
 ```
 
-- 使用顶层 `name` 标识市场。
-- 使用 `interface.displayName` 设置 Codex 中显示的市场标题。
-- 在 `plugins` 下为每个插件添加一个对象，构建 Codex 在该市场标题下显示的精选列表。
-- 将每个插件条目的 `source.path` 指向你希望 Codex 加载的插件目录。对于仓库安装，通常位于 `./plugins/` 下。对于个人安装，常见模式是 `./.codex/plugins/<plugin-name>`。
-- 保持 `source.path` 相对于市场根目录，以 `./` 开头，并保持在根目录内。
-- 对于本地条目，`source` 也可以是纯字符串路径，如 `"./plugins/my-plugin"`。
-- 务必在每个插件条目上包含 `policy.installation`、`policy.authentication` 和 `category`。
-- `policy.installation` 的值如 `AVAILABLE`、`INSTALLED_BY_DEFAULT` 或 `NOT_AVAILABLE`。
-- 使用 `policy.authentication` 决定认证是在安装时还是首次使用时进行。
+* 使用顶层 `name` 标识 marketplace。
+* 使用 `interface.displayName` 作为 Codex 中显示的 marketplace 标题。
+* 在 `plugins` 下为每个插件添加一个对象，以构建 Codex 在该 marketplace 标题下显示的精选列表。
+* 将每个插件条目的 `source.path` 指向你希望 Codex 加载的插件目录。对于仓库安装，通常位于 `./plugins/` 下。对于个人安装，常见模式是 `./.codex/plugins/<plugin-name>`。
+* 保持 `source.path` 相对于 marketplace 根目录，以 `./` 开头，并保持在该根目录内部。
+* 对于本地条目，`source` 也可以是普通字符串路径，例如 `"./plugins/my-plugin"`。
+* 始终在每个插件条目上包含 `policy.installation`、`policy.authentication` 和 `category`。
+* 使用 `policy.installation` 值，例如 `AVAILABLE`、`INSTALLED_BY_DEFAULT` 或 `NOT_AVAILABLE`。
+* 使用 `policy.authentication` 决定认证是在安装时发生，还是在首次使用时发生。
 
-市场控制 Codex 从哪里加载插件。如果你的插件位于这些示例目录之外，本地 `source.path` 可以指向其他位置。市场文件可以位于你正在开发插件的仓库中，也可以位于单独的市场仓库中，一个市场文件可以指向一个或多个插件。
+marketplace 控制 Codex 从哪里加载插件。如果你的插件位于这些示例目录之外，本地 `source.path` 可以指向其他位置。marketplace 文件可以位于你开发插件的仓库中，也可以位于单独的 marketplace 仓库中，并且一个 marketplace 文件可以指向一个插件或多个插件。
 
-### Git 支持的插件来源
-
-市场条目也可以指向 Git 支持的插件来源。当插件位于仓库根目录时使用 `"source": "url"`，当插件位于子目录时使用 `"source": "git-subdir"`：
+Marketplace 条目也可以指向基于 Git 的插件来源。当插件位于仓库根目录时，使用 `"source": "url"`；当插件位于子目录中时，使用 `"source": "git-subdir"`：
 
 ```json
 {
@@ -214,54 +287,98 @@ cp -R /absolute/path/to/my-plugin ~/.codex/plugins/my-plugin
 }
 ```
 
-Git 支持的条目可以使用 `ref` 或 `sha` 选择器。如果 Codex 无法解析市场条目的来源，它会跳过该插件条目而不是使整个市场失败。
+基于 Git 的条目可以使用 `ref` 或 `sha` 选择器。如果 Codex 无法解析某个 marketplace 条目的来源，它会跳过该插件条目，而不是让整个 marketplace 失败。
 
-## Codex 如何使用市场
+### Codex 如何使用 marketplaces
 
-插件市场是 Codex 可以读取和安装的 JSON 插件目录。
+插件 marketplace 是一个 JSON 插件目录，Codex 可以读取和安装。
 
-Codex 可以从以下位置读取市场文件：
+Codex 可以从以下位置读取 marketplace 文件：
 
-- 为官方插件目录提供支持的精选市场
-- `$REPO_ROOT/.agents/plugins/marketplace.json` 的仓库市场
-- `$REPO_ROOT/.claude-plugin/marketplace.json` 的旧版兼容市场
-- `~/.agents/plugins/marketplace.json` 的个人市场
+* 驱动官方 Plugin Directory 的精选 marketplace
+* `$REPO_ROOT/.agents/plugins/marketplace.json` 下的仓库 marketplace
+* `$REPO_ROOT/.claude-plugin/marketplace.json` 下的兼容旧版 marketplace
+* `~/.agents/plugins/marketplace.json` 下的个人 marketplace
 
-你可以安装通过市场暴露的任何插件。Codex 将插件安装到 `~/.codex/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/$VERSION/`。对于本地插件，`$VERSION` 为 `local`，Codex 从该缓存路径加载已安装的副本，而不是直接从市场条目加载。
+你可以安装通过 marketplace 暴露的任何插件。Codex 会将插件安装到 `~/.codex/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/$VERSION/`。对于本地插件，`$VERSION` 为 `local`，Codex 会从该缓存路径加载已安装副本，而不是直接从 marketplace 条目加载。
 
-你可以单独启用或禁用每个插件。Codex 将每个插件的开关状态存储在 `~/.codex/config.toml` 中。
+你可以单独启用或禁用每个插件。Codex 会在 `~/.codex/config.toml` 中存储每个插件的开启或关闭状态。
 
 ## 打包和分发插件
 
 ### 插件结构
 
-每个插件都有一个位于 `.codex-plugin/plugin.json` 的清单文件。它还可以包含 `skills/` 目录、用于生命周期钩子的 `hooks/` 目录、指向一个或多个应用或连接器的 `.app.json` 文件、配置 MCP 服务器的 `.mcp.json` 文件，以及用于在支持的界面上展示插件的资源文件。
+每个插件都有一个 manifest，位于 `.codex-plugin/plugin.json`。它也可以包含 `skills/` 目录、用于生命周期 hooks 的 `hooks/` 目录、指向一个或多个 apps 或 connectors 的 `.app.json` 文件、配置 MCP servers 的 `.mcp.json` 文件，以及用于在受支持界面中展示插件的 assets。
 
-```
-my-plugin/
-├── .codex-plugin/
-│   └── plugin.json          # 必需：插件清单
-├── skills/
-│   └── my-skill/
-│       └── SKILL.md          # 可选：技能指令
-├── hooks/
-│   └── hooks.json            # 可选：生命周期钩子
-├── .app.json                 # 可选：应用或连接器映射
-├── .mcp.json                 # 可选：MCP 服务器配置
-└── assets/                   # 可选：图标、Logo、截图
-```
+<FileTree
+    class="mt-4"
+    tree={[
+        {
+            name: "my-plugin/",
+            open: true,
+            children: [
+                {
+                    name: ".codex-plugin/",
+                    open: true,
+                    children: [
+                        {
+                            name: "plugin.json",
+                            comment: "必需：插件 manifest",
+                        },
+                    ],
+                },
+                {
+                    name: "skills/",
+                    open: true,
+                    children: [
+                        {
+                            name: "my-skill/",
+                            open: true,
+                            children: [
+                                {
+                                    name: "SKILL.md",
+                                    comment: "可选：skill instructions",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    name: "hooks/",
+                    open: true,
+                    children: [
+                        {
+                            name: "hooks.json",
+                            comment: "可选：生命周期 hooks",
+                        },
+                    ],
+                },
+                {
+                    name: ".app.json",
+                    comment: "可选：app 或 connector mappings",
+                },
+                {
+                    name: ".mcp.json",
+                    comment: "可选：MCP server configuration",
+                },
+                {
+                    name: "assets/",
+                    comment: "可选：icons、logos、screenshots",
+                },
+            ],
+        },
+    ]}
+/>
 
 只有 `plugin.json` 属于 `.codex-plugin/`。将 `skills/`、`hooks/`、`assets/`、`.mcp.json` 和 `.app.json` 保持在插件根目录。
 
-### 清单字段
+已发布的插件通常使用比快速开始脚手架中最小示例更丰富的 manifest。manifest 有三个作用：
 
-发布的插件通常使用比快速入门脚手架中最小示例更丰富的清单。清单有三个作用：
+* 标识插件。
+* 指向打包的组件，例如 skills、apps、MCP servers 或 hooks。
+* 提供安装界面元数据，例如 descriptions、icons 和 legal links。
 
-1. 标识插件。
-2. 指向打包的组件，如技能、应用、MCP 服务器或钩子。
-3. 提供安装界面元数据，如描述、图标和法律链接。
-
-完整的清单示例：
+下面是一个完整的 manifest 示例：
 
 ```json
 {
@@ -303,39 +420,37 @@ my-plugin/
 }
 ```
 
-`.codex-plugin/plugin.json` 是必需的入口点。其他清单字段是可选的，但发布的插件通常会使用它们。
+`.codex-plugin/plugin.json` 是必需入口点。其他 manifest 字段是可选的，但已发布插件通常会使用它们。
 
-#### 顶层字段
+### Manifest 字段
 
-使用顶层字段定义包元数据并指向打包的组件：
+使用顶层字段定义包元数据并指向打包组件：
 
-- `name`、`version` 和 `description` 标识插件。
-- `author`、`homepage`、`repository`、`license` 和 `keywords` 提供发布者和发现元数据。
-- `skills`、`mcpServers`、`apps` 和 `hooks` 指向相对于插件根目录的打包组件。
-- `interface` 控制安装界面如何呈现插件。
+* `name`、`version` 和 `description` 标识插件。
+* `author`、`homepage`、`repository`、`license` 和 `keywords` 提供 publisher 和 discovery 元数据。
+* `skills`、`mcpServers`、`apps` 和 `hooks` 指向相对于插件根目录的打包组件。
+* `interface` 控制安装界面如何展示插件。
 
-#### interface 对象
+使用 `interface` 对象定义安装界面元数据：
 
-使用 `interface` 对象提供安装界面元数据：
+* `displayName`、`shortDescription` 和 `longDescription` 控制标题和描述性文案。
+* `developerName`、`category` 和 `capabilities` 添加 publisher 和 capability 元数据。
+* `websiteURL`、`privacyPolicyURL` 和 `termsOfServiceURL` 提供外部链接。
+* `defaultPrompt`、`brandColor`、`composerIcon`、`logo` 和 `screenshots` 控制 starter prompts 和视觉展示。
 
-- `displayName`、`shortDescription` 和 `longDescription` 控制标题和描述文案。
-- `developerName`、`category` 和 `capabilities` 添加发布者和能力元数据。
-- `websiteURL`、`privacyPolicyURL` 和 `termsOfServiceURL` 提供外部链接。
-- `defaultPrompt`、`brandColor`、`composerIcon`、`logo` 和 `screenshots` 控制起始提示和视觉呈现。
+### 路径规则
 
-#### 路径规则
+* 保持 manifest 路径相对于插件根目录，并以 `./` 开头。
+* 尽可能将视觉 assets，例如 `composerIcon`、`logo` 和 `screenshots`，存放在 `./assets/` 下。
+* 使用 `skills` 表示打包的 skill 文件夹，使用 `apps` 表示 `.app.json`，使用 `mcpServers` 表示 `.mcp.json`，使用 `hooks` 表示生命周期 hooks。
+* 启用的插件可以在 skills、MCP servers 和 apps 旁包含生命周期 hooks。
+* 如果你的插件将 hooks 存储在 `./hooks/hooks.json`，则不需要在 `.codex-plugin/plugin.json` 中添加 `hooks` 条目；Codex 会自动检查该默认文件。
 
-- 保持清单路径相对于插件根目录并以 `./` 开头。
-- 尽可能将视觉资源（如 `composerIcon`、`logo` 和 `screenshots`）存储在 `./assets/` 下。
-- 使用 `skills` 表示打包的技能文件夹，`apps` 表示 `.app.json`，`mcpServers` 表示 `.mcp.json`，`hooks` 表示生命周期钩子。
-- 插件钩子在本版本中默认关闭；除非启用 `[features].plugin_hooks = true`，否则打包的钩子不会运行。
-- 当插件钩子启用时，省略 `hooks` 将在存在默认 `./hooks/hooks.json` 文件时使用该文件。
+### 打包的 MCP servers 和生命周期 hooks
 
-## 打包的 MCP 服务器和生命周期钩子
+`mcpServers` 可以指向一个 `.mcp.json` 文件，该文件包含直接的 server map 或包装的 `mcp_servers` 对象。
 
-`mcpServers` 可以指向一个 `.mcp.json` 文件，该文件包含直接服务器映射或包装的 `mcp_servers` 对象。
-
-**直接服务器映射：**
+直接 server map：
 
 ```json
 {
@@ -346,7 +461,7 @@ my-plugin/
 }
 ```
 
-**包装的服务器映射：**
+包装的 server map：
 
 ```json
 {
@@ -359,7 +474,7 @@ my-plugin/
 }
 ```
 
-安装后，用户可以从 Codex 配置中启用或禁用打包的 MCP 服务器并调整工具审批策略，而无需编辑插件。使用 `plugins.<plugin>.mcp_servers.<server>` 配置插件范围的 MCP 服务器策略：
+安装后，用户可以从他们的 Codex 配置中启用或禁用打包的 MCP server，并调整工具审批策略，而无需编辑插件。对插件范围的 MCP server 策略使用 `plugins.<plugin>.mcp_servers.<server>`：
 
 ```toml
 [plugins."my-plugin".mcp_servers.docs]
@@ -371,14 +486,11 @@ enabled_tools = ["search"]
 approval_mode = "approve"
 ```
 
-插件钩子在本版本中默认关闭。当启用 `[features].plugin_hooks = true` 且你的插件已启用时，Codex 可以从你的插件加载生命周期钩子，与用户、项目和托管钩子一起使用。
+当你的插件被启用时，Codex 可以在用户、项目和 managed hooks 旁加载来自插件的生命周期 hooks。
 
-```toml
-[features]
-plugin_hooks = true
-```
+安装或启用插件不会自动信任它的 hooks。插件打包的 hooks 是非 managed hooks，因此 Codex 会跳过它们，直到用户审查并信任当前 hook 定义。
 
-默认的插件钩子文件是 `hooks/hooks.json`：
+默认插件 hook 文件是 `hooks/hooks.json`：
 
 ```json
 {
@@ -398,7 +510,7 @@ plugin_hooks = true
 }
 ```
 
-如果你在 `.codex-plugin/plugin.json` 中定义了 `hooks`，Codex 会使用该清单条目而不是默认的 `hooks/hooks.json`。清单字段可以是单个路径、路径数组、内联钩子对象或内联钩子对象数组。
+如果你在 `.codex-plugin/plugin.json` 中定义了 `hooks`，Codex 会使用该 manifest 条目，而不是默认的 `hooks/hooks.json`。manifest 字段可以是单个路径、路径数组、内联 hooks 对象，或内联 hooks 对象数组。
 
 ```json
 {
@@ -407,14 +519,14 @@ plugin_hooks = true
 }
 ```
 
-钩子路径遵循与技能、应用和 `mcpServers` 相同的清单路径规则：以 `./` 开头，相对于插件根目录解析，并保持在插件根目录内。
+Hook 路径遵循与 `skills`、`apps` 和 `mcpServers` 相同的 manifest 路径规则：以 `./` 开头，相对于插件根目录解析，并保持在插件根目录内。
 
-插件钩子命令会接收 Codex 特定的环境变量 `PLUGIN_ROOT` 和 `PLUGIN_DATA`。`PLUGIN_ROOT` 指向已安装的插件根目录，`PLUGIN_DATA` 指向插件的可写数据目录。Codex 还会设置 `CLAUDE_PLUGIN_ROOT` 和 `CLAUDE_PLUGIN_DATA` 以兼容现有插件钩子。
+插件 hook 命令会接收 Codex 特定环境变量 `PLUGIN_ROOT` 和 `PLUGIN_DATA`。`PLUGIN_ROOT` 指向已安装插件根目录，`PLUGIN_DATA` 指向插件的可写数据目录。为了兼容已有插件 hooks，Codex 也会设置 `CLAUDE_PLUGIN_ROOT` 和 `CLAUDE_PLUGIN_DATA`。
 
-插件钩子使用与常规钩子相同的事件模式。支持的事件、输入、输出、信任审查和当前限制请参阅 [Hooks](/codex/configuration/hooks)。
+插件 hooks 使用与常规 hooks 相同的事件 schema。有关受支持事件、输入、输出、信任审查和当前限制，请参见 [Hooks](https://developers.openai.com/codex/hooks)。
 
-## 发布官方公共插件
+### 发布官方公共插件
 
-即将支持将插件添加到官方插件目录。
+将插件添加到官方 Plugin Directory 即将推出。
 
-自助插件发布和管理功能即将推出。
+自助式插件发布和管理即将推出。

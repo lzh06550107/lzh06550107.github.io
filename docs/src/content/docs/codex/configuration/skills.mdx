@@ -1,3 +1,4 @@
+import { FileTree } from '@astrojs/starlight/components';
 ---
 title: Skills 技能
 description: 使用 Skills 为 Codex 扩展任务特定的能力，将可重复的工作流程打包为可复用的技能。
@@ -5,103 +6,169 @@ sidebar:
   order: 12
 ---
 
-import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
+使用 agent skills 为 Codex 扩展任务专用能力。一个 skill 会打包指令、资源和可选脚本，让 Codex 能够可靠地遵循某个工作流。Skills 基于 [open agent skills standard](https://agentskills.io)。
 
-# 智能体技能 (Skills)
+Skills 是可复用工作流的编写格式。Plugins 是 Codex 中可复用 skills 和应用的可安装分发单元。使用 skills 设计工作流本身；当你希望其他开发者安装它时，再将其打包为 [plugin](https://developers.openai.com/codex/plugins/build)。
 
-> 为 Codex 赋予新能力和专业知识
+Skills 可用于 Codex CLI、IDE 扩展和 Codex 应用。
 
-使用智能体技能为 Codex 扩展任务特定的能力。一个技能将指令、资源和可选的脚本打包，使 Codex 能够可靠地遵循工作流程。技能基于 [开放智能体技能标准](https://github.com/openai/open-agents-skill-standard) 构建。
+Skills 使用 **progressive disclosure** 来高效管理上下文：Codex 一开始只会看到每个 skill 的名称、描述和文件路径。只有当 Codex 决定使用某个 skill 时，才会加载完整的 `SKILL.md` 指令。
 
-技能是可复用工作流的**创作格式**。插件是在 Codex 中分发可复用技能和应用的**可安装分发单元**。先用技能设计工作流本身，然后打包为插件供其他开发者安装。
+Codex 会在上下文中包含一份初始可用 skills 列表，以便它为任务选择正确的 skill。为了避免挤占提示词的其他部分，该列表会限制在模型上下文窗口的大约 2%，或者在上下文窗口未知时限制为 8,000 个字符。如果安装了很多 skills，Codex 会先缩短 skill 描述。对于非常大的 skill 集合，某些 skills 可能会从初始列表中省略，并且 Codex 会显示警告。
 
-技能在 Codex CLI、IDE 扩展和 Codex 桌面应用中均可使用。
+这个预算只适用于初始 skills 列表。当 Codex 选择某个 skill 时，它仍然会读取该 skill 的完整 `SKILL.md` 指令。
 
-![在 CLI 中选择技能](/images/codex/configuration/skills/skills-selector-cli-light.webp)
-![在 IDE 中选择技能](/images/codex/configuration/skills/skills-selector-ide-light.webp)
+一个 skill 是一个包含 `SKILL.md` 文件的目录，也可以包含可选脚本和参考资料。`SKILL.md` 文件必须包含 `name` 和 `description`。
 
-## Codex 如何使用技能
+<FileTree
+    class="mt-4"
+    tree={[
+        {
+            name: "my-skill/",
+            open: true,
+            children: [
+                {
+                    name: "SKILL.md",
+                    comment: "必需：指令 + 元数据",
+                },
+                {
+                    name: "scripts/",
+                    comment: "可选：可执行代码",
+                },
+                {
+                    name: "references/",
+                    comment: "可选：文档",
+                },
+                {
+                    name: "assets/",
+                    comment: "可选：模板、资源",
+                },
+                {
+                    name: "agents/",
+                    open: true,
+                    children: [
+                        {
+                            name: "openai.yaml",
+                            comment: "可选：外观和依赖项",
+                        },
+                    ],
+                },
+            ],
+        },
+    ]}
+/>
 
-技能使用 **SKILL.md** 文件定义，包含：
+## Codex 如何使用 skills
 
-- **指令**：告诉 Codex 该做什么的提示
-- **资源**：模板、参考文档和示例
-- **脚本**：可运行的动作脚本
+Codex 可以通过两种方式激活 skills：
 
-当技能被调用时，Codex 将 SKILL.md 加载到上下文中，使其按照技能定义的方式工作。
+1. **显式调用：** 在提示词中直接包含 skill。在 CLI/IDE 中，运行 `/skills` 或输入 `$` 来提及某个 skill。
+2. **隐式调用：** 当你的任务与 skill 的 `description` 匹配时，Codex 可以选择该 skill。
 
-## 创建技能
+因为隐式匹配依赖 `description`，所以请编写简洁的描述，并清楚说明范围和边界。将关键使用场景和触发词放在前面，这样即使描述被缩短，Codex 仍然可以匹配到该 skill。
 
-### 基本结构
+## 创建 skill
 
+优先使用内置创建器：
+
+```text
+$skill-creator
 ```
-my-skill/
-├── SKILL.md        # 技能定义（必需）
-├── assets/         # 资源文件
-└── scripts/        # 可运行脚本
-```
 
-### SKILL.md 示例
+创建器会询问该 skill 做什么、什么时候应该触发，以及它应该保持为纯指令形式还是包含脚本。默认是纯指令形式。
 
-```markdown
+你也可以通过创建一个带有 `SKILL.md` 文件的文件夹来手动创建 skill：
+
+```md
 ---
-name: my-skill
-description: 描述该技能的作用和使用时机
+name: skill-name
+description: Explain exactly when this skill should and should not trigger.
 ---
 
-# 我的技能
-
-## 使用场景
-当你需要做 X 时使用此技能。
-
-## 指令
-1. 首先执行 A
-2. 然后执行 B
-3. 最后验证 C
-
-## 约束
-- 不要修改 Y 文件
-- 遵循 Z 标准
+Skill instructions for Codex to follow.
 ```
 
-## 保存技能的位置
+Codex 会自动检测 skill 变更。如果更新没有出现，请重启 Codex。
 
-| 位置 | 作用域 | 说明 |
-| --- | --- | --- |
-| `~/.agents/skills/` | **个人** | 你自己的本地技能 |
-| `<repo>/.agents/skills/` | **团队/仓库** | 团队共享技能，非常适合新成员入职 |
+## skills 保存在哪里
 
-## 使用插件分发技能
+Codex 会从仓库、用户、管理员和系统位置读取 skills。对于仓库，Codex 会从当前工作目录开始，一直向上扫描到仓库根目录，查找每个目录中的 `.agents/skills`。如果两个 skills 使用相同的 `name`，Codex 不会合并它们；两者都可能出现在 skill 选择器中。
 
-当技能成熟且希望他人安装时，将其打包为插件。插件是可安装的分发单元，包含技能和可选的应用。
+| Skill 作用域 | 位置                                                                 | 建议用途                                                                  |
+| :-------- | :----------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| `REPO`    | `$CWD/.agents/skills` <br /> 当前工作目录：你启动 Codex 的位置。                 | 如果你在仓库或代码环境中，团队可以提交与某个工作目录相关的 skills。例如，只与某个微服务或模块相关的 skills。         |
+| `REPO`    | `$CWD/../.agents/skills` <br /> 当你在 Git 仓库中启动 Codex 时，CWD 上一级的文件夹。 | 如果你在带有嵌套文件夹的仓库中，组织可以在父文件夹中提交与共享区域相关的 skills。                          |
+| `REPO`    | `$REPO_ROOT/.agents/skills` <br /> 当你在 Git 仓库中启动 Codex 时，最顶层的根文件夹。 | 如果你在带有嵌套文件夹的仓库中，组织可以提交对仓库中所有用户都相关的 skills。这些作为根 skills，可供仓库中任何子文件夹使用。 |
+| `USER`    | `$HOME/.agents/skills` <br /> 提交到用户个人文件夹中的任何 skills。               | 用于整理与某个用户相关，并可应用于该用户可能处理的任何仓库的 skills。                                |
+| `ADMIN`   | `/etc/codex/skills` <br /> 提交到机器或容器上的共享系统位置中的任何 skills。            | 用于 SDK 脚本、自动化，以及提交默认管理员 skills，使机器上的每个用户都可使用。                         |
+| `SYSTEM`  | 由 OpenAI 随 Codex 捆绑。                                               | 对广大用户有用的 skills，例如 skill-creator 和 plan skills。用户启动 Codex 时即可使用。      |
 
-## 安装精选技能
+Codex 支持符号链接形式的 skill 文件夹，并会在扫描这些位置时跟随符号链接目标。
 
-Codex 提供了一些预置的精选技能，可通过命令安装。
+这些位置用于编写和本地发现。当你希望将可复用 skills 分发到单个仓库之外，或者可选地将它们与应用集成一起打包时，请使用 [plugins](https://developers.openai.com/codex/plugins/build)。
 
-## 启用或禁用技能
+## 使用 plugins 分发 skills
 
-在 Codex 桌面应用的设置中管理技能，或通过 CLI 命令控制。
+直接的 skill 文件夹最适合本地编写和仓库作用域的工作流。如果你希望分发一个可复用 skill、将两个或更多 skills 打包在一起，或者将 skill 与应用集成一起发布，请将它们打包为 [plugin](https://developers.openai.com/codex/plugins/build)。
+
+Plugins 可以包含一个或多个 skills。它们还可以选择性地将应用映射、MCP 服务器配置和展示资产打包到一个包中。
+
+## 为本地使用安装精选 skills
+
+要为你自己的本地 Codex 设置添加内置 skills 之外的精选 skills，请使用 `$skill-installer`。例如，要安装 `$linear` skill：
+
+```bash
+$skill-installer linear
+```
+
+你也可以提示安装器从其他仓库下载 skills。Codex 会自动检测新安装的 skills；如果某个 skill 没有出现，请重启 Codex。
+
+这适用于本地设置和实验。对于你自己 skills 的可复用分发，优先使用 plugins。
+
+## 启用或禁用 skills
+
+在 `~/.codex/config.toml` 中使用 `[[skills.config]]` 条目，可以在不删除 skill 的情况下禁用它：
+
+```toml
+[[skills.config]]
+path = "/path/to/skill/SKILL.md"
+enabled = false
+```
+
+修改 `~/.codex/config.toml` 后，请重启 Codex。
+
+## 可选元数据
+
+添加 `agents/openai.yaml` 可以在 [Codex app](https://developers.openai.com/codex/app) 中配置 UI 元数据，设置调用策略，并声明工具依赖项，从而获得更顺畅的 skill 使用体验。
+
+```yaml
+interface:
+  display_name: "Optional user-facing name"
+  short_description: "Optional user-facing description"
+  icon_small: "./assets/small-logo.svg"
+  icon_large: "./assets/large-logo.png"
+  brand_color: "#3B82F6"
+  default_prompt: "Optional surrounding prompt to use the skill with"
+
+policy:
+  allow_implicit_invocation: false
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "openaiDeveloperDocs"
+      description: "OpenAI Docs MCP server"
+      transport: "streamable_http"
+      url: "https://developers.openai.com/mcp"
+```
+
+`allow_implicit_invocation`（默认值：`true`）：当设置为 `false` 时，Codex 不会根据用户提示词隐式调用该 skill；显式 `$skill` 调用仍然有效。
 
 ## 最佳实践
 
-| 原则 | 说明 |
-| --- | --- |
-| **每个技能只做一件事** | 保持技能范围聚焦，从 2-3 个具体用例开始 |
-| **定义清晰的输入和输出** | 明确技能接收什么、产出什么 |
-| **描述要精准** | 说明技能做什么以及何时使用，包含用户可能说的触发词 |
-| **迭代改进** | 先让一个代表性任务跑通，再将其转化为技能 |
-| **不要一开始覆盖所有边界情况** | 从最常用的路径开始 |
+* 让每个 skill 专注于一项工作。
+* 除非需要确定性行为或外部工具，否则优先使用指令而不是脚本。
+* 使用祈使句步骤，并明确输入和输出。
+* 用提示词测试 skill 描述，确认触发行为正确。
 
-### 适合技能的重复性工作
-
-- 日志分类
-- 发布说明撰写
-- 对照清单的 PR 审查
-- 迁移规划
-- 遥测或事故总结
-- 标准调试流程
-
-:::tip
-`$skill-creator` 技能是搭建技能初版的最佳起点。先本地迭代，准备好广泛分享时再打包为插件。
-:::
+更多示例请参见 [github.com/openai/skills](https://github.com/openai/skills) 和 [agent skills specification](https://agentskills.io/specification)。

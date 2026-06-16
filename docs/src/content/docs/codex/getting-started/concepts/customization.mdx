@@ -9,13 +9,13 @@ Customization（自定义）是让 Codex 按照你团队工作方式运行的方
 
 在 Codex 中，自定义来自几个相互协作的层级：
 
-* 用于持久化指令的**项目指导**（`AGENTS.md`）
-* 用于保存先前工作中有用上下文的 Memories
+* 用于持久化指令的 **项目指导**（`AGENTS.md`）
+* 用于保存先前工作中有用上下文的 [Memories]
 * 用于可复用工作流和领域能力的 Skills
-* 用于访问外部工具和共享系统的 MCP
-* 用于委派工作的 Subagents（子代理）
+* 用于访问外部工具和共享系统的 [MCP]
+* 用于委派工作的 [Subagents（子代理）]
 
-这些能力是互补关系，而不是互相竞争。`AGENTS.md` 用于塑造行为，Memories 用于延续本地上下文，Skills 用于封装可重复流程，而 `MCP` 用于将 Codex 连接到本地工作区之外的系统。
+这些能力是互补关系，而不是互相竞争。`AGENTS.md` 用于项目指导，Memories 用于延续历史上下文，Skills 用于封装可重复工作流，而 `MCP` 用于连接外部工具和系统。
 
 ## AGENTS 指导
 
@@ -40,7 +40,7 @@ Customization（自定义）是让 Codex 按照你团队工作方式运行的方
 * **阅读过多**：如果它能找到正确文件，但阅读了太多文档，就添加路由指导（优先查看哪些目录/文件）。
 * **重复 PR 反馈**：如果你多次留下同样的反馈，就把它固化。
 * **在 GitHub 中**：在 Pull Request 评论里使用 @codex 提出请求（例如：`@codex add this to AGENTS.md`），即可把更新委派给云端任务。
-* **自动化漂移检查**：使用**自动化**定期运行检查（例如每天一次），查找指导缺口，并建议应添加到 `AGENTS.md` 的内容。
+* **自动化漂移检查**：使用 **自动化** 定期运行检查（例如每天一次），查找指导缺口，并建议应添加到 `AGENTS.md` 的内容。
 
 将 `AGENTS.md` 与能够强制执行这些规则的基础设施结合使用：pre-commit hooks、linters 和 type checkers 可以在问题出现在你面前之前就进行拦截，从而让系统越来越擅长防止重复错误。
 
@@ -95,6 +95,12 @@ description: Stage and commit changes in semantic groups. Use when the user want
 4. 保持每个 commit 聚焦且易于 Review。
 ```
 
+:::note
+不要把功能(feat)、测试(test)、文档(dcos)、重构(refactor)、杂项(chore)配置一次性塞进一个 commit，而是按变更性质拆成多个独立 commit。
+
+feat 交付能力，test 证明能力，docs 解释能力，refactor 整理能力，chore 维护工程。
+:::
+
 ### 使用 Skills 的场景
 
 * 可重复工作流（发布步骤、Review 流程、文档更新）
@@ -128,7 +134,7 @@ Skills 可以被显式调用；当任务匹配 Skill 描述时，Codex 也可以
 MCP（Model Context Protocol）是将 Codex 连接到外部工具和上下文提供者的标准方式。它特别适用于远程托管系统，例如：
 
 * Figma
-* Linear
+* Linear(对标 jira 的现代工具)
 * GitHub
 * 团队依赖的内部知识服务
 

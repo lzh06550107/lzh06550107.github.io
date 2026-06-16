@@ -11,33 +11,26 @@ sidebar:
 
 ## 配置文件
 
-配置文件（Profiles）允许您保存命名的配置值集合，并从 CLI 切换使用。
+Profiles 允许你保存命名的配置层，并从 CLI 在它们之间切换。当你传入 `--profile profile-name` 时，Codex 会先加载 `~/.codex/config.toml`，然后叠加加载 `~/.codex/profile-name.config.toml`。Profile 名称可以包含字母、数字、连字符和下划线。
 
-> **实验性功能**：配置文件是实验性的，可能在未来的版本中更改或移除。
->
-> 配置文件目前不支持 Codex IDE 扩展。
-
-在 `config.toml` 中的 `[profiles.<name>]` 下定义配置文件，然后运行 `codex --profile <name>`：
+为每个 profile 创建一个单独的 TOML 文件。在 profile 文件中使用顶层配置键；不要把它们嵌套在 `[profiles.profile-name]` 下。
 
 ```toml
-model = "gpt-5.4"
+# ~/.codex/deep-review.config.toml
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 approval_policy = "on-request"
-model_catalog_json = "/Users/me/.codex/model-catalogs/default.json"
-
-[profiles.deep-review]
-model = "gpt-5-pro"
-model_reasoning_effort = "high"
-approval_policy = "never"
 model_catalog_json = "/Users/me/.codex/model-catalogs/deep-review.json"
-
-[profiles.lightweight]
-model = "gpt-4.1"
-approval_policy = "untrusted"
 ```
 
-要将某个配置文件设为默认，请在 `config.toml` 顶层添加 `profile = "deep-review"`。Codex 会加载该配置文件，除非您在命令行中覆盖它。
+```toml
+codex --profile deep-review
+codex exec --profile deep-review "review this change"
+```
 
-配置文件也可以覆盖 `model_catalog_json`。当顶层和所选配置文件都设置了 `model_catalog_json` 时，Codex 优先使用配置文件的值。
+因为 profile 文件是位于你的基础用户配置之上、项目和 CLI 配置之下的一层，所以它只需要包含与基础配置不同的值。Profile 文件也可以覆盖 `model_catalog_json`；当两个文件都设置它时，Codex 会使用 profile 中的值。
+
+在 Codex 0.134.0 及之后版本中，`--profile` 不再从 `config.toml` 读取 `[profiles.profile-name]`，并且不再支持顶层的 `profile = "profile-name"` 选择器。请将旧版 profile 设置移动到 `~/.codex/profile-name.config.toml`，然后从 `config.toml` 中删除匹配的 `[profiles.profile-name]` 表和 `profile = "profile-name"` 选择器。
 
 ## 通过 CLI 进行一次性覆盖
 
@@ -93,7 +86,7 @@ openai_base_url = "https://us.api.openai.com/v1"
 
 项目配置中的相对路径（例如 `model_instructions_file`）是相对于包含 `config.toml` 的 `.codex/` 文件夹解析的。
 
-项目配置文件不能覆盖会重定向凭据、更改提供商身份验证或运行机器本地通知/遥测命令的设置。Codex 会在项目本地的 `.codex/config.toml` 中忽略以下键，并在检测到它们时打印启动警告：`openai_base_url`、`chatgpt_base_url`、`model_provider`、`model_providers`、`notify`、`profile`、`profiles`、`experimental_realtime_ws_base_url` 和 `otel`。请将这些键设置在您的用户级 `~/.codex/config.toml` 中。
+项目配置文件不能覆盖那些会重定向凭据、改变主机拥有的应用请求元数据、更改 provider 认证、选择配置 profiles，或运行机器本地通知/遥测命令的设置。Codex 会忽略项目本地 `.codex/config.toml` 中的以下键，并在看到它们时打印启动警告：`openai_base_url`、`chatgpt_base_url`、`apps_mcp_product_sku`、`model_provider`、`model_providers`、`notify`、`profile`、`profiles`、`experimental_realtime_ws_base_url` 和 `otel`。请在用户级别的 `~/.codex/config.toml` 中设置 provider、通知和遥测相关键；使用 `--profile profile-name` 和 `~/.codex/profile-name.config.toml` 选择配置 profiles。
 
 ## Hooks（生命周期钩子）
 
@@ -207,6 +200,8 @@ region = "eu-central-1"
 
 如果省略 `profile`，Codex 使用标准的 AWS 凭据链。将 `region` 设置为应处理请求的支持 Bedrock 的区域。
 
+有关完整的设置流程、认证选项、支持的模型和功能可用性，请参见《将 Codex 与 Amazon Bedrock 一起使用》。
+
 ## OSS 模式（本地提供商）
 
 Codex 可以在传递 `--oss` 时针对本地"开源"提供商（例如 Ollama 或 LM Studio）运行。如果您传递 `--oss` 而不指定提供商，Codex 使用 `oss_provider` 作为默认值。
@@ -234,7 +229,7 @@ stream_idle_timeout_ms = 300000
 
 ## 使用数据驻留的 ChatGPT 客户
 
-启用了数据驻留的项目可以创建模型提供商，使用正确的前缀更新 `base_url`。
+启用了数据驻留的项目可以创建一个 model provider，以使用正确的前缀更新 `base_url`。
 
 ```toml
 model_provider = "openaidr"
@@ -301,7 +296,9 @@ policy = """
 
 关于完整的键列表，包括配置文件范围覆盖和要求约束，请参阅[配置参考](/codex/configuration/config-reference)和[托管配置](/codex/managed-config)。
 
+:::note
 在 `workspace-write` 模式下，某些环境即使工作区的其余部分可写，也会将 `.git/` 和 `.codex/` 保持为只读。这就是为什么像 `git commit` 这样的命令可能仍需要在沙箱外运行才能获得批准。如果您希望 Codex 跳过特定命令（例如阻止在沙箱外执行 `git commit`），请使用规则。
+:::
 
 完全禁用沙箱（仅当您的环境已隔离进程时使用）：
 

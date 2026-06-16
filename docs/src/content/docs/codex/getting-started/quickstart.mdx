@@ -37,12 +37,14 @@ import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
     下载安装完成后，打开 Codex 并使用你的 ChatGPT 账户或 OpenAI API 密钥登录。
 
     :::caution
-    如果使用 API 密钥登录，部分功能（如云端线程）可能不可用。
+    如果使用 API 密钥登录，[部分功能（如云端线程）可能不可用](https://developers.openai.com/codex/pricing#feature-availability)。
     :::
 
     ### 3. 选择一个项目
 
-    选择你想让 Codex 工作的项目文件夹。如果你之前使用过 Codex，会看到过去的工作项目列表。
+    选择你想让 Codex 工作的项目文件夹。
+    
+    如果你之前使用过 Codex 应用程序、CLI（命令行界面）或 IDE 扩展，会看到过去的工作项目列表。
 
     ### 4. 发送第一条消息
 
@@ -79,7 +81,7 @@ import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
 
     ### 4. 使用 Git 检查点
 
-    Codex 可以修改你的代码库，因此建议在每个任务前后创建 Git 检查点，以便在需要时轻松回退更改。
+    Codex 可以修改你的代码库，因此建议 **在每个任务前后创建 Git 检查点，以便在需要时轻松回退更改**。如果您是首次使用 Codex，请阅读最佳实践指南。
 
     <LinkButton href="/codex/ide" variant="primary">
       了解更多关于 Codex IDE 扩展 →
@@ -91,16 +93,36 @@ import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
 
     ### 1. 安装 Codex CLI
 
-    使用 npm 安装：
+    在 macOS 或 Linux 上，使用独立安装程序：
 
+    ```bash
+    curl -fsSL [https://chatgpt.com/codex/install.sh](https://chatgpt.com/codex/install.sh) | sh
+    ```
+
+    在 Windows 上，运行：
+
+    ```bash
+    powershell -ExecutionPolicy ByPass -c "irm [https://chatgpt.com/codex/install.ps1](https://chatgpt.com/codex/install.ps1) | iex"
+    ```
+
+    对于无人值守安装，在运行下载的安装程序的 Shell 上设置 `CODEX_NON_INTERACTIVE=1`。有关详细信息，请参阅 [环境变量](https://developers.openai.com/codex/environment-variables#installer-variables)。
+    
+    ```bash
+    curl -fsSL [https://chatgpt.com/codex/install.sh](https://chatgpt.com/codex/install.sh) | CODEX_NON_INTERACTIVE=1 sh
+    ```
+
+    ```bash
+    $env:CODEX_NON_INTERACTIVE=1; irm [https://chatgpt.com/codex/install.ps1](https://chatgpt.com/codex/install.ps1) | iex
+    ```
+
+    您也可以使用 npm 或 Homebrew 安装 Codex CLI：
+    
     ```bash
     npm install -g @openai/codex
     ```
 
-    使用 Homebrew 安装：
-
     ```bash
-    brew install codex
+    brew install --cask codex
     ```
 
     ### 2. 运行 `codex` 并登录
@@ -110,13 +132,14 @@ import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
     ### 3. 让 Codex 在当前目录工作
 
     认证完成后，你可以让 Codex 在当前目录中执行任务。例如：
+
     - 告诉我这个项目是做什么的
     - 在这个仓库中构建一个经典的贪吃蛇游戏
     - 在我的代码库中查找并修复 bug
 
     ### 4. 使用 Git 检查点
 
-    Codex 可以修改你的代码库，因此建议在每个任务前后创建 Git 检查点。
+    Codex 可以修改你的代码库，因此建议在每个任务前后创建 Git 检查点。如果您是首次使用 Codex，请阅读最佳实践指南。
 
     <LinkButton href="/codex/cli" variant="primary">
       了解更多关于 Codex CLI →
@@ -136,11 +159,13 @@ import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
 
     ### 3. 启动任务并监控进度
 
-    环境就绪后，从 [Codex 界面](https://chatgpt.com/codex) 启动编码任务。你可以实时查看日志监控进度，也可以让任务在后台运行。
+    一旦您的环境准备就绪，即可从 [Codex 界面](https://chatgpt.com/codex) 启动编码任务。您可以通过查看日志实时监控进度，或者让任务在后台运行。
 
     ### 4. 审查变更并创建 PR
 
-    任务完成后，在差异视图中审查建议的变更。你可以迭代调整结果，或直接在 GitHub 仓库中创建 Pull Request。Codex 还会提供变更预览。
+    当任务完成时，请在差异视图（diff view）中审查建议的更改。您可以对结果进行迭代，或者直接在您的 GitHub 仓库中创建拉取请求（pull request）。
+
+    Codex 还提供了更改的预览。您可以按原样接受拉取请求（PR），或者在本地切出分支以测试这些更改：
 
     ```bash
     git fetch
@@ -157,3 +182,4 @@ import LinkButton from '@lucode-starlight/components/custom/LinkButton.astro';
 
 - [了解更多关于 Codex 桌面应用](/codex/app) — 使用 Codex 桌面应用处理本地项目
 - [迁移到 Codex](/codex/getting-started/migrate) — 将受支持的指令文件、MCP 服务器配置、技能和子智能体迁移到 Codex
+
