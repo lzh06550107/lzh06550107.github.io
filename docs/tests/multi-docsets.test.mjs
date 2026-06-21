@@ -124,6 +124,22 @@ test('Claude Code card only exposes overview and quickstart links on the docs po
     assert.doesNotMatch(claudeFeaturedLinks, /\/claude-code\/platforms-and-integrations\/overview\//);
 });
 
+test('Penpot sidebar is explicitly ordered from the docset registry', () => {
+    const registrySource = fs.readFileSync(registryPath, 'utf8');
+    const penpotBlock = registrySource.match(/id:\s*'penpot'[\s\S]*?id:\s*'langchain'/)?.[0] ?? '';
+
+    assert.match(penpotBlock, /label:\s*'第一步'[\s\S]*link:\s*'\/penpot\/first-steps\/'/);
+    assert.match(penpotBlock, /label:\s*'账户与团队'[\s\S]*link:\s*'\/penpot\/account-teams\/your-account\/'/);
+    assert.match(penpotBlock, /label:\s*'设计'[\s\S]*link:\s*'\/penpot\/designing\/workspace-basics\/'/);
+    assert.match(penpotBlock, /label:\s*'设计系统'[\s\S]*link:\s*'\/penpot\/design-systems\/design-tokens\/'/);
+    assert.match(penpotBlock, /label:\s*'导出与导入'[\s\S]*link:\s*'\/penpot\/export-import\/exporting-layers\/'/);
+    assert.match(penpotBlock, /\{ label:\s*'开发工具',\s*link:\s*'\/penpot\/dev-tools\/' \}/);
+    assert.match(penpotBlock, /\{ label:\s*'插件与集成',\s*link:\s*'\/penpot\/plugins-integrations\/' \}/);
+    assert.doesNotMatch(penpotBlock, /autogenerate:\s*\{\s*directory:\s*'penpot\//);
+    assert.doesNotMatch(penpotBlock, /label:\s*'第一步',\s*\n\s*items:\s*\[\s*\n\s*\{\s*label:\s*'第一步'/);
+    assert.doesNotMatch(penpotBlock, /label:\s*'账户与团队',\s*\n\s*items:\s*\[\s*\n\s*\{\s*label:\s*'账户与团队'/);
+});
+
 test('sidebar and drawer filter docs navigation down to the active docset', () => {
     const sidebarSource = fs.readFileSync(sidebarPath, 'utf8');
     const drawerSource = fs.readFileSync(drawerPath, 'utf8');

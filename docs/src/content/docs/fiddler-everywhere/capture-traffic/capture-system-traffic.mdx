@@ -1,0 +1,62 @@
+---
+title: "捕获系统流量"
+description: "基于 Telerik Fiddler Everywhere System Capturing Mode 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Capture System Traffic"
+  order: 37
+sourceTitle: "System Capturing Mode"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-system-traffic"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+系统捕获模式用于捕获通过操作系统代理设置转发的流量。这里的系统流量包括 HTTP、HTTPS、WebSocket、Server-Sent Events（SSE）和 gRPC 等流量。
+
+## 捕获系统流量
+
+Fiddler 记录您计算机与互联网之间的所有 HTTP 和 HTTPS 流量，并帮助您分析和调试来自任何支持代理的应用程序（Google Chrome、Firefox、各种桌面应用程序、CLI 应用程序以及几乎任何其他遵守操作系统代理设置的应用程序）的入站和出站流量。您可以使用捕获的流量来调试问题、Mock HTTP 请求和响应、识别性能瓶颈、与协作者共享等等。
+
+要使用 Fiddler Everywhere 捕获系统流量：
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Home（主页）面板。
+3. 打开 System Proxy（系统代理）教程并按照说明操作。
+
+或者（适用于已安装并信任 Fiddler CA 证书的情况）
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Traffic（流量）面板。
+3. 切换 System Proxy（系统代理）开关以启用系统捕获。
+
+>提示 在 System Proxy（系统代理）开关切换为开启状态后，打开浏览器并输入任意网址。结果，Fiddler Everywhere 会拦截该请求，并填充 Live Traffic（实时流量）网格。
+
+(图略)
+
+## 启用和禁用系统捕获
+
+你可以手动打开或关闭系统代理捕获模式。
+
+操作步骤如下：
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Traffic 面板。
+3. 将 System Proxy 开关切换为 ON 或 OFF，以启用或禁用系统捕获模式。
+
+当手动启用系统捕获模式时，Fiddler Everywhere 会通过提示对话框告知当前状态。
+
+:::note[开关状态会被记住]
+Fiddler Everywhere 会保留 System Proxy 开关状态。下次启动时，会根据上一次的开关状态决定系统捕获是开启还是关闭。
+:::
+
+## 相关主题
+
+- 捕获模式概览。
+- 捕获浏览器流量。
+- 捕获网络流量。
+- 信任 Fiddler CA 证书。
+
+## 原文信息
+
+- 原文标题：System Capturing Mode
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-system-traffic

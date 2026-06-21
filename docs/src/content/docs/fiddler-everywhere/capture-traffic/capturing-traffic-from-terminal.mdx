@@ -1,0 +1,130 @@
+---
+title: "从终端捕获流量"
+description: "基于 Telerik Fiddler Everywhere Terminal Capturing Mode 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Capturing Traffic from Terminal"
+  order: 39
+sourceTitle: "Terminal Capturing Mode"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capturing-traffic-from-terminal"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+Terminal Capturing Mode 允许你在一个专用终端实例中设置 Fiddler 代理。该模式可以在不修改全局操作系统代理设置的情况下，在沙盒化环境里使用代理，因此也能更精确地控制被捕获的流量范围。
+
+## 捕获终端流量
+
+可以通过 Home 面板教程启动终端捕获：
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Home 面板。
+3. 打开 Terminal 教程。
+4. 点击 Open Terminal。
+
+也可以从 Traffic 面板启动：
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Traffic 面板。
+3. 点击 Terminal 按钮，加载终端实例。
+4. 在该终端实例中启动你的应用。
+
+(图略)
+
+启动后，Fiddler Everywhere 会打开一个专用终端实例，并立即开始捕获正在发生的 HTTPS 流量。需要注意的是，Fiddler 会捕获该终端本身以及从同一终端实例启动的所有子进程产生的流量。如果关闭 Fiddler Everywhere 应用，该终端实例会失去连接能力。
+
+## 选择默认终端
+
+你可以通过 Settings > Terminal > Default Terminal 设置首选终端应用。
+
+可选项包括：
+
+- **Command Prompt**：仅 Windows 可用。
+- **Windows PowerShell**：仅 Windows 可用，指基于 .NET Framework 4.5 及更早版本的 Windows PowerShell。
+- **PowerShell**：仅 Windows 可用，指基于 .NET Core 或新版 .NET 的 PowerShell。
+- **Terminal application**：macOS 和 Linux 可用，使用默认 shell 环境，例如 bash、zsh 或 sh。
+
+Fiddler 终端实例会自动代理 `curl`、Python、Node.js 库（例如 `https`、`request` 等）发出的 HTTPS 请求，以及所有遵循 `http_proxy` 和 `https_proxy` 环境变量的应用。
+
+## 终端流量注意事项
+
+使用终端捕获模式时，需要注意以下技术细节。
+
+### localhost 流量
+
+某些框架，例如 .NET Framework，会硬编码为不通过任何代理发送 localhost 请求。因此作为代理的 Fiddler 无法收到这类流量。
+
+Windows PowerShell 使用的是 .NET Framework，不要与基于 .NET Core 的 PowerShell 混淆。因此，Windows PowerShell 中的 localhost 流量不会通过代理发送。可以通过使用 Fiddler aliases，或在 localhost 地址末尾添加一个点来绕过该问题，例如：
+
+```txt
+localhost.:8080
+```
+
+### .NET 应用流量
+
+捕获 `curl` 或 Node.js 库的流量时，通常不需要在 Fiddler 主机上显式安装并信任 Fiddler 证书颁发机构。但对于执行 HTTPS 请求的 .NET 应用，这是必需条件。
+
+## 从非 Fiddler 终端捕获
+
+:::tip[推荐方式]
+Terminal Capturing Mode 是推荐方式，因为它只为当前会话设置代理，更适合测试和调试。只有当你需要满足特定应用要求时，例如某个应用不会隐式遵循终端代理，才建议使用下面的手动方式。
+:::
+
+### 显式设置 Fiddler 代理
+
+作为上述 Fiddler 终端选项的替代方案，您还可以显式配置您的终端和 Shell 应用程序，以使其遵守 Fiddler 代理并信任 Fiddler 根证书（root CA）。实现该目标的一种方法是使用 `export` 命令（适用于 macOS 和 Linux）或 `set` 命令（适用于 Windows），并配合 `http_proxy` 和 `https_proxy` 变量。`export` 命令将生成一个将包含在子进程环境中的环境变量。它不会影响其他已经存在的设置。
+
+以下示例演示了如何在 macOS 和 Linux 上通过环境变量定义代理设置。
+
+```bash
+export http_proxy=http://127.0.0.1:8866
+export https_proxy=http://127.0.0.1:8866
+```
+
+以下示例演示了如何在 Windows 上通过环境变量定义代理设置。
+
+```bash
+set http_proxy=http://127.0.0.1:8866
+set https_proxy=http://127.0.0.1:8866
+```
+
+一旦设置了 Fiddler Everywhere 代理，您就可以立即通过终端应用程序捕获流量。
+
+以下示例演示了如何在通过 iTerm2 使用 cURL 时发出请求，并在 Fiddler Everywhere 中拦截该流量。
+
+```bash
+curl https://docs.telerik.com/fiddler-everywhere --
+```
+
+### 设置 Fiddler 根证书
+
+除了设置环境变量 `http_proxy` 和 `https_proxy` 之外，您还可以手动导出并指定您的终端应用程序明确使用 Fiddler_Root_Certificate_Authority（用于解密 TLS 流量）。您必须根据特定的应用程序/框架使用不同的全局变量。例如，您可以使用像 `SSL_CERT_FILE` 和 `REQUESTS_CA_BUNDLE` 这样的变量来在 Python 应用程序中配置 Fiddler CA。
+
+### 重置 Fiddler 代理
+
+一旦完成了使用 Fiddler Everywhere 的调试，请通过移除 Fiddler Everywhere 代理变量来重置当前的环境代理。在 macOS 和 Linux 上，您可以使用 `unset` 命令来实现这一点。在 Windows 上，您需要将其设置为空字符串。
+
+以下示例演示了如何在 macOS 和 Linux 上取消设置代理。
+
+```bash
+unset http_proxy
+unset https_proxy
+```
+
+在 Windows 上，需要把变量设置为空字符串：
+
+```bash
+set http_proxy=
+set https_proxy=
+```
+
+## 相关主题
+
+- 捕获模式概览。
+- 捕获系统流量。
+- 信任 Fiddler CA 证书。
+
+## 原文信息
+
+- 原文标题：Terminal Capturing Mode
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capturing-traffic-from-terminal

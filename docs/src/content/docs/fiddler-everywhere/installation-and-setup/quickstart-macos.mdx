@@ -1,0 +1,93 @@
+---
+title: "macOS 上的初始步骤"
+description: "基于 Telerik Fiddler Everywhere macOS 快速入门页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "First Steps on macOS"
+  order: 25
+sourceTitle: "First Steps with Fiddler Everywhere on macOS"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/quickstart-macos"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+本文介绍如何在 macOS 上安装并开始使用 Fiddler Everywhere。整体流程包括：
+
+1. 完成安装和基础配置。
+2. 创建并登录 Fiddler/Telerik 账号。
+3. 捕获、检查和修改网络流量。
+
+## 前置条件
+
+在 macOS 上使用 Fiddler Everywhere 前，需要确认以下条件：
+
+- 安装 macOS 12 或更高版本。
+- 预留约 400 MB 可用磁盘空间。
+- 使用具备管理员权限的账号，因为捕获和解密 HTTPS 流量时会用到相关权限。
+- 保持可用的互联网连接，并允许访问 Telerik、GetFiddler、相关下载服务和 Cloudflare 验证服务。
+
+```text
+https://*.telerik.com/
+https://*.getfiddler.com/
+https://fiddler-backend-production.s3-accelerate.amazonaws.com
+https://challenges.cloudflare.com
+```
+
+- 确保 Fiddler Everywhere 使用的代理端口未被防火墙或安全工具限制。默认端口是 `8866`，也可以在设置中的连接选项里修改监听端口。
+
+:::tip[网络访问提示]
+Telerik 登录页面会通过不同 CDN 加载界面组件、样式和 Cookie 相关资源。如果网络访问受限，登录或注册页面可能无法正常加载。
+:::
+
+## 步骤 1：安装 Fiddler Everywhere
+
+首先在 Mac 上下载并安装最新版 Fiddler Everywhere。
+
+安装完成后，启动应用并进入登录或注册流程。如果系统提示需要授予相关权限，应结合实际捕获需求完成授权。
+
+## 步骤 2：创建 Fiddler 账号
+
+启动 Fiddler Everywhere 后，选择登录或创建账号入口，并创建统一的 Telerik 账号。
+
+可选方式包括：
+
+- 使用邮箱和密码注册。
+- 使用 Google 登录。
+- 企业订阅场景下使用 SSO 登录。
+
+注册过程中需要填写页面要求的信息，并通过邮箱确认完成账号激活。激活后回到 Fiddler Everywhere，可以选择开始免费试用，或购买订阅计划。
+
+登录成功后，首页面板会显示你的个人信息和许可证信息。
+
+## 步骤 3：处理捕获到的流量
+
+账号准备完成后，就可以使用 Fiddler Everywhere 捕获、检查、保存、共享、导入、导出、模拟和修改 HTTPS 流量。
+
+常见操作流程如下：
+
+1. 选择合适的捕获模式，开始捕获 HTTPS 流量。
+2. 如需捕获并解密安全 HTTPS 流量，需要安装并信任 Fiddler 的 CA 证书。
+3. 检查捕获到的数据。
+4. 根据需要保存、共享或导出捕获的 HTTPS 流量。
+5. 通过 Composer 修改会话或构造请求。
+6. 通过 Rules 规则能力模拟客户端或服务端行为。
+
+:::tip[Rules 的用途]
+Rules 是 Fiddler Everywhere 中比较高级的能力。它可以在不修改客户端或服务端应用的情况下，对进入的流量执行规则，从而模拟客户端或服务端行为。
+:::
+
+## 下一步
+
+完成 macOS 初始配置后，可以继续学习以下主题：
+
+- Fiddler Everywhere 的捕获选项。
+- 安装并信任 Fiddler CA 证书，以解密 HTTPS 流量。
+- 与协作者共享捕获的会话。
+- 创建 API 请求。
+- 将 API 请求组织到集合中。
+- 模拟服务端响应。
+
+## 原文信息
+
+- 原文标题：First Steps with Fiddler Everywhere on macOS
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/quickstart-macos

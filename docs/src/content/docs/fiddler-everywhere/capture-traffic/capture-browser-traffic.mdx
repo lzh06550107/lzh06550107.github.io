@@ -1,0 +1,82 @@
+---
+title: "捕获浏览器流量"
+description: "基于 Telerik Fiddler Everywhere Independent Browser Capturing Mode 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Capture Browser Traffic"
+  order: 32
+sourceTitle: "Independent Browser Capturing Mode"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-browser-traffic"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+Independent Browser Capturing Mode 用于捕获从 Fiddler Everywhere 启动的沙盒浏览器实例产生的 HTTPS 流量。与系统捕获模式相比，独立浏览器捕获模式有几个明显优势：
+
+- 不需要设置或取消设置操作系统代理。
+- 不需要安装并信任 Fiddler 证书颁发机构（CA）。
+- 只捕获独立浏览器实例产生的指定 HTTPS 流量。
+
+当你的环境不允许修改系统代理，或不允许安装并信任第三方 CA 时，该功能很有用。它也可以规避某些 VPN 或第三方安全工具修改系统代理带来的兼容问题，并让你把捕获范围集中在一个沙盒浏览器实例中，避免捕获其他系统流量。
+
+## 捕获浏览器流量
+
+可以通过 Home 面板教程启动浏览器捕获：
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Home 面板。
+3. 打开 Browser 教程。
+4. 点击 Open Browser。
+
+也可以从 Traffic 面板启动：
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Traffic 面板。
+3. 点击 Browser 按钮，启动独立浏览器实例。
+
+启动后，Fiddler Everywhere 会打开一个预配置的独立浏览器实例。该实例已配置为使用 Fiddler 代理，并信任 Fiddler 根 CA。你可以在浏览器中输入任意 URL，该浏览器产生的 HTTPS 请求和响应会立即显示在 Fiddler 的 Live Traffic 网格中。
+
+(图略)
+
+## 选择默认浏览器
+
+独立浏览器捕获模式支持基于 Chromium 的浏览器，例如 Google Chrome、Microsoft Edge、Brave 和 Vivaldi。
+
+默认情况下，Fiddler Everywhere 会自动检测系统中是否安装了 Google Chrome 或 Microsoft Edge，并使用其中一个来启动独立浏览器实例。如果两者都存在，Fiddler 默认优先使用 Google Chrome。
+
+你也可以通过 Settings > Browsers > Manually choose path to browser 设置首选浏览器。默认情况下，Fiddler 会先尝试自动检测本机 Google Chrome 路径；如果未找到，再搜索 Microsoft Edge。
+
+## 持久化浏览器数据
+
+独立浏览器捕获模式允许你指定一个自定义目录，用于持久化浏览器数据。这样可以复用同一个自定义浏览器实例，并保留已输入 URL、Cookie、表单数据和认证信息等设置。
+
+启用浏览器数据持久化的流程如下：
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Settings > Browsers。
+3. 在 Browser Data 区域选择 Persist data in a specific directory。
+4. 选择一个目录，用于保存自定义浏览器实例数据。
+5. 点击 Save 确认修改。
+
+设置生效后，后续新启动的浏览器捕获实例会复用这些浏览器数据。
+
+## 捕获其他浏览器流量
+
+独立浏览器捕获只适用于基于 Chromium 的浏览器。但 Fiddler 仍然可以捕获几乎任何遵循 Fiddler 代理设置的浏览器流量。
+
+如果要捕获 Safari、Mozilla Firefox，或不是从 Fiddler Everywhere 内部作为独立实例启动的 Chromium 浏览器流量，可以使用以下方式：
+
+- System Capturing Mode。
+- Explicit Capturing Mode。
+
+## 相关主题
+
+- 捕获模式概览。
+- 捕获系统流量。
+- 捕获网络流量。
+- 信任 Fiddler CA 证书。
+
+## 原文信息
+
+- 原文标题：Independent Browser Capturing Mode
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-browser-traffic

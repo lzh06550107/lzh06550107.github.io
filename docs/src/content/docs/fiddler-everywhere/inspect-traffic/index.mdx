@@ -1,0 +1,29 @@
+---
+title: "检查流量"
+description: "Fiddler Everywhere Inspect Traffic 菜单项的简体中文整理。"
+sidebar:
+  label: "Inspect Traffic"
+  order: 40
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/inspect-traffic"
+---
+
+# 检查流量
+
+本节对应官方菜单 **Inspect Traffic**。它介绍如何查看、解码、比较和分析捕获到的会话。
+
+## 用途
+
+检查流量时，你通常会关注请求与响应的 URL、方法、状态码、Header、Cookie、Body、耗时、协议版本和证书信息。Fiddler Everywhere 会把这些信息结构化显示，帮助你定位接口错误、性能问题、认证问题和异常返回。
+
+## 典型能力
+
+- 查看 HTTP/HTTPS 请求和响应。
+- 检查 Header、Cookie、Query、Body 等内容。
+- 解码常见格式的响应内容。
+- 比较不同会话之间的差异。
+- 查看 WebSocket、SSE、gRPC 等现代协议流量。
+- 通过统计与时间信息分析性能。
+
+## 建议用法
+
+先用过滤器缩小会话范围，再进入单个会话详情查看请求与响应。排查 HTTPS 问题时，确认 Fiddler CA 已被信任，并检查是否存在证书错误或 TLS 版本不兼容问题。

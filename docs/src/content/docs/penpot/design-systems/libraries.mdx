@@ -1,0 +1,88 @@
+---
+title: 库
+description: 使用 Penpot 的库来复用设计元素。了解如何创建、管理和共享组件、颜色和排版。
+---
+
+库可以包含组件、颜色和排版。了解如何创建和管理它们，以便更好地组织你设计中的各个部分，并加快你的工作流。
+
+## 文件库
+
+每个文件都有自己的文件库，用来存储属于该文件的资产。
+
+你有两种方式可以从文件[工作区](/user-guide/first-steps/the-interface/#interface-workspace)访问文件库：
+
+- 点击左侧边栏中的资产标签图标。
+- 按 `Alt/⌥` + `i`。
+
+![](/images/penpot/libraries-1.png)
+
+## 共享库
+
+### 发布为共享库
+
+你可以将任何普通文件发布为共享库。这意味着该文件的文件库将可以被连接到同一团队中存在的其他文件，因此它的库资产可以被复用。
+
+有两种方式可以发布库：
+
+- 使用文件主菜单。
+- 从库面板发布。你可以点击资产标签中的 “Libraries” 按钮来打开该面板。
+
+![从主菜单发布库](/images/penpot/libraries-2.png)
+
+![从库面板发布库](/images/penpot/libraries-3.png)
+
+### 取消发布共享库
+
+你可以随时用发布库的相同方式取消发布任何库，可以从文件菜单操作，也可以从库面板操作。
+
+取消发布库会将它与已连接该库的文件断开连接。已经在其他文件中使用过的资产会保留，但不再与现在已取消发布的库保持链接。
+
+### 库更新
+
+![](/images/penpot/libraries-4.png)
+
+### 连接共享库
+
+要从其他文件添加共享库，请打开库面板，然后搜索并选择可用的库。如果你看到 “There are no Shared Libraries available” 消息，请先[将其他文件发布为共享库](/user-guide/design-systems/libraries/#shared-libraries)，或从我们的 [Libraries & templates](https://penpot.app/libraries-templates) 添加。
+
+(视频略)
+
+### 断开共享库
+
+你可以随时从库面板断开任何库，只需点击断开连接按钮即可。
+
+![](/images/penpot/libraries-5.png)
+
+### 使用共享库
+
+共享库会列在工作区左侧边栏的资产面板中。你可以展开和折叠它们，以访问每个已连接共享库中的资产。
+
+![](/images/penpot/libraries-6.png)
+
+### 打开共享库文件
+
+点击共享库名称右侧的箭头图标，可以前往该库所在的文件并编辑其内容。
+
+![](/images/penpot/libraries-7.png)
+
+### 从已连接的库导入令牌
+
+如果你已连接的共享库包含设计令牌，你可以从 **Libraries** 模态框中将它们复制到当前文件。
+
+**Import tokens** 按钮只会显示在定义了令牌的已连接库旁边。没有令牌的库不会显示此控件。
+
+1. 从资产标签打开 **Libraries** 面板。
+2. 在 **Libraries in this file** 下，找到包含令牌的已连接库，并点击 **Import tokens**（位于断开连接控件旁边）。
+3. 查看确认对话框。导入会带入该库的完整令牌数据，包括库中定义的 sets 和 themes。
+4. 点击 **Import tokens** 应用，或点击 **Cancel** 返回且不做更改。
+
+:::caution
+从库导入令牌会替换当前文件中的所有 tokens、sets 和 themes。如果你需要保留备份，请先导出你的令牌（从 Tokens 标签页 → Tools → Export）。
+:::
+
+这与为组件、颜色和排版连接库是分开的。你可以使用共享资产而不导入令牌，并且仅当你希望文件的令牌设置与该库匹配时才导入令牌。
+
+![在包含令牌的已连接库上显示的 Import tokens 按钮](/images/penpot/libraries-8.png)
+
+![导入前确认。当前文件中的所有 tokens、sets 和 themes 都将被替换](/images/penpot/libraries-9.png)
+

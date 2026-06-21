@@ -1,0 +1,269 @@
+---
+title: 弹性布局
+description: 使用 Flex Layout 和 Grid Layout 创建可自动适配、接近 Web 标准输出的布局。
+---
+
+Penpot 的方案尽可能接近你最终在 Web 上看到的输出。设计和开发使用同一种语言，以拥抱 Web 标准并改善角色之间的沟通。在 Penpot 中，你可以用独特方式创建和管理自适应布局，同时享受 CSS 标准的所有优势。
+
+## Flex Layout
+
+Penpot 独有的 Flex Layout 允许你创建能够自动适配的弹性设计。你可以调整、适配和填充内容及容器，而无需手动处理。
+
+:::note
+为了帮助你学习 Flex Layout 的基础知识，这里有一个专门的网站，你可以在其中找到视频教程和 playground 模板。
+:::
+
+### Flex Layout 基于 Flexbox CSS 标准
+
+Penpot 的 Flex Layout 构建在 Flexbox 之上。Flexbox 是一个 CSS 模块，它为容器中的项目提供了更高效的布局、对齐和空间分配方式。关于 Flexbox 有许多全面的解释，如果你感兴趣，我们建议你阅读 CSS Tricks 上的说明。
+
+![](/images/penpot/flexible-layouts-1.png)
+
+### 添加 Flex Layout
+
+你可以向任何图层、组、画板或包含这些对象的选择添加 Flex Layout。添加后，所选元素会被包含到一个具有 Flex Layout 属性的画板中。你可以通过以下方式添加：
+
+- 从右侧边栏的 Design 面板添加。
+- 从选择菜单（右键菜单）中的选项添加。
+- 按 `Ctrl/⌘` + `A`。
+
+![](/images/penpot/flexible-layouts-2.png)
+
+### 将图层安排和重新排序到 Flex Layout
+
+要向 Flex Layout 添加图层，只需把它拖动到你选择的位置。你也可以像普通画板一样创建或粘贴元素。
+
+要重新排序元素，可以拖动它们，或使用 `UP/DOWN` 按键。
+
+(视频略)
+
+### Flex Layout 属性
+
+Flex Layout 提供方向、对齐、分布、间距、内边距、外边距和尺寸等属性。这些属性与 CSS Flexbox 中可使用的属性相同。
+
+![](/images/penpot/flexible-layouts-3.png)
+
+你可以阅读关于 Flexbox 属性的详细说明。
+
+Flex Layout 属性包括：
+
+- Direction：Row、reverse row、column、reverse column。
+- Wrap（Direction）：Align content start / center / end / space-around / space-between。
+- Align items：Start、center、end。
+- Justify content：start、center、end、space-between、space-around、space-evenly。
+- Gap：Row、column。
+- Padding：Top、right、bottom、left。
+- Sizing：Fix/fit width、Fix/fit height。
+
+### 定位 flex 元素
+
+#### 静态定位
+
+静态定位是 flex 元素的默认选项，表示它们会包含在 flex 流中，并使用 flex 属性。
+
+![](/images/penpot/flexible-layouts-4.png)
+
+#### 绝对定位
+
+选择绝对定位会把元素排除在 Flex 布局流之外，使你可以不受所属布局尺寸影响，自由地把元素定位到特定位置。
+
+![](/images/penpot/flexible-layouts-5.png)
+
+#### Z-index
+
+使用 z-index 选项，可以在保持图层顺序的同时决定重叠元素的顺序。
+
+(视频略)
+
+### 管理 flex 间距
+
+创建 Flex 布局时，间距会被预测，从而帮助你保持设计构图。
+
+(视频略)
+
+使用对应的数字输入设置内边距、外边距和间隙。
+
+你也可以点击并拖动来调整它们，同时查看正在编辑的值：
+
+- 拖动时按住 `Shift/⇧`，可均匀改变相对两侧的值。
+- 拖动时按住 `Alt/⌥`，可均匀改变所有侧的值。
+
+(视频略)
+
+### 获取代码和规格
+
+使用 Flex Layout 设计会生成可用于生产的代码。选择 flex 画板或其中的元素，然后打开 Inspect 标签，即可获得其属性、详细信息和原始代码。
+
+![](/images/penpot/layouts-flex-code.gif)
+
+### Flex Layout 基础示例
+
+#### 如何创建按钮
+
+这是一个经典示例，可以帮助你创建会根据内容增长的弹性按钮。
+
+(视频略)
+
+#### 如何创建列表
+
+对列表项排序非常有用。请记得把容器高度设置为 fit，使其能够根据项目数量自动适配。
+
+(视频略)
+
+#### 元素换行
+
+使用 wrap 属性并配合 row 方向，可以让元素分布到多行中。
+
+(视频略)
+
+## Grid Layout
+
+Grid Layout 允许你在二维布局中高效地组织、对齐和分布项目。你可以创建元素的行和列，并精细控制它们的扩展、对齐方式，以及对不同屏幕尺寸的响应能力。它是创建响应式设计的强大工具。
+
+(视频略)
+
+重新排列 Grid Layout 中的单元格。
+
+### Grid Layout 基于 CSS Grid 标准
+
+Penpot 的 Grid Layout 构建在 CSS Grid 之上。CSS Grid 是一个相当新的 CSS 模块。如果你有兴趣进一步了解这个 CSS 模块，我们建议查看 CSS Tricks 上的 Guide to CSS Grid 这篇全面说明。
+
+### 添加 Grid Layout
+
+你可以向任何图层、组、画板或选择添加 Grid Layout。添加后，所选元素会被包含到一个通过 Grid Layout 属性管理空间的画板中。可以通过以下方式添加：
+
+- 从右侧边栏的 Design 面板添加。
+- 从选择菜单（右键菜单）中的选项添加。
+- 按 `Ctrl/⌘` + `Shift` + `A`。
+
+![](/images/penpot/flexible-layouts-6.png)
+
+### Grid Layout 基础术语
+
+- Container：容器是所有网格项目的父元素。
+- Cell：网格中的单个单元。单元格是网格容器的子元素。
+- Area：由任意数量网格单元组成的组合。
+- Gap：网格项目（单元格和区域）之间的水平和垂直空间。
+- Row：定义网格行的水平线。
+- Column：定义网格列的垂直线。
+
+### Grid Layout 属性
+
+Grid 容器和 Grid 项目（单元格、行、列）都有属性。这些属性与 CSS Grid 中可使用的属性相同。
+
+你可以阅读关于 CSS Grid 属性的详细说明。
+
+#### Grid 容器属性
+
+![](/images/penpot/flexible-layouts-7.png)
+
+- Direction：Row、column。
+- Align items（垂直和水平）：Start、center、end。
+- Justify items（垂直和水平）：Start、center、end、space-around、space-between、stretch。
+- Gap：Row、column。
+- Padding：Top、right、bottom、left、vertical、horizontal。
+
+#### Grid 单元格属性
+
+![](/images/penpot/flexible-layouts-8.png)
+
+Auto、Manual 和 Area 是管理元素位置的不同方式，因此对应不同的代码表达。
+
+- Auto：元素按顺序放置到单元格中；如果新元素进入流，其余元素会重新定位。这是默认行为。
+- Manual：元素放置在特定单元格或区域中。区域单元格中的元素会拥有 CSS 属性 `grid-column` 和 `grid-row`。
+- Area：带有区域名称的单元格或区域。区域的行为与 Manual 单元格相同。
+
+Align self（垂直和水平）：Start、center、end、stretch。
+
+### 放置网格元素
+
+要把元素放入网格布局，只需把它们拖动或粘贴到单元格或区域中。
+
+提示：把元素拖到网格上方，然后按 `Ctrl` 可将其作为 auto 放置。这样图层会自动放置在第一个可用单元格或区域中。
+
+(视频略)
+
+#### 网格元素属性
+
+- Position：static、absolute。
+- Width：fix、100%。
+- Margin：top、right、bottom、left。
+
+### 编辑行和列
+
+要编辑网格布局（行、列、单位、单元格、区域等），可以选择画板并按 “Edit grid” 按钮，或双击画板。
+
+你有几种方式可以编辑行和列：
+
+#### 设计侧边栏
+
+(视频略)
+
+在设计侧边栏中，你可以：
+
+- 获取列和行的信息：按 Columns 或 Rows 区域旁边的三个点查看详细信息。
+- 添加列和行：按 + 按钮添加列或行。
+- 删除列和行：按 - 按钮删除特定列或行。
+- 拖动列和行：点击并拖动拖拽图标，可重新排序列和行。
+- 更改尺寸和单位：更改每一行和列的具体尺寸和单位。
+
+提示：如果拖动列和行时按住 `Ctrl`，可以在保持元素位置不变的情况下执行操作。
+
+#### 设计视口
+
+(视频略)
+
+在设计视口中，你可以：
+
+- 添加列和行：按标题末尾的 + 按钮添加列或行。
+- 拖动列和行：把鼠标悬停在列或行标题上，直到出现手形光标，然后点击并拖动。
+- 更改尺寸和单位：拖动列和行编号，并在其标题上更改具体尺寸和单位。
+
+提示：如果拖动列和行时按住 `Ctrl`，可以在保持元素位置不变的情况下执行操作。
+
+#### 上下文菜单
+
+要打开行和列的上下文菜单，可以右键点击列或行标题，也可以左键点击菜单按钮。
+
+在行和列的上下文菜单中，你可以：
+
+- 复制行/列。
+- 在左侧添加 1 行/列。
+- 在右侧添加 1 行/列。
+- 删除行/列。
+- 删除行/列和形状。
+
+### 网格单位
+
+网格列和单元格可以使用不同单位：
+
+- FR：FR 代表 “fractional unit”，即“剩余空间的一部分”。如果网格有 2 列，一列为 1fr，另一列为 3fr，则第一列占 25% 空间，另一列占 75%。
+- Auto：行/列尺寸会根据项目和可用空间自动设置。
+- Pixels：像素单位。
+
+### 区域
+
+区域是由任意数量网格单元组成的组合。
+
+(视频略)
+
+#### 创建区域
+
+有两种方式创建区域：
+
+1. 按住 `Ctrl` 并左键选择多个单元格，然后右键打开菜单并选择 “Merge cells”。
+2. 左键选择一个单元格，然后悬停到想与其合并的单元格边界附近，直到光标变化。随后拖动光标，将所选区域沿同一方向与其他区域合并。
+
+#### 命名区域
+
+要命名区域，请在网格单元格属性（右侧边栏）中选择 “Area” 选项，并填写区域名称。
+
+#### 撤销区域
+
+要把区域恢复为普通单元格，只需在网格单元格属性（右侧边栏）中选择 “Auto”。
+
+### Grid 代码和规格
+
+Penpot 中的 Grid Layout 行为就像 CSS Grid，因为它实际使用的就是 CSS Grid 标准。这意味着你可以切换到 Inspect mode，获取代码并用于真实网站。
+
+![](/images/penpot/layouts-grid-code.gif)

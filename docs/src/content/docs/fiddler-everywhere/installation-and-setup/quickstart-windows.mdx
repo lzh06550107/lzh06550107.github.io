@@ -1,0 +1,98 @@
+---
+title: "Windows 上的初始步骤"
+description: "基于 Telerik Fiddler Everywhere Windows 快速入门页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "First Steps on Windows"
+  order: 26
+sourceTitle: "First Steps with Fiddler Everywhere on Windows"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/quickstart-windows"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+本文介绍如何在 Windows 上安装并开始使用 Fiddler Everywhere。整体流程可以分为三部分：
+
+1. 完成安装和基础配置。
+2. 创建并登录 Fiddler/Telerik 账号。
+3. 开始捕获、检查和修改网络流量。
+
+## 前置条件
+
+在 Windows 上使用 Fiddler Everywhere 前，需要先确认以下条件：
+
+- 操作系统建议使用 Windows 10 x64 22H2 或更新补丁版本、Windows 11 x64，或 Windows Server 2016 及更新版本。
+- 预留至少约 400 MB 的可用磁盘空间。
+- 使用具备管理员权限的账号，后续捕获和解密 HTTPS 流量时会用到。
+- 保持可用的互联网连接，并允许访问 Telerik、GetFiddler、相关下载服务和 Cloudflare 验证服务。
+
+```text
+https://*.telerik.com/
+https://*.getfiddler.com/
+https://fiddler-backend-production.s3-accelerate.amazonaws.com
+https://challenges.cloudflare.com
+```
+
+- 确保 Fiddler Everywhere 使用的代理端口没有被防火墙或安全工具拦截。默认端口是 `8866`，也可以在设置中的连接选项里修改监听端口。
+
+:::caution[旧版 Windows 支持]
+Fiddler Everywhere 5.0.0 起不再支持 Windows 7 和 Windows 8.1。企业旧设备如果仍停留在这些系统上，应先确认系统升级或兼容替代方案。
+:::
+
+## 步骤 1：安装 Fiddler Everywhere
+
+首先下载并安装最新版 Fiddler Everywhere。
+
+Windows 安装时通常需要选择安装范围：
+
+- **按当前用户安装**：只允许当前登录的 Windows 用户使用。
+- **按整台机器安装**：允许同一台主机上的所有用户使用。
+
+需要注意的是，同一台主机上不支持同时运行多个 Fiddler Everywhere 实例。若选择按整台机器安装，每个 Windows 用户仍需要分别使用自己的账号登录；各自生成的数据不会自动对其他用户开放。
+
+## 步骤 2：创建 Fiddler 账号
+
+安装后启动 Fiddler Everywhere，并通过登录入口创建统一的 Telerik 账号。
+
+你可以使用以下方式注册或登录：
+
+- 邮箱和密码。
+- Google 登录。
+- 企业订阅场景下的 SSO 登录。
+
+注册时需要填写必要的个人资料，并通过邮箱确认完成账号激活。激活后回到 Fiddler Everywhere，可以选择开始免费试用，或购买订阅计划。
+
+登录成功后，首页面板会显示你的个人信息和许可证信息。
+
+## 步骤 3：处理捕获到的流量
+
+账号准备完成后，就可以开始使用 Fiddler Everywhere 的核心能力，包括捕获、检查、保存、共享、导入、导出、模拟和修改 HTTPS 流量。
+
+常见操作流程如下：
+
+1. 选择合适的捕获模式，开始捕获 HTTPS 流量。
+2. 如需捕获并解密安全 HTTPS 流量，需要安装并信任 Fiddler 的 CA 证书。
+3. 在会话列表中检查已捕获的数据。
+4. 根据需要保存、共享或导出捕获结果。
+5. 使用 Composer 修改或构造请求。
+6. 使用 Rules 规则能力模拟客户端或服务端行为。
+
+:::tip[Rules 的用途]
+Rules 是 Fiddler Everywhere 中比较强大的功能。它可以在不修改客户端或服务端程序的情况下，对进入的流量执行规则，从而模拟客户端或服务端行为。
+:::
+
+## 下一步
+
+完成 Windows 初始配置后，可以继续学习以下主题：
+
+- 捕获模式与捕获选项。
+- 安装并信任 Fiddler CA 证书，以解密 HTTPS 流量。
+- 与协作者共享捕获的会话。
+- 创建 API 请求。
+- 将 API 请求组织到集合中。
+- 模拟服务端响应。
+
+## 原文信息
+
+- 原文标题：First Steps with Fiddler Everywhere on Windows
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/quickstart-windows

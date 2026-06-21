@@ -1,0 +1,35 @@
+---
+title: "修改与过滤流量"
+description: "Fiddler Everywhere Modify & Filter Traffic 菜单项的简体中文整理。"
+sidebar:
+  label: "Modify & Filter Traffic"
+  order: 50
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/modify-and-filter-traffic"
+---
+
+# 修改与过滤流量
+
+本节对应官方菜单 **Modify & Filter Traffic**。它介绍如何通过规则、断点、过滤器和重放功能对捕获的网络会话进行筛选、修改、模拟和复现。
+
+## 菜单页面顺序
+
+1. **Breakpoints**：断点。
+2. **Conditions and Actions**：条件和操作。
+3. **Filter Traffic**：过滤流量。
+4. **Mocking Traffic with Rules**：使用规则模拟流量。
+5. **Modify Traffic with Rules**：使用规则修改流量。
+6. **Organizing Rules**：组织规则。
+7. **Replaying Traffic**：重放流量。
+8. **Repro Playback**：复现播放。
+
+## 核心概念
+
+Fiddler 规则允许你根据条件匹配 HTTP 请求或响应，并执行相应操作。你可以在不修改客户端代码、不访问服务器的情况下，模拟响应、替换内容、设置断点、重定向请求、修改 Header 或重放会话。
+
+## 常见场景
+
+- 本地模拟接口异常或慢响应。
+- 快速验证前端在不同响应内容下的行为。
+- 过滤掉不相关域名，只关注目标 API。
+- 把线上请求重放到测试环境。
+- 使用规则批量修改请求或响应。

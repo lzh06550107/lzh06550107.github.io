@@ -249,15 +249,27 @@ export const docsets = [
                             },
                         ],
                     },
-                    { label: 'Chrome extension (beta)', link: '/claude-code/platforms-and-integrations/chrome-extension-beta/' },
-                    { label: 'Computer use (preview)', link: '/claude-code/platforms-and-integrations/computer-use-preview/' },
-                    { label: 'Visual Studio Code', link: '/claude-code/platforms-and-integrations/visual-studio-code/' },
+                    {
+                        label: 'Chrome extension (beta)',
+                        link: '/claude-code/platforms-and-integrations/chrome-extension-beta/',
+                    },
+                    {
+                        label: 'Computer use (preview)',
+                        link: '/claude-code/platforms-and-integrations/computer-use-preview/',
+                    },
+                    {
+                        label: 'Visual Studio Code',
+                        link: '/claude-code/platforms-and-integrations/visual-studio-code/',
+                    },
                     { label: 'JetBrains IDEs', link: '/claude-code/platforms-and-integrations/jetbrains-ides/' },
                     {
                         label: 'Code review & CI/CD',
                         items: [
                             { label: 'Code Review', link: '/claude-code/platforms-and-integrations/code-review/' },
-                            { label: 'GitHub Actions', link: '/claude-code/platforms-and-integrations/github-actions/' },
+                            {
+                                label: 'GitHub Actions',
+                                link: '/claude-code/platforms-and-integrations/github-actions/',
+                            },
                             {
                                 label: 'GitHub Enterprise Server',
                                 link: '/claude-code/platforms-and-integrations/github-enterprise-server/',
@@ -265,7 +277,10 @@ export const docsets = [
                             { label: 'GitLab CI/CD', link: '/claude-code/platforms-and-integrations/gitlab-ci-cd/' },
                         ],
                     },
-                    { label: 'Claude Code in Slack', link: '/claude-code/platforms-and-integrations/claude-code-in-slack/' },
+                    {
+                        label: 'Claude Code in Slack',
+                        link: '/claude-code/platforms-and-integrations/claude-code-in-slack/',
+                    },
                 ],
             },
         ],
@@ -338,8 +353,14 @@ export const docsets = [
             {
                 label: 'Tutorials',
                 items: [
-                    { label: 'A Free Alternative to AI for Robust Web Scraping', link: '/scrapling/tutorials/replacing_ai/' },
-                    { label: 'Migrating from BeautifulSoup', link: '/scrapling/tutorials/migrating_from_beautifulsoup/' },
+                    {
+                        label: 'A Free Alternative to AI for Robust Web Scraping',
+                        link: '/scrapling/tutorials/replacing_ai/',
+                    },
+                    {
+                        label: 'Migrating from BeautifulSoup',
+                        link: '/scrapling/tutorials/migrating_from_beautifulsoup/',
+                    },
                 ],
             },
             {
@@ -358,7 +379,10 @@ export const docsets = [
                         ],
                     },
                     { label: 'Writing your retrieval system', link: '/scrapling/development/adaptive_storage_system/' },
-                    { label: 'Using Scrapling\'s custom types', link: '/scrapling/development/scrapling_custom_types/' },
+                    {
+                        label: 'Using Scrapling\'s custom types',
+                        link: '/scrapling/development/scrapling_custom_types/',
+                    },
                 ],
             },
             { label: 'Support and Advertisement', link: '/scrapling/donate/' },
@@ -539,33 +563,149 @@ export const docsets = [
                 label: '更新日志',
                 link: '/agent-browser/changelog/',
             },
-        ]
+        ],
     },
     {
-    id: 'langchain',
-    title: 'LangChain Python',
-    cardLabel: 'LangChain Python 文档集',
-    description: 'LangChain Python 官方文档的简体中文 Starlight 版本，覆盖概览、快速开始、核心组件、Middleware、Frontend、高级用法、Agent 开发与部署。',
-    landing: '/langchain/',
-    ctaLabel: '进入 LangChain 文档',
-    featuredLinks: [
-        { label: '概览', href: '/langchain/' },
-        { label: '安装', href: '/langchain/get-started/install/' },
-        { label: '快速开始', href: '/langchain/get-started/quickstart/' },
-        { label: 'Agents', href: '/langchain/core-components/agents/' },
-    ],
-    sections: [
-        { label: 'LangChain 概览', link: '/langchain/' },
-        { label: 'Get started', autogenerate: { directory: 'langchain/get-started' } },
-        { label: 'Core components', autogenerate: { directory: 'langchain/core-components' } },
-        { label: 'Middleware', autogenerate: { directory: 'langchain/middleware' } },
-        { label: 'Frontend', autogenerate: { directory: 'langchain/frontend' } },
-        { label: 'Advanced usage', autogenerate: { directory: 'langchain/advanced' } },
-        { label: 'Multi-agent', autogenerate: { directory: 'langchain/multi-agent' } },
-        { label: 'Agent development', autogenerate: { directory: 'langchain/agent-development' } },
-        { label: 'Deploy with LangSmith', autogenerate: { directory: 'langchain/deploy' } },
-        { label: 'Examples', autogenerate: { directory: 'langchain/examples' } },
-    ],
+        id: 'fiddler-everywhere',
+        title: 'Fiddler Everywhere',
+        cardLabel: 'Fiddler Everywhere 文档集',
+        description: 'Fiddler Everywhere 官方文档的简体中文 Starlight 版本，按 `sidebar.json` 中定义的顺序整理。',
+        landing: '/fiddler-everywhere/',
+        ctaLabel: '进入 Fiddler Everywhere 文档',
+        featuredLinks: [
+            { label: 'Introduction', href: '/fiddler-everywhere/' },
+            { label: 'Installation & Setup', href: '/fiddler-everywhere/installation-and-setup/' },
+            { label: 'Capture Traffic', href: '/fiddler-everywhere/capture-traffic/' },
+            { label: 'Inspect Traffic', href: '/fiddler-everywhere/inspect-traffic/' },
+        ],
+        sections: [
+            {
+                label: 'Introduction',
+                items: [
+                    { label: 'Introduction', link: '/fiddler-everywhere/' },
+                    { label: 'Installation & Setup', link: '/fiddler-everywhere/installation-and-setup/' },
+                    { label: 'Capture Traffic', link: '/fiddler-everywhere/capture-traffic/' },
+                    { label: 'Inspect Traffic', link: '/fiddler-everywhere/inspect-traffic/' },
+                    { label: 'Modify & Filter Traffic', link: '/fiddler-everywhere/modify-and-filter-traffic/' },
+                    { label: 'Agent Tools', link: '/fiddler-everywhere/agent-tools/' },
+                    { label: 'Agent Cache', link: '/fiddler-everywhere/agent-cache/' },
+                    { label: 'Compose API Requests', link: '/fiddler-everywhere/compose-api-requests/' },
+                    { label: 'Collaboration', link: '/fiddler-everywhere/collaboration/' },
+                    { label: 'Debugging Assistant', link: '/fiddler-everywhere/debugging-assistant/' },
+                    { label: 'Rules Presets', link: '/fiddler-everywhere/rules-presets/' },
+                    { label: 'User Interface', link: '/fiddler-everywhere/user-interface/' },
+                    { label: 'Security', link: '/fiddler-everywhere/security/' },
+                    { label: 'Support', link: '/fiddler-everywhere/support/' },
+                    {
+                        label: 'Fiddler Everywhere Reporter',
+                        link: '/fiddler-everywhere/fiddler-everywhere-reporter/',
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        id: 'penpot',
+        title: 'Penpot',
+        cardLabel: 'Penpot 文档集',
+        description: 'Penpot 用户指南的简体中文 Starlight 版本，覆盖入门、账户与团队、设计、设计系统、原型、导入导出、开发工具与插件集成。',
+        landing: '/penpot/',
+        ctaLabel: '进入 Penpot 文档',
+        featuredLinks: [
+            { label: '概览', href: '/penpot/' },
+            { label: '第一步', href: '/penpot/first-steps/' },
+            { label: '设计', href: '/penpot/designing/' },
+            { label: '设计系统', href: '/penpot/design-systems/' },
+        ],
+        sections: [
+            {
+                label: '第一步',
+                items: [
+                    { label: '概览', link: '/penpot/first-steps/' },
+                    { label: '云端或自托管', link: '/penpot/first-steps/cloud-selfhost/' },
+                    { label: '界面导览', link: '/penpot/first-steps/the-interface/' },
+                    { label: '快捷键', link: '/penpot/first-steps/shortcuts/' },
+                    { label: '教程与信息', link: '/penpot/first-steps/info/' },
+                    { label: 'WebGL 故障排查', link: '/penpot/first-steps/troubleshooting-webgl/' },
+                ],
+            },
+            {
+                label: '设计',
+                items: [
+                    { label: '概览', link: '/penpot/designing/' },
+                    { label: '工作区基础', link: '/penpot/designing/workspace-basics/' },
+                    { label: '图层', link: '/penpot/designing/layers/' },
+                    { label: '颜色与描边', link: '/penpot/designing/color-stroke/' },
+                    { label: '文本与排版', link: '/penpot/designing/text-typo/' },
+                    { label: '弹性布局', link: '/penpot/designing/flexible-layouts/' },
+                ],
+            },
+            {
+                label: '设计系统',
+                items: [
+                    { label: '概览', link: '/penpot/design-systems/' },
+                    { label: '资产', link: '/penpot/design-systems/assets/' },
+                    { label: '库', link: '/penpot/design-systems/libraries/' },
+                    { label: '组件', link: '/penpot/design-systems/components/' },
+                    { label: '变体', link: '/penpot/design-systems/variants/' },
+                    { label: '设计令牌', link: '/penpot/design-systems/design-tokens/' },
+                ],
+            },
+            {
+                label: '原型与测试',
+                items: [
+                    { label: '概览', link: '/penpot/prototyping-testing/' },
+                    { label: '原型', link: '/penpot/prototyping-testing/prototyping/' },
+                    { label: '演示与查看模式', link: '/penpot/prototyping-testing/testing-view-mode/' },
+                ],
+            },
+            { label: '开发工具', link: '/penpot/dev-tools/' },
+            { label: '插件与集成', link: '/penpot/plugins-integrations/' },
+            {
+                label: '导出与导入',
+                items: [
+                    { label: '概览', link: '/penpot/export-import/' },
+                    { label: '导入/导出 Penpot 文件', link: '/penpot/export-import/export-import-files/' },
+                    { label: '导出图层', link: '/penpot/export-import/exporting-layers/' },
+                ],
+            },
+            {
+                label: '账户与团队',
+                items: [
+                    { label: '概览', link: '/penpot/account-teams/' },
+                    { label: '你的账户', link: '/penpot/account-teams/your-account/' },
+                    { label: '团队', link: '/penpot/account-teams/teams/' },
+                    { label: '项目与文件', link: '/penpot/account-teams/projects-files/' },
+                    { label: '评论', link: '/penpot/account-teams/comments/' },
+                ],
+            },
+        ],
+    },
+    {
+        id: 'langchain',
+        title: 'LangChain Python',
+        cardLabel: 'LangChain Python 文档集',
+        description: 'LangChain Python 官方文档的简体中文 Starlight 版本，覆盖概览、快速开始、核心组件、Middleware、Frontend、高级用法、Agent 开发与部署。',
+        landing: '/langchain/',
+        ctaLabel: '进入 LangChain 文档',
+        featuredLinks: [
+            { label: '概览', href: '/langchain/' },
+            { label: '安装', href: '/langchain/get-started/install/' },
+            { label: '快速开始', href: '/langchain/get-started/quickstart/' },
+            { label: 'Agents', href: '/langchain/core-components/agents/' },
+        ],
+        sections: [
+            { label: 'LangChain 概览', link: '/langchain/' },
+            { label: 'Get started', autogenerate: { directory: 'langchain/get-started' } },
+            { label: 'Core components', autogenerate: { directory: 'langchain/core-components' } },
+            { label: 'Middleware', autogenerate: { directory: 'langchain/middleware' } },
+            { label: 'Frontend', autogenerate: { directory: 'langchain/frontend' } },
+            { label: 'Advanced usage', autogenerate: { directory: 'langchain/advanced' } },
+            { label: 'Multi-agent', autogenerate: { directory: 'langchain/multi-agent' } },
+            { label: 'Agent development', autogenerate: { directory: 'langchain/agent-development' } },
+            { label: 'Deploy with LangSmith', autogenerate: { directory: 'langchain/deploy' } },
+            { label: 'Examples', autogenerate: { directory: 'langchain/examples' } },
+        ],
     },
     {
         id: 'langgraph',
@@ -661,101 +801,109 @@ export const docsets = [
         sections: [
             { label: '介绍', link: '/camoufox/' },
             { label: '功能列表', link: '/camoufox/features/' },
-            { label: '隐身', items: [
-                { label: '隐身概览', link: '/camoufox/stealth/' },
-            ]},
-            { label: 'Python', items: [
-                { label: 'Python 接口', link: '/camoufox/python/' },
-                { label: '安装', link: '/camoufox/python/installation/' },
-                { label: '用法', link: '/camoufox/python/usage/' },
-                { label: 'GeoIP 与代理支持', link: '/camoufox/python/geoip/' },
-                { label: '主世界执行', link: '/camoufox/python/main-world-eval/' },
-                { label: '远程服务器', link: '/camoufox/python/remote-server/' },
-                { label: '虚拟显示', link: '/camoufox/python/virtual-display/' },
-                { label: 'BrowserForge 集成', link: '/camoufox/python/browser-forge-integration/' },
-                { label: '传递配置', link: '/camoufox/python/passing-config/' },
-            ]},
-            { label: '指纹注入', items: [
-                { label: '概览', link: '/camoufox/fingerprint/' },
-                { label: 'Navigator', link: '/camoufox/fingerprint/navigator/' },
-                { label: 'Cursor Movement', link: '/camoufox/fingerprint/cursor-movement/' },
-                { label: 'Fonts', link: '/camoufox/fingerprint/fonts/' },
-                { label: 'Screen', link: '/camoufox/fingerprint/screen/' },
-                { label: 'Window', link: '/camoufox/fingerprint/window/' },
-                { label: 'Document', link: '/camoufox/fingerprint/document/' },
-                { label: 'WebGL', link: '/camoufox/fingerprint/webgl/' },
-                { label: '地理位置与 Intl', link: '/camoufox/fingerprint/geolocation/' },
-                { label: 'HTTP Headers', link: '/camoufox/fingerprint/http-headers/' },
-                { label: 'webrtc IP', link: '/camoufox/fingerprint/webrtc-ip/' },
-                { label: 'Media & Audio', link: '/camoufox/fingerprint/media-audio/' },
-                { label: 'Voices', link: '/camoufox/fingerprint/voices/' },
-                { label: 'addons', link: '/camoufox/fingerprint/addons/' },
-                { label: 'miscellaneous', link: '/camoufox/fingerprint/miscellaneous/' },
-            ]},
-            { label: '开发', items: [
-                { label: '开发概览', link: '/camoufox/development/' },
-                { label: '构建系统', link: '/camoufox/development/build-system/' },
-                { label: '在 CLI 中构建', link: '/camoufox/development/build-cli/' },
-                { label: '在 Docker 中构建', link: '/camoufox/development/build-docker/' },
-                { label: '开发工具', link: '/camoufox/development/development-tools/' },
-                { label: '泄漏调试', link: '/camoufox/development/leak-debugging/' },
-            ]},
+            {
+                label: '隐身', items: [
+                    { label: '隐身概览', link: '/camoufox/stealth/' },
+                ],
+            },
+            {
+                label: 'Python', items: [
+                    { label: 'Python 接口', link: '/camoufox/python/' },
+                    { label: '安装', link: '/camoufox/python/installation/' },
+                    { label: '用法', link: '/camoufox/python/usage/' },
+                    { label: 'GeoIP 与代理支持', link: '/camoufox/python/geoip/' },
+                    { label: '主世界执行', link: '/camoufox/python/main-world-eval/' },
+                    { label: '远程服务器', link: '/camoufox/python/remote-server/' },
+                    { label: '虚拟显示', link: '/camoufox/python/virtual-display/' },
+                    { label: 'BrowserForge 集成', link: '/camoufox/python/browser-forge-integration/' },
+                    { label: '传递配置', link: '/camoufox/python/passing-config/' },
+                ],
+            },
+            {
+                label: '指纹注入', items: [
+                    { label: '概览', link: '/camoufox/fingerprint/' },
+                    { label: 'Navigator', link: '/camoufox/fingerprint/navigator/' },
+                    { label: 'Cursor Movement', link: '/camoufox/fingerprint/cursor-movement/' },
+                    { label: 'Fonts', link: '/camoufox/fingerprint/fonts/' },
+                    { label: 'Screen', link: '/camoufox/fingerprint/screen/' },
+                    { label: 'Window', link: '/camoufox/fingerprint/window/' },
+                    { label: 'Document', link: '/camoufox/fingerprint/document/' },
+                    { label: 'WebGL', link: '/camoufox/fingerprint/webgl/' },
+                    { label: '地理位置与 Intl', link: '/camoufox/fingerprint/geolocation/' },
+                    { label: 'HTTP Headers', link: '/camoufox/fingerprint/http-headers/' },
+                    { label: 'webrtc IP', link: '/camoufox/fingerprint/webrtc-ip/' },
+                    { label: 'Media & Audio', link: '/camoufox/fingerprint/media-audio/' },
+                    { label: 'Voices', link: '/camoufox/fingerprint/voices/' },
+                    { label: 'addons', link: '/camoufox/fingerprint/addons/' },
+                    { label: 'miscellaneous', link: '/camoufox/fingerprint/miscellaneous/' },
+                ],
+            },
+            {
+                label: '开发', items: [
+                    { label: '开发概览', link: '/camoufox/development/' },
+                    { label: '构建系统', link: '/camoufox/development/build-system/' },
+                    { label: '在 CLI 中构建', link: '/camoufox/development/build-cli/' },
+                    { label: '在 Docker 中构建', link: '/camoufox/development/build-docker/' },
+                    { label: '开发工具', link: '/camoufox/development/development-tools/' },
+                    { label: '泄漏调试', link: '/camoufox/development/leak-debugging/' },
+                ],
+            },
         ],
     },
     {
-    id: 'comfy',
-    title: 'ComfyUI',
-    cardLabel: 'ComfyUI 文档集',
-    description: 'ComfyUI 官方文档的简体中文 Starlight 版本（按官方菜单顺序整理）',
-    landing: '/comfy/',
-    ctaLabel: '进入 ComfyUI 文档',
-    featuredLinks: [
-        { label: '介绍', href: '/comfy/' },
-        { label: '系统要求', href: '/comfy/installation/system-requirements/' },
-        { label: '开始 AI 绘图之旅', href: '/comfy/get-started/first-generation/' },
-        { label: '界面概览', href: '/comfy/interface/overview/' },
-    ],
-    sections: [
-        {
-        label: '开始使用',
-        items: [
-            { label: '介绍', link: '/comfy/' },
+        id: 'comfy',
+        title: 'ComfyUI',
+        cardLabel: 'ComfyUI 文档集',
+        description: 'ComfyUI 官方文档的简体中文 Starlight 版本（按官方菜单顺序整理）',
+        landing: '/comfy/',
+        ctaLabel: '进入 ComfyUI 文档',
+        featuredLinks: [
+            { label: '介绍', href: '/comfy/' },
+            { label: '系统要求', href: '/comfy/installation/system-requirements/' },
+            { label: '开始 AI 绘图之旅', href: '/comfy/get-started/first-generation/' },
+            { label: '界面概览', href: '/comfy/interface/overview/' },
+        ],
+        sections: [
             {
-            label: '本地（自托管）',
-            items: [
-                { label: '系统要求', link: '/comfy/installation/system-requirements/' },
-                { label: '手动安装', link: '/comfy/installation/manual-install/' },
-            ],
-            },
-            {
-            label: '安装自定义节点',
-            items: [
-                { label: '如何安装自定义节点', link: '/comfy/installation/install-custom-node/' },
-                {
-                label: 'ComfyUI-Manager',
+                label: '开始使用',
                 items: [
-                    { label: '概述', link: '/comfy/manager/overview/' },
-                    { label: '安装', link: '/comfy/manager/install/' },
+                    { label: '介绍', link: '/comfy/' },
+                    {
+                        label: '本地（自托管）',
+                        items: [
+                            { label: '系统要求', link: '/comfy/installation/system-requirements/' },
+                            { label: '手动安装', link: '/comfy/installation/manual-install/' },
+                        ],
+                    },
+                    {
+                        label: '安装自定义节点',
+                        items: [
+                            { label: '如何安装自定义节点', link: '/comfy/installation/install-custom-node/' },
+                            {
+                                label: 'ComfyUI-Manager',
+                                items: [
+                                    { label: '概述', link: '/comfy/manager/overview/' },
+                                    { label: '安装', link: '/comfy/manager/install/' },
+                                ],
+                            },
+                        ],
+                    },
+                    { label: '开始 AI 绘图之旅', link: '/comfy/get-started/first-generation/' },
                 ],
-                },
-            ],
             },
-            { label: '开始 AI 绘图之旅', link: '/comfy/get-started/first-generation/' },
+            {
+                label: '基础概念',
+                items: [
+                    { label: '工作流', link: '/comfy/development/core-concepts/workflow/' },
+                ],
+            },
+            {
+                label: '界面指南',
+                items: [
+                    { label: '界面概览', link: '/comfy/interface/overview/' },
+                ],
+            },
         ],
-        },
-        {
-        label: '基础概念',
-        items: [
-            { label: '工作流', link: '/comfy/development/core-concepts/workflow/' },
-        ],
-        },
-        {
-        label: '界面指南',
-        items: [
-            { label: '界面概览', link: '/comfy/interface/overview/' },
-        ],
-        },
-    ],
     },
     {
         id: 'playwright',
@@ -818,7 +966,7 @@ export const docsets = [
                 ],
             },
         ],
-    }
+    },
 ];
 
 export function buildDocsetSidebar() {

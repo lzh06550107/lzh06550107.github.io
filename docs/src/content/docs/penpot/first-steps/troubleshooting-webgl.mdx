@@ -1,0 +1,114 @@
+---
+title: WebGL 故障排查
+description: WebGL 渲染（Beta）的浏览器、GPU、驱动与系统排查说明。
+---
+
+## WebGL 渲染（Beta）
+
+自 Penpot 2.16 起，`design.penpot.app` 和自托管实例上提供了可选的 WebGL 渲染（Beta）。它默认关闭。
+
+当你希望为复杂文件获得更快的画布时，可以从 **Your account → Settings** 或 **Workspace → Main menu → Preferences** 中开启它。
+
+在此 Beta 版本中，WebGL 仅应用于设计工作区画布。查看模式和导出仍使用旧版渲染器，因此可能会出现一些视觉差异。如果这个 Beta 影响了你的工作，你可以随时切回旧版渲染器。
+
+关于当前范围、下一步优先事项以及已知视觉差异，请在 Penpot Community 阅读 **What's next for the Penpot WebGL renderer**。
+
+启用 WebGL 渲染（Beta）后，Penpot 会使用 WebGL 渲染设计工作区画布。如果你的浏览器中 WebGL 不可用，Penpot 就无法使用该渲染器，工作区画布可能无法正确打开。
+
+有时 WebGL 在浏览器中看起来已经启用，但 Penpot 仍然无法创建图形上下文。这通常与浏览器设置、GPU 加速、驱动程序或临时 GPU 过载有关。
+
+## 在修改任何设置之前
+
+1. 打开 https://get.webgl.org。
+2. 检查结果：
+
+    - 如果你看到一个旋转的立方体，说明 WebGL 在浏览器层面可用。
+    - 如果失败（空白页面、错误消息或没有动画），请继续执行下面的浏览器和系统检查。
+
+## 快速检查（2 分钟）
+
+1. 关闭占用图形资源较多的标签页/应用（视频编辑器、3D 应用、许多设计标签页）。
+2. 重新加载 Penpot。
+3. 完全重启浏览器。
+4. 如有需要，重启你的电脑。
+
+为什么这有帮助：即使你的配置正确，GPU 内存或上下文槽位也可能被临时耗尽。
+
+## Chrome
+
+1. 打开 `chrome://settings/system`。
+2. 开启 **Use graphics acceleration when available**。
+3. 重启 Chrome。
+4. 打开 `chrome://gpu` 并查看与 WebGL 相关的警告。
+
+![](/images/penpot/webgl-1.png)
+
+Chrome 系统设置，其中包含图形加速选项。
+
+为什么这有帮助：WebGL 依赖硬件加速和健康的 GPU 进程。
+
+## Mozilla Firefox
+
+1. 打开 Firefox，并从右上角菜单检查缩放是否设置为 100%。
+2. 从同一菜单打开 **Settings/Preferences**。
+3. 在 **General** 设置中，确认 Firefox 已是最新版本；如有需要，运行 **Check for updates**。
+4. 在 Firefox 设置中启用硬件加速。
+5. 重启 Firefox。
+6. 打开 `about:support` 并查看 **Graphics/WebGL** 部分。
+
+![](/images/penpot/webgl-2.png)
+
+Firefox 设置，其中显示硬件加速配置。
+
+为什么这有帮助：过时的浏览器版本、被禁用的加速或被阻止的 GPU 功能，都可能阻止上下文创建。
+
+## Safari
+
+1. 将 Safari/macOS 更新到可用的最新版本。
+2. 重启 Safari。
+3. 在 https://get.webgl.org 中重新测试。
+
+为什么这有帮助：Safari 的 WebGL 行为与操作系统/浏览器版本和图形栈更新强相关。
+
+## 设置
+
+某些高级浏览器配置或实验性设置可能会干扰 WebGL。如果你过去修改过这些设置，请考虑恢复默认浏览器设置，或在新配置文件中测试。
+
+## 关于缩放和触控板设置
+
+在某些情况下，可能会建议更改浏览器缩放或触控板设置作为临时解决方法。
+
+在 Penpot 中，这些不是 WebGL 的基本要求。只有在支持团队明确要求时，才把它们当作临时诊断手段。
+
+如果你临时更改了其中某个设置，并且 Penpot 开始正常工作，通常可以把它恢复原状并再次测试。
+
+## GPU 驱动和操作系统检查
+
+1. 安装任何待处理的操作系统更新。
+2. 更新 GPU 驱动程序（尤其是在 Windows/Linux 上）。
+3. 禁用图形叠加层/工具（录制叠加层、GPU 调校工具），然后再次测试。
+
+为什么这有帮助：过时或冲突的图形层可能会破坏 WebGL 上下文创建。
+
+## 已知边缘情况：Linux + Nvidia
+
+某些 Linux + Nvidia 组合可能会报告 WebGL 可用，但在特定浏览器/驱动组合中运行时仍然失败。
+
+在某些情况下，在专有驱动和开源驱动之间切换，或更新 NVIDIA 驱动程序，可以解决该问题。
+
+如果这是你的配置，请收集诊断信息并联系支持团队。
+
+## 如果问题仍然存在
+
+如果 WebGL 渲染（Beta）阻碍了你的工作，请在 **Your account → Settings** 或 **Workspace → Preferences** 中关闭它，并在报告问题期间继续使用旧版渲染器。
+
+请分享：
+
+- WebGL 渲染（Beta）是启用还是禁用。
+- 浏览器和版本。
+- 操作系统和版本。
+- `https://get.webgl.org` 的结果。
+- 浏览器图形诊断截图（`chrome://gpu` 或 `about:support`）。
+
+然后通过 `support@penpot.app` 联系我们，或在 `https://github.com/penpot/penpot/issues` 打开 GitHub issue。
+

@@ -1,0 +1,855 @@
+---
+title: 设计令牌
+description: 使用设计令牌创建可复用、语义化、可导入导出的视觉系统值。
+---
+
+设计令牌是所有 UI 元素的构建块，同一批令牌可用于设计、工具和代码。它们包括颜色、排版、间距、阴影，以及任何影响图层的视觉元素。这些属性共同构成设计系统或视觉继承。
+
+![](/images/penpot/token-1.png)
+
+### 为什么使用设计令牌？
+
+设计令牌作为单一事实来源，是一种通用语言，可以被翻译并用于任何能够读取令牌格式的工具或框架。使用设计令牌，你可以在 Penpot 内部以及其他设计工具之间创建、管理和同步这些视觉元素，让设计保持一致，并使工作流更快、更容易维护。
+
+你还可以把设计令牌与 Penpot 的其他核心功能结合使用，例如组件、网格布局和弹性布局。插件也将能够访问令牌 API，使其更加强大。
+
+### W3C DTCG 格式
+
+Penpot 设计令牌遵循 Design Tokens Format Module 及其定义，这是 W3C DTCG 的草案。Penpot 通过遵循目前最标准化的设计令牌方案，确保跨学科、工具和技术的兼容性。
+
+令牌可以从 Penpot 导出，或直接集成到其他工具中，无需转换。此外，在 Penpot 中使用设计令牌所获得的知识，在你继续使用 Penpot 或转向其他工具与技术时仍然有价值。
+
+## 创建令牌
+
+可以在 Tokens 面板中创建可复用、语义化的令牌，并在设计中引用它们。在该面板中，Penpot 中所有可用令牌类型会按字母顺序排列，已有令牌显示在列表顶部。
+
+![](/images/penpot/token-2.png)
+
+要创建令牌，请点击想创建的令牌类型旁边的 `+`。随后需要定义：
+
+- Name：名称应专属于该令牌，因为不能创建多个同名令牌，例如 `dimension.small`。
+- Value：要赋予令牌的值；根据令牌类型，值可以是数字或颜色空间（Hex、RGB、RGBA、ARGB、HSL 或 HSLA）。
+- Description：也可以为令牌添加描述。
+
+命名并分配值后，点击 Save 存储令牌并开始引用。
+
+## 在值中引用令牌（别名）
+
+给令牌赋值时，可以引用已有令牌。这在 DTCG 术语表中称为 alias。
+
+![](/images/penpot/token-3.png)
+
+例如，如果你创建了值为 64 的 `dimension.small` 令牌，可以创建一个 `spacing.small` 令牌，并把其值设为 `{dimension.small}`。这样 `spacing.small` 的值就是 64。
+
+在新令牌的值中引用已有令牌时，必须把引用写在 `{}` 中。
+
+如果被引用令牌的值发生变化，引用它的令牌值也会随之变化。
+
+:::note
+对已有令牌的引用区分大小写。
+:::
+
+## 在令牌值中使用数学表达式
+
+具有数值的令牌类型接受数学方程来计算值。这允许你在令牌之间创建动态关系，构建设计系统。
+
+例如，如果你创建了值为 2 的 `spacing.small`，并想创建一个两倍大的 `spacing.medium`，可以在其值中写 `{spacing.small} * 2`。结果 `spacing.medium` 的值为 4。
+
+也可以在方程中引用其他令牌。例如，你有一个值为 2 的 `spacing.scale`，可以写 `{spacing.small} * {spacing.scale}` 来计算 `spacing.medium`。
+
+![](/images/penpot/token-4.png)
+
+### 基础运算符
+
+数学公式可以使用以下这些基础运算符来计算：
+
+- `+` 加法
+- `-` 减法
+- `*` 乘法
+- `/` 除法
+- `%` 取模（余数）
+- `^` 幂运算
+
+### 数学函数
+
+除了基础运算符之外，您还可以在 Token 值中使用各种数学函数：
+
+- `abs(x)`：绝对值
+- `ceil(x)`：向上取整
+- `floor(x)`：向下取整
+- `round(x)`：四舍五入到最近整数
+- `max(x, y, ...)`：最大值
+- `min(x, y, ...)`：最小值
+- `sqrt(x)`：平方根
+- `pow(x, y)`：x 的 y 次方
+- `log(x)`：自然对数
+- `exp(x)`：e 的 x 次方
+- `sin(x)`、`cos(x)`、`tan(x)`：三角函数
+- `asin(x)`、`acos(x)`、`atan(x)`、`atan2(y, x)`：反三角函数
+
+### 语法和最佳实践
+
+在 Token 值中编写数学公式时，请牢记以下指南：
+
+- 简单方程可以带括号或不带括号，例如 `8 * 8` 和 `(8 * 8)` 都解析为 `64`。
+- 复杂公式需要在运算符之间使用空格，以确保令牌正确转换，例如使用 `8 * 8` 而不是 `8*8`。
+- 使用花括号引用令牌：`{token.name}`。
+- 可以组合硬编码值和令牌引用：`{spacing.base} * 1.5`。
+
+### 实用示例
+
+#### 四舍五入到最近整数
+
+当乘数产生小数时，可以使用 `round()` 得到整数。例如，如果 `sizing.sm` 的值为 2：
+
+```text
+round({sizing.sm} * 1.33)
+```
+
+这会计算 `2 * 1.33 = 2.66`，并四舍五入为 3。
+
+#### 从无单位数字创建百分比
+
+可以将无单位数字转换为百分比。例如，一个名为 `lineHeights.heading.relaxed`、值为 1.5 的 Number 令牌，可以在 Line Height 令牌中写为：
+
+```text
+{lineHeights.heading.relaxed} * 100%
+```
+
+解析值为 150%。
+
+#### 计算最大值或最小值
+
+使用 `max()` 或 `min()` 可确保值保持在范围内。例如：
+
+```text
+max({spacing.base}, 8)
+```
+
+这会确保间距至少为 8，即使基础令牌更小。
+
+## 编辑令牌
+
+右键点击令牌并选择 Edit token，可以编辑令牌。你可以更改令牌名称、值和描述。完成更改后点击 Save。
+
+![](/images/penpot/token-5.png)
+
+当你重命名包含引用的令牌（例如别名、数学运算或已应用令牌）时，Penpot 会提示你将这些引用重新映射到新名称。如果选择重新映射，所有引用都会自动更新，包括令牌别名、设计标签输入、工具提示，以及应用该令牌的任何元素。如果文件是库，重新映射也会更新使用该库的文件中的引用。
+
+![](/images/penpot/token-6.png)
+
+你也可以选择不重新映射，但这会断开连接。
+
+## 复制令牌
+
+右键点击要复制的令牌并选择 Duplicate token，即可复制令牌。这会在同一集合中创建该令牌的副本，并在名称后添加 `-copy`。
+
+## 删除令牌
+
+右键点击要删除的令牌并选择 **Delete token**，即可删除令牌。
+
+## 可用令牌
+
+你可以把令牌应用到任意图层的属性上。对选区应用令牌有两种方式：
+
+- 右键点击令牌，以指定你想应用的某个具体属性。
+- 左键点击令牌，应用默认推断。推断会因令牌类型不同而变化。例如，对于颜色类型，默认推断是把令牌应用为填充。
+
+令牌可以应用到多个选中的元素，但不能应用到组。
+
+### 从 Design 标签应用令牌
+
+除了从 Tokens 面板应用令牌，你还可以从 Design 侧边栏中的数字和颜色字段绑定令牌。
+
+令牌选择可用于：
+
+- 尺寸和位置：宽度、高度、x、y。
+- 旋转和圆角。
+- 布局间距：间隙、内边距、外边距、最小和最大宽高。
+- 排版：字距和行高。
+- 描边宽度。
+- 阴影：x、y、模糊、扩散。
+- 模糊量。
+
+点击字段上的令牌控件，会打开来自当前活动集合和主题的适用令牌列表。选择一个令牌即可应用；令牌 pill 会显示已绑定的令牌。需要再次使用自定义值时，可以通过 pill 菜单解除令牌绑定。
+
+当某个数字字段已应用令牌时，该字段会禁用拖动修改。请先编辑令牌或解除绑定。
+
+![](/images/penpot/token-7.png)
+
+### Border radius
+
+Border radius 令牌允许你为圆角属性定义具体值，让你可以灵活设置元素角的样式。
+
+![](/images/penpot/token-8.png)
+
+#### 应用 Border Radius 令牌
+
+要把圆角令牌应用到元素上，请选择元素并从列表中选择令牌：
+
+- 点击圆角令牌，会同时把它应用到元素的所有角。
+- 右键点击圆角令牌，可以选择要应用到哪些角。
+
+### Color
+
+Color 令牌支持可应用于许多不同设计元素的颜色属性，包括画板、组、形状和文本。
+
+![](/images/penpot/token-9.png)
+
+你可以通过以下方式定义颜色令牌的值：
+
+1. 颜色选择器：选择令牌 **Value** 输入框左侧的颜色开关，打开颜色选择器；你也可以在这里定义颜色透明度。
+2. 颜色空间：使用以下颜色空间定义颜色令牌：
+   - Hex：`#ff0000`
+   - RGB：`rgb(255, 0, 0)`
+   - RGBA：`rgba(255, 0, 0, 1)`
+   - ARGB：`#80FFFF00`，也称为 Hex8
+   - HSL：`hsl(120, 50%, 50%)`
+   - HSLA：`hsla(120, 50%, 50%, 1)`
+
+#### 应用 Color 令牌
+
+Color 令牌可以定义设计元素的填充或描边颜色。要把颜色令牌应用到元素上，请选择元素并从列表中选择令牌：
+
+- 点击颜色令牌，会默认把它作为填充应用到元素。
+- 右键点击颜色令牌，可以选择将其应用为填充色还是描边色。
+
+![](/images/penpot/token-10.png)
+
+### Dimension
+
+Dimension 令牌允许你定义距离数值，这些数值可以用于设置设计中特定元素的尺寸、空间、半径或位置。
+
+#### 应用 Dimension 令牌
+
+要应用 Dimension 令牌，请选择元素并从列表中选择令牌：
+
+- 点击 Dimension 令牌，会默认把它应用到元素的宽度和高度。
+- 右键点击 Dimension 令牌，可以选择要把令牌用于元素中的位置。它可用于：
+  1. Sizing
+  2. Spacing
+  3. Border radius
+  4. Stroke width
+  5. X position
+  6. Y position
+
+#### Sizing（dimension）
+
+Dimension 令牌中的 sizing 属性定义画板、形状和组等设计元素的高度或宽度。
+
+![](/images/penpot/token-11.png)
+
+使用 Dimension 令牌作为尺寸时，你可以选择：
+
+- **All**：把同一个尺寸值应用到元素的宽度和高度。
+- **Width**：把令牌值应用到元素的水平尺寸。
+- **Height**：把令牌值应用到元素的垂直尺寸。
+
+如果你正在处理 Flex Layout 画板，也可以把令牌应用到元素尺寸：
+
+- **All**：把同一个尺寸值应用到元素的最小宽度和最小高度。
+- **Min width**：定义元素允许的最小水平尺寸，同时允许更大尺寸。
+- **Min height**：定义元素允许的最小垂直尺寸，同时允许更大尺寸。
+- **All**：把同一个尺寸值应用到元素的最大宽度和最大高度。
+- **Max width**：定义元素允许的最大水平尺寸，同时允许更小尺寸。
+- **Max height**：定义元素允许的最大垂直尺寸，同时允许更小尺寸。
+
+如果在应用 Flex Layout 之前就把最小/最大高度/宽度属性应用到画板，你可能需要移除并重新应用令牌，才能使其生效。
+
+#### Spacing（dimension）
+
+Dimension 令牌中的 spacing 属性定义元素之间的距离，并且必须应用到 Flex Layout 画板。
+
+![](/images/penpot/token-12.png)
+
+如果在应用 Flex Layout 之前就把令牌应用到画板，你可能需要移除并重新应用令牌，才能使其生效。
+
+使用 Dimension 令牌作为间距时，可以把令牌应用到元素的 padding 和 gap。具体可以选择：
+
+- Gaps：
+  - **All**：把 gap 应用到元素的所有边。
+  - **Column Gap**：在父元素中的子元素之间添加列间距。
+  - **Row Gap**：在设置为换行的 Flex Layout 画板元素中添加行间距。
+- Paddings & Margins：
+  - **Horizontal**：应用到容器的左右两侧。
+  - **Vertical**：应用到容器的上下两侧。
+  - **Top、right、bottom、left**：把空间应用到元素的单独边。
+
+#### Border radius（dimension）
+
+Dimension 令牌中的 border radius 属性定义画板、形状和组等元素角的圆度。
+
+你可以右键点击 Dimension 令牌并选择以下属性：
+
+- **All**：把圆角应用到所选元素的所有边。
+- **Top Left**：应用到所选元素左上角。
+- **Top Right**：应用到所选元素右上角。
+- **Bottom Right**：应用到所选元素右下角。
+- **Bottom Left**：应用到所选元素左下角。
+
+#### Stroke width（dimension）
+
+Stroke width 属性指定已经应用描边属性的元素边框厚度。
+
+如果在元素具有描边之前就应用边框属性，你可能需要移除并重新应用令牌，才能使其生效。
+
+#### X Position（dimension）
+
+X 属性指定元素在画布 X 轴上的位置。
+
+#### Y Position（dimension）
+
+Y 属性指定元素在画布 Y 轴上的位置。
+
+### Opacity
+
+Opacity 令牌允许你定义图层的不透明度，范围从完全不透明到完全透明。
+
+Opacity 令牌可以应用到任何支持透明度的设计元素。你可以使用 0 到 1 之间的任意小数来设置不同级别的不透明度，也可以使用 0 到 100 之间并以 `%` 结尾的值。例如，可以使用 `45%`，它会解析为 `.45`。
+
+#### 应用 Opacity 令牌
+
+要把不透明度令牌应用到元素上，请选择元素并点击目标令牌。
+
+### Rotation
+
+Rotation 令牌用于在设计系统中定义并标准化旋转值。这些令牌表示旋转角度，通常以度为单位，可以应用到图标或图像等元素上，以确保整个设计中的旋转保持一致。
+
+#### 应用 Rotation 令牌
+
+要应用旋转令牌，请选择元素并从列表中选择令牌。
+
+### Sizing
+
+Sizing 令牌可以定义多种与尺寸相关的设计属性，也就是设计元素的高度和宽度。Sizing 令牌支持数值，包括负值。
+
+#### 应用 Sizing 令牌
+
+要把 Sizing 令牌应用到元素上，请选择元素并从列表中选择令牌：
+
+- 点击 Sizing 令牌，会默认应用到元素的所有边。
+- 右键点击 Sizing 令牌，可以指定令牌应应用到元素的哪一边：
+  - **All**：把同一个尺寸值应用到元素的宽度和高度。
+  - **Width**：把令牌应用到元素的水平尺寸。
+  - **Height**：把令牌应用到元素的垂直尺寸。
+
+如果你正在处理 Flex Layout 画板，也可以通过以下选项把令牌应用到元素尺寸：
+
+- **Min width**：定义元素允许的最小水平尺寸，同时允许更大尺寸。
+- **Min height**：定义元素允许的最小垂直尺寸，同时允许更大尺寸。
+- **Max width**：定义元素允许的最大水平尺寸，同时允许更小尺寸。
+- **Max height**：定义元素允许的最大垂直尺寸，同时允许更小尺寸。
+
+### Spacing
+
+Spacing 令牌定义设计元素之间的距离，并支持数值，包括负值。Spacing 令牌必须应用到 Flex Layout 画板。
+
+![](/images/penpot/token-13.png)
+
+如果在应用 Flex Layout 之前就把令牌应用到画板，你可能需要移除并重新应用令牌，才能使其生效。
+
+#### 应用 Spacing 令牌
+
+要把 Spacing 令牌应用到元素上，请选择元素并从列表中选择令牌：
+
+- 点击 Spacing 令牌，会把它应用到所有 gap（行和列）。
+- 右键点击 Spacing 令牌，可以指定令牌应应用到元素的哪个属性。在此菜单中，属性按块分组。每个属性中都可以选择应用到该属性的 **All** 边，或应用到单独边：
+- **Gaps**：应用到父容器内子元素之间的空间（列间距和行间距）。这只适用于 flex 和 grid 布局。
+- **Paddings & Margins**：
+    - **Horizontal**：应用到容器的左右两侧。
+    - **Vertical**：应用到容器的上下两侧。
+    - **Top、right、bottom、left**：应用到元素的单独边。
+
+### Stroke Width
+
+Stroke width 令牌，也称为 border width 令牌，定义设计元素周围描边的厚度。它可以应用到画板、组、矩形和文本元素。
+
+### Number token
+
+Number 令牌定义不需要计量单位的属性数值。
+
+Number 令牌和 Dimension 令牌的区别在于，Number 令牌必须没有单位。
+
+:::note
+Number 令牌没有可直接应用的默认属性，因此只能通过右键点击并选择具体属性来应用。
+:::
+
+Number 令牌特别适合作为其他令牌的引用，也适合用于数学方程（操作数）来创建比例，例如字号比例或网格比例。
+
+它也可以应用到 Line Height，因为该属性会作为字体大小的乘数工作；也可以应用到 rotation 属性。
+
+![](/images/penpot/token-14.png)
+
+### Typography tokens
+
+Typography 令牌只能应用到文本图层，不能应用到文本图层中的单个元素。应用 Typography 令牌会解除此前应用的 Typography Style，反过来也一样。
+
+#### Font Family
+
+![](/images/penpot/token-15.png)
+
+![](/images/penpot/token-16.png)
+
+与其他令牌一样，Font Family 接受对其他 font family 令牌的引用。
+
+此外，你可以像 CSS 一样指定一组用逗号分隔的 Font Family 名称或通用名称优先级列表。Penpot 只会使用列表中的第一个字体，但这有助于定义字体回退，以便开发者可以相应实现。
+
+```css
+font-family: Lucida Console, Courier, monospace
+```
+
+![](/images/penpot/token-17.png)
+
+编写 Font Family 令牌的字符串值时，请特别注意：
+
+- 拼写。
+- 空格。
+- 标点。
+- 大小写。
+
+提示：你可以为字体名称加引号，尤其是包含空格或特殊字符的名称，以遵循 CSS 最佳实践，或与你的开发团队约定保持一致：
+
+```css
+font-family: "DM Sans", sans-serif;
+```
+
+![](/images/penpot/token-18.png)
+
+如果 Penpot 中不存在该 Font Family，当你应用令牌时，会在设计面板输入框中看到 **Missing font** 消息。
+
+![](/images/penpot/token-19.png)
+
+#### Font Size
+
+Font size 令牌把字形/字符的垂直尺寸定义为一个独立属性。在排版中，字距和行高属性与字号相关。
+
+字号通常使用比例尺度定义。你可以结合引用使用数学运算，创建遵循特定乘数（例如黄金比例）的动态排版尺度。
+
+提示：可以使用 Number Tokens（无单位令牌）通过设计令牌创建出色的排版尺度。
+
+![](/images/penpot/token-20.png)
+
+目前，Font size 是 Dimension 类型令牌，应以 px 定义（无单位值会被计算为 px）。为了遵循 DTCG 格式，未来版本中单位会成为必需项，并会允许 rem 单位。
+
+你可以在 Font size 令牌中引用任何 Dimension 令牌，也可以使用数学运算。
+
+提示：你可以使用舍入函数来舍入解析值，减少数学运算中的小数，因为在使用 px 时小数并不理想：
+
+```text
+roundTo({values}, decimals)
+```
+
+![](/images/penpot/token-21.png)
+
+#### Font Weight
+
+Font Weight 定义 Font Family 中每个字符/字形的粗细。Font Weight 设计决策通常用于传达视觉层级或强调文本元素。
+
+Penpot 把 Font Weight 和 Style 组合成一个以字符串值书写的属性，并要求它与搭配的 Font Family 匹配，因为不是所有字体族都拥有相同的字重或样式。
+
+该令牌可以用数值（100、400、900 等）或字符串名称（Bold、Black、Thin 等）定义，也可以在需要时包含字体样式（Italic）。
+
+注意：Font Family 和 Font Weight 令牌在 Penpot 中成对工作。这意味着你必须考虑当前 Font Family，才能决定在设计中要使用的 Font Weight。
+
+此令牌可以应用到文本图层，但结果取决于正在使用的 Font Family。
+
+##### 可接受的值
+
+Font Weight 令牌可以使用数值或字符串值定义，两者都被接受。应用时，任何字符串值都会转换为对应的数值：
+
+| Numeric Value | String Value |
+| --- | --- |
+| 100 | Thin, Hairline |
+| 200 | Extra Light, ExtraLight, extra-light, Ultra Light, UltraLight, ultra-light, extraleicht |
+| 300 | Light, leicht |
+| 400 | Regular, Normal, Book, buch |
+| 500 | Medium, kraeftig, kräftig |
+| 600 | Semibold, SemiBold, Semi Bold, semi-bold, DemiBold, Demi Bold, demi-bold, halbfett |
+| 700 | Bold, dreiviertelfett |
+| 800 | ExtraBold, Extra Bold, extra-bold, ultra-bold, UltraBold, Ultra Bold, fett |
+| 900 | Black, Heavy, extrafett |
+| 950 | Extra Black, extra-black, Ultra Black, ultra-black |
+
+注意：值不区分大小写，因此 `Regular` 和 `regular` 都可以使用。
+
+这些值也可以在需要时包含 Font Style Italic。一些可接受值示例：
+
+```text
+regular
+Normal Italic
+700
+400 italic
+Bold italic
+ExtraBold Italic
+```
+
+#### Letter Spacing
+
+Letter Spacing，也称为 kerning，定义单个字符之间的水平距离。
+
+默认值为 0。在 Penpot 中，letter spacing 以 px 定义。在令牌中，你可以使用 px 值，也可以引用 Dimension、Spacing、Sizing 或 Letter Spacing 令牌。
+
+此令牌可以直接应用到文本元素，也可以在 Typography Composite Token 中作为引用使用。
+
+#### Text Case
+
+Text Case 定义系统应如何转换文本元素中字母的大小写，而不管它们原本如何输入。
+
+此属性对应 CSS 中的 `text-transform`。
+
+可接受的值包括 `none`、`uppercase`、`lowercase` 和 `capitalize`。它也接受对另一个 Text Case 令牌的引用。
+
+此令牌可以直接应用到文本元素，也可以在 Typography Composite Token 中作为引用使用。
+
+#### Text Decoration
+
+Text Decoration 定义作为字体样式属性一部分的可选线条，通常用于表达文本的视觉强调。
+
+可接受的值包括 `none`、`underline` 和 `strike-through`。它也接受对另一个 Text Decoration 令牌的引用。
+
+此令牌可以直接应用到文本元素，也可以在 Typography Composite Token 中作为引用使用。
+
+### Typography composite token
+
+Typography 令牌是复合实体，会把多个文本属性组合到单个令牌定义中。它们允许你以一致方式定义和复用完整文本样式。
+
+Typography 令牌内的每个属性既可以引用现有的单独排版令牌（例如 font-size 或 font-family），也可以使用硬编码值。各个单独排版令牌的行为和语法在本指南上一节中描述。
+
+![](/images/penpot/token-22.png)
+
+#### 引用另一个 Typography Composite Token
+
+你也可以引用另一个已有 Typography Composite Token，而不是手动定义每个属性。这样做时，Penpot 会从被引用令牌解析所有单独属性。
+
+![](/images/penpot/token-23.png)
+
+#### Line height 属性
+
+Typography Token 包含 line-height 属性，该属性不能作为单独令牌使用。这是因为 line-height 需要依赖 font size 才能正确计算。请确保在设置 line-height 前已经定义 font-size 属性。
+
+![](/images/penpot/token-24.png)
+
+line-height 输入可接受的值：
+
+- 无单位数字：解释为字号的乘数。这是 Penpot 的默认行为。
+- 百分比（%）：内部转换为乘数。
+- 像素（px）或 rem 值：如果使用 rem，Penpot 会计算相对于 font size 的比例，并转换为乘数。
+- 引用：你也可以引用 number 或 dimension 令牌。
+
+#### 应用 Typography 令牌
+
+Typography composite 令牌可以应用到完整文本图层，一次性设置所有排版属性。这样你可以用一个令牌管理完整文本样式，而不是组合多个单独令牌。
+
+当把 Typography composite 令牌应用到图层时，任何此前应用的 Typography composite 令牌或样式都会被解除绑定。反过来也一样。同一时间只能有一个处于活动状态。
+
+### Shadow
+
+Shadow 令牌是复合实体，会把一个或多个阴影的属性封装到单个令牌定义中。该令牌可以包含一个阴影，也可以包含一个可重新排序的多阴影数组。
+
+Shadow 令牌支持 Drop Shadow 和 Inner Shadow 两种类型。创建或编辑 Shadow 令牌时，你可以选择要使用的阴影类型。默认选择是 Drop Shadow。
+
+![](/images/penpot/token-25.png)
+
+#### Shadow 属性
+
+Shadow 令牌中的每个阴影都包含一组定义阴影外观的属性：
+
+- **Color**：阴影颜色。接受与 Color 令牌相同的值（Hex、RGB、RGBA、ARGB、HSL、HSLA），并且可以引用现有颜色令牌。定义值时可使用颜色选择器。
+- **X offset**：阴影的水平偏移。可以有单位或无单位，并接受负值。可以使用数字，也可以引用 number 或 dimension 令牌。
+- **Y offset**：阴影的垂直偏移。可以有单位或无单位，并接受负值。可以使用数字，也可以引用 number 或 dimension 令牌。
+- **Blur**：阴影的模糊半径。可以有单位或无单位。可以使用数字，也可以引用 number 或 dimension 令牌。
+- **Spread**：阴影的扩散半径。可以有单位或无单位。可以使用数字，也可以引用 number 或 dimension 令牌。
+- **Type**：阴影是 drop shadow 还是 inner shadow。通过下拉菜单选择，默认是 Drop Shadow。
+
+Shadow 令牌中的每个属性都可以引用现有令牌，或分配硬编码值。阴影也可以引用其他 Shadow 令牌（使用引用时，阴影类型必须匹配）。
+
+:::note
+保存 Shadow 令牌时并非所有属性都是必需的。一些属性可以为空（并会计算为 0）。只有 color 属性是必需的。在阴影数组中，如果某个阴影没有设置 color，表单就不能保存。
+:::
+
+#### 创建 Shadow 令牌
+
+要创建 Shadow 令牌，请点击 Tokens 面板中 Shadow 旁边的 `+`。Shadow 令牌可以通过两种方式创建：
+
+- **Individual values**：你可以使用单独属性值创建一个或多个阴影。点击 `+` 按钮可以向数组添加更多阴影。新的阴影会添加到列表顶部。
+- **Single reference**：你可以引用另一个现有 Shadow 令牌。使用单个引用时，不能添加超过一个阴影。解析值会显示被引用令牌包含的阴影或阴影列表。
+
+![](/images/penpot/token-26.png)
+
+使用单独值创建阴影时，color 值初始为空，但其他输入会有默认值（X：4，Y：4，Blur：4，Spread：0）。你可以把鼠标悬停在阴影表单上，并使用重新排序按钮拖动到不同位置，以重新排序阴影。
+
+你也可以引用另一个现有 Shadow 令牌，而不是手动定义每个属性。这样做时，Penpot 会从被引用令牌解析所有阴影属性。
+
+#### 应用 Shadow 令牌
+
+Shadow 令牌可以应用到任何图层类型。点击 Shadow 令牌会将其应用到所选图层。右键点击 Shadow 令牌会显示带有 Shadow 选项的上下文菜单，用于应用它。
+
+:::note
+CSS 中的文本元素不支持 inner shadow，但 Penpot 支持，因为它内部使用 filter 属性而不是 box-shadow 属性。
+:::
+
+应用 Shadow 令牌时，图层上的任何现有阴影都会被覆盖（无论是原始阴影还是已应用的令牌阴影）。如果令牌包含阴影数组，每个阴影会按照创建表单中的相同顺序添加。
+
+:::note
+在 Penpot 中，一个元素可以拥有多个阴影，但同一类型只能应用一个令牌。这意味着应用第二个 Shadow 令牌会覆盖第一个，无论当前形状有多少个阴影。
+:::
+
+## 令牌集
+
+令牌集允许你把令牌拆分到多个文件中，以便创建有组织的令牌组或集合。它支持在设计文件中高效管理和自定义。例如，你可以把所有颜色集合、尺寸集合或平台特定集合分组。令牌集的目的，是以符合你需求的方式组织令牌。
+
+![](/images/penpot/token-27.png)
+
+当你创建第一个令牌时，会创建一个默认集合。你之后可以重命名、分组或移动它。随着你创建新的令牌集，它们会按顺序添加到现有集合之后。你可以通过拖放重新排序令牌集。
+
+:::note
+令牌集的顺序非常重要。如果多个集合中存在同名但不同值的令牌，列表中位置靠后的集合会覆盖前面的集合，类似层叠样式表的工作方式。
+:::
+
+创建令牌集时，建议为它分配唯一名称以保证清晰。令牌集名称默认不会包含在单个令牌名称中，因此不同令牌集可以包含同名令牌。
+
+令牌集可以启用或禁用。如果某个集合被禁用，它的令牌会从令牌解析过程中排除。
+
+### 创建令牌集
+
+在 Tokens 标签中创建令牌集有两种方式：
+
+1. 点击 **Sets** 旁边的 `+`。
+2. 点击 **Create one** 按钮。
+
+随后需要为令牌集命名。集合名称应具体，因为不能创建多个同名令牌集。
+
+当选择某个令牌集时，该集合中的令牌会显示在下方面板中。
+
+### 编辑令牌集
+
+右键点击令牌集，可以执行这些快速操作：
+
+1. **Rename**：为集合输入新名称并按 Enter。
+2. **Duplicate**：复制集合。
+3. **Delete**：永久移除集合。
+
+![](/images/penpot/token-28.png)
+
+创建令牌集后，就可以在其中开始创建令牌。为此，只需选择令牌集并创建新令牌。
+
+:::note
+如果另一个集合中已存在同名令牌，仍然可以在当前集合中创建新令牌。
+:::
+
+### 创建令牌集文件夹
+
+要把令牌集分组，只需使用文件夹样式的名称。例如，把集合命名为 `Light/Global` 和 `Light/Colors`，会创建一个名为 Light 的文件夹，其中包含 Global 和 Colors 两个集合。
+
+![](/images/penpot/token-29.png)
+
+## 令牌主题
+
+主题是一种配置集合的方式，使它们可应用到特定上下文，例如品牌、模式或触点。主题通过根据所选主题应用不同令牌值，实现不同样式之间的动态切换。
+
+主题是多维的，这意味着你可以同时激活多个主题，组合活动主题的值。
+
+#### 主题组
+
+使用 Theme Groups，你可以把主题归类到不同组中。这将允许你生成涉及颜色主题、品牌、平台、密度等的多种组合。使用组可以减少为每一种组合创建过多单独主题的需求。
+
+![](/images/penpot/token-30.png)
+
+例如：
+
+- Mode：Light、Dark
+- Brand：RedPlanet、YellowCab
+- Contrast：High、Low、Dim
+- Platform：Web、App
+
+当一个组内有多个主题时，该组中一次只能激活一个主题。
+
+把集合归入组，可以让你更方便地从主题矩阵中切换。
+
+### 创建令牌主题
+
+要创建新主题，请点击 Themes 区域中的 **Create one** 按钮。你可以创建一个组（可选）或添加现有组，然后为主题命名并点击 **Save Theme**。
+
+新主题会出现在主题列表中。你需要启用想包含在主题中的令牌集，点击 **no active sets** 按钮即可。在这里你也可以激活和停用主题，以及删除主题。
+
+![](/images/penpot/token-31.png)
+
+### 编辑主题
+
+在 Themes 区域中，你可以找到一个用于激活和停用主题的下拉菜单。如果没有活动主题，下拉菜单会显示 **no theme active**。
+
+![](/images/penpot/token-32.png)
+
+要编辑现有主题，可以点击 Themes 区域中下拉菜单旁边的 **Edit** 按钮，或打开下拉菜单并选择 **Edit themes**。
+
+![](/images/penpot/token-33.png)
+
+此操作会打开一个模态窗口，你可以在其中激活或停用主题，并选择哪些 Token sets 应作为主题的一部分。
+
+1. 你可以启用和禁用主题。
+2. 配置要包含在主题中的令牌集。
+3. 删除主题。
+4. 创建新主题。
+
+### 分组主题
+
+你可以把主题归类到不同组中。这允许你生成涉及颜色主题、品牌、模式等的潜在组合矩阵。
+
+![](/images/penpot/token-34.png)
+
+1. 选择某个组。
+2. 从组中选择主题。
+3. 定义哪些令牌集应作为该主题选项的一部分使用。
+4. 点击 **save theme** 查看更改。
+5. 取消以清除编辑。
+6. 删除。
+
+## 导入和导出令牌
+
+你可以从 Penpot 导出令牌，也可以从电脑导入令牌到 Penpot 文件中。令牌可以从 Tokens 标签底部的 **Tools** 选项导入。
+
+你也可以使用 Libraries 模态窗口，从已连接的共享库导入令牌。该导入会使用库的完整令牌定义（包括集合和主题），并替换文件中已有的令牌。
+
+导入功能允许你使用单个文件或包含多个文件的文件夹上传并替换全局令牌集。
+
+这些功能支持按特定指南格式化的 JSON 文件，并保留在需要时撤销更改的能力。
+
+![](/images/penpot/token-35.png)
+
+1. **Import**：点击 Tools，然后选择 Import 查看导入选项。
+2. **Export**：点击 Tools，然后选择 Export 查看导出选项。
+
+### 导入选项
+
+#### ZIP 文件
+
+你可以从 `.zip` 文件导入令牌。此文件可以包含单个 JSON 文件，也可以包含包含多个文件的文件夹结构。ZIP 导入选项为导入 Penpot 前组织令牌提供灵活性。
+
+- 如果 ZIP 包含单个 JSON 文件，它会作为单个令牌集导入。
+- 如果 ZIP 包含文件夹结构，每个文件和文件夹会按照多文件导入的相同规则解释为单独的令牌集。
+
+#### 单个 JSON 文件
+
+你可以导入一个包含所有令牌、令牌集和令牌主题的 JSON 文件。
+
+导入单个文件时，JSON 文件的第一层 key 会被解释为集合名称。
+
+```json
+{
+  "Global": {
+    "color": {
+      "300": {
+        "$value": "red",
+        "$type": "color",
+        "$description": "my token description"
+      }
+    }
+  },
+  "Brands/A": {
+    "color": {
+      "accent": {
+        "$value": "{red}",
+        "$type": "color",
+        "$description": "my token description"
+      }
+    }
+  },
+  "Brands/B": {
+    "color": {
+      "accent": {
+        "$value": "#fabada",
+        "$type": "color",
+        "$description": "my token description"
+      }
+    }
+  }
+}
+```
+
+#### 多文件
+
+导入一个包含多个 JSON 文件（每个 Token Set 一个文件）以及 `$themes.json` 或 `$metadata.json` 等额外配置文件的文件夹。导入多个文件时，文件夹内各个 JSON 文件的名称和路径会被解释为集合名称。这些文件应只包含令牌。
+
+多文件文件夹结构示例：
+
+```text
+folder/
+├── global/
+│   ├── colors.json     // 只能包含令牌
+│   └── dimension.json  // 只能包含令牌
+├── mode/
+│   ├── dark.json       // 只能包含令牌
+│   └── light.json      // 只能包含令牌
+├── $themes.json        // 主题配置
+└── $metadata.json      // 其他元数据配置
+```
+
+主文件夹名称不会用于构建令牌集名称，因此在这个示例中，`folder` 会在集合名称中被忽略。
+
+### 导出选项
+
+与导入一样，你可以把令牌、主题和集合导出为单个 JSON 文件或多个文件。导出的内容没有差异；选择取决于你团队对文件组织方式的偏好：一个包含所有令牌、集合和主题的单文件，或一个按集合组织并分离 JSON 文件的文件夹结构。
+
+在两种情况下，你都可以预览导出选项的结果。
+
+![](/images/penpot/token-36.png)
+
+![](/images/penpot/token-37.png)
+
+## 令牌组
+
+令牌名称很少又短又简单。它们通常包含多个部分，表示令牌类型、状态、属性、变体等。为了帮助管理这种复杂性，Penpot 会根据令牌名称结构自动把令牌组织成组。
+
+### 令牌组如何工作
+
+当 Penpot 在令牌名称中遇到点号（`.`）时，会拆解名称，并将其构造成嵌套组。例如，名为 `button.primary.default.background-color` 的令牌会被组织为如下分组：
+
+- button（组）
+- → primary（组）
+- → → default（组）
+- → → → background-color（令牌）
+
+如果你还有另一个令牌，例如 `button.primary.hover.background-color`，它会共享相同的组结构（`button.primary`），并嵌套显示在这些组中。
+
+这个结构与 JSON 格式中组织令牌的方式一致。导出令牌时，像 `button.primary.default.background-color` 这样的令牌会被组织为：
+
+```json
+{
+  "button": {
+    "primary": {
+      "default": {
+        "background-color": {
+          "$value": "#f00",
+          "$type": "color"
+        }
+      }
+    }
+  }
+}
+```
+
+### 视觉外观
+
+在 Tokens 面板中，令牌组会显示为嵌套、可折叠的文件夹。只有令牌名称的最后一段（实际令牌）会显示为 pill。它之前的片段会显示为可展开或折叠的组文件夹。
+
+当你创建新令牌时，Penpot 会自动展开所需路径，这样你可以看到新创建的令牌。如果你手动展开某个组路径，它会在你导航到应用其他区域时保持打开（重新加载页面会重置该状态）。
+
+![](/images/penpot/token-38.png)
+
+### 使用令牌组
+
+令牌 pill 保留与以前相同的操作：你可以从上下文菜单删除、编辑和复制令牌。编辑令牌名称时，你会看到完整令牌路径，包括所有组片段。
+
+#### 在组之间移动令牌
+
+当你编辑令牌名称并更改组片段时，令牌会自动移动到新的组中。如果新组不存在，Penpot 会创建它。如果该组已经存在，令牌会被移动到其中。
+
+例如，如果你把 `color.background.secondary` 重命名为 `c.bg.sec`，令牌会从 `color.background` 组移动到新的 `c.bg` 组。
+
+#### 删除令牌组
+
+删除令牌时，如果它是所在组中的最后一个令牌，空组也会被自动移除。你也可以直接删除整个令牌组，这会移除该组中的所有令牌。
+
+:::note
+删除令牌组会移除其中包含的所有令牌。在移除组之前，请确认你确实想删除该组中的所有令牌。
+:::

@@ -1,0 +1,144 @@
+---
+title: "托管应用配置"
+description: "基于 Telerik Fiddler Everywhere Managed App Configuration 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Managed App Configuration"
+  order: 21
+sourceTitle: "Managed App Configuration"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/managed-app-configuration"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+Fiddler Everywhere 常用于安全要求较高的企业环境。IT 管理员可能需要统一下发配置、限制关键功能、锁定安全选项，并避免最终用户修改重要设置。Fiddler Everywhere Enterprise 提供托管应用配置能力，可用于集中控制 macOS 和 Windows 设备上的应用行为。
+
+通过托管应用配置，IT 团队通常可以实现：
+
+- 强制执行安全与合规策略。
+- 限制或固定应用功能。
+- 防止用户修改关键设置。
+- 在大型组织中统一部署和配置 Fiddler Everywhere。
+
+## macOS 应用配置
+
+管理 macOS 设备时，IT 团队可以通过 Jamf、Intune 或类似设备管理方案下发应用配置键。
+
+常见配置项如下：
+
+| 键名 | 作用 | 类型 | 示例 |
+| --- | --- | --- | --- |
+| `DefaultProxyPort` | 设置默认代理端口。若未锁定，用户仍可修改。 | integer | `0` 到 `65535` |
+| `DisableProxyPortChange` | 阻止用户修改代理端口。 | integer | `1` |
+| `DefaultBypassList` | 设置默认代理绕过列表。列表中的端点绕过 Fiddler，直接使用上游代理。 | string | 使用 `;` 分隔 URL |
+| `DisableBypassListChange` | 阻止用户修改绕过列表。 | integer | `1` |
+| `DisableAllowRemoteDevicesToConnect` | 禁止远程设备连接到 Fiddler 代理。 | integer | `1` |
+| `DisableAnalytics` | 禁用 Fiddler 分析数据。 | integer | `1` |
+| `DisableCloud` | 禁用通过 Fiddler 云进行共享、存储和接收数据等云交互。 | integer | `1` |
+| `DefaultNetworkCaptureList` | 设置网络捕获模式的 CIDR 地址和端口列表，使用空白字符分隔。 | string | `"0.0.0.0/0:443 ::/0:443"` |
+| `DefaultNetworkCaptureFilterList` | 设置网络模式下要捕获的进程 ID 或进程名列表，使用空白字符分隔。 | string | `"13008 \"Google Chrome\""` |
+| `DisableNetworkCaptureSettingsChange` | 阻止用户修改网络捕获设置。 | integer | `1` |
+| `DisableVpnHostBypass` | 禁用 Fiddler 自动 VPN 绕过能力。 | integer | `1` |
+| `CustomCACertificate` | 自定义证书的 DER 编码 base64 字符串。 | string | `<base64-cert>` |
+| `CustomCACertificatePrivateKey` | 私钥的 DER 编码 base64 字符串。 | string | `<base64-private-key>` |
+| `DisableMCP` | 启用或禁用 Fiddler Everywhere MCP server。 | integer | `1` |
+| `DefaultSanitizationSettings` | 默认脱敏配置 JSON 对象。省略属性时使用 Fiddler Everywhere 默认值。 | string | 参考脱敏设置结构 |
+| `DisableSanitizationSettingsUpdate` | 锁定脱敏设置，防止用户修改。 | integer | `1` |
+| `DisableAssistant` | 启用或禁用 Debugging Assistant。 | integer | `1` |
+| `DefaultAssistantSettings` | 设置 Debugging Assistant 的默认模型提供商、API key 和模型。 | string | 参考 Debugging Assistant 设置结构 |
+| `DisableAssistantSettingsUpdate` | 启用或禁用 Debugging Assistant 设置更新入口。 | integer | `1` |
+
+:::caution[云功能与接口访问]
+即使启用了 `DisableCloud`，用户仍需要访问 Fiddler Everywhere 必需的 API 端点。若企业网络访问受限，可以考虑使用 Fiddler 离线模式。
+:::
+
+### macOS MDM Profile 值
+
+| 项目 | 值 |
+| --- | --- |
+| Team ID | `CHSQ3M3P37` |
+| App Bundle ID | `com.progress-telerik.fiddler` |
+| Extension Bundle ID | `com.progress-telerik.fiddler.fiddler-extension` |
+
+### 示例：禁用远程设备连接
+
+若只允许本机使用 Fiddler Everywhere，并禁止远程设备连接，可以设置：
+
+```sh
+defaults write com.progress-telerik.fiddler DisableAllowRemoteDevicesToConnect 1
+```
+
+### 示例：设置默认代理端口
+
+若要把默认代理端口设置为 `8899`，可以设置：
+
+```sh
+defaults write com.progress-telerik.fiddler DefaultProxyPort -integer 8899
+```
+
+### 示例：设置默认网络捕获列表
+
+若要为网络捕获模式设置多个 CIDR 地址和端口，可以设置：
+
+```sh
+defaults write com.progress-telerik.fiddler DefaultNetworkCaptureList "0.0.0.0/0:443 ::/0:443 0.0.0.0/0:8084 ::/0:8084 127.0.0.1/8:4200 ::1/128:4200"
+```
+
+### 示例：强制使用默认网络捕获列表
+
+`DefaultNetworkCaptureList` 只设置初始默认值。如果用户已经配置过自定义值，默认值不会覆盖用户配置。若需要强制使用默认值并禁止用户修改，应同时设置 `DisableNetworkCaptureSettingsChange`：
+
+```sh
+defaults write com.progress-telerik.fiddler DefaultNetworkCaptureList "0.0.0.0/0:443 ::/0:443 0.0.0.0/0:8084 ::/0:8084 127.0.0.1/8:4200 ::1/128:4200"
+defaults write com.progress-telerik.fiddler DisableNetworkCaptureSettingsChange 1
+```
+
+## Windows 应用配置
+
+管理 Windows 设备时，IT 团队可以通过自己偏好的管理工具，在注册表路径中设置应用配置键：
+
+```txt
+HKEY_CURRENT_USER\SOFTWARE\Policies\Progress\Fiddler Everywhere
+```
+
+Fiddler Everywhere 同时支持 `HKEY_CURRENT_USER` 和 `HKEY_LOCAL_MACHINE`。如果两个位置都存在配置值，应用会优先使用 `HKEY_LOCAL_MACHINE` 中的值。
+
+常见注册表配置项如下：
+
+| 键名 | 作用 | 注册表值类型 | 示例 |
+| --- | --- | --- | --- |
+| `DefaultProxyPort` | 设置默认代理端口。若未锁定，用户仍可修改。 | DWORD-32 decimal | `0` 到 `65535` |
+| `DisableProxyPortChange` | 阻止用户修改代理端口。 | DWORD-32 hexadecimal | `1` |
+| `DefaultBypassList` | 设置默认代理绕过列表。列表中的端点绕过 Fiddler，直接使用上游代理。 | `REG_SZ` | 使用 `;` 分隔 URL |
+| `DisableBypassListChange` | 阻止用户修改绕过列表。 | DWORD-32 hexadecimal | `1` |
+| `DisableAllowRemoteDevicesToConnect` | 禁止远程设备连接到 Fiddler 代理。 | DWORD-32 hexadecimal | `1` |
+| `DisableAnalytics` | 禁用 Fiddler 分析数据。 | DWORD-32 hexadecimal | `1` |
+| `DisableCloud` | 禁用通过 Fiddler 云进行共享、存储和接收数据等云交互。 | DWORD-32 hexadecimal | `1` |
+| `DefaultNetworkCaptureList` | 设置网络捕获模式的 CIDR 地址和端口列表，使用空白字符分隔。 | `REG_SZ` | `"0.0.0.0/0:443 ::/0:443"` |
+| `DefaultNetworkCaptureFilterList` | 设置网络模式下要捕获的进程 ID 或进程名列表，使用空白字符分隔。 | `REG_SZ` | `"13008 \"Google Chrome\""` |
+| `DisableNetworkCaptureSettingsChange` | 阻止用户修改网络捕获设置。 | DWORD-32 hexadecimal | `1` |
+| `DisableVpnHostBypass` | 禁用 Fiddler 自动 VPN 绕过能力。 | DWORD-32 hexadecimal | `1` |
+| `CustomCACertificate` | 自定义证书的 DER 编码 base64 字符串。 | `REG_SZ` | `<base64-cert>` |
+| `CustomCACertificatePrivateKey` | 私钥的 DER 编码 base64 字符串。 | `REG_SZ` | `<base64-private-key>` |
+| `DisableMCP` | 启用或禁用 Fiddler Everywhere MCP server。 | DWORD-32 hexadecimal | `1` |
+| `DisableLLMSessionsTab` | 启用或禁用 Traffic 面板中的 Agent Calls 标签页。 | DWORD-32 hexadecimal | `1` |
+| `DefaultSanitizationSettings` | 默认脱敏配置 JSON 对象。省略属性时使用 Fiddler Everywhere 默认值。 | `REG_SZ` | 参考脱敏设置结构 |
+| `DisableSanitizationSettingsUpdate` | 锁定脱敏设置，防止用户修改。 | `REG_DWORD` | `0x00000001` |
+| `DisableAssistant` | 启用或禁用 Debugging Assistant。 | DWORD-32 | `1` |
+| `DefaultAssistantSettings` | 设置 Debugging Assistant 的默认模型提供商、API key 和模型。 | `REG_SZ` | 参考 Debugging Assistant 设置结构 |
+| `DisableAssistantSettingsUpdate` | 启用或禁用 Debugging Assistant 设置更新入口。 | DWORD-32 | `1` |
+
+这些配置可以帮助 IT 管理员在组织内部安全、一致地部署 Fiddler Everywhere，同时保留对关键设置和功能的控制权。
+
+## 相关主题
+
+- 对 Fiddler Everywhere 捕获流量应用脱敏。
+- 启用和禁用 Fiddler Everywhere MCP server。
+- 因组策略导致无法捕获流量的排查。
+- 管理 Fiddler MCP server 访问和使用的策略。
+- 管理 Fiddler Debugging Assistant 访问和使用的策略。
+
+## 原文信息
+
+- 原文标题：Managed App Configuration
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/managed-app-configuration

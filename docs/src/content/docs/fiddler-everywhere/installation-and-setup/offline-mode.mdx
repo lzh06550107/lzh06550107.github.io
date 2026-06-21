@@ -1,0 +1,82 @@
+---
+title: "离线模式"
+description: "基于 Telerik Fiddler Everywhere Offline Mode 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Offline Mode"
+  order: 22
+sourceTitle: "Offline Mode"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/offline-mode"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+Fiddler Everywhere 的离线模式用于网络受限或无互联网访问的环境。启用后，用户可以在不显式登录的情况下启动应用，并配置需要使用的捕获方式。流量调试所需的核心能力仍可离线使用，例如 Inspectors、Filters、Rules、Compare Sessions 和 Composer。
+
+## 前置条件
+
+使用离线模式前，需要满足以下条件：
+
+- 需要 Fiddler Everywhere Enterprise 订阅层级下的授权席位。
+- Windows 物理工作机和虚拟工作机均支持。
+- Windows 环境需要 Active Directory 配置，并具备有效的 AD 用户，也就是 AD principal email。
+- macOS 支持有限，仅面向 JAMF 用户。
+
+## 申请离线许可证
+
+离线模式需要通过单独的离线许可证文件显式启用。要申请许可证文件，需要通过 Telerik Support Center 联系 Fiddler Everywhere 技术支持团队，或直接联系 Fiddler 支持邮箱。
+
+申请时需要提供设备上的技术信息，可按以下方式获取：
+
+1. 在网络受限设备上启动 Fiddler Everywhere。
+2. 尝试登录。
+3. 应用会显示 “Something Went Wrong” 页面。
+4. 在该页面中复制文本框里的信息，其中包含操作系统信息和用户 principal email。
+
+:::tip[申请信息]
+离线许可证通常与具体用户和设备信息相关。申请时应确保提交的 principal email 与后续实际登录使用的用户一致。
+:::
+
+## 配置步骤
+
+离线许可证申请被接收并批准后，支持团队会发送一个单独的离线许可证文件。需要将该文件安装到对应设备上。
+
+配置流程如下：
+
+1. 下载并安装最新版 Fiddler Everywhere。
+2. 确保 Fiddler Everywhere 应用已经关闭。
+3. 打开支持团队提供的 `license.zip`。
+4. 从压缩包中提取 `license.lic` 文件。只需要这个文件，不需要保留压缩包本身。
+
+### Windows 许可证目录
+
+在 Windows PC 或 Windows Server 上，创建并进入以下目录：
+
+```sh
+%PROGRAMDATA%/Fiddler/License
+```
+
+然后把 `license.lic` 放入该 `License` 文件夹中，并确保文件名就是 `license.lic`。
+
+### macOS 许可证目录
+
+在 macOS 设备上，创建并进入以下目录：
+
+```sh
+~/Library/Application Support/Fiddler Everywhere/License
+```
+
+然后把 `license.lic` 放入该 `License` 文件夹中，并确保文件名就是 `license.lic`。
+
+## 启动离线模式
+
+许可证文件放置完成后，重新启动 Fiddler Everywhere，即可为当前登录用户使用离线模式。
+
+:::caution[用户一致性]
+当前登录用户必须与支持请求中填写的用户 principal email 对应。若用户不一致，离线许可证可能无法正常生效。
+:::
+
+## 原文信息
+
+- 原文标题：Offline Mode
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/offline-mode

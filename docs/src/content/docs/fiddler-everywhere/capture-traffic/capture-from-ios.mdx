@@ -1,0 +1,135 @@
+---
+title: "从 iOS 捕获流量"
+description: "基于 Telerik Fiddler Everywhere Capturing iOS Traffic 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Capture from iOS"
+  order: 34
+sourceTitle: "Capturing iOS Traffic"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-from-ios"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+本文整理如何使用 Fiddler Everywhere 捕获 iOS 真机和 iOS 模拟器的 HTTPS 流量。
+
+## 前置条件
+
+开始前需要满足以下条件：
+
+- 安装最新版 Fiddler Everywhere。
+- 使用与 Fiddler Everywhere 主机处于同一局域网中的 iOS 设备或 iOS 模拟器。
+
+:::caution[企业网络限制]
+很多公司网络会受到安全工具或管理策略限制。要捕获远程设备流量，需要确认系统管理员没有限制网络发现和网络使用；也可以考虑让 Fiddler 主机和远程设备连接同一个公共热点。
+:::
+
+## 自动配置远程 iOS 流量捕获
+
+Fiddler Everywhere 提供自动向导来配置远程 iOS 捕获。
+
+操作流程如下：
+
+1. 启动 Fiddler Everywhere。
+2. 打开 Home 面板。
+3. 打开 Remote Devices 页面。
+4. 打开 iOS 教程，并按提示完成配置。
+
+该教程需要当前 iOS 设备用户具备管理员权限，以安装 Fiddler 证书颁发机构（CA）并设置手动代理。完成后，即可立即捕获远程 iOS 设备上的 HTTPS 流量。
+
+## 手动配置远程 iOS 流量捕获
+
+如果需要手动配置，需要同时配置 Fiddler Everywhere 主机和 iOS 设备。
+
+### 配置 Fiddler Everywhere 主机
+
+1. 通过 Settings（设置）> Connections（连接）> Allow remote devices to connect（允许远程设备连接）启用 Fiddler Everywhere 的远程连接。如果您希望在随后的应用程序启动中持久化保存该设置，请将其与 Keep it ON after app restart（在应用重启后保持开启）结合使用。
+
+2. 检查运行 Fiddler Everywhere 应用程序的主机的本地 IP 地址。您可以使用右下角的连接状态来获取主机 IP 地址。或者，您也可以在使用 ipconfig/ifconfig（取决于操作系统）时获取 IP 地址。出于演示目的，我们假设 Fiddler Everywhere 机器的本地 IP 为 192.168.0.101。
+
+> 如果由于某种原因您只需要捕获远程流量，则无需在 Fiddler 主机上安装 Fiddler CA 证书。您只需要在远程设备上下载并安装 Fiddler CA 证书。一旦代理配置就绪，Fiddler Everywhere 将自动捕获并解密远程 HTTPS 流量。
+
+### 在 iOS 设备上配置 Fiddler 代理
+
+请参考以下步骤来配置真实的 iOS 设备，使其与 Fiddler Everywhere 主机协同工作。有关使用 iOS 模拟器的更多信息，请参阅配置 iOS 模拟器的相关章节。真实的 iOS 设备和 iOS 模拟器必须在同一个局域网（本地网络）中可被发现。
+
+1. 在 iOS 设备上安装 Fiddler 证书颁发机构 (CA)。
+
+    1. 在 iOS 设备上打开浏览器，并输入 Fiddler Everywhere 的 Echo 服务地址 `http://<fiddler-host-IP>:8866`。点击链接下载 Fiddler 证书颁发机构文件。
+    2. 在您的 iOS 设备上，打开 “通用”>“已下载的描述文件”，然后安装下载的 Fiddler CA。
+    3. (iOS 10.3+) 前往 “设置”>“通用”>“关于本机”>“证书信任设置”，并启用对 Fiddler Root Certificate Authority 的完全信任。
+
+    您可以在 “设置”>“通用”>“VPN 与设备管理” 中检查已安装的描述文件。Fiddler CA 证书的名称为 Fiddler Root Certificate Authority，但如果 Fiddler 主机安装了较旧版本的 Fiddler Everywhere，您看到的名称可能会是 DO_NOT_TRUST_FiddlerRoot。
+
+2. 在 iOS 设备上设置 Fiddler Everywhere 代理。
+
+    1. 在您的 iOS 设备上，前往 “设置”>“无线局域网（WiFi）”。
+    2. 找到您当前连接的网络，然后点击 “i” 图标。
+    3. 滚动到最底部，并选择 “配置代理”>“手动”。
+        - 在 “服务器” 字段中，输入 Fiddler Everywhere 主机的 IP 地址——例如 192.168.0.101（出于演示目的，我们假设这是运行 Fiddler 的主机的 IP）。
+        - 在 “端口” 字段中输入 Fiddler Everywhere 的代理端口。默认情况下，该端口为 8866。
+
+## 配置 iOS 模拟器代理
+
+较新版本的 iOS 模拟器（可通过 Xcode 访问）默认使用 macOS 系统代理。
+
+1. 在 Fiddler Everywhere 中，打开 Traffic（流量）面板，并通过将 System Proxy（系统代理）开关切换为开启（ON）状态来启用系统捕获模式。
+
+    > iOS 模拟器会自动检测 macOS 代理设置。然而，并非所有模拟器都能动态检测到操作系统代理设置的变化。因此，此步骤必须在 iOS 模拟器启动之前执行。
+
+2. 在 Fiddler Everywhere 中，前往 Settings（设置）> HTTPS，并启用 Capture HTTPS traffic（捕获 HTTPS 流量）。
+3. 在 Fiddler Everywhere 中，前往 Settings（设置）> Connections（连接），并启用 Allow remote devices to connect（允许远程设备连接）。
+4. 启动 iOS 模拟器。如果模拟器在启用 Fiddler 系统捕获之前已经启动，请将其重启。
+5. 在 iOS 模拟器中打开移动端浏览器，并输入 `http://ipv4.fiddler:8866`。
+
+    1. 点击 Download Certificate (.CER)（下载证书）按钮。在原生的 iOS 弹窗中点击 Allow（允许）以确认下载 CA 证书。
+    2. 在 iOS 模拟器中，前往 “设置”>“通用”>“设备管理”，并安装名为 Fiddler Root Certificate Authority 的证书。
+
+   > 如果 Fiddler 主机上安装了较旧版本的 Fiddler Everywhere，您看到的 CA 名称可能会是 DO_NOT_TRUST_FiddlerRoot。
+
+    3. 在 iOS 模拟器中，前往 “设置”>“通用”>“关于本机”>“证书信任设置”，并启用对 Fiddler Root Certificate Authority 的完全信任。
+
+    > 由于安全局限性，某些版本的 iOS 模拟器将无法访问包含证书颁发机构文件的文件夹。要捕获 HTTPS 流量，您必须手动导出并在 iOS 模拟器上安装 Fiddler Everywhere 证书。您可以通过将导出的 CRT 文件（Settings > HTTPS > Advanced Settings > Export Fiddler CA(DER/Binary format)）拖拽并投放到 iOS 模拟器中来实现这一点。
+
+## 捕获移动设备流量
+
+现在您可以立即捕获并检查来自您 iOS 设备的 HTTP/HTTPS 流量。例如，在您的 iOS 设备上打开 Safari 浏览器，输入您选择的地址，并在 Live Traffic（实时流量）网格中观察捕获到的流量。
+
+> 当您完成调试后，请移除您 iOS 设备上的 WiFi 代理。
+
+## 绕过 Apple 端点
+
+部分 Apple 服务，例如 App Store 和 iTunes，会使用证书固定作为额外安全层。这意味着这些服务不会信任 Fiddler Everywhere 这类第三方 CA，也不会信任它作为 MITM 代理工作。
+
+这会带来两个明显影响：
+
+- TLS 握手失败，无法捕获这些服务的 HTTPS 流量。
+- 如果当前互联网连接的代理设置为 Fiddler Everywhere，这些服务可能无法正常工作。
+
+为避免 Apple 服务失去连接能力，Fiddler Everywhere 会在 macOS 代理绕过列表中自动加入以下端点：
+
+```txt
+*.apple.com, *.itunes.com, *mzstatic.com
+```
+
+但在其他操作系统上，这些服务不一定常用，因此不会自动这样处理。如果你希望在其他操作系统上继续使用 iTunes 或 App Store 等 Apple 服务，可以手动添加这些根域名：
+
+1. 在主机上打开 Fiddler Everywhere 并前往 Settings（设置）> Connections（连接）。
+2. 在 Bypass Fiddler for URLs that starts with:（对以此开头的 URL 绕过 Fiddler：）字段中，添加以下 Apple 根域名：
+
+    ```txt
+    *.apple.com, *.itunes.com, *mzstatic.com
+    ```
+
+3. 点击 Save 保存修改。
+
+## 相关主题
+
+- 从 Android 捕获流量。
+- 从远程设备捕获流量。
+- 信任 Fiddler CA 证书。
+
+## 原文信息
+
+- 原文标题：Capturing iOS Traffic
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-from-ios

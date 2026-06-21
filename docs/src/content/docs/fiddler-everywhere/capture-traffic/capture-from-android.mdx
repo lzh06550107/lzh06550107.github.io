@@ -1,0 +1,169 @@
+---
+title: "从 Android 捕获流量"
+description: "基于 Telerik Fiddler Everywhere Capturing Android Traffic 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Capture from Android"
+  order: 33
+sourceTitle: "Capturing Android Traffic"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-from-android"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+本文介绍如何使用 Fiddler Everywhere 捕获 Android 真机和 Android 模拟器上的 HTTPS 流量。Fiddler Everywhere 提供自动向导，可帮助配置 Fiddler 主机和远程 Android 设备；也可以按手动方式配置 Android 真机或模拟器。
+
+## 前置条件
+
+开始前需要满足以下条件：
+
+- 安装最新版 Fiddler Everywhere。
+- 将 Android 设备连接到与 Fiddler Everywhere 主机相同的网络，或在 Fiddler Everywhere 主机上使用 Android 模拟器。
+- 确保运行 Fiddler Everywhere 的机器和 Android 设备在同一网络中可以互相发现。
+
+:::caution[企业网络限制]
+许多公司网络会受到安全工具或管理策略限制。若要捕获远程设备流量，需要确认系统管理员没有限制网络发现和网络使用；也可以考虑让 Fiddler 主机和 Android 设备使用公共热点。
+:::
+
+## 自动捕获远程 Android 流量
+
+Fiddler Everywhere 提供自动设置向导，可以更快配置 Android 远程流量捕获。
+
+操作流程如下：
+
+1. 启动 Fiddler Everywhere。
+2. 进入 Home 面板。
+3. 选择 Remote Devices 页面。
+4. 选择 Android 教程，并按照屏幕说明操作。
+
+在向导过程中，需要在 Android 设备上具备足够权限，以安装 Fiddler 证书颁发机构（CA），并配置手动代理设置。完成后即可开始捕获 Android 设备的 HTTPS 流量。
+
+## 手动捕获远程 Android 流量
+
+如果不使用自动向导，可以按以下步骤手动配置 Fiddler Everywhere 和 Android 设备。
+
+### 配置 Fiddler Everywhere 主机
+
+1. 通过导航至 Settings（设置）> Connections（连接）并勾选 Allow remote devices to connect（允许远程设备连接）选项，在 Fiddler Everywhere 中启用远程连接。为了方便起见，您还可以启用 Keep it ON after app restart（在应用重启后保持开启），以便在未来的会话中持久化保存该设置。
+2. 确定运行 Fiddler Everywhere 的机器的本地 IP 地址。您可以在 Fiddler Everywhere 窗口右下角的连接状态区域找到它，或者通过在终端中运行 ipconfig（Windows）或 ifconfig（macOS/Linux）命令来找到它。例如，我们假设您主机的 IP 地址为 192.168.100.50。
+
+> 如果您只需要捕获来自远程设备的流量，则无需在 Fiddler 主机上安装 Fiddler CA 证书。在远程设备上下载并安装 Fiddler CA 证书即可。一旦代理配置就绪，Fiddler Everywhere 将自动捕获并解密来自远程设备的 HTTPS 流量。
+
+### 在 Android 真机上配置 Fiddler 代理
+
+以下步骤适用于连接到与 Fiddler Everywhere 主机相同网络的 Android 实体设备。
+
+1. 在 Android 设备上安装 Fiddler 证书颁发机构 (CA)：
+
+    1. 在您的 Android 设备上打开移动端浏览器，并导航至 `http://<fiddler-host-IP>:8866`（将 `<fiddler-host-IP>` 替换为您的 Fiddler Everywhere 主机的 IP 地址）。
+    2. 点击下载 CA 证书的选项。
+
+    > 不要尝试直接从浏览器的下载提示中打开该 CA 证书文件，因为这可能无法触发安装过程。相反，请按照接下来的步骤正确安装它。
+
+    3. 从您的设备存储中安装下载的 Fiddler CA 证书。此设置的具体位置可能因 Android 版本而异，但通常可以在“设置”>“安全”>“加密和凭据”>“安装证书”>“CA 证书”下找到。
+
+    > 具体路径可能会根据您的 Android 设备制造商和型号而有所不同。例如，请参阅针对搭载 One UI 6 的 Samsung 设备的知识库文章，以获取特定于该平台的详细安装步骤。
+
+    4. 通过检查“设置”>“安全”>“加密和凭据”>“受信任的凭据”>“用户”选项卡，验证 Fiddler CA 证书是否已安装并受到信任。
+
+2. 在 Android 设备上配置 Fiddler Everywhere 代理：
+
+    1. 前往“设置”> 选择您处于活动状态的 Wi-Fi 连接 >“代理”。
+    2. 选择“手动”代理。
+        - 输入 Fiddler Everywhere 主机的 IP 地址（例如 192.168.100.50）。
+        - 输入 Fiddler Everywhere 代理端口（默认是 8866）。
+
+一旦完成这些步骤，您就可以捕获来自 Android 设备浏览器的流量。要测试您的设置：
+
+1. 在您的 Android 设备上打开 Google Chrome（或任何遵守代理设置的浏览器）并导航至 `https://example.com`。
+2. 确认该 HTTPS 流量显示在 Fiddler Everywhere 应用程序中。
+
+## 在 Android 模拟器上配置 Fiddler 代理
+
+Android 虚拟设备 (AVD)，也称为 Android 模拟器，可以通过调整模拟器内的网络设置来配置为使用 Fiddler Everywhere 作为代理，这与实体设备类似。关键区别在于，模拟器的代理地址必须设置为其回环地址。对于大多数标准 Android 模拟器，此地址为 10.0.2.2，但某些第三方模拟器可能会使用不同的回环别名。如果您不确定，请参阅您的模拟器文档。
+
+要配置您的 Android 模拟器以使用 Fiddler Everywhere 捕获流量：
+
+1. 启动模拟器，打开模拟的 Wi-Fi 设置，点击“设置”（Settings），然后展开“高级设置”（Advanced Settings）。
+2. 选择“编辑”（Edit）并展开“高级设置”（Advanced Settings）。在某些较旧的 Android 版本上，您可能需要长按已连接网络的名称，然后点击“修改”（Modify），并展开“高级设置”（Advanced Settings）。
+3. 打开“代理”（Proxy）部分并选择“手动”（Manual）代理。
+
+    - 输入模拟器的回环地址作为代理地址（对于原生 AVD，通常为 10.0.2.2）。
+    - 输入 Fiddler Everywhere 所使用的代理端口（默认是 8866，可在 Settings > Connections > Fiddler listens on port... 中进行配置）。
+
+4. 在模拟器上安装 Fiddler Everywhere 根 CA 证书：
+
+    1. 在模拟器内打开浏览器并导航至 `http://ipv4.fiddler:8866` 或 `http://10.0.2.2:8866`。
+    2. 在收到提示时下载 CA 证书。
+    3. 从设备存储中安装下载的 Fiddler CA 证书。典型路径为“设置”>“安全”>“加密和凭据”>“安装证书”>“CA 证书”（具体路径可能会因 Android 版本而异）。
+    4. 确认 Fiddler CA 证书作为用户证书显示在“设置”>“安全”>“加密和凭据”>“用户”选项卡下。
+
+一旦配置完成，您就可以捕获来自模拟器浏览器的流量。要验证您的设置：
+
+- 在 Fiddler Everywhere 中，确保已启用 Settings（设置）> Connections（连接）> Allow remote devices to connect（允许远程设备连接）。（可选）启用 Keep it ON after app restart（在应用重启后保持开启）以持久化保存该设置。
+- 在模拟器上，打开 Google Chrome（或任何遵守代理设置的浏览器）并导航至 `https://example.com`。
+- 在 Fiddler Everywhere 中，确认来自模拟器的 HTTP/HTTPS 流量正在被捕获。
+
+## 捕获移动浏览器流量
+
+远程 Android 设备配置完成后，可以立即开始捕获移动浏览器的 HTTP 和 HTTPS 流量。例如，在 Android 设备上打开 Chrome 或其他遵循代理设置的浏览器，访问任意网站，就能在 Fiddler Everywhere 的 Live Traffic 网格中看到流量。
+
+为了区分移动设备流量和 Fiddler Everywhere 主机自身流量，可以使用 Client IP 列过滤器，指定移动设备 IP 地址；也可以使用 Process 列过滤器，选择相关设备进程名。
+
+:::caution[调试结束后]
+调试完成后，记得从 Android 设备中移除 Wi-Fi 代理设置，以恢复正常网络连接。
+:::
+
+## 捕获移动应用流量
+
+大多数生产环境应用会阻止使用用户安装的证书，因此 Fiddler Everywhere 无法完成 TLS 握手，也无法解密这些应用的 HTTPS 流量。
+
+如果你正在开发应用，并且可以访问源码，可以配置应用信任用户安装的证书。这样在开发阶段，就可以使用 Fiddler Everywhere 捕获和检查该应用的 HTTP/HTTPS 流量。
+
+### Android API 24 及以上配置
+
+在 `Android/src/main/res/xml/network_security_config.xml` 文件中添加如下配置：
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config>
+        <trust-anchors>
+            <!-- Trust preinstalled CAs -->
+            <certificates src="system" />
+            <!-- Additionally trust user-added CAs -->
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>
+```
+
+然后在 `AndroidManifest.xml` 的 `application` 标签中引用该配置：
+
+```xml
+android:networkSecurityConfig="@xml/network_security_config"
+```
+
+示例：
+
+```xml
+<application
+    android:name="com.tns.NativeScriptApplication"
+    android:allowBackup="true"
+    android:icon="@drawable/icon"
+    android:networkSecurityConfig="@xml/network_security_config">
+    ...
+</application>
+```
+
+最后重新构建应用，即可开始监控它的 HTTP/HTTPS 流量。
+
+## 相关主题
+
+- 将移动应用的 localhost 请求导向 Fiddler 代理。
+- 使用 Fiddler Everywhere 调试移动应用。
+
+## 原文信息
+
+- 原文标题：Capturing Android Traffic
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-from-android

@@ -1,0 +1,95 @@
+---
+title: "Agent Cache"
+description: "Agent Cache 页面简体中文翻译。"
+sidebar:
+  label: "Agent Cache"
+  order: 57
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/agent-cache"
+---
+
+# Agent Cache
+
+在开发和测试期间复用之前的 agent 响应，以缩短反馈循环、加快迭代速度，同时控制执行成本。这就是 **Agent Cache**。
+
+当构建和测试通过 HTTPS 与模型提供商端点通信的自动化 agent 时，每次测试运行都会发送一次实时请求并消耗 token。Agent Cache 打破了这个循环：它允许你缓存已捕获的端点响应，并让 Fiddler Everywhere 为匹配的调用重放该响应。这样，在第一次捕获之后，你的测试不再产生 token 成本，针对同一个缓存响应的重复运行也会保持快速且确定。
+
+## 概览
+
+Fiddler Everywhere 在 **Traffic** 面板中增加了 **Agent Calls** 标签页，它与 **Live Traffic**、**Compare Sessions** 等标签页并列。
+
+**Agent Calls** 标签页是基于已经在 **Live Traffic** 中捕获的会话而形成的聚焦视图。它会自动过滤并显示指向受支持模型提供商端点的 HTTPS 会话。
+
+> **重要：** **Agent Calls** 标签页反映的是已经被捕获的会话。你必须正在运行有效的流量捕获，或者 **Live Traffic** 中已经存在之前捕获的会话，**Agent Calls** 中才会出现会话。
+
+## Agent Calls 标签页
+
+**Agent Calls** 表格包含与 **Live Traffic** 相同的关键列，例如 **#**、**Host**、**URL**、**Method**、**Status**、**Body** 和 **Duration**，让你能够完整查看每一次捕获到的端点调用。
+
+需要注意的额外行为：
+
+- 当 Fiddler 检测到指向受支持 agentic 端点的流量时，会话会自动出现在 **Agent Calls** 中。
+- 如果两个或更多相同端点被缓存，Fiddler 会返回第一个缓存会话的响应。
+- Fiddler 规则只应用于未缓存的会话。缓存响应会原样返回，不会进行规则评估。
+- 会话被缓存后，后续发往该端点的请求只会出现在 **Live Traffic** 中。**Agent Calls** 显示的是原始的未缓存请求。
+
+该表格增加了一个专用的固定列：
+
+| 列 | 描述 |
+|:---|:---|
+| **Caching** | 每个会话一个切换开关。启用它可以缓存该会话记录的响应。禁用它则停止拦截，并恢复对该端点的实时调用。 |
+
+当某个会话的 **Caching** 开关启用后，Fiddler Everywhere 会拦截匹配的出站调用，并返回缓存响应，而不是把请求转发到远程端点。当开关禁用后，请求会正常通过。
+
+## 开始使用
+
+以下场景展示了 Agent Cache 如何在开发调用模型提供商端点的 agent 时消除重复 token 使用。
+
+**场景：** 你正在构建一个 agent，它会向 completion 端点发送结构化 HTTPS 请求，例如 `api.openai.com`。在开发期间，你会反复触发同一个调用，以验证 agent 的解析逻辑和响应处理逻辑。如果没有缓存，每次运行都会消耗 token。
+
+1. 在 Fiddler Everywhere 中开始捕获流量，点击工具栏中的 **Start Capture**。
+2. 运行你的 agent，以触发一次到模型提供商端点的 HTTPS 调用。
+3. 打开 **Traffic** > **Agent Calls**。
+4. 在表格中找到捕获的会话，可以使用 **Host** 或 **URL** 列识别。
+5. 在固定的 **Caching** 列中为该会话启用 **Caching** 开关。
+6. 使用相同请求再次运行你的 agent。
+7. 在 **Live Traffic** 表格中确认 Fiddler Everywhere 已为所有后续请求提供缓存响应。
+
+在 agent 提供商侧快速检查后，可以确认没有新的实时调用，也没有消耗新的 token。
+
+你可以随时禁用 **Caching** 开关，以恢复对该端点的实时调用。
+
+## 支持的端点
+
+**Agent Calls** 标签页会自动检测并显示指向广泛模型提供商和推理网关端点的会话，包括主要提供商、云托管推理服务和本地运行器，无需任何手动配置。
+
+### 手动添加端点
+
+如果某个会话没有自动出现在 **Agent Calls** 中，例如使用本地托管 API、内部网关或尚未进入内置检测列表的新提供商时，你可以手动提升它：
+
+1. 在 **Live Traffic** 中右键单击该会话。
+2. 从上下文菜单中选择 **Add to Agent Calls**。
+
+该会话随后会出现在 **Agent Calls** 标签页中，并可像自动检测到的会话一样被缓存。
+
+## 工作方式
+
+当 Agent Cache 处于活动状态时，请求流程如下：
+
+```txt
+Your Agent -> Fiddler Everywhere -> Cache ON?
+  YES -> Return cached response
+  NO  -> Forward request -> Provider -> Response
+```
+
+1. 你的 agent 通过 Fiddler Everywhere 路由 HTTPS 流量，可以通过代码中配置代理、使用系统代理设置，或从 Fiddler 内置终端启动 agent 来实现。
+2. Fiddler 捕获该调用，并将其显示在 **Agent Calls** 标签页中。
+3. 当该会话的 **Caching** 开关启用时，Fiddler 会为任何匹配的后续调用重放已存储的响应。
+4. 提供商端点不会收到重复请求，因此不会产生 token 费用。
+
+## 注意事项
+
+- Agent Cache 适用于 Trial、Pro 和 Enterprise 计划，不适用于 Lite 许可证。
+- Agent Cache 面向需要确定性响应的开发与验证流程。
+- 匹配基于捕获的请求详情。如果你的 agent 更改了请求负载、Header 或目标路径，请分别捕获并缓存更新后的变体。
+- 请定期检查缓存会话，使存储的响应与你当前工作流的预期保持一致。
+- 缓存会话存储在当前 Fiddler Everywhere 会话中。关闭并重新打开应用程序会清除缓存状态。

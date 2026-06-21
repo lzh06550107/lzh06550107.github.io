@@ -1,0 +1,213 @@
+---
+title: "捕获网络流量"
+description: "基于 Telerik Fiddler Everywhere Network Capturing Mode 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Capture Network Traffic"
+  order: 36
+sourceTitle: "Network Capturing Mode"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-network-traffic"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+Network Capturing Mode 用于捕获出站 TCP 流量。该功能需要安装系统级组件：macOS 上是网络扩展，Windows 上是内核驱动，因此需要明确的管理员权限。
+
+在 Windows 上，网络捕获模式会通过 Windows Filtering Platform（WFP）安装内核驱动，再由该驱动与 Fiddler 代理交互，在更低层级捕获网络流量。
+
+与基于 HTTP(S) 代理的捕获方式相比，网络捕获模式工作在更低层级，因此能力更强，也更适合处理普通代理模式难以覆盖的场景。
+
+主要优势包括：
+
+- 比 HTTP(S) 代理工作层级更低。
+- 可从当前活动网络适配器捕获所有出站 TCP 流量。
+- 不受常见 HTTP(S) 代理限制影响，例如框架、应用、操作系统或特殊配置差异。
+- 可以控制要监控的 IP 地址和进程。
+
+## 前置条件与限制
+
+使用网络捕获模式前，需要先了解它的要求和限制。
+
+### 前置条件
+
+需要满足以下条件：
+
+- 已安装最新版 Fiddler Everywhere。
+- 已安装并信任 Fiddler Certificate Authority。
+- 具备管理员权限，以安装或卸载 macOS 网络扩展或 Windows 内核驱动。
+    - Windows：需要通过 UAC 对话框授权安装 WFP 内核驱动。
+    - macOS：需要管理员权限安装并启用网络扩展。
+
+### 限制
+
+Network Capture 模式目前存在一些已知的局限性，如下所示：
+
+- Network Capture（网络捕获）模式仅适用于 Windows 和 macOS。Linux 版本的 Fiddler Everywhere 尚不支持网络捕获。
+- Network Capture（网络捕获）模式无法与 System Capture（系统捕获）模式同时工作。如果启用了网络捕获模式，Fiddler 将自动禁用系统捕获模式以防止冲突。
+- 某些特定的 VPN 工具在检测到第三方网络扩展时会关闭 VPN 连接。您可以尝试通过以下方式解决该问题：在启动 Fiddler Everywhere 之前先建立 VPN 连接，然后再启用其网络捕获模式。
+- 要在使用 Fiddler 的同时使用 VPN 连接，您通常需要绕过特定的 VPN 终点（例如，像 vpn.mycompany.com）。然而，HTTPS > Connections > Bypass Fiddler for URLs that starts with: 选项与 Network Capture 模式不兼容。当使用网络捕获模式时，您必须[通过创建一个执行 Do Not Decrypt（不解密）操作的 Fiddler 规则](https://www.google.com/search?q=slug://configure-vpn-fiddler%23configuration-for-network-capturing-mode)来绕过目标 VPN 终点。
+- Network Capture（网络捕获）模式只能捕获出站流量。目前，无法捕获来自远程设备的入站流量。对于此类情况，请使用我们的其他捕获模式，例如反向代理（Reverse Proxy）或针对 Android、iOS 或远程电脑的特定捕获模式。
+
+## 使用网络捕获模式
+
+Network Capture（网络捕获）模式可通过 Fiddler Live Traffic（实时流量）菜单选项中的 Network Capture 选项进行访问。
+
+(图略)
+
+一旦启用了 Network Capture，您就可以捕获所有 TCP 流量。正如优势部分所述，使用网络捕获模式的主要好处是您无需更改操作系统代理或设置客户端的代理。这使您能够快速捕获那些在其他情况下难以使用 HTTP(S) 代理的进程的流量。
+
+要使用 Network Capture，您需要明确设置 IP 地址、TCP/IP 端口以及（可选的）进程名称。必须指定至少一条设置了 IP 地址（或 IP 地址范围）以及相关 TCP/IP 端口的规则，捕获功能才能正常工作。
+
+### 启动 Network Capture
+
+要启动网络捕获模式，请执行以下步骤：
+
+1. 点击 Live Traffic（实时流量）菜单中的 Network Capture 按钮。
+2. 点击 Network Capture Settings（网络捕获设置）屏幕中的 Enable。
+
+> 捕获将使用预先配置的规则。了解如何修改默认捕获规则或添加额外规则...
+
+> 如果当前启用了系统捕获模式，当您启用网络捕获模式时，Fiddler 将自动禁用它，因为这两种模式无法同时工作。
+
+首次启用网络捕获模式时，您必须以管理员权限安装所需的系统组件。安装过程在 Windows 和 macOS 之间有所不同。
+
+#### Windows 初始设置
+
+当您在 Windows 上首次启用网络捕获时，Fiddler 会通过 Windows 过滤平台 (WFP) 安装一个内核驱动程序。此过程需要管理员权限。
+
+1. 在按下 Enable 之后，Windows 将立即显示一个用户账户控制 (UAC) 对话框，请求允许安装该驱动程序。
+2. 点击 Yes（是）以允许安装该内核驱动程序。
+3. 安装成功后，Network Capture 屏幕会重新加载，并启用网络捕获。
+
+> 如果您点击 No（否）或不具备管理员权限，Fiddler 将显示一个红色的 Toast 通知，表明无法启动网络捕获。必须安装该驱动程序才能使用此功能。
+
+#### macOS 初始设置
+
+当您在 macOS 上首次启用网络捕获时，Fiddler 会安装一个网络扩展。此过程需要管理员权限。
+
+1. 在按下 Enable 后，您会立即看到一个原生 macOS 弹窗。
+2. 在 macOS 弹窗中，选择 Open System Settings（打开系统设置）。在打开的 macOS 系统设置中，向下滚动到关于 Fiddler 扩展被拦截的消息。
+3. 允许 Fiddler Everywhere 扩展。
+4. 输入您的管理员凭据以安装扩展。
+5. 点击 Allow（允许）以确认 Fiddler Everywhere 网络扩展的安装。
+6. 安装成功后，Network Capture 屏幕会重新加载，并启用网络捕获。
+
+> 在 macOS 上安装网络扩展需要管理员权限。如果您没有必要的权限，Fiddler 将无法启用网络捕获。
+
+### 停止 Network Capture
+
+停止网络捕获模式的流程如下：
+
+1. 在 Live Traffic 菜单中点击 Network Capture 按钮。
+2. 在 Network Capture Settings 页面中点击 Disable。
+
+## 修改 Network Capture 规则
+
+默认情况下，网络捕获模式使用活动规则来捕获来自在端口 80 (HTTP) 和 443 (HTTPS) 上工作的所有 IP 地址和进程的流量。一条附加规则启用了对端口 3000 上的本地主机 (127.0.0.1) 的捕获——这演示了如何在 Network Capture Settings（网络捕获设置）屏幕中添加特定规则。
+
+Network Capture Settings（网络捕获设置）屏幕提供用于简单规则设置的 Basic（基础）视图以及用于更复杂配置的 Advanced（高级）视图。
+
+在高级视图中，您可以使用以下选项手动控制要捕获的内容：
+
+- IP Address（IP 地址）：设置特定的 IP 地址或 IP 地址范围的起始地址（对子网使用 CIDR 表示法）。
+- Subnet Mask（子网掩码）：定义子网掩码，这决定了 IP 地址的范围。接受 CIDR 表示法。
+- Port（端口）：设置 TCP/IP 端口。大多数应用程序默认使用端口 80 (HTTP) 和 443 (HTTPS)，但自定义端口在暂存（staging）、测试或本地开发中很常见。
+- Filter by PID or process name（按 PID 或进程名称过滤）：指定一个或多个进程 ID (PID) 或进程名称，用空格分隔。对于包含多个单词的进程名称，请使用引号（例如，"Google Chrome Helper"）。在 macOS 上，使用活动监视器（Activity Monitor）来查找 PID 或进程名称。
+
+### 重置捕获规则
+
+要将捕获规则恢复为默认值：
+
+1. 打开 Network Capture Settings 窗口。
+2. 切换到 Advanced view。
+3. 点击 Reset to Default。
+
+> 如果网络捕获属性是通过受管理的应用策略设置的，重置选项将恢复为管理员定义的规则。
+
+### 使用 CIDR 表示网络地址
+
+Subnet Mask 字段支持 CIDR 表示法。IPv4 的有效范围是 `0` 到 `32`，IPv6 的有效范围是 `0` 到 `128`。
+
+| CIDR 值 | 子网掩码 | 效果 |
+| --- | --- | --- |
+| `32` | `255.255.255.255` | 只监控精确主机地址。 |
+| `24` | `255.255.255.0` | 监控 `/24` 子网中的所有地址，例如 `192.168.1.0` 到 `192.168.1.255`。 |
+| `0` | `0.0.0.0` | 监控所有 IPv4 地址。 |
+
+端口 `80` 和 `443` 的默认规则使用 IP Address `0.0.0.0` 与 Subnet Mask `0`，覆盖所有 IPv4 地址。IPv6 也受支持，例如使用 IP Address `::` 和 Subnet Mask `0` 覆盖所有 IPv6 地址。
+
+默认还包含 localhost 规则：
+
+- IPv4：IP Address `127.0.0.0`，Subnet Mask `8`，覆盖整个 `127.0.0.0/8` 回环范围。
+- IPv6：IP Address `::1`，Subnet Mask `128`，只覆盖精确回环地址。
+
+两个 localhost 规则都应用于端口 `3000`。
+
+## 移除网络扩展或驱动
+
+禁用网络捕获不会从系统中移除网络扩展或驱动。若要完全移除，可以使用以下方式。
+
+### 通过卸载应用移除（Windows）
+
+1.  Windows 控制面板并导航至“程序”>“卸载程序”。
+2. 从列表中选择 Fiddler Everywhere 并点击“卸载”。
+
+> 卸载程序会自动停止并移除 fid_kernel 内核驱动程序，作为卸载过程的一部分。
+
+### 通过命令移除驱动（Windows）
+
+如果只想移除内核驱动，而不卸载 Fiddler Everywhere，可以在管理员权限 shell 中执行：
+
+```bash
+sc stop fid_kernel
+sc delete fid_kernel
+```
+
+> `sc` 是 Windows Service Control 命令行工具，用于与 Service Control Manager 通信。第一条命令停止正在运行的驱动服务，第二条命令永久移除该驱动。
+
+### 通过卸载应用移除（macOS）
+
+1. 在 Finder 中打开 Applications 文件夹。
+2. 将 Fiddler Everywhere 拖到 Trash。
+3. 在确认提示中选择 Continue。
+
+> 如果移除失败，请退出 Fiddler Everywhere，确认没有 Fiddler 进程仍在运行，可通过 Activity Monitor 检查，然后重试卸载。
+
+### 手动移除（macOS）
+
+如果只想移除网络扩展，而不卸载 Fiddler Everywhere：
+
+1. 打开 macOS System Settings。
+2. 进入 Network。
+3. 点击 Filters。
+4. 选择 Fiddler Everywhere 网络扩展。
+    - 使用开关或下拉菜单禁用扩展，之后仍可重新启用。
+    - 点击 `-` 按钮可永久卸载并移除该扩展。
+
+## 网络扩展排错
+
+如果遇到 Fiddler Everywhere 网络扩展相关问题，可以尝试以下步骤：
+
+- 确认当前 OS 用户具备管理员权限，可以安装并启用网络扩展。
+- 卸载此前安装的网络扩展版本，然后重新安装 Fiddler Everywhere。
+- Windows 上，可查看 Windows Event Viewer 中 Windows Logs > System 下与 `fid_kernel` 相关的错误，以获取更详细失败信息。
+- macOS 上，可打开 Console app，并使用 `Fiddler` 过滤系统级扩展错误。
+- 如果仍无法安装或启用，请联系 Telerik Support Center。
+
+## 最佳实践
+
+- 简单捕获需求优先使用 Basic view；需要细粒度控制时再切换到 Advanced。
+- 大版本更新或策略变更后，应检查并重置规则。
+- 使用明确的进程名或 PID，避免捕获不必要的流量。
+- 排错时先从默认规则开始，再逐步增加复杂度。
+
+## 相关主题
+
+- Fiddler 捕获模式。
+- Fiddler 作为系统代理。
+- Fiddler 作为反向代理。
+
+## 原文信息
+
+- 原文标题：Network Capturing Mode
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/capture-traffic/capture-network-traffic

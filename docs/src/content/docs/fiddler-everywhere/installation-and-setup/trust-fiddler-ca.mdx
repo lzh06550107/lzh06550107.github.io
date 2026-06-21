@@ -1,0 +1,144 @@
+---
+title: "信任 Fiddler 证书颁发机构"
+description: "基于 Telerik Fiddler Everywhere Trust Fiddler Certificate Authority 页面整理的简体中文 Starlight 文档。"
+sidebar:
+  label: "Trust Fiddler CA"
+  order: 27
+sourceTitle: "Trust the Fiddler Certificate Authority"
+sourceUrl: "https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/trust-fiddler-ca"
+sourceUpdated: "2026-05-28"
+translationMode: "中文整理版，非逐字翻译"
+---
+
+正确安装并信任 Fiddler Everywhere 的证书颁发机构，也就是 Fiddler CA，是在系统级捕获并解密 HTTPS 流量的关键步骤。本文整理 Windows、macOS 和 Linux 上安装 Fiddler CA 的推荐方式、手动方式，以及常见排错建议。
+
+:::tip[什么时候不需要安装 CA]
+如果你使用的是独立浏览器捕获模式，或终端捕获模式，通常不需要安装 Fiddler CA。
+:::
+
+## 推荐方式：自动安装 CA
+
+最简单、最可靠的方式，是通过 Fiddler Everywhere 应用内的系统捕获向导安装并信任 Fiddler CA。
+
+基本流程如下：
+
+1. 打开 Fiddler Everywhere 的 Home 面板。
+2. 启动 System Proxy 教程，并根据提示操作。
+3. 按向导提示，在操作系统证书管理器中安装并信任 Fiddler CA 证书。
+
+安装完成后，CA 会一直保持有效，直到你明确卸载。它通常会以 `Fiddler Root Certificate Authority` 的名称出现在操作系统证书管理器中。
+
+## 手动安装 CA
+
+如果自动向导失败，或者你希望更明确地控制安装过程，可以按操作系统进行手动安装。
+
+### Windows
+
+在 Windows 上，可以通过 Fiddler Everywhere 的 HTTPS 设置安装 CA。
+
+1. 打开 Fiddler Everywhere 的 Settings > HTTPS。
+2. 点击 Trust Fiddler CA in the User Store。
+3. 在弹窗中确认并接受证书。
+4. 再次进入 Settings > HTTPS，并启用 Capture HTTPS traffic。
+5. 点击 Save。
+6. 回到主界面，开启 System Proxy，开始捕获系统 HTTP/HTTPS 流量。
+
+:::note[用户存储与机器存储]
+如果需要把 CA 安装到 Windows 机器存储中，让所有用户使用，需要以管理员身份运行 Fiddler，然后使用 Machine Store 相关选项。个人开发场景通常使用 User Store 即可。
+:::
+
+### macOS
+
+在 macOS 上，可以通过用户证书存储信任 Fiddler CA，也可以导出后手动安装到系统钥匙串。
+
+1. 打开 Fiddler Everywhere 的 Settings > HTTPS。
+2. 点击 Trust Fiddler CA in the User Store。
+3. 按系统提示输入 macOS 管理员凭据。
+4. 再次进入 Settings > HTTPS，并启用 Capture HTTPS traffic。
+5. 点击 Save。
+6. 回到主界面，启用 Live Traffic，开始捕获系统 HTTP/HTTPS 流量。
+
+:::note[系统钥匙串]
+如果要把 Fiddler CA 安装到 macOS 系统钥匙串，需要先导出证书，再按 macOS 的证书安装流程手动安装。Fiddler Everywhere 可以识别登录钥匙串和系统钥匙串中的已安装 CA。
+:::
+
+### Linux
+
+在 Linux 上，通常需要先导出 CA 证书，再按发行版方式导入并信任。
+
+1. 在 Fiddler Everywhere 中打开 Settings > HTTPS > Export。
+2. 选择 DER/Binary 格式导出 CA 证书。
+3. 证书文件会保存为 `Fiddler_Root_Certificate_Authority.crt`，通常位于桌面目录。
+
+:::tip[桌面目录]
+部分 Linux 发行版会本地化 Desktop 文件夹名称。如果导出前遇到路径问题，可以先创建 `~/Desktop` 目录。
+:::
+
+在使用 `dpkg` 的发行版上，可以参考以下命令导入证书：
+
+```sh
+sudo mkdir -p /usr/share/ca-certificates/extra
+sudo cp ~/Desktop/Fiddler_Root_Certificate_Authority.crt /usr/share/ca-certificates/extra
+sudo dpkg-reconfigure ca-certificates
+```
+
+随后在提示中选择安装新证书，并选择 Fiddler 证书进行确认。
+
+完成后：
+
+1. 启用 Capture HTTPS traffic。
+2. 点击 Save。
+3. 回到主界面，开启 System Proxy，开始捕获系统 HTTP/HTTPS 流量。
+
+:::note[非 dpkg 发行版]
+如果你的 Linux 发行版不使用 `dpkg`，需要参考对应系统文档，或查看 Fedora、CentOS、RedHat、XFCE 等环境的专门配置方式。
+:::
+
+## 导出 Fiddler CA
+
+如果自动安装失败，比如受到安全限制、权限限制或企业策略限制，可以导出 Fiddler CA 并手动安装。
+
+通用流程如下：
+
+1. 打开 Settings > HTTPS。
+2. 选择需要的格式，例如 DER/Binary、PEM/ASCII 或 PKCS 12。
+3. 点击 Export。
+4. 将导出的证书添加到操作系统证书管理器，或添加到目标应用的证书存储中。
+5. 启用 Capture HTTPS traffic。
+6. 点击 Save。
+7. 启用 System Proxy，开始捕获系统流量。
+
+## 第三方证书存储
+
+Fiddler CA 可以导出为多种格式，并用于其他应用或运行环境。常见场景包括：
+
+- Linux 上的 Firefox。
+- 基于 Electron 的应用。
+- Python。
+- AWS 相关环境。
+
+## 使用自定义 CA 证书
+
+Fiddler Everywhere 可以通过托管应用配置使用自定义 CA 证书。这类方式常见于企业环境、集中管控设备、统一证书策略或特殊安全要求。
+
+## 最佳实践与排错
+
+- 只从官方 Fiddler Everywhere 应用中安装 CA 证书。
+- 个人开发优先使用 User Store；只有多用户都需要捕获 HTTPS 时，才考虑 Machine Store。
+- 不再需要 HTTPS 捕获时，及时移除 CA 证书，降低安全风险。
+- 如果 HTTPS 捕获不生效，先确认 CA 已被信任，并确认 Capture HTTPS traffic 已开启。
+- 如果个别站点出现证书错误，可以在开发场景下把域名加入忽略列表。
+- 在 Linux 上，应按对应发行版的方式执行手动导出和信任流程。
+- 如果没有管理员权限，或只需要浏览器流量，可以考虑独立浏览器捕获模式。
+
+## 相关主题
+
+- 捕获模式概览。
+- 捕获系统流量。
+- 捕获浏览器流量。
+
+## 原文信息
+
+- 原文标题：Trust the Fiddler Certificate Authority
+- 原文更新时间：2026-05-28
+- 原文地址：https://www.telerik.com/fiddler/fiddler-everywhere/documentation/installation-and-setup/trust-fiddler-ca
