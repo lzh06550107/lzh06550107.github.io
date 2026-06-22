@@ -1,0 +1,175 @@
+---
+title: Penpot 如何使用AI落地实践
+description: 使用 AI + Penpot 实现。
+---
+
+## Penpot 使用 AI 建议分 3 个层级落地：
+
+1. **层级 1：AI 辅助设计**
+AI 只负责生成需求、页面结构、组件清单、文案、状态清单，你手动在 Penpot 里画。
+
+2. **层级 2：AI 操作 Penpot**
+通过 Penpot MCP Server，让 AI 直接读取和修改 Penpot 文件，比如创建 tokens、整理组件、生成页面、审查命名。Penpot 官方文档说明 MCP 可以让 AI 客户端读写 Penpot 文件结构，包括 components、styles、tokens、pages、layers 等：[Penpot MCP Server](https://help.penpot.app/mcp/)。
+
+3. **层级 3：AI 打通设计到代码**
+AI 读取 Penpot 设计，导出 token、组件结构、布局信息，然后生成前端代码，并反向检查代码和设计是否一致。
+
+## 我更推荐你从 **层级 2** 开始。
+
+**接入方式**
+
+最实用架构是：
+
+```text
+需求文档 / 产品想法
+        ↓
+AI 助手
+        ↓
+Penpot MCP Server
+        ↓
+Penpot 设计文件
+        ↓
+设计 Tokens / 组件 / 页面 / 原型
+        ↓
+前端代码
+```
+
+## Penpot 官方 MCP 有两种模式：
+
+```text
+Remote MCP：配置简单，适合大多数团队
+Local MCP：本地运行，适合需要读写本地资源、资产文件、代码仓库的高级场景
+```
+
+Remote MCP 大致步骤：
+
+1. 进入 Penpot：`Your account → Integrations → MCP Server`
+2. 启用 MCP Server
+3. 生成 MCP key
+4. 复制 server URL
+5. 在 Cursor / Claude Code / Codex / VS Code 等支持 MCP 的 AI 工具里添加 Penpot MCP server
+6. 打开 Penpot 文件
+7. 在 Penpot 里执行：`File → MCP Server → Connect`
+8. 先让 AI 做只读检查，再允许写入修改
+
+官方文档也建议先从 read-only prompts 开始，比如列出页面、分析结构、列出组件和颜色样式，再进行写操作：[Penpot MCP Quick Start](https://help.penpot.app/mcp/)。
+
+## **AI 可以接入哪些环节**
+
+你前面那套流程可以改成这样：
+
+```text
+1. 需求分析：AI 生成 PRD、页面清单、用户流程
+2. 信息架构：AI 生成导航结构、页面层级
+3. Design System：AI 生成 tokens、命名规范、组件清单
+4. Penpot 执行：AI 通过 MCP 创建 tokens、组件、页面框架
+5. 页面设计：AI 基于组件库生成初版页面
+6. 状态补齐：AI 补 loading、empty、error、disabled 等状态
+7. 设计审查：AI 检查命名、间距、颜色、组件复用率
+8. 前端实现：AI 读取设计并生成 React/Vue 组件
+9. 回归检查：AI 对比代码和 Penpot 是否一致
+```
+
+Penpot 的 Design Tokens 本身就适合做这件事，因为它的定位是让设计、工具和代码共用同一套视觉变量，包括颜色、字体、间距、阴影等：[Penpot Design Tokens](https://help.penpot.app/user-guide/design-systems/design-tokens/)。
+
+## **最小落地方案**
+
+你可以先用一个 “用户管理后台” 做试点。
+
+第一轮让 AI 生成设计输入：
+
+```text
+请基于一个 SaaS 后台用户管理模块，生成：
+1. 页面清单
+2. 用户流程
+3. 组件清单
+4. 每个页面的状态清单
+5. Design Tokens 命名规范
+6. 前端组件目录结构
+```
+
+第二轮让 AI 生成 Penpot 设计任务：
+
+```text
+请在当前 Penpot 文件中创建这些页面：
+00 Cover
+01 Requirement
+02 User Flow
+03 Wireframe
+04 Design System
+05 Screens
+06 Prototype
+
+先不要画高保真页面，只创建结构和命名。
+```
+
+第三轮让 AI 创建 tokens：
+
+```text
+请为这个后台系统创建一套最小 Design Tokens：
+颜色、字体、间距、圆角、阴影。
+命名使用语义化方式，例如 color.bg.page、color.text.primary、spacing.16。
+创建前先列出计划，等我确认后再写入 Penpot。
+```
+
+第四轮让 AI 创建组件：
+
+```text
+请创建 Button、Input、Select、Table、Modal、Pagination、Toast、Empty State 的组件规范。
+每个组件包含 default、hover、disabled、loading、error 状态。
+优先使用 variants 管理状态。
+```
+
+Penpot variants 很适合把按钮、开关、图标这类相似组件整理成可切换属性，接近前端组件 props 的思路：[Penpot Variants](https://help.penpot.app/user-guide/design-systems/variants/)。
+
+第五轮让 AI 生成页面：
+
+```text
+基于当前 Design System，生成用户列表页：
+1. 桌面端 1440px
+2. 包含搜索、筛选、表格、分页、新建用户按钮
+3. 补齐正常、加载、空状态、错误状态
+4. 所有按钮和输入框必须使用组件库
+5. 不要硬编码颜色，使用 tokens
+```
+
+第六轮让 AI 做审查：
+
+```text
+请审查当前页面：
+1. 是否使用了统一 tokens
+2. 是否存在重复组件
+3. 图层命名是否规范
+4. 间距是否一致
+5. 是否缺少状态
+6. 哪些内容不利于前端实现
+只输出问题清单，不要修改。
+```
+
+第七轮再让 AI 生成代码：
+
+```text
+请根据当前 Penpot 页面生成 React + Tailwind 的组件结构：
+1. 抽取 tokens
+2. 生成 Button、Input、Table、Modal
+3. 生成 UserListPage
+4. 保持组件 props 与 Penpot variants 对应
+```
+
+Penpot Dev tools 也支持查看尺寸、复制 CSS、导出资源，适合给 AI 或前端作为设计到代码的依据：[Penpot Dev Tools](https://help.penpot.app/user-guide/dev-tools/)。
+
+## **最佳实践**
+
+- 让 AI **先分析，再修改**。
+- 每次只让 AI 做一个小任务，比如 “创建 tokens” 或 “整理 Button variants”。
+- 写操作前要求 AI 输出计划。
+- 不要让 AI 一次性 “生成完整设计系统”，容易失控。
+- tokens、组件、页面要分阶段生成。
+- 所有 AI 生成内容都要经过人工设计评审。
+- MCP key 当作密码保存，不要贴进截图、仓库或聊天记录。
+- 最开始用副本文件试验，不要直接改正式设计文件。
+
+一句话：**AI 最适合当 Penpot 的设计系统助理和前端桥梁，不适合完全替代设计判断。**
+
+你可以让它搭结构、补状态、查一致性、生成代码，但产品取舍、交互优先级和最终视觉判断，还是应该由人来定。
+

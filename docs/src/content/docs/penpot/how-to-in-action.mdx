@@ -1,0 +1,211 @@
+---
+title: Penpot 如何落地实践
+description: 使用 Penpot 实现。
+---
+
+可以按 “**先小闭环，再逐步系统化**” 落地。不要一开始就追求完整设计系统，容易卡死。最实用的做法是：拿一个真实页面，从需求到设计到前端实现跑通一次。
+
+## 第 1 步：选一个最小业务闭环
+
+比如后台项目可以选：
+
+- 登录页
+- 首页 Dashboard
+- 列表页
+- 详情页
+- 新建/编辑弹窗
+
+不要先设计 30 个页面。先让 3-5 个核心页面跑通设计流程。
+
+## 第 2 步：建立 Penpot 文件结构
+
+新建一个项目文件，按页面分区：
+
+```text
+00 Cover
+01 Requirement
+02 User Flow
+03 Wireframe
+04 Design System
+05 Screens
+06 Prototype
+99 Archive
+```
+
+## 第 3 步：先定基础 UI 规则
+
+在 `04 Design System` 里先做最小规范：
+
+```text
+Colors
+- brand.primary
+- bg.page
+- bg.surface
+- text.primary
+- text.secondary
+- border.default
+- state.success
+- state.warning
+- state.error
+
+Typography
+- heading.lg
+- heading.md
+- body.md
+- body.sm
+- caption
+
+Spacing
+- 4
+- 8
+- 12
+- 16
+- 24
+- 32
+
+Radius
+- 4
+- 8
+- 12
+```
+
+## 第 4 步：只做第一批高频组件
+
+先做这些就够：
+
+```text
+Button
+Input
+Select
+Checkbox
+Modal
+Card
+Table
+Tabs
+Pagination
+Toast
+Empty State
+Loading
+```
+
+每个组件至少补齐：
+
+```text
+Default
+Hover
+Active
+Disabled
+Loading
+Error
+```
+
+## 第 5 步：画低保真
+
+先灰度画结构：
+
+- 页面顶部放什么
+- 主操作在哪里
+- 列表有哪些字段
+- 表单有哪些输入项
+- 错误提示放哪里
+- 空数据怎么显示
+
+低保真确认后再上视觉。别一上来调颜色，那个很容易变成“审美泥潭”。
+
+## 第 6 步：画高保真页面
+
+高保真页面必须用组件库拼，不要每个页面重新画按钮、输入框、卡片。
+
+每个核心页面都要补：
+
+```text
+正常状态
+加载状态
+空状态
+错误状态
+长文本状态
+权限不足状态
+移动端状态
+```
+
+## 第 7 步：做原型
+
+把关键流程连起来：
+
+```text
+登录 → 首页
+首页 → 列表
+列表 → 详情
+列表 → 新建
+新建 → 成功 Toast
+表单错误 → 错误提示
+删除 → 确认弹窗
+```
+
+## 第 8 步：和前端对齐 token
+
+设计 token 和代码 token 最好同名，例如：
+
+```css
+--color-brand-primary
+--color-bg-page
+--color-text-primary
+--spacing-16
+--radius-8
+```
+
+前端里也建一份对应结构：
+
+```text
+src/
+  styles/
+    tokens.css
+    typography.css
+  components/
+    Button/
+    Input/
+    Modal/
+```
+
+## 第 9 步：前端先实现组件，再实现页面
+
+开发顺序建议：
+
+```text
+tokens → 基础样式 → Button/Input/Card → 业务页面
+```
+
+不要直接写页面里的临时样式。否则 Penpot 的设计系统和代码会很快分叉。
+
+## 第 10 步：建立设计评审清单
+
+每个页面交付前检查：
+
+```text
+是否使用组件库
+是否使用 token
+是否有加载/空/错状态
+移动端是否可用
+文字是否真实
+按钮层级是否清晰
+表单错误是否明确
+开发是否能看懂结构
+```
+
+## **最小可执行版本**
+
+如果你明天就要开始，我建议这样做：
+
+1. 选一个核心页面，比如“用户列表页”
+2. 在 Penpot 建 `Design System`
+3. 做 Button、Input、Table、Pagination、Modal
+4. 画用户列表页的正常、空、加载、错误状态
+5. 做一个 “新增用户” 弹窗
+6. 用 Prototype 连起来
+7. 前端按 token 和组件实现
+8. 对照 Penpot 走一轮 UI Review
+
+这样一周内就能形成一个可复用模板。后面每增加一个页面，就反哺组件库，而不是重新设计一套。
+
+核心原则就一句：**Penpot 不是用来画图的，是用来沉淀 “前端可实现的 UI 系统” 的。**
+

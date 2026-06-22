@@ -5,8 +5,7 @@ sidebar:
   order: 15
 ---
 
-import { FileTree, Tabs } from '@astrojs/starlight/components';
-import CodexScreenshot from '../../../../../components/CodexScreenshot.astro';
+import { FileTree, Tabs, TabItem } from '@astrojs/starlight/components';
 
 本页面面向插件作者。如果你想在 Codex 中浏览、安装和使用插件，请参见 [Plugins](https://developers.openai.com/codex/plugins)。如果你仍在迭代一个仓库或一个个人工作流，请从本地 skill 开始。当你想在团队之间共享该工作流、打包 app 集成或 MCP 配置、打包生命周期 hooks，或发布一个稳定包时，再构建插件。
 
@@ -14,19 +13,11 @@ import CodexScreenshot from '../../../../../components/CodexScreenshot.astro';
 
 最快的设置方式是使用内置的 `@plugin-creator` skill。
 
-<CodexScreenshot
-    alt="Codex 中的 plugin-creator skill"
-    lightSrc="/images/codex/plugins/plugin-creator.png"
-    darkSrc="/images/codex/plugins/plugin-creator-dark.png"
-/>
+![](/images/codex/plugins/4.png)
 
 它会搭建所需的 `.codex-plugin/plugin.json` manifest，也可以生成一个用于测试的本地 marketplace 条目。如果你已经有一个插件文件夹，仍然可以使用 `@plugin-creator` 将它接入本地 marketplace。
 
-<CodexScreenshot
-    alt="如何调用 plugin-creator skill"
-    lightSrc="/images/codex/plugins/plugin-creator-invoke.png"
-    darkSrc="/images/codex/plugins/plugin-creator-invoke-dark.png"
-/>
+![](/images/codex/plugins/5.png)
 
 ### 构建你自己的精选插件列表
 
@@ -36,11 +27,7 @@ marketplace 是一个插件的 JSON 目录。`@plugin-creator` 可以为单个�
 
 你不需要为每个插件创建单独的 marketplace。一个 marketplace 可以在测试时暴露单个插件，然后随着你添加更多插件，逐渐发展为更大的精选目录。
 
-<CodexScreenshot
-    alt="插件目录中的自定义本地 marketplace"
-    lightSrc="/images/codex/plugins/codex-local-plugin-light.png"
-    darkSrc="/images/codex/plugins/codex-local-plugin.png"
-/>
+![](/images/codex/plugins/6.png)
 
 ### 从 CLI 添加 marketplace
 
@@ -114,88 +101,62 @@ Greet the user warmly and ask how you can help.
 
 根据谁应该能够访问该插件或精选列表，使用仓库 marketplace 或个人 marketplace。
 
-<Tabs
-    id="codex-plugins-local-install"
-    param="install-scope"
-    defaultTab="workspace"
-    tabs={[
-        {
-            id: "workspace",
-            label: "仓库",
-        },
-        {
-            id: "global",
-            label: "个人",
-        },
-    ]}
+<Tabs syncKey="codex-plugins-local-install">
 
->
+<TabItem label="仓库">
 
-<div slot="workspace">
-    在 `$REPO_ROOT/.agents/plugins/marketplace.json` 添加一个 marketplace 文件，并将你的插件存放在 `$REPO_ROOT/plugins/` 下。
+在 `$REPO_ROOT/.agents/plugins/marketplace.json` 添加一个 marketplace 文件，并将你的插件存放在 `$REPO_ROOT/plugins/` 下。
 
-    ```
-    **仓库 marketplace 示例**
+**仓库 marketplace 示例**
 
-    步骤 1：将插件文件夹复制到 `$REPO_ROOT/plugins/my-plugin`。
-    ```
+步骤 1：将插件文件夹复制到 `$REPO_ROOT/plugins/my-plugin`。
 
-    ```bash
-    mkdir -p ./plugins
-    cp -R /absolute/path/to/my-plugin ./plugins/my-plugin
-    ```
+```bash
+mkdir -p ./plugins
+cp -R /absolute/path/to/my-plugin ./plugins/my-plugin
+```
 
-    ```
-    步骤 2：添加或更新 `$REPO_ROOT/.agents/plugins/marketplace.json`，使 `source.path` 以 `./` 开头的相对路径指向该插件目录：
-    ```
+步骤 2：添加或更新 `$REPO_ROOT/.agents/plugins/marketplace.json`，使 `source.path` 以 `./` 开头的相对路径指向该插件目录：
 
-    ```json
-    {
-        "name": "local-repo",
-        "plugins": [
-    {
-        "name": "my-plugin",
-        "source": {
-        "source": "local",
-        "path": "./plugins/my-plugin"
-    },
-        "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-    },
-        "category": "Productivity"
-    }
-        ]
-    }
-    ```
+```json
+{
+    "name": "local-repo",
+    "plugins": [
+{
+    "name": "my-plugin",
+    "source": {
+    "source": "local",
+    "path": "./plugins/my-plugin"
+},
+    "policy": {
+    "installation": "AVAILABLE",
+    "authentication": "ON_INSTALL"
+},
+    "category": "Productivity"
+}
+    ]
+}
+```
 
-    ```
-    步骤 3：重启 Codex，并验证插件是否出现。
-    ```
+步骤 3：重启 Codex，并验证插件是否出现。
+</TabItem>
 
-</div>
+<TabItem label="个人">
+在 `~/.agents/plugins/marketplace.json` 添加一个 marketplace 文件，并将你的插件存放在 `~/.codex/plugins/` 下。
 
-<div slot="global">
-    在 `~/.agents/plugins/marketplace.json` 添加一个 marketplace 文件，并将你的插件存放在 `~/.codex/plugins/` 下。
+**个人 marketplace 示例**
 
-    ```
-    **个人 marketplace 示例**
+步骤 1：将插件文件夹复制到 `~/.codex/plugins/my-plugin`。
 
-    步骤 1：将插件文件夹复制到 `~/.codex/plugins/my-plugin`。
-    ```
+```bash
+mkdir -p ~/.codex/plugins
+cp -R /absolute/path/to/my-plugin ~/.codex/plugins/my-plugin
+```
 
-    ```bash
-    mkdir -p ~/.codex/plugins
-    cp -R /absolute/path/to/my-plugin ~/.codex/plugins/my-plugin
-    ```
+步骤 2：添加或更新 `~/.agents/plugins/marketplace.json`，使插件条目的 `source.path` 指向该目录。
 
-    ```
-    步骤 2：添加或更新 `~/.agents/plugins/marketplace.json`，使插件条目的 `source.path` 指向该目录。
-
-    步骤 3：重启 Codex，并验证插件是否出现。
-    ```
-
-</div>
+步骤 3：重启 Codex，并验证插件是否出现。
+</TabItem>
 </Tabs>
 
 marketplace 文件指向插件位置，因此这些目录只是示例，而不是固定要求。Codex 会相对于 marketplace 根目录解析 `source.path`，而不是相对于 `.agents/plugins/` 文件夹解析。文件格式请参见 [Marketplace 元数据](#marketplace-metadata)。

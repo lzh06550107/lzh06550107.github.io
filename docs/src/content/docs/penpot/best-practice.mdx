@@ -1,0 +1,191 @@
+---
+title: Penpot 最佳实践
+description: 从头开始一个项目，需要设计前端ui，如果使用 penpot 来设计，给出所有步骤和最佳实践。
+---
+
+下面是一套 “从 0 开始用 Penpot 设计前端 UI” 的完整流程。你可以把它当作项目设计 SOP。
+
+## 1. **明确产品范围**
+
+先不要开画布。先写清楚：
+
+- 目标用户是谁
+- 核心场景是什么
+- MVP 必须包含哪些页面
+- 用户完成关键任务的路径
+- 技术约束：Web / H5 / 桌面端 / 后台系统 / 小程序风格
+
+## 2. **整理页面清单与用户流程**
+
+产出：
+
+- 页面地图：登录、首页、列表页、详情页、设置页等
+- 用户流程图：注册、购买、提交表单、搜索、筛选等
+- 状态清单：空状态、加载中、错误、无权限、成功、失败
+
+## 3. **创建 Penpot 项目结构**
+
+建议一个项目文件里分这些页面：
+
+- `00 Cover`：项目说明、版本、负责人
+- `01 Research`：竞品、截图、灵感
+- `02 Flow`：用户流程、信息架构
+- `03 Wireframe`：低保真线框
+- `04 Design System`：颜色、字体、间距、组件
+- `05 Screens`：高保真页面
+- `06 Prototype`：可点击原型
+- `99 Archive`：废弃方案
+
+## 4. **先做设计系统，不要直接画页面**
+
+在 `04 Design System` 建立基础规范：
+
+- 颜色：品牌色、背景、文字、边框、状态色
+- 字体：标题、正文、辅助文字、按钮文字
+- 间距：4 / 8 / 12 / 16 / 24 / 32 / 48
+- 圆角：4 / 8 / 12
+- 阴影：卡片、弹层、浮层
+- 栅格：桌面端 12 栏，移动端 4 栏
+- 断点：例如 375、768、1024、1440
+
+Penpot 的 Design Tokens 可以作为 UI 与代码之间的 “单一事实来源”，官方文档也强调 tokens 可用于颜色、字体、间距、阴影等系统化属性，并支持导入导出，适合和前端 token 同步：[Penpot Design Tokens](https://help.penpot.app/user-guide/design-systems/design-tokens/)。
+
+## 5. **建立组件库**
+
+先做最常用组件：
+
+- Button
+- Input
+- Select
+- Checkbox / Radio / Switch
+- Tabs
+- Modal
+- Toast
+- Card
+- Table
+- Pagination
+- Navbar / Sidebar
+- Form Item
+- Empty / Loading / Error
+
+Penpot 的组件由 Main component 和 copy/instance 组成，实例可以继承主组件更新，也可以保留局部 override，适合维护一致性：[Penpot Components](https://help.penpot.app/user-guide/design-systems/components/)。
+
+## 6. **用 Variants 管理状态**
+
+不要为每种按钮单独散落创建组件。用 variants 管理：
+
+- `type`: primary / secondary / ghost / danger
+- `size`: sm / md / lg
+- `state`: default / hover / active / disabled / loading
+- `icon`: true / false
+
+Penpot variants 适合把按钮、图标、开关等相似组件聚合为一个可切换组件，属性和值也更接近前端组件 props：[Penpot Variants](https://help.penpot.app/user-guide/design-systems/variants/)。
+
+## 7. **低保真线框**
+
+先只画结构，不纠结颜色：
+
+- 页面区块
+- 信息优先级
+- 操作入口
+- 表单字段
+- 列表密度
+- 弹窗流程
+
+低保真阶段的目标是确认 “这个产品能不能用”，不是确认 “漂不漂亮”。
+
+## 8. **高保真页面**
+
+用组件库拼页面，而不是重新画矩形。
+
+每个页面至少覆盖：
+
+- 默认状态
+- 加载状态
+- 空状态
+- 错误状态
+- 长内容状态
+- 窄屏状态
+- 权限不足状态，如适用
+
+## 9. **响应式设计**
+
+每个核心页面至少设计：
+
+- Mobile：375px
+- Tablet：768px，可选
+- Desktop：1440px
+
+最好在设计里明确：
+
+- 哪些元素换行
+- 哪些区域隐藏
+- 表格在移动端如何处理
+- Sidebar 是否变 Drawer
+- Card 是否从多列变单列
+
+## 10. **做可点击原型**
+
+把关键流程连起来：
+
+- 登录成功到首页
+- 列表到详情
+- 创建/编辑/删除
+- 表单错误提示
+- 弹窗确认
+- Toast 反馈
+
+Penpot 支持原型与 View mode 测试，适合在开发前验证交互是否顺：[Penpot Prototyping & Testing](https://help.penpot.app/user-guide/prototyping-testing/)。
+
+## 11. **设计评审**
+
+评审不要只问 “好不好看”，要检查：
+
+- 用户能否完成核心任务
+- 关键按钮是否明显
+- 表单错误是否可恢复
+- 文案是否清楚
+- 移动端是否可用
+- 颜色对比度是否足够
+- 是否有不可实现的交互
+
+## 12. **开发交付**
+
+交付给前端时提供：
+
+- 页面链接
+- 组件说明
+- 状态说明
+- token 命名
+- 图片/图标导出规则
+- 交互说明
+- 特殊边界情况
+
+Penpot 的 Dev tools 可以查看尺寸、属性、复制 CSS、获取 HTML/SVG/CSS 代码片段、导出 assets：[Penpot Dev Tools](https://help.penpot.app/user-guide/dev-tools/)。
+
+## **最佳实践**
+
+- **先组件，后页面**：页面应该像搭积木一样由组件组成。
+- **用 token，不用散落颜色值**：例如用 `color.text.primary`，不要到处写 `#111111`。
+- **组件命名贴近代码**：`Button / Primary / Medium / Disabled` 比 `蓝色按钮3` 好太多。
+- **状态一次补齐**：hover、focus、disabled、loading、error 不要等开发问了再补。
+- **布局用 Flex/Grid 思维**：设计时就考虑前端实现方式，避免绝对定位式设计。
+- **不要过度追求像素完美**：真正重要的是规则一致、组件稳定、响应式合理。
+- **移动端优先考虑内容密度**：不要简单缩小桌面端页面。
+- **图片和图标提前规范**：图标优先 SVG，照片按实际比例裁切，避免开发临时处理。
+- **文案不要用假字长期占位**：真实文案会暴露布局问题。
+- **设计系统单独成库**：成熟后可以发布为 shared library，供多个项目复用。Penpot 支持把文件发布为 shared library，其他文件可连接使用：[Penpot Libraries](https://help.penpot.app/user-guide/design-systems/libraries/)。
+
+## **一个实用交付标准**
+
+当你准备把 UI 给前端开发时，至少保证：
+
+- 所有核心页面已完成
+- 所有组件来自组件库
+- 颜色、字体、间距使用 token
+- 所有交互流程可点击
+- 所有异常状态已设计
+- 桌面端和移动端都有方案
+- 开发能在 Inspect/Dev tools 中拿到尺寸、CSS、导出资源
+
+简单说：Penpot 里不要只画 “漂亮截图”，而是要沉淀出一套可以被前端实现、复用、维护的 UI 系统。

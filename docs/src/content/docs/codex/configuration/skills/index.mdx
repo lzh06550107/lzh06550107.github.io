@@ -2,7 +2,7 @@
 title: Skills 技能
 description: 使用 Skills 为 Codex 扩展任务特定的能力，将可重复的工作流程打包为可复用的技能。
 sidebar:
-  order: 12
+    order: 1
 ---
 
 import { FileTree } from '@astrojs/starlight/components';
@@ -23,12 +23,12 @@ Codex 会在上下文中包含一份初始可用 skills 列表，以便它为任
 
 <FileTree>
 
-- `my-skill/`
-  - `SKILL.md` 必需：指令 + 元数据
-  - `scripts/` 可选：可执行代码
-  - `references/` 可选：文档
-  - `assets/` 可选：模板、资源
-  - `agents/`
+    - `my-skill/`
+    - `SKILL.md` 必需：指令 + 元数据
+    - `scripts/` 可选：可执行代码
+    - `references/` 可选：文档
+    - `assets/` 可选：模板、资源
+    - `agents/`
     - `openai.yaml` 可选：外观和依赖项
 
 </FileTree>
@@ -44,7 +44,9 @@ Codex 可以通过两种方式激活 skills：
 
 ## 创建 skill
 
-优先使用内置创建器：
+如果您已经了解该工作流程，且演示比描述更简单，请使用“记录与回放”（Record & Replay）。Codex 会记录该工作流程、检查相关步骤，并根据演示起草一项可重复使用的技能。
+
+如果您想改为描述该技能，请使用内置的创建器：
 
 ```text
 $skill-creator

@@ -112,7 +112,9 @@ export const docsets = [
                         label: 'Plugins 插件',
                         autogenerate: { directory: 'codex/configuration/plugins' },
                     },
-                    { label: 'Skills 技能', link: '/codex/configuration/skills/' },
+                    {   label: 'Skills 技能',
+                        autogenerate: { directory: 'codex/configuration/skills' },
+                    },
                     { label: 'Subagents 子智能体', link: '/codex/configuration/subagents/' },
                 ],
             },
@@ -627,6 +629,7 @@ export const docsets = [
                     { label: '快捷键', link: '/penpot/first-steps/shortcuts/' },
                     { label: '教程与信息', link: '/penpot/first-steps/info/' },
                     { label: 'WebGL 故障排查', link: '/penpot/first-steps/troubleshooting-webgl/' },
+                    { label: '最佳实践', link: '/penpot/best-practice/' },
                 ],
             },
             {
