@@ -1,0 +1,40 @@
+---
+title: "测试 Superpowers"
+description: "由 Markdown 原样翻译并转换为 Astro Starlight MDX 格式。"
+---
+
+# 测试 Superpowers
+
+Superpowers 有两类不同的测试，每类都在自己的目录中：
+
+- **`tests/`** — 插件的非 LLM 代码是否正常工作？这里包含 Bash + Node + Python 集成测试，覆盖 brainstorm-server JS、OpenCode 插件加载、codex-plugin 同步以及分析工具。
+- **`evals/`** — agents 在真实 LLM 会话中的行为是否正确？这里使用 Python harness 驱动 Claude Code / Codex / Gemini CLI 的真实 tmux 会话，并由一个 LLM actor 和 verifier 判断 skill 遵循情况。
+
+## 插件测试
+
+位于 `tests/`。当前包括：
+
+- `tests/brainstorm-server/` — brainstorm server JS 代码的 Node 测试套件。
+- `tests/opencode/` — OpenCode 插件加载、bootstrap 缓存和工具注册的 Bash 测试。
+- `tests/codex-plugin-sync/` — Bash 同步验证。
+- `tests/kimi/` — Kimi 插件清单接线的 Bash/Python 检查。
+- `tests/claude-code/test-helpers.sh`、`analyze-token-usage.py` — 其余 Bash 测试使用的工具。
+- `tests/claude-code/test-subagent-driven-development.sh` — agent-can-describe-SDD 测试（没有对应的 drill；测试的是描述回忆，而不是行为）。
+- `tests/claude-code/test-subagent-driven-development-integration.sh` — 带 token 分析的扩展 SDD 集成测试（drill 覆盖 YAGNI 子集；Bash 还会增加 commit 数量、Claude Code 任务跟踪和 token 遥测断言）。
+- `tests/claude-code/test-worktree-native-preference.sh` — worktree skill 的 RED-GREEN-REFACTOR 验证（drill 覆盖 PRESSURE 阶段；Bash 也覆盖 RED/GREEN 基线）。
+- `tests/explicit-skill-requests/` — drill 未覆盖的 Haiku 专用、多轮以及由 skill 名称提示触发的测试。
+
+通过相关目录中的 `run-*.sh` 或 `npm test` 运行插件测试。
+
+## Skill 行为 evals
+
+位于 `evals/`。Drill 是 harness；场景位于 `evals/scenarios/*.yaml`。设置方式请参见 `evals/README.md`。快速开始：
+
+```bash
+cd evals
+uv sync --extra dev
+export ANTHROPIC_API_KEY=sk-...
+uv run drill run triggering-test-driven-development -b claude
+```
+
+Drill 场景很慢（每个场景 3–30+ 分钟），并且会运行真实 LLM 会话。它们目前不是 CI 的一部分；自然的后续改进是分层模型（PR 上跑快速子集，每晚 + 按需跑完整扫描）。

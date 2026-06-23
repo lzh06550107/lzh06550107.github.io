@@ -624,6 +624,7 @@ export const docsets = [
                 label: '第一步',
                 items: [
                     { label: '概览', link: '/penpot/first-steps/' },
+                    { label: '结合superpower', link: '/penpot/superpower-with-penpot/' },
                     { label: '云端或自托管', link: '/penpot/first-steps/cloud-selfhost/' },
                     { label: '界面导览', link: '/penpot/first-steps/the-interface/' },
                     { label: '快捷键', link: '/penpot/first-steps/shortcuts/' },
@@ -904,6 +905,53 @@ export const docsets = [
                 label: '界面指南',
                 items: [
                     { label: '界面概览', link: '/comfy/interface/overview/' },
+                ],
+            },
+        ],
+    },
+    {
+        id: 'superpower',
+        title: 'Superpower',
+        cardLabel: 'Superpower 文档集',
+        description: 'Superpower 插件与其 harness 文档，包含安装说明、测试、迁移指南以及内部规划与 spec 文档。',
+        landing: '/superpower/index-opencode/',
+        ctaLabel: '进入 Superpower 文档',
+        featuredLinks: [
+            { label: '概览', href: '/superpower/' },
+            { label: 'Kimi', href: '/superpower/index-kimi/' },
+            { label: '测试', href: '/superpower/testing/' },
+            { label: 'Harness 迁移', href: '/superpower/porting-to-a-new-harness/' },
+        ],
+        sections: [
+            {
+                label: 'Get started',
+                items: [
+                    { label: '概览', href: '/superpower/index/' },
+                    { label: 'OpenCode', link: '/superpower/index-opencode/' },
+                    { label: 'Kimi', link: '/superpower/index-kimi/' },
+                    { label: '测试', link: '/superpower/testing/' },
+                    { label: 'Harness 迁移', link: '/superpower/porting-to-a-new-harness/' },
+                ],
+            },
+            {
+                label: 'Windows',
+                autogenerate: { directory: 'superpower/windows' },
+            },
+            {
+                label: 'Plans',
+                autogenerate: { directory: 'superpower/plans' },
+            },
+            {
+                label: 'Superpowers',
+                items: [
+                    {
+                        label: 'Plans',
+                        autogenerate: { directory: 'superpower/superpowers/plans' },
+                    },
+                    {
+                        label: 'Specs',
+                        autogenerate: { directory: 'superpower/superpowers/specs' },
+                    },
                 ],
             },
         ],

@@ -1,0 +1,304 @@
+---
+title: "文档审查系统实施计划"
+description: "由 Markdown 原样翻译并转换为 Astro Starlight MDX 格式。"
+---
+
+> **对于代理型工作者：** 必需：使用 superpowers:subagent-driven-development（如果子代理可用）或 superpowers:executing-plans 来实施此计划。
+
+**目标：** 向 brainstorming 和 writing-plans 技能添加规格和计划文档审查循环。
+
+**架构：** 在每个技能目录中创建审查者提示模板。修改技能文件，在文档创建后添加审查循环。使用 Task 工具和 general-purpose 子代理进行审查者分派。
+
+**技术栈：** Markdown 技能文件，通过 Task 工具进行子代理分派
+
+**规格：** docs/superpowers/specs/2026-01-22-document-review-system-design.md
+
+---
+
+## Chunk 1: 规格文档审查者
+
+此块向 brainstorming 技能添加规格文档审查者。
+
+### Task 1: 创建规格文档审查者提示模板
+
+**文件：**
+- 创建：`skills/brainstorming/spec-document-reviewer-prompt.md`
+
+- [ ] **Step 1:** 创建审查者提示模板文件
+
+```markdown
+# 规格文档审查者提示模板
+
+在分派规格文档审查者子代理时使用此模板。
+
+**目的：** 验证规格是否完整、一致，并已准备好进行实施规划。
+
+**分派时机：** 规格文档写入 docs/superpowers/specs/ 之后
+
+```
+Task tool (general-purpose):
+description: "Review spec document"
+prompt: |
+You are a spec document reviewer. Verify this spec is complete and ready for planning.
+
+    **Spec to review:** [SPEC_FILE_PATH]
+
+    ## What to Check
+
+    | Category | What to Look For |
+    |----------|------------------|
+    | Completeness | TODOs, placeholders, "TBD", incomplete sections |
+    | Coverage | Missing error handling, edge cases, integration points |
+    | Consistency | Internal contradictions, conflicting requirements |
+    | Clarity | Ambiguous requirements |
+    | YAGNI | Unrequested features, over-engineering |
+
+    ## CRITICAL
+
+    Look especially hard for:
+    - Any TODO markers or placeholder text
+    - Sections saying "to be defined later" or "will spec when X is done"
+    - Sections noticeably less detailed than others
+
+    ## Output Format
+
+    ## Spec Review
+
+    **Status:** ✅ Approved | ❌ Issues Found
+
+    **Issues (if any):**
+    - [Section X]&#58; [specific issue] - [why it matters]
+
+    **Recommendations (advisory):**
+    - [suggestions that don't block approval]
+```
+
+**审查者返回：** 状态、问题（如果有）、建议
+```
+
+- [ ] **Step 2:** 验证文件已正确创建
+
+运行：`cat skills/brainstorming/spec-document-reviewer-prompt.md | head -20`
+预期：显示标题和目的部分
+
+- [ ] **Step 3:** 提交
+
+```bash
+git add skills/brainstorming/spec-document-reviewer-prompt.md
+git commit -m "feat: add spec document reviewer prompt template"
+```
+
+---
+
+### Task 2: 向 Brainstorming 技能添加审查循环
+
+**文件：**
+- 修改：`skills/brainstorming/SKILL.md`
+
+- [ ] **Step 1:** 读取当前 brainstorming 技能
+
+运行：`cat skills/brainstorming/SKILL.md`
+
+- [ ] **Step 2:** 在 “After the Design” 后添加审查循环章节
+
+找到 “After the Design” 章节，并在文档说明之后、实施之前添加新的 “Spec Review Loop” 章节：
+
+```markdown
+**规格审查循环：**
+在写入规格文档之后：
+1. 分派 spec-document-reviewer 子代理（见 spec-document-reviewer-prompt.md）
+2. 如果 ❌ Issues Found：
+   - 修复规格文档中的问题
+   - 重新分派审查者
+   - 重复，直到 ✅ Approved
+3. 如果 ✅ Approved：继续进入实施设置
+
+**审查循环指导：**
+- 编写规格的同一个代理负责修复它（保留上下文）
+- 如果循环超过 5 次迭代，呈现给人类以获得指导
+- 审查者是顾问性的 - 如果你认为反馈不正确，请解释分歧
+```
+
+- [ ] **Step 3:** 验证更改
+
+运行：`grep -A 15 "Spec Review Loop" skills/brainstorming/SKILL.md`
+预期：显示新的审查循环章节
+
+- [ ] **Step 4:** 提交
+
+```bash
+git add skills/brainstorming/SKILL.md
+git commit -m "feat: add spec review loop to brainstorming skill"
+```
+
+---
+
+## Chunk 2: 计划文档审查者
+
+此块向 writing-plans 技能添加计划文档审查者。
+
+### Task 3: 创建计划文档审查者提示模板
+
+**文件：**
+- 创建：`skills/writing-plans/plan-document-reviewer-prompt.md`
+
+- [ ] **Step 1:** 创建审查者提示模板文件
+
+```markdown
+# 计划文档审查者提示模板
+
+在分派计划文档审查者子代理时使用此模板。
+
+**目的：** 验证计划块是否完整、是否匹配规格，并具有适当的任务分解。
+
+**分派时机：** 每个计划块写入之后
+
+```
+Task tool (general-purpose):
+description: "Review plan chunk N"
+prompt: |
+You are a plan document reviewer. Verify this plan chunk is complete and ready for implementation.
+
+    **Plan chunk to review:** [PLAN_FILE_PATH] - Chunk N only
+    **Spec for reference:** [SPEC_FILE_PATH]
+
+    ## What to Check
+
+    | Category | What to Look For |
+    |----------|------------------|
+    | Completeness | TODOs, placeholders, incomplete tasks, missing steps |
+    | Spec Alignment | Chunk covers relevant spec requirements, no scope creep |
+    | Task Decomposition | Tasks atomic, clear boundaries, steps actionable |
+    | Task Syntax | Checkbox syntax (`- [ ]`) on tasks and steps |
+    | Chunk Size | Each chunk under 1000 lines |
+
+    ## CRITICAL
+
+    Look especially hard for:
+    - Any TODO markers or placeholder text
+    - Steps that say "similar to X" without actual content
+    - Incomplete task definitions
+    - Missing verification steps or expected outputs
+
+    ## Output Format
+
+    ## Plan Review - Chunk N
+
+    **Status:** ✅ Approved | ❌ Issues Found
+
+    **Issues (if any):**
+    - [Task X, Step Y]&#58; [specific issue] - [why it matters]
+
+    **Recommendations (advisory):**
+    - [suggestions that don't block approval]
+```
+
+**审查者返回：** 状态、问题（如果有）、建议
+```
+
+- [ ] **Step 2:** 验证文件已创建
+
+运行：`cat skills/writing-plans/plan-document-reviewer-prompt.md | head -20`
+预期：显示标题和目的部分
+
+- [ ] **Step 3:** 提交
+
+```bash
+git add skills/writing-plans/plan-document-reviewer-prompt.md
+git commit -m "feat: add plan document reviewer prompt template"
+```
+
+---
+
+### Task 4: 向 Writing-Plans 技能添加审查循环
+
+**文件：**
+- 修改：`skills/writing-plans/SKILL.md`
+
+- [ ] **Step 1:** 读取当前技能文件
+
+运行：`cat skills/writing-plans/SKILL.md`
+
+- [ ] **Step 2:** 添加逐块审查章节
+
+在 “Execution Handoff” 章节之前添加：
+
+```markdown
+## 计划审查循环
+
+在完成计划的每个块之后：
+
+1. 为当前块分派 plan-document-reviewer 子代理
+   - 提供：块内容、规格文档路径
+2. 如果 ❌ Issues Found：
+   - 修复块中的问题
+   - 为该块重新分派审查者
+   - 重复，直到 ✅ Approved
+3. 如果 ✅ Approved：继续下一个块（如果是最后一个块，则执行交接）
+
+**块边界：** 使用 `## Chunk N: <name>` 标题来分隔块。每个块应 ≤1000 行，并且在逻辑上自包含。
+```
+
+- [ ] **Step 3:** 更新任务语法示例以使用复选框
+
+将 Task Structure 章节改为显示复选框语法：
+
+```markdown
+### Task N: [Component Name]
+
+- [ ] **Step 1:** Write the failing test
+  - File: `tests/path/test.py`
+  ...
+```
+
+- [ ] **Step 4:** 验证审查循环章节已添加
+
+运行：`grep -A 15 "Plan Review Loop" skills/writing-plans/SKILL.md`
+预期：显示新的审查循环章节
+
+- [ ] **Step 5:** 验证任务语法示例已更新
+
+运行：`grep -A 5 "Task N:" skills/writing-plans/SKILL.md`
+预期：显示复选框语法 `### Task N:`
+
+- [ ] **Step 6:** 提交
+
+```bash
+git add skills/writing-plans/SKILL.md
+git commit -m "feat: add plan review loop and checkbox syntax to writing-plans skill"
+```
+
+---
+
+## Chunk 3: 更新计划文档头部
+
+此块更新计划文档头部模板，以引用新的复选框语法要求。
+
+### Task 5: 更新 Writing-Plans 技能中的计划头部模板
+
+**文件：**
+- 修改：`skills/writing-plans/SKILL.md`
+
+- [ ] **Step 1:** 读取当前计划头部模板
+
+运行：`grep -A 20 "Plan Document Header" skills/writing-plans/SKILL.md`
+
+- [ ] **Step 2:** 更新头部模板以引用复选框语法
+
+计划头部应该注明任务和步骤使用复选框语法。更新头部注释：
+
+```markdown
+> **对于代理型工作者：** 必需：使用 superpowers:subagent-driven-development（如果子代理可用）或 superpowers:executing-plans 来实施此计划。任务和步骤使用复选框（`- [ ]`）语法进行跟踪。
+```
+
+- [ ] **Step 3:** 验证更改
+
+运行：`grep -A 5 "For agentic workers:" skills/writing-plans/SKILL.md`
+预期：显示包含复选框语法说明的已更新头部
+
+- [ ] **Step 4:** 提交
+
+```bash
+git add skills/writing-plans/SKILL.md
+git commit -m "docs: update plan header to reference checkbox syntax"
+```

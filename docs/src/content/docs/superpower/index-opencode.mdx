@@ -1,0 +1,157 @@
+---
+title: "OpenCode 的 Superpowers"
+description: "由 Markdown 原样翻译并转换为 Astro Starlight MDX 格式。"
+---
+
+在 [OpenCode.ai](https://opencode.ai) 中使用 Superpowers 的完整指南。
+
+## 安装
+
+在你的 `opencode.json`（全局或项目级）中的 `plugin` 数组里添加 superpowers：
+
+```json
+{
+  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"]
+}
+```
+
+重启 OpenCode。插件会通过 OpenCode 的插件管理器安装，并注册所有 skills。
+
+验证方式：提问：“Tell me about your superpowers”
+
+OpenCode 使用自己的插件安装机制。如果你还使用 Claude Code、Codex 或其他 harness，需要分别为每个工具单独安装 Superpowers。
+
+### 从旧的符号链接安装方式迁移
+
+如果你之前使用 `git clone` 和符号链接安装了 superpowers，请移除旧设置：
+
+```bash
+# 删除旧符号链接
+rm -f ~/.config/opencode/plugins/superpowers.js
+rm -rf ~/.config/opencode/skills/superpowers
+
+# 可选：删除克隆的仓库
+rm -rf ~/.config/opencode/superpowers
+
+# 如果你曾为 superpowers 添加过 skills.paths，也从 opencode.json 中删除
+```
+
+然后按照上面的安装步骤重新安装。
+
+## 使用
+
+### 查找 Skills
+
+使用 OpenCode 原生的 `skill` 工具列出所有可用 skills：
+
+```
+use skill tool to list skills
+```
+
+### 加载 Skill
+
+```
+use skill tool to load brainstorming
+```
+
+### 个人 Skills
+
+在 `~/.config/opencode/skills/` 中创建你自己的 skills：
+
+```bash
+mkdir -p ~/.config/opencode/skills/my-skill
+```
+
+创建 `~/.config/opencode/skills/my-skill/SKILL.md`：
+
+```markdown
+---
+name: my-skill
+description: Use when [condition] - [what it does]
+---
+
+# My Skill
+
+[Your skill content here]
+```
+
+### 项目 Skills
+
+在你的项目内的 `.opencode/skills/` 中创建项目专用 skills。
+
+**Skill 优先级：** 项目 skills > 个人 skills > Superpowers skills
+
+## 更新
+
+OpenCode 通过基于 git 的包规格安装 Superpowers。有些 OpenCode 和 Bun 版本会把解析后的 git 依赖固定在 lockfile 或缓存中，因此重启不一定会拿到最新的 Superpowers commit。如果更新没有出现，请清理 OpenCode 的包缓存或重新安装插件。
+
+若要固定特定版本，请使用分支或 tag：
+
+```json
+{
+  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git#v5.0.3"]
+}
+```
+
+## 工作原理
+
+插件做两件事：
+
+1. **注入 bootstrap 上下文**：通过 `experimental.chat.messages.transform` hook，为每次对话添加 superpowers 意识。
+2. **注册 skills 目录**：通过 `config` hook，让 OpenCode 无需符号链接或手动配置即可发现所有 superpowers skills。
+
+### 工具映射
+
+Skills 说的是动作，而不是指定某一个运行时的工具名称。在 OpenCode 中，这些动作会解析为：
+
+- “创建待办” / “在待办列表中标记完成” → `todowrite`
+- `Subagent (general-purpose):` 模板 → OpenCode 的 `task` 工具，并带上 `subagent_type: "general"`（代码库探索可使用 `"explore"`）
+- “调用 skill” → OpenCode 原生的 `skill` 工具
+- “读取文件” → `read`
+- “创建文件” / “编辑文件” / “删除文件” → `apply_patch`
+- “运行 shell 命令” → `bash`
+- “搜索文件内容” / “按名称查找文件” → `grep`、`glob`
+- “获取 URL” → `webfetch`
+
+（已根据已安装 OpenCode CLI 的工具清单验证。）
+
+## 故障排查
+
+### 插件未加载
+
+1. 检查 OpenCode 日志：`opencode run --print-logs "hello" 2>&1 | grep -i superpowers`
+2. 验证 `opencode.json` 中的插件配置行是否正确
+3. 确保你运行的是较新的 OpenCode 版本
+
+### Windows 安装问题
+
+部分 Windows 版 OpenCode 构建在基于 git 的插件规格上存在上游安装器问题，包括 `git+https` URL 的缓存路径，以及即使 `git.exe` 在普通终端里可用，Bun 也找不到它。如果 OpenCode 无法安装插件，可以尝试使用系统 npm 安装，并让 OpenCode 指向本地包：
+
+```powershell
+npm install superpowers@git+https://github.com/obra/superpowers.git --prefix "$HOME\.config\opencode"
+```
+
+然后在 `opencode.json` 中使用已安装包的路径：
+
+```json
+{
+  "plugin": ["~/.config/opencode/node_modules/superpowers"]
+}
+```
+
+### 未找到 Skills
+
+1. 使用 OpenCode 的 `skill` 工具列出可用 skills
+2. 检查插件是否正在加载（见上文）
+3. 每个 skill 都需要一个带有效 YAML frontmatter 的 `SKILL.md` 文件
+
+### Bootstrap 未出现
+
+1. 检查 OpenCode 版本是否支持 `experimental.chat.messages.transform` hook
+2. 配置变更后重启 OpenCode
+
+## 获取帮助
+
+- 报告问题：https://github.com/obra/superpowers/issues
+- 主文档：https://github.com/obra/superpowers
+- OpenCode 文档：https://opencode.ai/docs/

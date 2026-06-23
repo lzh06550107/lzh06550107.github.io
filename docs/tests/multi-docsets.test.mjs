@@ -140,6 +140,21 @@ test('Penpot sidebar is explicitly ordered from the docset registry', () => {
     assert.doesNotMatch(penpotBlock, /label:\s*'账户与团队',\s*\n\s*items:\s*\[\s*\n\s*\{\s*label:\s*'账户与团队'/);
 });
 
+test('superpower docset is registered with explicit menu entries for its existing docs', () => {
+    const registrySource = fs.readFileSync(registryPath, 'utf8');
+    const superpowerBlock = registrySource.match(/id:\s*'superpower'[\s\S]*?id:\s*'playwright'/)?.[0] ?? '';
+
+    assert.match(superpowerBlock, /landing:\s*'\/superpower\/README\.opencode\/'/);
+    assert.match(superpowerBlock, /link:\s*'\/superpower\/README\.opencode\/'/);
+    assert.match(superpowerBlock, /link:\s*'\/superpower\/README\.kimi\/'/);
+    assert.match(superpowerBlock, /link:\s*'\/superpower\/testing\/'/);
+    assert.match(superpowerBlock, /link:\s*'\/superpower\/porting-to-a-new-harness\/'/);
+    assert.match(superpowerBlock, /autogenerate:\s*\{\s*directory:\s*'superpower\/plans'\s*\}/);
+    assert.match(superpowerBlock, /autogenerate:\s*\{\s*directory:\s*'superpower\/superpowers\/plans'\s*\}/);
+    assert.match(superpowerBlock, /autogenerate:\s*\{\s*directory:\s*'superpower\/superpowers\/specs'\s*\}/);
+    assert.match(superpowerBlock, /autogenerate:\s*\{\s*directory:\s*'superpower\/windows'\s*\}/);
+});
+
 test('sidebar and drawer filter docs navigation down to the active docset', () => {
     const sidebarSource = fs.readFileSync(sidebarPath, 'utf8');
     const drawerSource = fs.readFileSync(drawerPath, 'utf8');

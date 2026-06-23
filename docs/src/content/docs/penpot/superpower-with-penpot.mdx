@@ -1,0 +1,187 @@
+---
+title: "Superpowers 和 penpot 结合"
+description: "如何结合 Superpowers 和 penpot 开发前端"
+---
+
+你应该 **先用 `brainstorming` 设计网页的产品方向和页面逻辑，再用 Penpot MCP 落成可编辑设计稿**。这两个不是替代关系，而是上下游关系。
+
+```text
+brainstorming = 想清楚网页要做什么、给谁用、页面结构、信息层级、交互流程
+Penpot MCP   = 把已经确定的方向做成可编辑的视觉设计稿、组件、样式、页面和图层
+```
+
+Superpowers 的基本工作流里，`brainstorming` 本来就是 “写代码前” 用来细化想法、比较方案、形成设计文档的步骤；而 Penpot MCP 官方说明的定位是让 AI agent 连接 Penpot 文件，读取和修改组件、样式、tokens、页面、图层等设计结构，更适合在已有方向后做设计落地。([GitHub][1])
+
+---
+
+## 推荐流程
+
+### 第一步：用 `brainstorming` 做网页方案
+
+先不要直接打开 Penpot 做图，而是先让 agent 问清楚：
+
+```text
+这个网页的目标是什么？
+用户是谁？
+首页最重要的转化动作是什么？
+需要哪些页面？
+每个页面的信息层级是什么？
+是偏营销官网、后台系统、SaaS 首页、落地页，还是文档站？
+视觉风格是简洁、科技、企业、年轻化，还是高端感？
+```
+
+这一阶段的产物应该是：
+
+```text
+页面结构
+用户路径
+核心模块
+内容优先级
+设计方向 A/B/C
+交互约束
+响应式要求
+最终设计规格 spec
+```
+
+如果中间有视觉选择，比如 “首页 Hero 区怎么排版”、“后台导航是左侧还是顶部”、“落地页模块顺序怎么放”，可以用 `brainstorming` 里的 `visual-companion.md` 做临时视觉对比。它的规则是：只有当内容 “看出来比读文字更清楚” 时才用浏览器视觉伴侣。([GitHub][2])
+
+---
+
+### 第二步：用 `writing-plans` 固化实施计划
+
+当网页方案确定后，不要马上进入 Penpot，也不要直接写代码。应该先把设计规格转成计划：
+
+```text
+哪些页面要做
+每个页面有哪些区块
+哪些组件需要复用
+颜色、字体、间距、按钮、卡片如何定义
+Penpot 里要创建哪些页面 / frame / component
+后续代码实现要怎么对齐设计稿
+```
+
+Superpowers 的 `writing-plans` 目标就是把设计写成足够详细的实施计划，让后续执行者即使没有上下文也能按步骤落地。([GitHub][3])
+
+---
+
+### 第三步：用 Penpot MCP 生成可编辑设计稿
+
+这时再用 Penpot MCP。因为此时你已经知道 “要画什么”，Penpot MCP 才不会乱生成。
+
+Penpot MCP 适合做这些事：
+
+```text
+创建页面和画板
+生成首页 / 登录页 / 后台页 / 落地页设计稿
+创建按钮、卡片、表单、导航等组件
+设置颜色、字体、spacing、design tokens
+调整图层结构
+根据已有设计稿修改布局
+把设计系统和代码实现连接起来
+```
+
+Penpot 官方说明里也强调，Penpot MCP 支持 AI agent 通过自然语言与 Penpot 文件交互，并能读写组件、样式、tokens、页面、图层等结构，因此它更适合作为“设计落地工具”，而不是最前期的需求澄清工具。([help.penpot.app][4])
+
+---
+
+## 什么时候可以直接用 Penpot MCP？
+
+只有这些情况可以跳过大部分 brainstorming：
+
+```text
+你已经明确知道页面长什么样
+你已有竞品参考图
+你已有品牌规范 / 设计系统
+你只是让 Penpot MCP 把草图变成可编辑设计稿
+你只是修改现有 Penpot 文件
+```
+
+例如：
+
+```text
+把这个 SaaS 首页改成深色科技风
+把这个登录页做成移动端版本
+基于现有设计系统生成后台订单列表页
+把这张截图还原成 Penpot 可编辑稿
+```
+
+这类任务可以直接用 Penpot MCP。
+
+---
+
+## 什么时候必须先 brainstorming？
+
+这些情况建议先 brainstorming：
+
+```text
+你还没确定网页定位
+你不知道首页应该放什么模块
+你不知道用哪种布局
+你不知道用户转化路径
+你还在比较多个产品方向
+你要从零设计一个完整网站
+你希望后续 Codex 根据设计实现代码
+```
+
+例如：
+
+```text
+我要做一个 AI 工具官网，但不知道怎么设计
+我要做一个管理后台，帮我规划页面
+我要做一个房产中介网站，如何设计更能转化客户
+我要做一个类似猫箱 app 的 Web 版
+```
+
+这类不要直接进 Penpot，否则很容易出现 “视觉稿看起来有东西，但产品逻辑不清楚” 的问题。
+
+---
+
+## 你的最佳实践应该是这样
+
+```text
+1. brainstorming
+   先确定网页目标、用户、页面结构、信息层级、交互流程。
+
+2. visual-companion，可选
+   如果需要比较布局/视觉方向，用浏览器快速展示 2-4 个方案。
+
+3. writing-plans
+   把最终方案写成可执行计划。
+
+4. Penpot MCP
+   根据计划生成可编辑设计稿、组件、页面、tokens。
+
+5. Codex / 前端 Agent
+   根据 Penpot 设计稿实现代码。
+
+6. Playwright
+   截图对比、交互验证、响应式验证。
+```
+
+对于你现在经常讨论的 **Codex + Penpot + Playwright** 工作流，最合理的顺序就是：
+
+```text
+Superpowers brainstorming
+        ↓
+Superpowers writing-plans
+        ↓
+Penpot MCP 生成/修改设计稿
+        ↓
+Codex 实现前端页面
+        ↓
+Playwright 验证页面是否还原设计
+```
+
+一句话总结：
+
+```text
+brainstorming 决定 “网页应该是什么”；
+Penpot MCP 负责 “把它画成可编辑设计稿”。
+```
+
+所以不要二选一。**从零设计网页：先 brainstorming；已有明确方案或已有 Penpot 文件：再用 Penpot MCP。**
+
+[1]: https://github.com/obra/superpowers?utm_source=chatgpt.com "obra/superpowers: An agentic skills framework ..."
+[2]: https://github.com/obra/superpowers/blob/main/skills/brainstorming/visual-companion.md?utm_source=chatgpt.com "visual-companion.md - obra/superpowers"
+[3]: https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md?utm_source=chatgpt.com "superpowers/skills/writing-plans/SKILL.md at main"
+[4]: https://help.penpot.app/mcp/?utm_source=chatgpt.com "Penpot MCP server"

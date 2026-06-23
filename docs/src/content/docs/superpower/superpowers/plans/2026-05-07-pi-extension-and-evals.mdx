@@ -1,0 +1,148 @@
+---
+title: "Pi 扩展与 Evals 实施计划"
+description: "由 Markdown 原样翻译并转换为 Astro Starlight MDX 格式。"
+---
+
+# Pi 扩展与 Evals 实施计划
+
+> **对于 agentic workers:** REQUIRED SUB-SKILL: 使用 superpowers:subagent-driven-development (推荐) or superpowers:executing-plans to implement this 计划 task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 添加 first-class Pi package support for Superpowers and add Pi as a Drill eval backend.
+
+**架构:** The Pi package is declared in the root `package.json` and 加载 现有 `skills/` plus a small Pi extension. The extension injects the `using-superpowers` bootstrap into provider context as a user-role message on session startup and after compaction, with Pi-specific tool mapping. Drill gains a `pi` backend, Pi session-log normalization, and tests.
+
+**Tech Stack:** Pi TypeScript extension API, Node built-in test runner, Drill Python eval harness, pytest.
+
+---
+
+### Task 1: Pi package manifest and extension tests
+
+**文件：**
+- 修改: `package.json`
+- 创建: `tests/pi/test-pi-extension.mjs`
+
+- [ ] **步骤 1： Write failing package/extension tests**
+
+创建 `tests/pi/test-pi-extension.mjs` with tests that import `extensions/superpowers.ts`, register fake Pi handlers, and assert:
+- root `package.json` has `keywords` containing `pi-package`
+- root `package.json` has `pi.skills: ["./skills"]`
+- root `package.json` has `pi.extensions: ["./extensions/superpowers.ts"]`
+- the extension registers `resources_discover`, `session_start`, `session_compact`, `context`, and `agent_end`
+- startup `context` injects exactly one user-role bootstrap message
+- `agent_end` clears startup injection
+- `session_compact` re-enables injection
+- the extension does not register `session_before_compact`
+
+- [ ] **步骤 2： 运行 tests and verify RED**
+
+运行: `node --experimental-strip-types --test tests/pi/test-pi-extension.mjs`
+
+预期: FAIL because `extensions/superpowers.ts` does not exist and `package.json` lacks the `pi` manifest.
+
+- [ ] **步骤 3： Implement manifest fields**
+
+更新 `package.json` with `description`, `keywords`, `pi.extensions`, and `pi.skills` while preserving 现有 `name`, `version`, `type`, and `main`.
+
+- [ ] **步骤 4： Implement `extensions/superpowers.ts`**
+
+创建 a zero-runtime-dependency extension that:
+- locates the package root from `import.meta.url`
+- 读取 `skills/using-superpowers/SKILL.md`
+- strips YAML frontmatter
+- appends Pi-specific 工具映射
+- exposes `resources_discover` with the skills path
+- marks bootstrap pending on `session_start` and `session_compact`
+- injects a user-role bootstrap message in `context`
+- inserts post-compact bootstrap after leading `compactionSummary` messages
+- clears pending bootstrap on `agent_end`
+
+- [ ] **步骤 5： 运行 tests and verify GREEN**
+
+运行: `node --experimental-strip-types --test tests/pi/test-pi-extension.mjs`
+
+预期：PASS。
+
+### Task 2: Pi 工具映射 引用
+
+**文件：**
+- 创建: `skills/using-superpowers/references/pi-tools.md`
+- 修改: `tests/pi/test-pi-extension.mjs`
+
+- [ ] **步骤 1： Write failing test for Pi 引用 doc**
+
+添加 assertions that `skills/using-superpowers/references/pi-tools.md` exists and documents mappings for `Skill`, `Task`, `TodoWrite`, and built-in tool names.
+
+- [ ] **步骤 2： 运行 tests and verify RED**
+
+运行: `node --experimental-strip-types --test tests/pi/test-pi-extension.mjs`
+
+预期: FAIL because `pi-tools.md` does not exist.
+
+- [ ] **步骤 3： 添加 Pi 引用 doc**
+
+创建 `skills/using-superpowers/references/pi-tools.md` explaining Pi-native skills, 可选 `pi-subagents`, no canonical todo/tasklist plugin, and built-in lowercase tools.
+
+- [ ] **步骤 4： 运行 tests and verify GREEN**
+
+运行: `node --experimental-strip-types --test tests/pi/test-pi-extension.mjs`
+
+预期：PASS。
+
+### Task 3: Drill Pi backend and session log normalization
+
+**文件：**
+- 创建: `evals/backends/pi.yaml`
+- 修改: `evals/drill/backend.py`
+- 修改: `evals/drill/engine.py`
+- 修改: `evals/drill/normalizer.py`
+- 修改: `evals/tests/test_backend.py`
+- 修改: `evals/tests/test_normalizer.py`
+
+- [ ] **步骤 1： Write failing backend/normalizer tests**
+
+添加 pytest coverage for:
+- `load_backend("pi")` returns `family == "pi"`
+- Pi backend command starts with `pi` and includes `-e ${SUPERPOWERS_ROOT}`
+- `_resolve_log_dir()` for Pi points under `~/.pi/agent/sessions`
+- `filter_pi_logs_by_cwd()` keeps only session files whose header `cwd` matches the 场景 workdir
+- `normalize_pi_logs()` extracts `toolCall` blocks from Pi assistant session entries and maps built-in lowercase tools to canonical names
+
+- [ ] **步骤 2： 运行 tests and verify RED**
+
+运行: `uv run pytest evals/tests/test_backend.py evals/tests/test_normalizer.py -q`
+
+预期: FAIL because the Pi backend and normalizer do not exist.
+
+- [ ] **步骤 3： 添加 `evals/backends/pi.yaml`**
+
+Configure the backend to run `pi -e ${SUPERPOWERS_ROOT}`, use permissive TUI readiness, `/quit` shutdown, and Pi session log location.
+
+- [ ] **步骤 4： Implement Pi family support**
+
+更新 `Backend.family`, `Engine._resolve_log_dir`, `Engine._collect_tool_calls`, and `normalizer.py` with Pi log filtering and normalizing.
+
+- [ ] **步骤 5： 运行 tests and verify GREEN**
+
+运行: `uv run pytest evals/tests/test_backend.py evals/tests/test_normalizer.py -q`
+
+预期：PASS。
+
+### Task 4: Documentation and full 验证
+
+**文件：**
+- 修改: `README.md`
+- 修改: `evals/README.md`
+
+- [ ] **步骤 1： Document Pi install and eval backend**
+
+添加 Pi to README quickstart/install list and add backend entry/usage to `evals/README.md`.
+
+- [ ] **步骤 2： 运行 验证**
+
+运行：
+```bash
+node --experimental-strip-types --test tests/pi/test-pi-extension.mjs
+uv run pytest evals/tests/test_backend.py evals/tests/test_setup.py evals/tests/test_normalizer.py -q
+```
+
+预期：所有测试通过。

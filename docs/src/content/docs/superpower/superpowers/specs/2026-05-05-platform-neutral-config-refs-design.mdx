@@ -1,0 +1,82 @@
+---
+title: "平台中立的配置文件引用 —— B 阶段设计"
+description: "由 Markdown 原样翻译并转换为 Astro Starlight MDX 格式。"
+---
+
+# 平台中立的配置文件引用 —— B 阶段设计
+
+## 背景
+
+Phase A (see `2026-05-05-platform-neutral-prose-design.md`) replaced generic third-person "Claude" prose with agent-neutral forms. This 阶段 tackles the next category: 引用 to the per-platform instruction file (CLAUDE.md, AGENTS.md, GEMINI.md) inside skills.
+
+该插件 runs on multiple harnesses, and each one 读取 its own instruction file. Where a skill names CLAUDE.md as if it were the only file, that's a Claude-Code-centric assumption that doesn't hold on Codex / Gemini CLI / OpenCode.
+
+## 范围内
+
+Two specific lines in active skills:
+
+1. **`skills/writing-skills/SKILL.md:58`** — `Project-specific conventions (put in CLAUDE.md)`
+2. **`skills/receiving-code-review/SKILL.md:30`** — `"You're absolutely right!" (explicit CLAUDE.md violation)`
+
+## 范围外
+
+- **`skills/using-superpowers/SKILL.md:22, 26`** — instruction-priority list. The list already names all three (CLAUDE.md, GEMINI.md, AGENTS.md) inclusively, which is correct: the section is making a real claim about *what counts as user instruction* on a multi-platform plugin. No change needed.
+- **Historical / example artifacts**:
+  - `skills/systematic-debugging/CREATION-LOG.md` — attribution path (`~/.claude/CLAUDE.md`) is a historical fact.
+  - `skills/writing-skills/examples/CLAUDE_MD_TESTING.md` — the entire file is a worked example testing CLAUDE.md content variants. The filename, body, and the 引用 from `testing-skills-with-subagents.md` all stay; normalizing them defeats the example.
+- **Platform-tooling 引用** — Phase D candidates:
+  - `skills/using-superpowers/SKILL.md:40` (Gemini CLI 工具映射 note about GEMINI.md)
+  - `skills/using-superpowers/references/gemini-tools.md` (`save_memory` persists to GEMINI.md)
+
+## Substitution rules
+
+Two distinct calls, one per in-scope line.
+
+### Rule 1: "where to put project-specific conventions"
+
+`writing-skills/SKILL.md:58`:
+
+- **Before:** `Project-specific conventions (put in CLAUDE.md)`
+- **After:** `Project-specific conventions (put in your instructions file)`
+
+使用 a generic phrase rather than picking one filename. Different harnesses read different files (CLAUDE.md, AGENTS.md, GEMINI.md, etc.) and the skill should not assume one. The platform-tools 引用 docs (`references/{codex,copilot,gemini}-tools.md`) are the right place to name each 平台's preferred file.
+
+### Rule 2: the "(explicit CLAUDE.md violation)" parenthetical
+
+`receiving-code-review/SKILL.md:30`:
+
+- **Before:** `"You're absolutely right!" (explicit CLAUDE.md violation)`
+- **After:** `"You're absolutely right!" (explicit instruction-file violation)`
+
+The parenthetical is doing real work — it signals this phrase isn't just stylistically bad, it actively violates rules many users put in their instruction files. "Instruction file" is the natural cross-platform term covering AGENTS.md / CLAUDE.md / GEMINI.md collectively, and keeps the original signal without picking one filename or softening to "common".
+
+## 提交计划
+
+Atomic commits, in order:
+
+1. **`writing-skills/SKILL.md`** — CLAUDE.md → "your instructions file" in the "where to put 项目 conventions" line
+2. **`receiving-code-review/SKILL.md`** — CLAUDE.md → instruction-file in the violation parenthetical
+3. **Platform-tools 引用 docs** — add the preferred per-platform instructions filename (CLAUDE.md, AGENTS.md, GEMINI.md, etc.) to each `references/{codex,copilot,gemini}-tools.md` so readers can resolve "your instructions file" to a real filename.
+
+Each 提交消息 names "Phase B" and the slice.
+
+## 验证
+
+After each commit:
+
+- Read the surrounding paragraph to confirm grammar and meaning still parse.
+- `grep -n "CLAUDE\.md" <touched-file>` — no 剩余命中 in 正文叙述 (例外 already documented).
+
+After both commits:
+
+- `grep -rn "CLAUDE\.md" skills/` should return only the documented 例外 (CREATION-LOG, CLAUDE_MD_TESTING and its inbound 引用, the priority list in using-superpowers).
+
+## 非目标
+
+- Do not touch the priority list ordering in `using-superpowers/SKILL.md`. Reordering CLAUDE.md / GEMINI.md / AGENTS.md is an aesthetic change, not a substitution, and 范围外 here.
+- Do not rename `examples/CLAUDE_MD_TESTING.md` or change its content.
+- Do not modify Gemini-CLI-specific tooling 引用 (Phase D candidates).
+
+## Implementation note
+
+Phase B as written here covered three commits and the three non-Claude-Code platform-tools refs. Implementation went one step further: a fourth ref, `references/claude-code-tools.md`, was added in commit `8505703` for symmetry, so Claude Code's instructions-file conventions and tool-name list live alongside the others rather than implicitly in the surrounding skill prose. That addition wasn't anticipated in this spec but is consistent with its intent.

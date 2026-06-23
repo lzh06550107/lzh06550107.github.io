@@ -1,0 +1,622 @@
+---
+title: "Superpowers Skills"
+description: "Superpowers 概览"
+---
+
+当前 `skills/` 目录。它不是普通文档目录，而是 Superpowers 的 “行为技能库”：每个子目录通常代表一个 skill，核心入口是 `SKILL.md`，有些 skill 还带有 prompt 模板、脚本、参考文档等辅助文件。当前顶层共有这些 skill 目录：`brainstorming`、`dispatching-parallel-agents`、`executing-plans`、`finishing-a-development-branch`、`receiving-code-review`、`requesting-code-review`、`subagent-driven-development`、`systematic-debugging`、`test-driven-development`、`using-git-worktrees`、`using-superpowers`、`verification-before-completion`、`writing-plans`、`writing-skills`。([GitHub][1])
+
+---
+
+## 一、目录整体结构
+
+```text
+skills/
+├── using-superpowers/
+├── brainstorming/
+├── writing-plans/
+├── using-git-worktrees/
+├── subagent-driven-development/
+├── executing-plans/
+├── dispatching-parallel-agents/
+├── test-driven-development/
+├── systematic-debugging/
+├── verification-before-completion/
+├── requesting-code-review/
+├── receiving-code-review/
+├── finishing-a-development-branch/
+└── writing-skills/
+```
+
+可以这样理解：
+
+```text
+using-superpowers              = skill 路由器 / 启动规则
+brainstorming                  = 需求澄清与设计规格
+writing-plans                  = 把设计转成可执行计划
+using-git-worktrees            = 隔离开发环境
+subagent-driven-development    = 用子代理执行计划
+executing-plans                = 顺序执行计划
+dispatching-parallel-agents    = 并行派发多个代理
+test-driven-development        = 测试驱动开发
+systematic-debugging           = 系统化调试
+verification-before-completion = 完成前验证
+requesting-code-review         = 请求代码审查
+receiving-code-review          = 接收并处理代码审查
+finishing-a-development-branch = 完成开发分支
+writing-skills                 = 编写新的 skill
+```
+
+---
+
+## 1. `using-superpowers`
+
+这是最核心的 “入口 skill”。它规定：每次会话开始、每次用户响应前，代理都必须检查有没有适用的 skill；如果有适用 skill，就必须使用。它还规定用户指令优先级最高，不能因为 skill 的存在而压过用户明确要求。([GitHub][2])
+
+它的作用类似：
+
+```text
+用户提出任务
+   ↓
+先判断有没有相关 skill
+   ↓
+如果有，调用对应 skill
+   ↓
+再按 skill 的流程执行
+```
+
+所以 `using-superpowers` 不是某个具体开发步骤，而是整个 Superpowers 系统的 “调度规则”。它解决的问题是：skill 虽然存在，但 Agent 忘记读、忘记用。它还维护了不同平台的工具映射，比如 Claude Code、Codex、Copilot CLI、Gemini、Pi 等平台的 tool reference。([GitHub][2])
+
+---
+
+## 2. `brainstorming`
+
+`brainstorming/` 目录包含 `SKILL.md`、`spec-document-reviewer-prompt.md`、`visual-companion.md` 和 `scripts/` 子目录。([GitHub][3])
+
+这个 skill 用于 **正式动手开发之前的需求澄清和方案设计**。当用户说 “我要做某个功能”、“帮我设计一个方案”、“这个需求怎么实现” 时，应该先进入 brainstorming，而不是马上写代码。它会要求 Agent 先理解现状、一次只问一个问题、提出 2-3 个方案、和用户确认设计，然后把最终设计保存成 spec 文档。([GitHub][4])
+
+它的典型产物是：
+
+```text
+docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md
+```
+
+辅助文件含义：
+
+```text
+SKILL.md
+  主流程：如何头脑风暴、提问、形成设计、保存 spec。
+
+spec-document-reviewer-prompt.md
+  规格文档审查者提示词，用于检查 spec 是否完整、一致、可实施。
+
+visual-companion.md
+  视觉伴侣说明，用浏览器展示 UI 草图、线框图、选项卡片等。
+
+scripts/
+  支撑视觉伴侣或相关流程的脚本。
+```
+
+---
+
+## 3. `writing-plans`
+
+`writing-plans/` 包含 `SKILL.md` 和 `plan-document-reviewer-prompt.md`。([GitHub][5])
+
+这个 skill 的作用是：**把已经确定的设计规格转换成可执行实施计划**。它不是写代码，而是写施工图。计划必须足够详细，让一个没有上下文的 Agent 也能按步骤执行。它要求列出文件、函数、接口、命令、测试方式、预期输出，不能留下 TODO 或 “类似某某实现” 这种模糊内容。([GitHub][6])
+
+典型产物是：
+
+```text
+docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md
+```
+
+辅助文件含义：
+
+```text
+SKILL.md
+  主流程：如何根据 spec 写计划、如何拆任务、如何写验证步骤。
+
+plan-document-reviewer-prompt.md
+  计划文档审查者提示词，用于逐块检查 plan 是否完整、是否和 spec 对齐。
+```
+
+它和 `brainstorming` 的关系是：
+
+```text
+brainstorming 产出 spec
+        ↓
+writing-plans 根据 spec 产出 plan
+        ↓
+后续执行 plan
+```
+
+---
+
+## 4. `using-git-worktrees`
+
+这个 skill 主要用于 **开始功能开发或执行实施计划前创建隔离工作区**。它会优先使用当前工具原生的 worktree / sandbox 能力；如果没有，再 fallback 到 `git worktree`。它还会检测当前是否已经在隔离环境中，避免重复创建或破坏宿主工具管理的工作区。([GitHub][7])
+
+它解决的问题是：
+
+```text
+不要在主工作区直接乱改
+不要污染当前分支
+不要和用户已有改动混在一起
+不要和 Codex / Claude Code 等工具自己的 worktree 机制冲突
+```
+
+它适合这些场景：
+
+```text
+开始一个新功能
+执行一个 implementation plan
+做较大规模重构
+需要保护当前工作区
+```
+
+核心思想是：**Never fight the harness**，也就是不要和当前 Agent 平台的原生隔离机制对抗。([GitHub][7])
+
+---
+
+## 5. `subagent-driven-development`
+
+`subagent-driven-development/` 包含 `SKILL.md`、`implementer-prompt.md`、`task-reviewer-prompt.md` 和 `scripts/`。([GitHub][8])
+
+这是 Superpowers 里非常重要的执行型 skill。它用于 **按照计划让多个子代理分工完成任务**。典型流程是：先检查 plan，再给每个任务派一个 implementer 子代理；每个任务完成后，再派 reviewer 子代理审查该任务；最后做整体审查。([GitHub][9])
+
+辅助文件含义：
+
+```text
+SKILL.md
+  主流程：如何按 plan 调度子代理、如何审查、如何继续执行。
+
+implementer-prompt.md
+  给实现子代理的提示词模板。
+
+task-reviewer-prompt.md
+  给任务审查子代理的提示词模板。
+
+scripts/
+  支撑 review package、diff 收集或执行流程的脚本。
+```
+
+它适合复杂计划：
+
+```text
+一个 plan 有多个独立任务
+每个任务可以交给不同子代理
+需要边实现边 review
+希望减少主 Agent 上下文污染
+```
+
+---
+
+## 6. `executing-plans`
+
+`executing-plans/` 主要包含 `SKILL.md`。它是 **顺序执行计划** 的 skill。官方说明里明确说：如果有子代理可用，复杂开发计划通常应优先用 `subagent-driven-development`；没有子代理时，才用 `executing-plans` 顺序执行。([GitHub][10])
+
+它的执行逻辑是：
+
+```text
+读取 plan
+   ↓
+批判性检查 plan
+   ↓
+创建 todo
+   ↓
+逐步执行每个任务
+   ↓
+运行验证命令
+   ↓
+完成后进入 finishing-a-development-branch
+```
+
+它和 `subagent-driven-development` 的区别：
+
+```text
+executing-plans
+  单 Agent 顺序执行，简单直接。
+
+subagent-driven-development
+  多子代理并行/分工执行，更适合大任务。
+```
+
+---
+
+## 7. `dispatching-parallel-agents`
+
+`dispatching-parallel-agents/` 主要包含 `SKILL.md`。这个 skill 用于 **把多个相互独立的问题并行派给多个代理处理**。适用场景包括多个测试文件同时失败、多个独立 subsystem 需要调查、多个互不依赖的 bug 需要并行定位。([GitHub][11])
+
+它和 `subagent-driven-development` 很像，但重点不同：
+
+```text
+subagent-driven-development
+  围绕正式 plan 执行任务。
+
+dispatching-parallel-agents
+  围绕多个独立问题做并行调查、修复或验证。
+```
+
+典型使用方式：
+
+```text
+问题 A → Agent A
+问题 B → Agent B
+问题 C → Agent C
+      ↓
+主 Agent 汇总结果
+      ↓
+整合修复
+      ↓
+跑完整测试
+```
+
+它强调每个子代理的提示必须自包含、聚焦，并且最后必须集成和验证整体结果。([GitHub][11])
+
+---
+
+## 8. `test-driven-development`
+
+`test-driven-development/` 包含 `SKILL.md` 和 `testing-anti-patterns.md`。([GitHub][12])
+
+这是 TDD skill。它规定：**没有失败测试，就不要写生产代码**。流程是经典的 RED → GREEN → REFACTOR：先写失败测试，确认它真的失败；再写最小生产代码让测试通过；最后重构并保持测试通过。([GitHub][13])
+
+它的核心价值：
+
+```text
+防止“凭感觉写代码”
+防止测试没有真正覆盖需求
+防止写过多不必要实现
+防止修 bug 没有回归测试
+```
+
+辅助文件：
+
+```text
+testing-anti-patterns.md
+  记录测试反模式，比如无意义 mock、测试实现细节、mock 偏离真实接口等。
+```
+
+这个 skill 在实现功能和修 bug 时非常关键，尤其适合和 `systematic-debugging`、`verification-before-completion` 搭配使用。
+
+:::note
+最好规定项目测试统一放在 `tests/` 目录。请按现有结构新增测试，不要把测试散落到 `src/` 目录。
+:::
+
+---
+
+## 9. `systematic-debugging`
+
+`systematic-debugging/` 是支撑文件最多的 skill 之一，包含 `SKILL.md`、`CREATION-LOG.md`、`condition-based-waiting.md`、`condition-based-waiting-example.ts`、`defense-in-depth.md`、`find-polluter.sh`、`root-cause-tracing.md`、多个测试/压力文档等。([GitHub][14])
+
+它用于 **遇到 bug、测试失败、异常行为时系统化定位根因**。它反对直接猜测式修复，要求先复现、再调查、再形成假设、再验证假设，最后修复。([GitHub][15])
+
+核心流程：
+
+```text
+1. Root Cause Investigation
+   先找根因，不要猜。
+
+2. Pattern Analysis
+   看是否有同类问题或重复模式。
+
+3. Hypothesis and Test
+   提出假设，用实验验证。
+
+4. Implement Fix
+   先写失败测试，再修复。
+```
+
+辅助文件含义大致是：
+
+```text
+root-cause-tracing.md
+  根因追踪方法。
+
+defense-in-depth.md
+  防御性设计和多层保护。
+
+condition-based-waiting.md
+  用条件等待替代固定 sleep。
+
+find-polluter.sh
+  用于查找污染测试环境的测试。
+
+condition-based-waiting-example.ts
+  条件等待示例代码。
+
+test-pressure-*.md / test-academic.md
+  用来验证该 skill 是否有效的测试材料。
+```
+
+这个 skill 特别适合你之前经常遇到的场景：部署报错、端口冲突、测试偶现失败、配置看似正确但行为不对。
+
+---
+
+## 10. `verification-before-completion`
+
+这个 skill 的作用是：**在声明 “完成、修好了、测试通过、可以交付” 之前，必须先拿到证据**。它要求 Agent 先识别验证命令，运行命令，读取输出，确认结果，再做完成声明。([GitHub][16])
+
+它反对这些说法：
+
+```text
+“应该好了”
+“我已经修了”
+“测试应该会通过”
+“逻辑上没问题”
+“改动很小，不用跑测试”
+```
+
+正确流程是：
+
+```text
+我要声明完成
+   ↓
+先问：什么证据能证明完成？
+   ↓
+运行验证命令
+   ↓
+读取输出
+   ↓
+输出明确成功
+   ↓
+再声明完成
+```
+
+它和 TDD 的区别：
+
+```text
+test-driven-development
+  规定开发过程中要先写测试。
+
+verification-before-completion
+  规定最终声明前必须验证。
+```
+
+---
+
+## 11. `requesting-code-review`
+
+`requesting-code-review/` 包含 `SKILL.md` 和 `code-reviewer.md`。([GitHub][17])
+
+这个 skill 用于 **主动请求代码审查**。比如一个任务完成后、一个大功能完成后、准备合并前，都应该派一个 code reviewer 子代理审查当前 diff。它要求给 reviewer 精确上下文，比如 base/head commit、改动范围、相关文件、要重点检查什么。([GitHub][18])
+
+辅助文件：
+
+```text
+code-reviewer.md
+  代码审查子代理的提示模板。
+```
+
+它解决的问题是：
+
+```text
+主 Agent 容易相信自己的代码
+实现者容易看漏边界情况
+需要一个独立视角审查 diff
+```
+
+它通常和这些 skill 配套：
+
+```text
+subagent-driven-development
+receiving-code-review
+verification-before-completion
+finishing-a-development-branch
+```
+
+---
+
+## 12. `receiving-code-review`
+
+`receiving-code-review/` 主要包含 `SKILL.md`。它用于 **处理别人或子代理给出的 code review 反馈**。它明确禁止 “盲目认同式回复”，比如 “你完全正确，我马上改”。正确做法是先理解反馈、验证反馈是否成立，再决定是否修改。([GitHub][19])
+
+它的核心流程：
+
+```text
+收到 review
+   ↓
+读懂反馈
+   ↓
+查看相关代码
+   ↓
+判断反馈是否正确
+   ↓
+如果正确，逐条修复
+   ↓
+如果不正确，解释原因
+   ↓
+如果不清楚，提问
+```
+
+这个 skill 很重要，因为 reviewer 也可能错。它不是让 Agent 无脑执行 review，而是要求进行技术判断。([GitHub][19])
+
+---
+
+## 13. `finishing-a-development-branch`
+
+`finishing-a-development-branch/` 主要包含 `SKILL.md`。它用于 **开发分支完成后的收尾**。在实现完成、测试通过后，它会指导 Agent 检查环境、确认测试、识别当前是否在 worktree/sandbox 中，然后给用户提供合并、PR、保留、丢弃等选项。([GitHub][20])
+
+它处理的是 “最后一步”：
+
+```text
+代码写完了
+测试通过了
+review 完成了
+   ↓
+现在应该怎么处理这个分支？
+```
+
+它会避免这些风险：
+
+```text
+误删用户工作区
+误合并未验证代码
+在错误分支操作
+在 sandbox/worktree 里做不该做的清理
+```
+
+典型选项包括：
+
+```text
+合并到主分支
+创建 PR
+保留分支继续
+丢弃工作区
+只报告状态
+```
+
+---
+
+## 14. `writing-skills`
+
+`writing-skills/` 用于 **编写或修改 Superpowers skill 本身**。它把 TDD 思想应用到 “流程文档” 上：先设计压力测试场景，看 Agent 在没有 skill 时会如何失败；再写 skill；最后用测试验证这个 skill 是否真的改变了 Agent 行为。([GitHub][21])
+
+它会指导你如何写一个好的 skill：
+
+```text
+什么时候应该创建 skill
+skill 目录结构如何设计
+SKILL.md frontmatter 怎么写
+description 如何优化
+如何减少 token 使用
+如何写示例
+如何写流程图
+如何验证 skill 有效
+```
+
+它引用/配套的支撑文件包括 `anthropic-best-practices.md`、`persuasion-principles.md`、`graphviz-conventions.dot`、`render-graphs.js` 等，用来帮助写出更容易被 Agent 遵循的 skill 文档。([GitHub][21])
+
+这个 skill 本质上是 Superpowers 的 “元技能”：用来生产新的技能。
+
+---
+
+## 二、这些 skill 的工作流关系
+
+最典型的软件开发链路是：
+
+```text
+using-superpowers
+  ↓
+brainstorming
+  ↓
+writing-plans
+  ↓
+using-git-worktrees
+  ↓
+subagent-driven-development
+  或 executing-plans
+  ↓
+test-driven-development
+systematic-debugging
+verification-before-completion
+  ↓
+requesting-code-review
+  ↓
+receiving-code-review
+  ↓
+finishing-a-development-branch
+```
+
+如果是多问题并行调查，中间可能插入：
+
+```text
+dispatching-parallel-agents
+```
+
+如果是要新增 Superpowers 自己的 skill，则走：
+
+```text
+writing-skills
+```
+
+---
+
+## 三、最核心的理解
+
+Superpowers 的 `skills/` 目录不是简单的 “提示词集合”，而是一套开发流程控制系统：
+
+```text
+using-superpowers
+  负责判断什么时候用技能
+
+brainstorming / writing-plans
+  负责先想清楚，再写计划
+
+using-git-worktrees
+  负责隔离工作区
+
+subagent-driven-development / executing-plans / dispatching-parallel-agents
+  负责执行
+
+test-driven-development / systematic-debugging / verification-before-completion
+  负责质量控制
+
+requesting-code-review / receiving-code-review / finishing-a-development-branch
+  负责审查和收尾
+
+writing-skills
+  负责扩展这套系统本身
+```
+
+:::note
+```text
+executing-plans 执行每个任务时
+    遇到功能/bugfix/行为变化
+        立即进入 test-driven-development
+```
+
+也就是：
+
+```text
+executing-plans
+  ↓
+读取 Task 1
+  ↓
+发现 Task 1 要实现功能 / bugfix
+  ↓
+触发 test-driven-development
+  ↓
+RED：先写失败测试
+  ↓
+GREEN：写最小实现
+  ↓
+REFACTOR：清理
+  ↓
+verification-before-completion
+  ↓
+进入 Task 2
+```
+:::
+
+一句话总结：
+
+```text
+Superpowers 的每个 skill 都不是单点技巧，而是把软件工程里的一个关键阶段流程化、强制化、可复用化。
+```
+
+[1]: https://github.com/obra/superpowers/tree/main/skills "superpowers/skills at main · obra/superpowers · GitHub"
+[2]: https://github.com/obra/superpowers/blob/main/skills/using-superpowers/SKILL.md "superpowers/skills/using-superpowers/SKILL.md at main · obra/superpowers · GitHub"
+[3]: https://github.com/obra/superpowers/tree/main/skills/brainstorming "superpowers/skills/brainstorming at main · obra/superpowers · GitHub"
+[4]: https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md "superpowers/skills/brainstorming/SKILL.md at main · obra/superpowers · GitHub"
+[5]: https://github.com/obra/superpowers/tree/main/skills/writing-plans "superpowers/skills/writing-plans at main · obra/superpowers · GitHub"
+[6]: https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md "superpowers/skills/writing-plans/SKILL.md at main · obra/superpowers · GitHub"
+[7]: https://github.com/obra/superpowers/blob/main/skills/using-git-worktrees/SKILL.md "superpowers/skills/using-git-worktrees/SKILL.md at main · obra/superpowers · GitHub"
+[8]: https://github.com/obra/superpowers/tree/main/skills/subagent-driven-development "superpowers/skills/subagent-driven-development at main · obra/superpowers · GitHub"
+[9]: https://github.com/obra/superpowers/blob/main/skills/subagent-driven-development/SKILL.md "superpowers/skills/subagent-driven-development/SKILL.md at main · obra/superpowers · GitHub"
+[10]: https://github.com/obra/superpowers/blob/main/skills/executing-plans/SKILL.md "superpowers/skills/executing-plans/SKILL.md at main · obra/superpowers · GitHub"
+[11]: https://github.com/obra/superpowers/blob/main/skills/dispatching-parallel-agents/SKILL.md "superpowers/skills/dispatching-parallel-agents/SKILL.md at main · obra/superpowers · GitHub"
+[12]: https://github.com/obra/superpowers/tree/main/skills/test-driven-development "superpowers/skills/test-driven-development at main · obra/superpowers · GitHub"
+[13]: https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md "superpowers/skills/test-driven-development/SKILL.md at main · obra/superpowers · GitHub"
+[14]: https://github.com/obra/superpowers/tree/main/skills/systematic-debugging "superpowers/skills/systematic-debugging at main · obra/superpowers · GitHub"
+[15]: https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md "superpowers/skills/systematic-debugging/SKILL.md at main · obra/superpowers · GitHub"
+[16]: https://github.com/obra/superpowers/blob/main/skills/verification-before-completion/SKILL.md "superpowers/skills/verification-before-completion/SKILL.md at main · obra/superpowers · GitHub"
+[17]: https://github.com/obra/superpowers/tree/main/skills/requesting-code-review "superpowers/skills/requesting-code-review at main · obra/superpowers · GitHub"
+[18]: https://github.com/obra/superpowers/blob/main/skills/requesting-code-review/SKILL.md "superpowers/skills/requesting-code-review/SKILL.md at main · obra/superpowers · GitHub"
+[19]: https://github.com/obra/superpowers/blob/main/skills/receiving-code-review/SKILL.md "superpowers/skills/receiving-code-review/SKILL.md at main · obra/superpowers · GitHub"
+[20]: https://github.com/obra/superpowers/blob/main/skills/finishing-a-development-branch/SKILL.md "superpowers/skills/finishing-a-development-branch/SKILL.md at main · obra/superpowers · GitHub"
+[21]: https://github.com/obra/superpowers/blob/main/skills/writing-skills/SKILL.md "superpowers/skills/writing-skills/SKILL.md at main · obra/superpowers · GitHub"
+
+
+
+

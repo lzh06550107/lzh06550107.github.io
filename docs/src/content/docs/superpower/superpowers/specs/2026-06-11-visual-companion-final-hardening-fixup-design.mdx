@@ -1,0 +1,259 @@
+---
+title: "可视化伴侣最终加固修正设计"
+description: "由 Markdown 原样翻译并转换为 Astro Starlight MDX 格式。"
+---
+
+# 可视化伴侣最终加固修正设计
+
+**日期：** 2026-06-11
+**状态：** Draft for Drew 审查
+
+## Goal
+
+Finish the PR #1720 visual companion 加固 pass so the branch is ready for
+Jesse 审查 with clean 安全 behavior, deterministic tests, and a PR diff
+that contains only the companion work.
+
+This is a fixup on top of the 现有 auth 加固 design. It should not
+redesign the companion or expand the feature surface.
+
+## 背景
+
+The previous 加固 pass added keyed sessions, same-origin WebSocket checks,
+URL key stripping, `/files/*` containment, leak-reduction headers, IPv6 URL
+formatting, Windows lifecycle coverage, and PR evidence updates.
+
+The final 审查 pass found five remaining issues:
+
+1. The root `GET /` screen-selection path can still serve symlinks or hardlinks
+   under `content/` that point outside the content directory.
+2. 当 the preferred port is occupied, 回退 servers can reuse a persisted
+   `.last-token`, creating two live same-project companion servers with the same
+   bearer key.
+3. `stop-server.sh` can signal an unrelated `node server.cjs` process when
+   strong ownership proof is unavailable.
+4. Some tests can pass against the wrong 回退 process, leak 背景
+   processes on 失败, or assume symlink support on Windows-like hosts.
+5. The PR is currently conflicted because the branch contains an older `evals`
+   submodule bump that was handled separately.
+
+## Non-Goals
+
+- Do not add HTTPS tunnel or `wss://` origin semantics in this pass.
+- Do not implement opt-out, free-text, or contrast-helper companion features.
+- Do not vendor Alpine, Three.js, or any other JavaScript library.
+- Do not attempt to sandbox malicious agent-authored screen HTML.
+- Do not add backward 兼容性 for stale stop-server PID files unless Drew
+  explicitly approves that tradeoff.
+
+## Inherited Security Invariants
+
+This fixup preserves the auth 加固 already designed and implemented:
+
+- `.last-token` and `state/server-info` remain sensitive owner-only state.
+- Fallback tokens may appear in startup JSON and `state/server-info`, but must
+  not be written to `.last-token`.
+- Cookies remain port-named, `HttpOnly`, `SameSite=Strict`, and scoped to `/`.
+- WebSocket upgrades still require a valid key or cookie.
+- WebSocket `Origin` checks remain enforced when the browser supplies an
+  `Origin` header.
+- Direct no-`Origin` clients remain allowed only when they carry the session key.
+- Generated same-origin screen JavaScript and future same-origin vendored
+  libraries are trusted. Sandboxing malicious screen HTML remains deferred.
+
+## Design
+
+### 1. Rebase Onto Current `dev`
+
+Rebase `brainstorming-companion` onto 当前 `origin/dev` before 实施
+work. Resolve the `evals` submodule conflict by taking `dev`.
+
+After the rebase:
+
+- `evals` must not appear in the PR diff.
+- PR #1720 can still mention eval evidence that was run elsewhere, but it must
+  include exact external evidence: eval repo commit, 场景 path, command,
+  result artifact path or id, and RED/GREEN outcome.
+- The PR body must not imply the evals submodule bump is part of this PR.
+- Any earlier PR-body text or comment implying the submodule bump is included
+  must be superseded by the final PR-body evidence.
+
+### 2. Root Screen Containment
+
+The root screen route must use the same containment boundary as `/files/*`.
+
+`getNewestScreen()` should ignore any `.html` candidate that does not pass the
+regular-file-inside-content-dir guard. That guard must resolve real paths and
+ensure the served file is inside `CONTENT_DIR`. It must also preserve the
+现有 hardlink protection by rejecting files whose link count is not exactly
+one when the 平台 reports link counts.
+
+预期 behavior:
+
+- A symlink under `content/` pointing outside `content/` is ignored.
+- A hardlink under `content/` to `state/server-info` is ignored when
+  `fs.linkSync` succeeds and `lstat.nlink > 1`.
+- 如果 no safe screen file remains, the waiting page is served.
+- Existing `/files/*` containment behavior remains unchanged: empty names,
+  dotfiles, symlinks, hardlinks, and 目录 still return 404.
+
+### 3. Fallback Token Isolation
+
+Port 回退 must not reuse a token 已加载 from persisted `.last-token`.
+
+Token source should be explicit in code:
+
+- `BRAINSTORM_TOKEN` from the environment is an intentional operator/test
+  override. 如果 the preferred port is occupied while an explicit environment
+  token is set, the 服务器 must fail closed instead of falling back, because the
+  occupied 服务器 may be using the same explicit token.
+- `.last-token` is persisted state for same-port reconnect convenience. 如果 the
+  服务器 falls back because the preferred port is occupied, discard that 已加载
+  token and generate a 全新 unpersisted token for the 回退 process.
+- A newly generated token that was not 已加载 from `.last-token` can be reused
+  within the same process because no other live process is known to have it.
+
+The 回退 服务器 must continue to avoid overwriting `.last-port` and
+`.last-token`.
+
+### 4. Stop-Server Ownership Proof
+
+`start-server.sh` should create a per-start 服务器 instance id and pass it to
+Node as an inert command-line argument, for example:
+
+```text
+node server.cjs --brainstorm-server-id=<id>
+```
+
+The id is not an auth credential. It is only process-ownership evidence for the
+本地 lifecycle scripts. `server.cjs` can ignore the argument.
+
+The id must use a shell/MSYS-safe alphabet, such as
+`^[A-Za-z0-9_-]{32,64}$`. Store it in `state/server-instance-id` with
+owner-only permissions.
+
+`stop-server.sh` should read the expected id from state and only signal the PID
+when the target process argv contains the exact argument
+`--brainstorm-server-id=<id>` as a full argv token, not as a loose substring.
+Prefer `/proc/<pid>/cmdline` when 可用, then fall back to wide `ps` output.
+A matching instance id is sufficient proof even when `server-info` is missing
+or `lsof` is unavailable. Existing port-to-PID checks may remain as additional
+evidence.
+
+Fail closed when ownership cannot be proven:
+
+- missing PID file
+- missing or malformed 服务器 id
+- target command line 不可用
+- target command line does not include the expected id
+- old/stale session metadata without the 新 id
+
+This intentionally prefers leaving a stale process running over killing an
+unrelated process.
+
+Operator-visible outcomes should be explicit:
+
+- missing PID file returns `not_running`
+- missing or malformed 服务器 id returns `stale_pid`
+- 不可用 command line returns `stale_pid`
+- wrong or absent argv id returns `stale_pid`
+- 成功 停止 returns `stopped`
+
+On `stale_pid` and `stopped` outcomes, remove `server.pid` and
+`server-instance-id` so future 停止 attempts do not keep targeting the same
+ambiguous process. Do not remove persistent session content.
+
+### 5. Test Hardening
+
+The test pass should be deterministic across macOS and the Windows Git Bash host
+used for validation.
+
+Required changes:
+
+- Fixed-port suites must either fail fast if the 服务器 reports a 回退 port
+  or drive all clients from the reported startup port.
+- `stop-server.test.sh` needs a top-level 清理 trap before any 背景
+  process is started.
+- Symlink-specific assertions should probe symlink capability and 跳过 only that
+  assertion when the host cannot create usable test symlinks.
+- Tests that create impostor processes must assert that the impostor survives
+  when lifecycle metadata is missing or insufficient.
+- Windows/MSYS start-server tests must assert that Windows-like detection still
+  clears `BRAINSTORM_OWNER_PID`, still auto-foregrounds when appropriate, and
+  still passes the instance-id argv exactly.
+
+### 6. Docs And PR Consistency
+
+Before Jesse reviews, reconcile reviewer-visible docs and PR metadata:
+
+- 更新 the issue catalog so dispositions match what this PR actually ships.
+- Keep auto-open docs consistent with the implemented `--open` behavior.
+- Keep the documented default idle timeout at 4 hours everywhere.
+- Review the PR body against the 模板 after the rebase.
+- Record macOS, Windows, browser/manual, and external eval evidence in the PR
+  body with concrete commands and results.
+
+## Testing Strategy
+
+使用 TDD for each behavior change:
+
+1. 添加 or tighten a focused regression test.
+2. 运行 it and confirm it fails for the expected reason.
+3. Implement the smallest fix.
+4. Rerun the focused test.
+5. Rerun the full brainstorm-server suite.
+
+Required focused regressions:
+
+| Behavior | Test File | Focused Command | 预期 RED | 预期 GREEN |
+| --- | --- | --- | --- | --- |
+| Root route ignores symlink escape | `tests/brainstorm-server/server.test.js` | `node tests/brainstorm-server/server.test.js` | authenticated `GET /` serves linked outside content | response serves waiting page or safe screen |
+| Root route ignores 受支持 hardlink escape | `tests/brainstorm-server/server.test.js` | `node tests/brainstorm-server/server.test.js` | authenticated `GET /` serves hardlinked `server-info` | hardlink candidate is ignored when `nlink > 1` |
+| `/files/*` containment stays unchanged | `tests/brainstorm-server/server.test.js` | `node tests/brainstorm-server/server.test.js` | 现有 containment test regresses | empty, dotfile, 目录, symlink, hardlink cases remain 404 |
+| Persisted-token 回退 rotates token | `tests/brainstorm-server/lifecycle.test.js` | `node tests/brainstorm-server/lifecycle.test.js` | 回退 URL key equals persisted preferred-port key | 回退 URL key differs and is not written to `.last-token` |
+| Explicit-token 回退 fails closed | `tests/brainstorm-server/lifecycle.test.js` | `node tests/brainstorm-server/lifecycle.test.js` | 服务器 falls back while `BRAINSTORM_TOKEN` is set | process exits non-zero and does not 启动 回退 |
+| Fallback key cannot authenticate to original 服务器 | `tests/brainstorm-server/lifecycle.test.js` | `node tests/brainstorm-server/lifecycle.test.js` | 回退 key receives 200 from original port | original port rejects 回退 key |
+| Correct instance id permits 停止 | `tests/brainstorm-server/stop-server.test.sh` | `bash tests/brainstorm-server/stop-server.test.sh` | real start-server-launched 服务器 survives | 停止 returns `stopped` and process exits |
+| Wrong, missing, malformed, or stale id is safe | `tests/brainstorm-server/stop-server.test.sh` | `bash tests/brainstorm-server/stop-server.test.sh` | impostor is signaled | 停止 returns `stale_pid` and impostor survives |
+| Fixed-port suites cannot pass through 回退 | `tests/brainstorm-server/server.test.js`, `tests/brainstorm-server/auth.test.js` | respective `node` commands | test silently talks to 回退 port | test fails clearly or uses reported port intentionally |
+| Shell 清理 traps run on 失败 | `tests/brainstorm-server/stop-server.test.sh` | `bash tests/brainstorm-server/stop-server.test.sh` | 失败 leaves child processes | trap reaps 背景 children |
+| Windows/MSYS 启动 behavior keeps lifecycle invariants | `tests/brainstorm-server/start-server.test.sh`, `tests/brainstorm-server/windows-lifecycle.test.sh` | `bash` test commands on macOS and `ballmer` | owner PID or argv handling regresses | owner PID is cleared, foreground detection holds, id argv is present |
+
+Each RED/GREEN cycle should leave a short evidence note for the PR body: focused
+command, failing assertion before the fix, passing assertion after the fix, and
+whether the evidence was gathered on macOS or Windows.
+
+## 验证
+
+Before calling the fixup complete, run:
+
+- `git fetch origin dev && git rebase origin/dev`
+- `git diff --quiet origin/dev...HEAD -- evals`
+- `gh pr view 1720 --json mergeStateStatus,statusCheckRollup,headRefOid`
+- `cd tests/brainstorm-server && npm test`
+- relevant focused test commands used during TDD
+- `git diff --check`
+- Node syntax checks for touched JavaScript files
+- shell lint for touched shell files
+- Windows validation on `ballmer`: full runnable brainstorm-server suite plus
+  the standalone Windows lifecycle probe
+
+Manual/browser testing comes only after the automated pass is green.
+
+## Acceptance Criteria
+
+- PR #1720 rebases cleanly onto 当前 `dev`.
+- `evals` is absent from the PR diff.
+- Root screen serving cannot read outside `content/` through symlink or
+  受支持 hardlink escapes.
+- `/files/*` containment protections remain unchanged.
+- No 回退 服务器 runs with a token that may be shared with the occupied
+  preferred-port server.
+- `stop-server.sh` does not signal unrelated processes when ownership proof is
+  missing or ambiguous.
+- `stop-server.sh` can still 停止 a legitimate 服务器 with a matching instance
+  id when `server-info` or `lsof` is unavailable.
+- Focused RED/GREEN evidence is recorded for each regression.
+- macOS and Windows validation evidence is recorded in the PR body.
+- The PR body accurately describes what is in the branch and what evidence was
+  gathered externally.

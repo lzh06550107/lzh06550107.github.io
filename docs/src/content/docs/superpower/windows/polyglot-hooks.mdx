@@ -1,0 +1,145 @@
+---
+title: "Claude Code 的跨平台多语言 Hooks"
+description: "由 Markdown 原样翻译并转换为 Astro Starlight MDX 格式。"
+---
+
+Claude Code 插件需要能在 Windows、macOS 和 Linux 上工作的 hooks。本文档描述 `hooks/run-hook.cmd` 中使用的单一通用 dispatcher 模式。
+
+> **权威来源：** `hooks/run-hook.cmd` 是规范实现。当本文档与代码不一致时，以代码为准。
+
+## 问题
+
+Claude Code 通过系统默认 shell 运行 hook 命令：
+- **Windows**：CMD.exe
+- **macOS/Linux**：bash 或 sh
+
+这会带来几个挑战：
+
+1. **脚本执行**：Windows CMD 无法直接执行 `.sh` 文件
+2. **路径格式**：Windows 使用反斜杠（`C:\path`），Unix 使用正斜杠（`/path`）
+3. **环境变量**：`$VAR` 语法在 CMD 中无效
+4. **`.sh` 自动前置**：Windows 上的 Claude Code 会自动给路径中包含 `.sh` 的任何命令前置 `bash` —— 如果脚本带扩展名，这会干扰 dispatcher
+
+## 解决方案：无扩展名脚本 + 单一通用 Dispatcher
+
+仓库对所有 hooks 使用一个通用 `run-hook.cmd` dispatcher。Hook 脚本都是**无扩展名**的（`session-start`，不是 `session-start.sh`）。这是刻意设计：它能防止 Claude Code 的 Windows 自动检测给 dispatcher 命令前置 `bash` 并破坏执行。
+
+### 文件结构
+
+```
+hooks/
+├── hooks.json          # 指向 run-hook.cmd，并传入无扩展名脚本名
+├── run-hook.cmd        # 跨平台 dispatcher（polyglot 包装器）
+└── session-start       # 实际 hook 逻辑 —— 无扩展名 bash 脚本
+```
+
+### hooks.json
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start",
+            "async": false
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+路径被引号包裹，是因为 `${CLAUDE_PLUGIN_ROOT}` 可能包含空格。
+
+## `run-hook.cmd` 的高层工作方式
+
+`run-hook.cmd` 是一个 polyglot 脚本：Windows 会把第一个块视为 batch 命令，而 Unix shell 会把该块视为 no-op heredoc，并从后面继续执行。
+
+不要从本文档复制实现。修改 dispatcher 时，请直接阅读 `hooks/run-hook.cmd`，并在修改后运行 `tests/hooks/test-session-start.sh`。
+
+### 在 Windows（CMD.exe）上的工作方式
+
+1. batch 段验证脚本名，并根据 dispatcher 自身位置解析 hooks 目录。
+2. 它会在三个位置尝试寻找 bash：
+   - `C:\Program Files\Git\bin\bash.exe`
+   - `C:\Program Files (x86)\Git\bin\bash.exe`
+   - `PATH` 上的 `bash`（MSYS2、Cygwin 或非默认 Git 安装）
+3. 如果找到 bash，它会从 hooks 目录运行指定的无扩展名 hook 脚本。
+4. 如果找不到 bash，dispatcher 会静默以 `0` 退出 —— 插件继续工作，只是跳过 hook。
+5. `exit /b` 会在进入 Unix 段之前停止 CMD。
+
+### 在 Unix（bash/sh）上的工作方式
+
+1. `: << 'CMDBLOCK'` 在 no-op 命令上打开 heredoc。
+2. 整个 CMD batch 块会被 heredoc 消耗并忽略。
+3. 在 `CMDBLOCK` 之后，bash 会解析脚本目录，并直接 `exec` 指定的无扩展名脚本。
+
+### 关键设计决策
+
+| 决策 | 原因 |
+|----------|-----|
+| 无扩展名脚本 | 防止 Claude Code 的 Windows `.sh` 自动前置干扰 dispatcher 命令 |
+| 不使用 `-l`（login shell） | 不需要；hook 脚本应自包含，不应依赖 login-shell PATH 设置 |
+| 不使用 `cygpath` | Bash 直接接收 Windows 路径并能正确处理；`cygpath` 是旧的 `-c "..."` 调用模式才需要的 |
+| 找不到 bash 时静默退出 | 避免破坏没有安装 Git for Windows 的用户；hook 上下文注入会被优雅跳过 |
+
+## 编写跨平台 Hook 脚本
+
+你的 hook 逻辑应放在无扩展名脚本文件中。几个可移植模式：
+
+### 应该做
+
+- 尽可能使用纯 bash builtins
+- 使用 `$(command)`，不要使用反引号
+- 给所有变量展开加引号：`"$VAR"`
+
+### 避免
+
+- 依赖没有 fallback 的 PATH 工具（hook 不通过 `-l` 运行，因此 login-shell PATH 不会设置）
+- 给脚本加 `.sh` 扩展名 —— 这会触发 Claude Code 的 Windows 自动前置
+
+### 示例：不借助外部工具进行 JSON 转义
+
+```bash
+escape_for_json() {
+    local input="$1"
+    local output=""
+    local i char
+    for (( i=0; i<${#input}; i++ )); do
+        char="${input:$i:1}"
+        case "$char" in
+            $'\\') output+='\\' ;;
+            '"') output+='\"' ;;
+            $'\n') output+='\n' ;;
+            $'\r') output+='\r' ;;
+            $'\t') output+='\t' ;;
+            *) output+="$char" ;;
+        esac
+    done
+    printf '%s' "$output"
+}
+```
+
+## 故障排查
+
+### “bash is not recognized”
+
+CMD 在 dispatcher 尝试的三个位置都找不到 bash。dispatcher 会静默退出（0）而不是报错，因此 hook 会被跳过。请在标准路径安装 Git for Windows，或确保 `bash` 位于 `PATH` 上。
+
+### Hook 在 Unix 上运行，但在 Windows 上没有任何效果
+
+检查 `hooks.json` 中的脚本文件名是否**没有扩展名**。像 `run-hook.cmd session-start.sh` 这样的命令可能触发 Claude Code 的 `.sh` 自动检测，并绕过预期的 CMD dispatcher 路径，或者只是尝试运行一个不存在的 `session-start.sh` 脚本。
+
+### Hook 完全没有触发
+
+确认 `hooks.json` 中的 `matcher` 与你的 harness 发出的事件类型匹配。Claude Code 使用 `startup|clear|compact`；Codex 使用 `startup|resume|clear`。Codex 变体请查看 `hooks-codex.json`。
+
+## 相关 Issues
+
+- [anthropics/claude-code#9758](https://github.com/anthropics/claude-code/issues/9758) — `.sh` scripts open in editor on Windows
+- [anthropics/claude-code#3417](https://github.com/anthropics/claude-code/issues/3417) — Hooks don't work on Windows

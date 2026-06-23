@@ -1,0 +1,52 @@
+---
+title: "平台中立的 README 排序 —— C 阶段设计"
+description: "由 Markdown 原样翻译并转换为 Astro Starlight MDX 格式。"
+---
+
+# 平台中立的 README 排序 —— C 阶段设计
+
+## 背景
+
+Phases A and B (see `2026-05-05-platform-neutral-prose-design.md` and `2026-05-05-platform-neutral-config-refs-design.md`) already neutralized generic Claude prose and config-file 引用 in the README. The remaining platform-leaning signal is layout: the README's two 平台 listings put Claude Code first and aren't strictly alphabetical elsewhere.
+
+This 阶段 fixes the ordering. No prose changes.
+
+## 范围内
+
+1. **Quickstart 平台 list** (`README.md:7`) — the inline link list of 受支持 harnesses
+2. **安装 section ordering** (`README.md:35–152`) — the per-harness install sub-sections
+
+## 范围外
+
+- Prose, marketplace names, plugin IDs, URLs — all factually correct as-is.
+- Visual weight of the Claude Code section (which has two sub-sections — official Anthropic marketplace and Superpowers marketplace). Both are real install paths; collapsing them would hide accurate info.
+- Section headings and content within each install block — only the ordering of the blocks changes.
+
+## Substitution
+
+Both listings reorder to 严格 alphabetical:
+
+| Old order | New order |
+|-----------|-----------|
+| Claude Code | Claude Code |
+| Codex CLI | Codex App |
+| Codex App | Codex CLI |
+| Factory Droid | Cursor |
+| Gemini CLI | Factory Droid |
+| OpenCode | Gemini CLI |
+| Cursor | GitHub Copilot CLI |
+| GitHub Copilot CLI | OpenCode |
+
+Three moves: Codex App swaps with Codex CLI; Cursor moves up two slots; GitHub Copilot CLI moves up one.
+
+Claude Code remains first by alphabetical chance (`Cl…` precedes `Co…`).
+
+## 提交计划
+
+One atomic commit covering both listings, since changing one without the other would create inconsistency between the quickstart and the 安装 section.
+
+## 验证
+
+- Quickstart anchors (`#claude-code`, `#codex-app`, etc.) still resolve to 现有 `### …` headings — no headings renamed.
+- Each install sub-section's body is byte-identical pre/post; only positions changed.
+- `git diff README.md` shows section moves only, no content edits.
