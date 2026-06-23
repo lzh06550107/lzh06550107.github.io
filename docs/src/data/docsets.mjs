@@ -926,7 +926,7 @@ export const docsets = [
             {
                 label: 'Get started',
                 items: [
-                    { label: '概览', href: '/superpower/index/' },
+                    { label: '概览', link: '/superpower/index/' },
                     { label: 'OpenCode', link: '/superpower/index-opencode/' },
                     { label: 'Kimi', link: '/superpower/index-kimi/' },
                     { label: '测试', link: '/superpower/testing/' },

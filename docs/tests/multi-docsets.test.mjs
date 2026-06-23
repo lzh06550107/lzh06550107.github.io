@@ -144,9 +144,11 @@ test('superpower docset is registered with explicit menu entries for its existin
     const registrySource = fs.readFileSync(registryPath, 'utf8');
     const superpowerBlock = registrySource.match(/id:\s*'superpower'[\s\S]*?id:\s*'playwright'/)?.[0] ?? '';
 
-    assert.match(superpowerBlock, /landing:\s*'\/superpower\/README\.opencode\/'/);
-    assert.match(superpowerBlock, /link:\s*'\/superpower\/README\.opencode\/'/);
-    assert.match(superpowerBlock, /link:\s*'\/superpower\/README\.kimi\/'/);
+    assert.match(superpowerBlock, /landing:\s*'\/superpower\/index-opencode\/'/);
+    assert.match(superpowerBlock, /href:\s*'\/superpower\/'/);
+    assert.match(superpowerBlock, /link:\s*'\/superpower\/index\/'/);
+    assert.match(superpowerBlock, /link:\s*'\/superpower\/index-opencode\/'/);
+    assert.match(superpowerBlock, /link:\s*'\/superpower\/index-kimi\/'/);
     assert.match(superpowerBlock, /link:\s*'\/superpower\/testing\/'/);
     assert.match(superpowerBlock, /link:\s*'\/superpower\/porting-to-a-new-harness\/'/);
     assert.match(superpowerBlock, /autogenerate:\s*\{\s*directory:\s*'superpower\/plans'\s*\}/);
