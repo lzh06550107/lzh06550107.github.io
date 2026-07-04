@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import starlight from '@astrojs/starlight';
 import lucode from '../packages/lucode-starlight/index.ts';
 import { buildDocsetSidebar } from './src/data/docsets.mjs';
-
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 // https://astro.build/config
 export default defineConfig({
     site: 'https://lzh06550107.github.io',
@@ -18,7 +19,7 @@ export default defineConfig({
                 alt: 'Lucode logo',
                 replacesTitle: true,
             },
-            customCss: ['./src/styles/global.css'],
+            customCss: ['./src/styles/global.css', 'katex/dist/katex.min.css',],
             editLink: {
                 baseUrl: 'https://github.com/lucas-labs/lucode-starlight-theme/edit/master/docs',
             },
@@ -55,7 +56,10 @@ export default defineConfig({
             sidebar: buildDocsetSidebar(),
         }),
     ],
-
+    markdown: {
+        remarkPlugins: [remarkMath],
+        rehypePlugins: [rehypeKatex],
+    },
     vite: {
         resolve: {
             alias: [
